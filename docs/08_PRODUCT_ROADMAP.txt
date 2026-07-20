@@ -1,0 +1,164 @@
+================================================================================
+                            TRU CONNECT
+                        PRODUCT ROADMAP
+                          Document 08
+================================================================================
+
+Version: 1.0
+Related Documents: 00_PROJECT_VISION.txt, 07_DATA_AND_TRUST_ENGINE.txt,
+                    09_ECOSYSTEM_STRATEGY.txt
+
+Purpose: Define the phased evolution of TRU Connect, ensuring each phase
+builds directly on the trust and data foundations established by the
+phases before it.
+
+================================================================================
+PHASE 1 — FOUNDATION: DISCOVERY, TRUST, AND ORDERING
+================================================================================
+
+Objective: Establish the core marketplace and the data foundations required
+for every subsequent phase.
+
+Scope:
+    - Business and Supplier registration and authentication (email/
+      password, Google).
+    - Supplier Discovery (search, categories, nearby, featured, popular
+      products, saved suppliers).
+    - Product Catalogue management (supplier-facing).
+    - Orders (placement, acceptance, rejection, completion, tracking,
+      invoices).
+    - Business Questions & Supplier Responses ("Business Conversations").
+    - Verification (business and supplier).
+    - Digital Business Profile and Supplier Profile (automatically
+      generated, rule-based, per Document 07).
+    - Business Updates (supplier announcements).
+    - Notifications.
+
+Exit Criteria (informing readiness for Phase 2):
+    - Meaningful volume of verified businesses and suppliers actively
+      transacting.
+    - Sufficient repeat-order and relationship data flowing through the
+      trust engine to support meaningful Business Health Score and
+      Supplier Reputation calculations.
+    - Stable, well-tested core workflows (Document 06) with low order
+      dispute/rejection rates.
+
+================================================================================
+PHASE 2 — PAYMENTS, WALLET, AND INSIGHTS
+================================================================================
+
+Objective: Introduce financial transaction infrastructure and surface
+richer insights back to businesses and suppliers, without yet introducing
+credit or lending.
+
+Scope:
+    - Payments — in-app payment processing for orders, replacing or
+      supplementing existing offline payment methods.
+    - Wallet — a stored-value account for businesses and/or suppliers,
+      enabling faster transactions and providing a foundation for future
+      credit disbursement and repayment rails (Phase 3).
+    - Business Insights — business-facing analytics building on the
+      Digital Business Profile (e.g. spending trends, supplier
+      diversification, seasonal patterns).
+    - Supplier Analytics — supplier-facing analytics building on the
+      Supplier Profile (e.g. demand trends, customer retention patterns,
+      response-time benchmarking against category peers).
+
+Dependencies on Phase 1:
+    - Wallet and Payments rely on the Orders and Relationship data
+      structures established in Phase 1 (Document 04).
+    - Average Payment Time (Document 07) becomes materially more accurate
+      once real payment timestamps are available via the Wallet/Payments
+      module, rather than being proxied by order completion time.
+
+Exit Criteria:
+    - Reliable, audited payment and wallet transaction history.
+    - Adoption of in-app payments by a meaningful share of active
+      relationships, generating a genuine (not proxied) payment-behaviour
+      signal for the trust engine.
+
+================================================================================
+PHASE 3 — CREDIT, TRADE FINANCE, AND WORKING CAPITAL
+================================================================================
+
+Objective: Introduce financial products, underwritten using the trust and
+payment data accumulated in Phases 1 and 2.
+
+Scope:
+    - Credit — short-term credit facilities for businesses (e.g. stock
+      financing) based on Business Health Score and order history.
+    - Trade Finance — financing instruments supporting larger or
+      recurring supplier transactions.
+    - Working Capital — working capital facilities for suppliers based on
+      their Supplier Reputation and completed-order history.
+    - Financial Products — packaging of the above into user-facing
+      offerings, potentially in partnership with external financial
+      institutions (anticipating Phase 4).
+
+Dependencies on Phases 1–2:
+    - Underwriting models consume the Trust Signals, Risk Signals, and
+      Relationship Health data defined in Document 07, plus real payment
+      behaviour data from Phase 2.
+    - "Credit Readiness" thresholds (Document 07, Section 13) determine
+      initial eligibility, ensuring credit is only extended where
+      sufficient verified commercial history exists — consistent with the
+      "Trust Before Lending" principle (Document 00).
+
+Exit Criteria:
+    - Defined, tested underwriting/risk model with acceptable performance
+      on historical platform data.
+    - Regulatory and compliance readiness for offering credit products in
+      relevant jurisdictions.
+    - Initial credit product performance (repayment rates) validating the
+      underlying trust engine's predictive value.
+
+================================================================================
+PHASE 4 — PARTNER APIS, FINANCIAL INSTITUTIONS, AND OPEN PLATFORM
+================================================================================
+
+Objective: Position TRU Connect as shared, open trust infrastructure
+connecting the informal economy to the broader financial system.
+
+Scope:
+    - Partner APIs — controlled, permissioned API access allowing external
+      partners to integrate with TRU Connect's business/supplier data
+      (subject to consent and privacy rules, Document 09).
+    - Financial Institutions — direct integrations enabling banks, lenders,
+      and insurers to originate products (credit, insurance, savings)
+      using TRU Connect's trust data, with TRU Connect / TruePoint acting
+      as the verified data and relationship layer rather than the sole
+      lender.
+    - Open Platform Expansion — potential extension of the ecosystem to
+      adjacent services (e.g. logistics partners, insurance providers)
+      built on the same trust infrastructure.
+
+Dependencies on Phases 1–3:
+    - Requires a mature, well-validated trust engine (Document 07) and a
+      demonstrated track record of credit performance from Phase 3.
+    - Requires robust data governance, consent, and privacy
+      infrastructure to support external data sharing responsibly.
+
+Exit Criteria:
+    - Signed institutional partnerships with clearly defined data-sharing
+      and revenue arrangements.
+    - Scalable, secure partner API infrastructure independently audited
+      for security and data protection compliance.
+
+================================================================================
+CROSS-PHASE ARCHITECTURAL COMMITMENTS
+================================================================================
+
+To ensure each phase can be built without reworking earlier phases, the
+following commitments apply from Phase 1 onward:
+
+    1. Database schema (Document 04) explicitly reserves entities/fields
+       for Wallet, Credit, and Risk Signal data, even though they are
+       unused until Phases 2–3.
+    2. API versioning (Document 05) uses a stable, versioned base path to
+       allow additive expansion without breaking existing mobile clients.
+    3. The trust engine (Document 07) is built on transparent, rule-based
+       calculations first, to keep early risk indicators explainable
+       before any machine-learning-based refinement is introduced.
+    4. Business Privacy and Supplier Visibility rules (Document 09) are
+       enforced from Phase 1 onward, anticipating the heightened data-
+       governance requirements of Phases 3–4.

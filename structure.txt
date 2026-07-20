@@ -1,0 +1,141 @@
+TRU_Connect
+├── backend
+├── database
+├── deployment
+├── docs
+│   ├── 00_PROJECT_VISION.txt
+│   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
+│   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
+│   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
+│   ├── 04_DATABASE_DESIGN.txt
+│   ├── 05_BACKEND_API_SPECIFICATION.txt
+│   ├── 06_BUSINESS_RULES_AND_WORKFLOWS.txt
+│   ├── 07_DATA_AND_TRUST_ENGINE.txt
+│   ├── 08_PRODUCT_ROADMAP.txt
+│   ├── 09_ECOSYSTEM_STRATEGY.txt
+│   └── 10_Expo_SDK54_Dependency_Reference.txt
+├── frontend
+│   ├── mobile
+│   │   ├── app
+│   │   │   ├── (auth)
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   ├── create-account.tsx
+│   │   │   │   ├── sign-in.tsx
+│   │   │   │   └── verify-otp.tsx
+│   │   │   ├── (business)
+│   │   │   │   ├── profile-setup
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── step-1-business-info.tsx
+│   │   │   │   │   ├── step-2-owner-info.tsx
+│   │   │   │   │   ├── step-3-trading-info.tsx
+│   │   │   │   │   ├── step-4-documents.tsx
+│   │   │   │   │   └── step-5-review.tsx
+│   │   │   │   └── _layout.tsx
+│   │   │   ├── (dashboard)
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   └── home.tsx
+│   │   │   ├── (onboarding)
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   ├── role-selection.tsx
+│   │   │   │   └── welcome.tsx
+│   │   │   ├── _layout.tsx
+│   │   │   └── index.tsx
+│   │   ├── assets
+│   │   │   ├── icons
+│   │   │   └── images
+│   │   │       └── tru-connect-logo.png
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   │   ├── cards
+│   │   │   │   │   ├── AppCard.tsx
+│   │   │   │   │   ├── FeatureTile.tsx
+│   │   │   │   │   └── RoleCard.tsx
+│   │   │   │   ├── feedback
+│   │   │   │   │   ├── EmptyState.tsx
+│   │   │   │   │   ├── ErrorState.tsx
+│   │   │   │   │   ├── LoadingOverlay.tsx
+│   │   │   │   │   └── OfflineBanner.tsx
+│   │   │   │   ├── forms
+│   │   │   │   │   ├── FormTextField.tsx
+│   │   │   │   │   ├── OtpInput.tsx
+│   │   │   │   │   └── PasswordField.tsx
+│   │   │   │   ├── navigation
+│   │   │   │   │   └── ScreenHeader.tsx
+│   │   │   │   └── ui
+│   │   │   │       ├── PrimaryButton.tsx
+│   │   │   │       ├── ProgressStepper.tsx
+│   │   │   │       ├── SafeAreaScreen.tsx
+│   │   │   │       ├── ScreenContainer.tsx
+│   │   │   │       └── SecondaryButton.tsx
+│   │   │   ├── constants
+│   │   │   │   ├── config.ts
+│   │   │   │   └── regex.ts
+│   │   │   ├── features
+│   │   │   │   ├── auth
+│   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── useAuth.ts
+│   │   │   │   │   │   └── useOtp.ts
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── authSchemas.ts
+│   │   │   │   │   └── types.ts
+│   │   │   │   ├── business
+│   │   │   │   │   ├── api
+│   │   │   │   │   │   └── businessApi.ts
+│   │   │   │   │   ├── hooks
+│   │   │   │   │   │   └── useBusinessProfileWizard.ts
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── businessSchemas.ts
+│   │   │   │   │   └── types.ts
+│   │   │   │   ├── dashboard
+│   │   │   │   │   ├── hooks
+│   │   │   │   │   │   └── useBusinessDashboard.ts
+│   │   │   │   │   └── types.ts
+│   │   │   │   ├── onboarding
+│   │   │   │   │   ├── components
+│   │   │   │   │   │   └── OnboardingCarousel.tsx
+│   │   │   │   │   └── data
+│   │   │   │   │       └── onboardingSlides.ts
+│   │   │   │   └── supplier
+│   │   │   │       ├── api
+│   │   │   │       │   └── supplierApi.ts
+│   │   │   │       ├── schemas
+│   │   │   │       │   └── supplierSchemas.ts
+│   │   │   │       └── types.ts
+│   │   │   ├── hooks
+│   │   │   │   ├── useColorScheme.ts
+│   │   │   │   ├── useCountdown.ts
+│   │   │   │   └── useNetworkStatus.ts
+│   │   │   ├── navigation
+│   │   │   │   └── routeGuards.ts
+│   │   │   ├── services
+│   │   │   │   ├── api
+│   │   │   │   │   ├── apiClient.ts
+│   │   │   │   │   └── queryClient.ts
+│   │   │   │   ├── auth
+│   │   │   │   │   └── authService.ts
+│   │   │   │   └── storage
+│   │   │   │       └── secureStorage.ts
+│   │   │   ├── theme
+│   │   │   │   ├── colors.ts
+│   │   │   │   ├── paperTheme.ts
+│   │   │   │   ├── spacing.ts
+│   │   │   │   ├── ThemeProvider.tsx
+│   │   │   │   └── typography.ts
+│   │   │   ├── types
+│   │   │   │   └── index.ts
+│   │   │   └── utils
+│   │   │       └── validators.ts
+│   │   ├── .env.example
+│   │   ├── .gitignore
+│   │   ├── .npmrc
+│   │   ├── app.json
+│   │   ├── babel.config.js
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── web
+├── scripts
+├── generate_project_structure_phase_1.py
+├── print_project_tree.py
+├── README.md
+└── structure.txt
