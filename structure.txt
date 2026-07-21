@@ -1,5 +1,23 @@
 TRU_Connect
 ├── backend
+│   ├── migrations
+│   ├── src
+│   │   ├── api
+│   │   ├── core
+│   │   ├── models
+│   │   ├── repositories
+│   │   ├── schemas
+│   │   ├── services
+│   │   ├── utils
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   └── extensions.py
+│   ├── tests
+│   ├── .env
+│   ├── .gitignore
+│   ├── app.py
+│   ├── req(hint).txt
+│   └── requirements.txt
 ├── database
 ├── deployment
 ├── docs
@@ -22,18 +40,24 @@ TRU_Connect
 │   │   │   │   ├── create-account.tsx
 │   │   │   │   ├── sign-in.tsx
 │   │   │   │   └── verify-otp.tsx
-│   │   │   ├── (business)
-│   │   │   │   ├── profile-setup
-│   │   │   │   │   ├── _layout.tsx
-│   │   │   │   │   ├── step-1-business-info.tsx
-│   │   │   │   │   ├── step-2-owner-info.tsx
-│   │   │   │   │   ├── step-3-trading-info.tsx
-│   │   │   │   │   ├── step-4-documents.tsx
-│   │   │   │   │   └── step-5-review.tsx
-│   │   │   │   └── _layout.tsx
 │   │   │   ├── (dashboard)
-│   │   │   │   ├── _layout.tsx
-│   │   │   │   └── home.tsx
+│   │   │   │   ├── business
+│   │   │   │   │   └── (tabs)
+│   │   │   │   │       ├── _layout.tsx
+│   │   │   │   │       ├── account.tsx
+│   │   │   │   │       ├── community.tsx
+│   │   │   │   │       ├── discovery.tsx
+│   │   │   │   │       ├── home.tsx
+│   │   │   │   │       └── more.tsx
+│   │   │   │   ├── supplier
+│   │   │   │   │   └── (tabs)
+│   │   │   │   │       ├── _layout.tsx
+│   │   │   │   │       ├── account.tsx
+│   │   │   │   │       ├── community.tsx
+│   │   │   │   │       ├── discovery.tsx
+│   │   │   │   │       ├── home.tsx
+│   │   │   │   │       └── more.tsx
+│   │   │   │   └── index.tsx
 │   │   │   ├── (onboarding)
 │   │   │   │   ├── _layout.tsx
 │   │   │   │   ├── role-selection.tsx
@@ -60,6 +84,7 @@ TRU_Connect
 │   │   │   │   │   ├── OtpInput.tsx
 │   │   │   │   │   └── PasswordField.tsx
 │   │   │   │   ├── navigation
+│   │   │   │   │   ├── DashboardTabBar.tsx
 │   │   │   │   │   └── ScreenHeader.tsx
 │   │   │   │   └── ui
 │   │   │   │       ├── PrimaryButton.tsx
@@ -87,14 +112,107 @@ TRU_Connect
 │   │   │   │   │   │   └── businessSchemas.ts
 │   │   │   │   │   └── types.ts
 │   │   │   │   ├── dashboard
+│   │   │   │   │   ├── business
+│   │   │   │   │   │   ├── business-profile
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   ├── find-supplier
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   ├── nearby-suppliers
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   ├── orders
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   ├── recommended-products
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   └── verify-business
+│   │   │   │   │   │       ├── algorithms
+│   │   │   │   │   │       ├── api
+│   │   │   │   │   │       ├── components
+│   │   │   │   │   │       ├── hooks
+│   │   │   │   │   │       ├── screens
+│   │   │   │   │   │       ├── services
+│   │   │   │   │   │       └── types.ts
 │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   └── useBusinessDashboard.ts
-│   │   │   │   │   └── types.ts
-│   │   │   │   ├── onboarding
-│   │   │   │   │   ├── components
-│   │   │   │   │   │   └── OnboardingCarousel.tsx
-│   │   │   │   │   └── data
-│   │   │   │   │       └── onboardingSlides.ts
+│   │   │   │   │   ├── shared
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   ├── AnalyticsCard.tsx
+│   │   │   │   │   │   │   ├── HomeHeader.tsx
+│   │   │   │   │   │   │   ├── NotificationCard.tsx
+│   │   │   │   │   │   │   ├── ScoreCard.tsx
+│   │   │   │   │   │   │   ├── SectionHeader.tsx
+│   │   │   │   │   │   │   └── StatCard.tsx
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   └── useDashboardNotifications.ts
+│   │   │   │   │   │   ├── types
+│   │   │   │   │   │   │   └── index.ts
+│   │   │   │   │   │   └── utils
+│   │   │   │   │   │       ├── barcodeIntegration.ts
+│   │   │   │   │   │       ├── mapsIntegration.ts
+│   │   │   │   │   │       ├── messagingIntegration.ts
+│   │   │   │   │   │       ├── searchIntegration.ts
+│   │   │   │   │   │       └── weatherIntegration.ts
+│   │   │   │   │   └── supplier
+│   │   │   │   │       ├── add-product
+│   │   │   │   │       │   ├── algorithms
+│   │   │   │   │       │   ├── api
+│   │   │   │   │       │   ├── components
+│   │   │   │   │       │   ├── hooks
+│   │   │   │   │       │   ├── screens
+│   │   │   │   │       │   ├── services
+│   │   │   │   │       │   └── types.ts
+│   │   │   │   │       ├── manage-deliveries
+│   │   │   │   │       │   ├── algorithms
+│   │   │   │   │       │   ├── api
+│   │   │   │   │       │   ├── components
+│   │   │   │   │       │   ├── hooks
+│   │   │   │   │       │   ├── screens
+│   │   │   │   │       │   ├── services
+│   │   │   │   │       │   └── types.ts
+│   │   │   │   │       ├── manage-orders
+│   │   │   │   │       │   ├── algorithms
+│   │   │   │   │       │   ├── api
+│   │   │   │   │       │   ├── components
+│   │   │   │   │       │   ├── hooks
+│   │   │   │   │       │   ├── screens
+│   │   │   │   │       │   ├── services
+│   │   │   │   │       │   └── types.ts
+│   │   │   │   │       └── verify-business
+│   │   │   │   │           ├── algorithms
+│   │   │   │   │           ├── api
+│   │   │   │   │           ├── components
+│   │   │   │   │           ├── hooks
+│   │   │   │   │           ├── screens
+│   │   │   │   │           ├── services
+│   │   │   │   │           └── types.ts
 │   │   │   │   └── supplier
 │   │   │   │       ├── api
 │   │   │   │       │   └── supplierApi.ts
@@ -110,6 +228,7 @@ TRU_Connect
 │   │   │   ├── services
 │   │   │   │   ├── api
 │   │   │   │   │   ├── apiClient.ts
+│   │   │   │   │   ├── mockData.ts
 │   │   │   │   │   └── queryClient.ts
 │   │   │   │   ├── auth
 │   │   │   │   │   └── authService.ts
@@ -135,6 +254,7 @@ TRU_Connect
 │   │   └── tsconfig.json
 │   └── web
 ├── scripts
+├── generate_dashboard_project_structure_.py
 ├── generate_project_structure_phase_1.py
 ├── print_project_tree.py
 ├── README.md

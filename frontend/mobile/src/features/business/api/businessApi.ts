@@ -1,12 +1,13 @@
-import { apiClient } from "@/services/api/apiClient";
+/*******
+ import { apiClient } from "@/services/api/apiClient";
 import { BusinessProfileWizardState } from "../types";
 
-/**
+
  * Feature-level API bindings for the Business Domain, built on top of the
  * shared apiClient (src/services/api/apiClient.ts).
  * Ref: docs/05_BACKEND_API_SPECIFICATION.txt, Section 5.2 (Business Domain
  * endpoints) and Section 5.6 (Verification Domain - document submission).
- */
+ 
 export const businessApi = {
   async submitProfileSetup(state: BusinessProfileWizardState) {
     const { data } = await apiClient.put("/businesses/me", {
@@ -37,4 +38,5 @@ export const businessApi = {
     const { data } = await apiClient.get("/businesses/me/profile");
     return data;
   },
-};
+};    
+*************/
