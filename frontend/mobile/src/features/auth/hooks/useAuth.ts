@@ -9,6 +9,11 @@ import { RegisterPayload, SignInPayload } from "../types";
  * React Query mutations composing the auth service with app-level side
  * effects (secure token storage, navigation).
  * Ref: docs/06_BUSINESS_RULES_AND_WORKFLOWS.txt, Sections 1-3.
+ *
+ * NOTE: post-sign-in redirect targets "/(dashboard)" (the role-aware
+ * index route added by the dashboard generator), not a specific
+ * "/(dashboard)/home" -- the index route reads the stored role and
+ * forwards to business/home or supplier/home accordingly.
  */
 export function useSignIn() {
   const router = useRouter();
@@ -17,7 +22,7 @@ export function useSignIn() {
     onSuccess: async ({ tokens }) => {
       await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken);
       await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken);
-      router.replace("/(dashboard)/home");
+      router.replace("/(dashboard)");
     },
   });
 }
@@ -41,7 +46,7 @@ export function useGoogleSignIn() {
     onSuccess: async ({ tokens }) => {
       await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken);
       await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken);
-      router.replace("/(dashboard)/home");
+      router.replace("/(dashboard)");
     },
   });
 }

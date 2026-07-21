@@ -1,0 +1,11 @@
+What each one is for
+Package	             Purpose
+Flask	              Web framework
+Flask-SQLAlchemy	    ORM
+Flask-Migrate	        Database migrations
+psycopg2-binary	        PostgreSQL driver
+python-dotenv	          Environment variables
+Flask-JWT-Extended	       Authentication tokens
+Flask-Bcrypt	       Password hashing
+marshmallow	           Validation & serialization
+email-validator	          Email validation

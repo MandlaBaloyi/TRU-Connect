@@ -216,6 +216,7 @@ already run and .npmrc exists (see Section 6):
     npx expo install react-native-svg
     npx expo install react-native-pager-view
     npx expo install babel-preset-expo
+    npx expo install @expo/vector-icons
 
     npm install react-native-paper
     npm install @tanstack/react-query
@@ -225,6 +226,7 @@ already run and .npmrc exists (see Section 6):
     npm install axios
     npm install zustand
     npm install lucide-react-native
+    npm install @react-navigation/bottom-tabs --legacy-peer-deps
 
 Then verify:
 

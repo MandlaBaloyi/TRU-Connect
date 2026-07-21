@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
  * SPLASH_DURATION_MS is set to 50 seconds for visual QA/testing.
  * Change it back to 5000 (5 seconds) before shipping.
  */
-const SPLASH_DURATION_MS = 50000;
+const SPLASH_DURATION_MS = 3000;
 
 export default function SplashScreen() {
   const router = useRouter();
