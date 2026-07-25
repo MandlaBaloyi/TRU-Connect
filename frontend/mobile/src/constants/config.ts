@@ -1,13 +1,13 @@
 
 
-/**
- * Central app configuration, sourced from app.json `extra` and/or
- * environment variables. Ref: docs/05_BACKEND_API_SPECIFICATION.txt
+
+ /** Central app configuration, sourced from app.json `extra` and/or
+ * environment variables. Ref: docs/05_BACKEND_API_SPECIFICATION.txt  */
  
 export const API_BASE_URL: string =
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ||
-  "https://api.truconnect.dev/api/v1";                                ****/
+  "https://api.truconnect.dev/api/v1";                                
 
 /**
  * MOCK MODE. When true, auth and dashboard calls return fake data

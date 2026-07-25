@@ -344,3 +344,11 @@ Test the PostgreSQL connection
 Only then start building the authentication system.
 
 This approach will give you a clean, scalable backend that matches the quality of the frontend you've been building.
+
+
+
+
+
+PS C:\Users\HP\Desktop\TRU_Connect> cd backend
+PS C:\Users\HP\Desktop\TRU_Connect\backend> .\.venv\Scripts\activate
+(.venv) PS C:\Users\HP\Desktop\TRU_Connect\backend> 

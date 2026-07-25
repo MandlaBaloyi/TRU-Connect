@@ -3,19 +3,52 @@ TRU_Connect
 │   ├── migrations
 │   ├── src
 │   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── auth_routes.py
 │   │   ├── core
+│   │   │   ├── __init__.py
+│   │   │   ├── base_model.py
+│   │   │   ├── decorators.py
+│   │   │   ├── exceptions.py
+│   │   │   └── responses.py
 │   │   ├── models
+│   │   │   ├── __init__.py
+│   │   │   ├── otp_verification.py
+│   │   │   ├── password_reset_token.py
+│   │   │   ├── refresh_token.py
+│   │   │   └── user.py
 │   │   ├── repositories
+│   │   │   ├── __init__.py
+│   │   │   ├── otp_repository.py
+│   │   │   ├── password_reset_repository.py
+│   │   │   ├── refresh_token_repository.py
+│   │   │   └── user_repository.py
 │   │   ├── schemas
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_schemas.py
+│   │   │   ├── otp_schemas.py
+│   │   │   └── password_reset_schemas.py
 │   │   ├── services
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_service.py
+│   │   │   ├── otp_service.py
+│   │   │   └── password_reset_service.py
 │   │   ├── utils
+│   │   │   ├── __init__.py
+│   │   │   ├── logger.py
+│   │   │   ├── otp.py
+│   │   │   └── security.py
 │   │   ├── __init__.py
 │   │   ├── config.py
 │   │   └── extensions.py
 │   ├── tests
+│   │   └── test_auth.py
 │   ├── .env
+│   ├── .env.example
 │   ├── .gitignore
 │   ├── app.py
+│   ├── plan.md
+│   ├── README.md
 │   ├── req(hint).txt
 │   └── requirements.txt
 ├── database
@@ -31,7 +64,8 @@ TRU_Connect
 │   ├── 07_DATA_AND_TRUST_ENGINE.txt
 │   ├── 08_PRODUCT_ROADMAP.txt
 │   ├── 09_ECOSYSTEM_STRATEGY.txt
-│   └── 10_Expo_SDK54_Dependency_Reference.txt
+│   ├── 10_Expo_SDK54_Dependency_Reference.txt
+│   └── TRU_Connect_Master_Engineering_Roadmap.xlsx
 ├── frontend
 │   ├── mobile
 │   │   ├── app
@@ -50,13 +84,22 @@ TRU_Connect
 │   │   │   │   │       ├── home.tsx
 │   │   │   │   │       └── more.tsx
 │   │   │   │   ├── supplier
-│   │   │   │   │   └── (tabs)
+│   │   │   │   │   ├── (tabs)
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── account.tsx
+│   │   │   │   │   │   ├── community.tsx
+│   │   │   │   │   │   ├── discovery.tsx
+│   │   │   │   │   │   ├── home.tsx
+│   │   │   │   │   │   └── more.tsx
+│   │   │   │   │   └── product-catalogue
+│   │   │   │   │       ├── [id]
+│   │   │   │   │       │   ├── edit.tsx
+│   │   │   │   │       │   ├── images.tsx
+│   │   │   │   │       │   └── index.tsx
 │   │   │   │   │       ├── _layout.tsx
-│   │   │   │   │       ├── account.tsx
-│   │   │   │   │       ├── community.tsx
-│   │   │   │   │       ├── discovery.tsx
-│   │   │   │   │       ├── home.tsx
-│   │   │   │   │       └── more.tsx
+│   │   │   │   │       ├── add.tsx
+│   │   │   │   │       ├── drafts.tsx
+│   │   │   │   │       └── index.tsx
 │   │   │   │   └── index.tsx
 │   │   │   ├── (onboarding)
 │   │   │   │   ├── _layout.tsx
@@ -84,6 +127,7 @@ TRU_Connect
 │   │   │   │   │   ├── OtpInput.tsx
 │   │   │   │   │   └── PasswordField.tsx
 │   │   │   │   ├── navigation
+│   │   │   │   │   ├── BrandTopBar.tsx
 │   │   │   │   │   ├── DashboardTabBar.tsx
 │   │   │   │   │   └── ScreenHeader.tsx
 │   │   │   │   └── ui
@@ -205,6 +249,40 @@ TRU_Connect
 │   │   │   │   │       │   ├── screens
 │   │   │   │   │       │   ├── services
 │   │   │   │   │       │   └── types.ts
+│   │   │   │   │       ├── product-catalogue
+│   │   │   │   │       │   ├── algorithms
+│   │   │   │   │       │   │   └── README.md
+│   │   │   │   │       │   ├── api
+│   │   │   │   │       │   │   └── productCatalogueApi.ts
+│   │   │   │   │       │   ├── components
+│   │   │   │   │       │   │   ├── ProductCard.tsx
+│   │   │   │   │       │   │   ├── ProductCatalogueIcon.tsx
+│   │   │   │   │       │   │   ├── ProductCategorySelector.tsx
+│   │   │   │   │       │   │   ├── ProductFilterSheet.tsx
+│   │   │   │   │       │   │   ├── ProductForm.tsx
+│   │   │   │   │       │   │   ├── ProductImageUploader.tsx
+│   │   │   │   │       │   │   ├── ProductPriceCard.tsx
+│   │   │   │   │       │   │   ├── ProductSearchBar.tsx
+│   │   │   │   │       │   │   └── ProductStatusBadge.tsx
+│   │   │   │   │       │   ├── hooks
+│   │   │   │   │       │   │   ├── useCreateProduct.ts
+│   │   │   │   │       │   │   ├── useDeleteProduct.ts
+│   │   │   │   │       │   │   ├── useProducts.ts
+│   │   │   │   │       │   │   ├── useProductSearch.ts
+│   │   │   │   │       │   │   └── useUpdateProduct.ts
+│   │   │   │   │       │   ├── screens
+│   │   │   │   │       │   │   ├── AddProductScreen.tsx
+│   │   │   │   │       │   │   ├── DraftProductsScreen.tsx
+│   │   │   │   │       │   │   ├── EditProductScreen.tsx
+│   │   │   │   │       │   │   ├── ProductCatalogueScreen.tsx
+│   │   │   │   │       │   │   ├── ProductDetailsScreen.tsx
+│   │   │   │   │       │   │   └── ProductImagesScreen.tsx
+│   │   │   │   │       │   ├── services
+│   │   │   │   │       │   │   ├── pricingCalculator.ts
+│   │   │   │   │       │   │   ├── productMapper.ts
+│   │   │   │   │       │   │   ├── productValidation.ts
+│   │   │   │   │       │   │   └── stockManager.ts
+│   │   │   │   │       │   └── types.ts
 │   │   │   │   │       └── verify-business
 │   │   │   │   │           ├── algorithms
 │   │   │   │   │           ├── api
@@ -239,23 +317,25 @@ TRU_Connect
 │   │   │   │   ├── paperTheme.ts
 │   │   │   │   ├── spacing.ts
 │   │   │   │   ├── ThemeProvider.tsx
-│   │   │   │   └── typography.ts
+│   │   │   │   ├── typography.ts
+│   │   │   │   └── wordmark.ts
 │   │   │   ├── types
 │   │   │   │   └── index.ts
 │   │   │   └── utils
 │   │   │       └── validators.ts
-│   │   ├── .env.example
+│   │   ├── .env
 │   │   ├── .gitignore
 │   │   ├── .npmrc
 │   │   ├── app.json
 │   │   ├── babel.config.js
 │   │   ├── package-lock.json
 │   │   ├── package.json
+│   │   ├── supplierFeature.md
 │   │   └── tsconfig.json
 │   └── web
 ├── scripts
-├── generate_dashboard_project_structure_.py
-├── generate_project_structure_phase_1.py
+├── .gitignore
+├── generate_backend_auth_module_phase3_.py
 ├── print_project_tree.py
 ├── README.md
 └── structure.txt
