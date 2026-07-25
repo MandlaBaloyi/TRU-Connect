@@ -217,6 +217,7 @@ already run and .npmrc exists (see Section 6):
     npx expo install react-native-pager-view
     npx expo install babel-preset-expo
     npx expo install @expo/vector-icons
+    npx expo install expo-image-picker
 
     npm install react-native-paper
     npm install @tanstack/react-query

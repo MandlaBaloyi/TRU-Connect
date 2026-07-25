@@ -1,5 +1,9 @@
 import React from "react";
-import { Pressable, StyleSheet } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  ViewStyle,
+} from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import { AppCard } from "./AppCard";
 import { spacing } from "@/theme/spacing";
@@ -8,30 +12,46 @@ interface FeatureTileProps {
   label: string;
   icon: React.ReactNode;
   onPress?: () => void;
+  style?: ViewStyle;
 }
 
 /**
- * Compact tappable tile used for dashboard Quick Actions (Upload Receipts,
- * Add Supplier, Verify Information). Ref: master prompt "REUSABLE
- * COMPONENTS" (FeatureTile) and docs/01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
- * (Home Dashboard -- Quick Actions).
+ * Dashboard Feature Tile.
+ * The ENTIRE card is tappable.
  */
-export function FeatureTile({ label, icon, onPress }: FeatureTileProps) {
+export function FeatureTile({
+  label,
+  icon,
+  onPress,
+  style,
+}: FeatureTileProps) {
   const theme = useTheme();
+
   return (
-    <Pressable onPress={onPress} style={styles.pressable}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      pressRetentionOffset={20}
+      android_ripple={{
+        color: "rgba(0,0,0,0.08)",
+      }}
+      style={({ pressed }) => [
+        style,               // sizing from parent (e.g. width: '31%')
+        pressed && styles.pressed,
+      ]}
+    >
       <AppCard style={styles.tile}>
         {icon}
+
         <Text
           variant="bodyMedium"
           numberOfLines={2}
-          style={{
-            color: theme.colors.onSurface,
-            marginTop: spacing.sm,
-            textAlign: "center",
-            lineHeight: 20,
-            fontWeight: "500",
-          }}
+          style={[
+            styles.label,
+            {
+              color: theme.colors.onSurface,
+            },
+          ]}
         >
           {label}
         </Text>
@@ -41,12 +61,24 @@ export function FeatureTile({ label, icon, onPress }: FeatureTileProps) {
 }
 
 const styles = StyleSheet.create({
-  pressable: { flex: 1 },
+  pressed: {
+    opacity: 0.85,
+  },
+
   tile: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 110,
-    paddingVertical: spacing.md,
+
+    minHeight: 96,          // was 120 — now more compact
+
+    paddingVertical: spacing.sm,   // was spacing.md
     paddingHorizontal: spacing.sm,
+  },
+
+  label: {
+    marginTop: spacing.xs,  // tighter spacing above label
+    textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
   },
 });

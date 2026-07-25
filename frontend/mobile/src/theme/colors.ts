@@ -58,3 +58,11 @@ export const darkColors = {
 };
 
 export type AppColors = typeof lightColors;
+
+
+export const colors = {
+  success: palette.success,
+  warning: palette.warning,
+  danger: palette.danger,
+  neutral200: "#E5E7EB",       // Required by ProductStatusBadge (draft background)
+};
