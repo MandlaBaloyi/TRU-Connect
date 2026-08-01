@@ -1,0 +1,264 @@
+================================================================================
+                            TRU CONNECT
+                     ECOSYSTEM STRATEGY
+                          Document 09 ⭐
+              Beyond a Marketplace — Building Trusted
+                    Business Infrastructure
+================================================================================
+
+Version: 1.0
+Related Documents: 00_PROJECT_VISION.txt, 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt,
+                    07_DATA_AND_TRUST_ENGINE.txt, 08_PRODUCT_ROADMAP.txt
+
+Purpose: Explain why every feature in TRU Connect exists, ensuring future
+development stays aligned with the ecosystem vision rather than drifting
+toward generic marketplace conventions.
+
+================================================================================
+1. CORE OBJECTIVE
+================================================================================
+
+TRU Connect is not designed to become another online marketplace.
+
+Its purpose is to help businesses discover trusted suppliers, build trusted
+business relationships, and quietly create the business data needed to
+unlock future financial opportunities.
+
+Buying and selling products is only one feature of a much larger ecosystem.
+Every feature decision in this document should be evaluated against this
+objective before being adopted.
+
+================================================================================
+2. CORE PHILOSOPHY: RELATIONSHIPS OVER TRANSACTIONS
+================================================================================
+
+Traditional marketplaces focus on transactions. TRU Connect focuses on
+relationships.
+
+Every interaction between businesses and suppliers contributes to building
+a trusted digital business ecosystem, not merely to closing a sale. This
+philosophy shapes every decision documented below.
+
+================================================================================
+3. WHY BUSINESS QUESTIONS INSTEAD OF REVIEWS
+================================================================================
+
+Instead of traditional product reviews or private messaging, TRU Connect
+introduces Business Conversations: businesses ask questions directly
+beneath supplier products (availability, delivery locations and times,
+bulk pricing, minimum order quantities, packaging, specifications, general
+business enquiries). Supplier responses remain attached to the product,
+so future businesses benefit from previously answered questions.
+
+Why this matters:
+    - Star ratings are easily manipulated and rarely reflect real
+      commercial behaviour. A rating of "4.7 stars" tells a business
+      almost nothing actionable.
+    - Business Questions create transparency instead: businesses can see
+      exactly what was asked, how the supplier responded, and infer
+      delivery capability, pricing policy, service quality, and business
+      professionalism directly from real exchanges.
+    - Rather than isolated, one-off conversations, every discussion
+      becomes shared business knowledge — a growing Business Knowledge
+      Base per supplier (questions, responses, delivery/packaging/
+      availability/bulk-order/region information, effectively a living
+      FAQ), reducing repetitive enquiries and creating long-term value for
+      both suppliers and future customers.
+    - Trust becomes visible through communication rather than ratings
+      alone.
+
+================================================================================
+4. WHY SUPPLIER PROFILES ARE PUBLIC
+================================================================================
+
+Supplier profiles remain publicly visible, showing profile information,
+verification status, products, business information, Business Questions,
+Business Updates, and customer statistics.
+
+Why this matters:
+    - Public visibility increases transparency and encourages trust — a
+      business considering a new supplier should be able to fully assess
+      that supplier's track record before ever placing an order.
+    - Suppliers benefit from public profiles as a discovery and reputation-
+      building channel, similar to a professional storefront, reinforcing
+      their standalone incentive to participate on the platform.
+
+================================================================================
+5. WHY BUSINESS PROFILES ARE PROTECTED
+================================================================================
+
+Business customers remain largely private. Rather than exposing detailed
+business information, customer identities are limited to a generic
+"Verified Business" or a partially identified label such as "ABC Store
+(Verified)," without revealing unnecessary commercial information.
+
+Why this matters:
+    - Protecting customer privacy helps maintain trust while reducing
+      unnecessary competitive exposure — a small business should not have
+      to worry that its sourcing relationships or order volumes are
+      visible to competitors.
+    - This asymmetry (public suppliers, private businesses) is
+      intentional: suppliers are B2B storefronts seeking visibility;
+      businesses are the platform's primary users seeking protection and
+      utility, not exposure.
+
+================================================================================
+6. WHY RELATIONSHIPS MATTER
+================================================================================
+
+A specific, ongoing relationship between one business and one supplier
+(Document 04, Section 16; Document 07, Section 3) is treated as the
+fundamental unit of trust on TRU Connect — more informative than any single
+transaction.
+
+Why this matters:
+    - Relationships are harder to fabricate than isolated transactions and
+      are far more predictive of continued reliable behaviour.
+    - A business with deep, sustained relationships with a small number of
+      suppliers may represent a stronger trust profile than one with many
+      shallow, one-off purchases.
+    - This is why Relationship Health Score, Repeat Supplier Rate, and
+      Repeat Customer Rate are first-class, prominently displayed metrics
+      throughout the product (Documents 03 and 07), rather than secondary
+      statistics.
+
+================================================================================
+7. WHY REPEAT ORDERS MATTER
+================================================================================
+
+Repeat orders between the same business-supplier pair are weighted more
+heavily than first-time orders in all trust calculations (Document 07,
+Section 4).
+
+Why this matters:
+    - A business that orders from the same supplier repeatedly is
+      demonstrating sustained satisfaction and reliability, a far stronger
+      signal than a single completed transaction.
+    - Repeat behaviour is also difficult to fake at scale, making it a
+      valuable, resilient signal for future risk and credit models
+      (Phase 3, Document 08).
+
+================================================================================
+8. WHY BUSINESS DATA MATTERS
+================================================================================
+
+Every activity performed within TRU Connect — searching, viewing profiles
+and products, asking questions, receiving responses, bookmarking,
+following, receiving enquiries, quotations, placing and completing orders,
+repeat purchases, delivery performance, payment behaviour, product
+engagement, and verification — contributes to a richer digital business
+profile.
+
+None of these are "just marketplace features." Each interaction represents
+verified commercial behaviour, and collectively they form the foundation
+for future business insights, AI-powered recommendations, credit risk
+assessment, supplier financing, trade credit, working capital, and
+financial partnerships (Document 08, Phases 2–4).
+
+Businesses are never required to manually build their financial profile.
+It grows naturally through everyday business activity — this is the direct
+product expression of the "invisible data collection" principle in
+Document 00.
+
+================================================================================
+9. HOW TRUST IS BUILT
+================================================================================
+
+Trust on TRU Connect accumulates through a layered process:
+
+    1. Verification establishes a baseline identity trust signal.
+    2. Ordinary activity (search, viewing, questions) establishes early
+       engagement signals.
+    3. Completed orders establish transactional trust.
+    4. Repeat orders and sustained relationships establish durable,
+       high-confidence trust.
+    5. Consistent payment behaviour and low dispute/cancellation rates
+       reinforce and protect that trust over time.
+
+This layered accumulation (detailed technically in Document 07) is what
+allows TRU Connect to eventually support credit decisioning without relying
+on traditional collateral, paperwork, or credit bureau history that
+excludes informal businesses today.
+
+================================================================================
+10. HOW COMMERCIAL RELATIONSHIPS BECOME BUSINESS INTELLIGENCE
+================================================================================
+
+The Data and Trust Engine (Document 07) systematically converts the
+day-to-day commercial relationships described above into structured,
+queryable business intelligence: the Digital Business Profile, the
+Supplier Profile, Relationship Health Scores, and — eventually — Business
+Health Scores and formal risk models.
+
+This is the mechanism by which "relationships" (a qualitative, human
+concept) become "business intelligence" (a quantitative, systematic asset)
+without requiring the business or supplier to do anything beyond using the
+platform as intended.
+
+================================================================================
+11. HOW BUSINESS ACTIVITY CREATES FINANCIAL READINESS
+================================================================================
+
+As described in Document 07, Section 13, "Credit Readiness" is a
+cumulative output of ordinary platform activity crossing defined,
+configurable thresholds — not a separate application process.
+
+This ensures the platform's financial products (Phase 3, Document 08) are
+available first to those businesses and suppliers who have already
+demonstrated reliability through real behaviour, directly operationalising
+the "Trust Before Lending" principle from Document 00.
+
+================================================================================
+12. HOW TRU CONNECT EVOLVES INTO DIGITAL INFRASTRUCTURE
+================================================================================
+
+As adoption grows, the accumulated network of verified businesses,
+verified suppliers, sustained relationships, and behavioural data
+(Document 07) evolves TRU Connect from a single application into shared
+infrastructure: a trust and data layer that other participants — financial
+institutions, logistics partners, insurers — can eventually build upon via
+Partner APIs (Phase 4, Document 08).
+
+================================================================================
+13. HOW TRUEPOINT GAINS COMPETITIVE ADVANTAGE
+================================================================================
+
+TruePoint's competitive advantage does not come from being a marketplace
+with more listings or lower prices than competitors. It comes from owning
+a unique, defensible asset: a growing base of verified, trusted commercial
+relationships and behavioural data that is extremely difficult for a
+generic marketplace to replicate after the fact, because it can only be
+built through sustained real usage over time.
+
+================================================================================
+14. THE TRUEPOINT DIFFERENCE (SUMMARY COMPARISON)
+================================================================================
+
+    Traditional Marketplace
+        Goal:            Facilitate buying and selling.
+        Primary Asset:   Products.
+        Primary Metric:  Transactions.
+
+    TRU Connect Ecosystem
+        Goal:            Build trusted business relationships and digital
+                         business infrastructure.
+        Primary Asset:   Trusted commercial data.
+        Primary Metric:  Business relationships, verified activity, and
+                         long-term trust.
+
+================================================================================
+15. GUIDING PRINCIPLE
+================================================================================
+
+Every search. Every enquiry. Every supplier relationship. Every order.
+Every business conversation. Every repeat purchase. Every verified
+interaction.
+
+Quietly builds the trusted digital business ecosystem that powers the
+future of TruePoint.
+
+Any proposed feature for TRU Connect should be evaluated against this
+principle: does it deepen a genuine business-supplier relationship and
+contribute honestly to trusted commercial data, or does it merely optimise
+for a one-off transaction? Features that serve the former should be
+prioritised; features that only serve the latter should be reconsidered.

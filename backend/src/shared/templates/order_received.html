@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Order received{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px; color:#111417; font-size:20px;">New order #{{ order_id }}</h1>
+<p style="margin:0 0 16px; color:#3A3F44; font-size:15px; line-height:1.5;">
+  You've received a new order from {{ customer_display_name }} for {{ total_amount }}.
+</p>
+<p style="margin:0; color:#6B7280; font-size:13px;">
+  Respond promptly &mdash; order acceptance rate affects your Supplier Reputation score.
+</p>
+{% endblock %}

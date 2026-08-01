@@ -1,164 +1,182 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                         PRODUCT ROADMAP
                           Document 08
 ================================================================================
 
-Version: 1.0
-Related Documents: 00_PROJECT_VISION.txt, 07_DATA_AND_TRUST_ENGINE.txt,
-                    09_ECOSYSTEM_STRATEGY.txt
+Version: 3.0 (Constitution Alignment)
+Related: 00_PROJECT_VISION.txt, 07_DATA_AND_TRUST_ENGINE.txt,
+         09_ECOSYSTEM_STRATEGY.txt
 
-Purpose: Define the phased evolution of TRU Connect, ensuring each phase
-builds directly on the trust and data foundations established by the
-phases before it.
+--------------------------------------------------------------------------------
+CHANGES IN THIS VERSION
+--------------------------------------------------------------------------------
+The previous roadmap placed Payments, Wallet, Credit, and Trade Finance
+INSIDE TRUConnect (Phases 2-3). That is now incorrect.
+
+TRUConnect is not a money holder and not a lender. Wallet and credit
+capabilities belong to separate future TruePoint products (TRUWallet,
+TRUPayLater) at platform stages beyond TRUConnect's own scope.
+
+This roadmap is restructured to match the Constitution's staged ecosystem
+model (TP-052), and covers only TRUConnect.
+
+--------------------------------------------------------------------------------
+GOVERNING RULE (TP-052, TP-074)
+--------------------------------------------------------------------------------
+Every stage strengthens the stage above it. No stage may bypass the
+layer beneath it. Operational value always precedes financial value.
 
 ================================================================================
-PHASE 1 — FOUNDATION: DISCOVERY, TRUST, AND ORDERING
+STAGE 1 -- BUSINESS FREE  [CURRENT]
 ================================================================================
 
-Objective: Establish the core marketplace and the data foundations required
-for every subsequent phase.
+Objective: an informal business gets real operational value from
+TRUConnect on day one, WITHOUT requiring any supplier to join.
 
 Scope:
-    - Business and Supplier registration and authentication (email/
-      password, Google).
-    - Supplier Discovery (search, categories, nearby, featured, popular
-      products, saved suppliers).
-    - Product Catalogue management (supplier-facing).
-    - Orders (placement, acceptance, rejection, completion, tracking,
-      invoices).
-    - Business Questions & Supplier Responses ("Business Conversations").
-    - Verification (business and supplier).
-    - Digital Business Profile and Supplier Profile (automatically
-      generated, rule-based, per Document 07).
-    - Business Updates (supplier announcements).
-    - Notifications.
+    - Authentication, OTP verification, password reset            [DONE]
+    - Notification infrastructure (email)                         [DONE]
+    - Business Profile and Profile Setup
+    - My Suppliers: add existing suppliers (on- or off-platform)
+    - Orders recorded against any supplier, on-platform or not
+    - Order Queue
+    - Repeat Order
+    - Loan Book: credit sales, repayments, outstanding balance
+    - Customers (minimal, supporting the Loan Book)
+    - Offline support with sync
+    - Verification (business)
 
-Exit Criteria (informing readiness for Phase 2):
-    - Meaningful volume of verified businesses and suppliers actively
-      transacting.
-    - Sufficient repeat-order and relationship data flowing through the
-      trust engine to support meaningful Business Health Score and
-      Supplier Reputation calculations.
-    - Stable, well-tested core workflows (Document 06) with low order
-      dispute/rejection rates.
+Exit criteria:
+    - Businesses using the app weekly without prompting.
+    - Meaningful proportion of a business's supplier relationships
+      recorded.
+    - Loan Book actively replacing paper for real users.
+    - Offline sync demonstrably reliable on real networks.
+
+Critical test of this stage: does a business still find TRUConnect
+valuable if NONE of its suppliers ever join? If not, the stage has
+failed, and Stage 2 must not begin.
 
 ================================================================================
-PHASE 2 — PAYMENTS, WALLET, AND INSIGHTS
+STAGE 2 -- SUPPLIER FREE
 ================================================================================
 
-Objective: Introduce financial transaction infrastructure and surface
-richer insights back to businesses and suppliers, without yet introducing
-credit or lending.
+Objective: businesses' existing suppliers join, so orders flow digitally
+end-to-end rather than being one-sided records.
 
 Scope:
-    - Payments — in-app payment processing for orders, replacing or
-      supplementing existing offline payment methods.
-    - Wallet — a stored-value account for businesses and/or suppliers,
-      enabling faster transactions and providing a foundation for future
-      credit disbursement and repayment rails (Phase 3).
-    - Business Insights — business-facing analytics building on the
-      Digital Business Profile (e.g. spending trends, supplier
-      diversification, seasonal patterns).
-    - Supplier Analytics — supplier-facing analytics building on the
-      Supplier Profile (e.g. demand trends, customer retention patterns,
-      response-time benchmarking against category peers).
+    - Supplier registration and profile
+    - Supplier invitation flow from businesses
+    - Automatic relationship linking on supplier registration
+    - Single Order Queue for suppliers
+    - Accept / decline with reason
+    - Order status progression through dispatch
+    - Payment reference issuance
+    - Delivery confirmation (both parties)
+    - Payment events (marked sent / confirmed)
+    - Supplier verification
+    - Supplier performance profile
 
-Dependencies on Phase 1:
-    - Wallet and Payments rely on the Orders and Relationship data
-      structures established in Phase 1 (Document 04).
-    - Average Payment Time (Document 07) becomes materially more accurate
-      once real payment timestamps are available via the Wallet/Payments
-      module, rather than being proxied by order completion time.
+Dependencies: Stage 1 must have real business adoption. Suppliers join
+because their customers are already there -- not the reverse.
 
-Exit Criteria:
-    - Reliable, audited payment and wallet transaction history.
-    - Adoption of in-app payments by a meaningful share of active
-      relationships, generating a genuine (not proxied) payment-behaviour
-      signal for the trust engine.
+Exit criteria:
+    - Suppliers joining primarily via business invitations.
+    - Growing share of orders bilaterally confirmed rather than
+      one-sided.
+    - Delivery and payment confirmation rates high enough to be
+      meaningful trust signals.
 
 ================================================================================
-PHASE 3 — CREDIT, TRADE FINANCE, AND WORKING CAPITAL
+STAGE 3 -- SUPPLIER PRO
 ================================================================================
 
-Objective: Introduce financial products, underwritten using the trust and
-payment data accumulated in Phases 1 and 2.
+Objective: first sustainable revenue, earned by solving genuinely harder
+supplier problems (TP-047).
 
 Scope:
-    - Credit — short-term credit facilities for businesses (e.g. stock
-      financing) based on Business Health Score and order history.
-    - Trade Finance — financing instruments supporting larger or
-      recurring supplier transactions.
-    - Working Capital — working capital facilities for suppliers based on
-      their Supplier Reputation and completed-order history.
-    - Financial Products — packaging of the above into user-facing
-      offerings, potentially in partnership with external financial
-      institutions (anticipating Phase 4).
+    - Product catalogue management
+    - Businesses order against real products and prices (removing
+      free-text ordering errors and price disputes)
+    - Staff users with scoped permissions
+    - Supplier reporting (orders, customers, fulfilment)
+    - Web dashboard (frontend/web)
+    - Tier management and upgrade/downgrade flows
 
-Dependencies on Phases 1–2:
-    - Underwriting models consume the Trust Signals, Risk Signals, and
-      Relationship Health data defined in Document 07, plus real payment
-      behaviour data from Phase 2.
-    - "Credit Readiness" thresholds (Document 07, Section 13) determine
-      initial eligibility, ensuring credit is only extended where
-      sufficient verified commercial history exists — consistent with the
-      "Trust Before Lending" principle (Document 00).
-
-Exit Criteria:
-    - Defined, tested underwriting/risk model with acceptable performance
-      on historical platform data.
-    - Regulatory and compliance readiness for offering credit products in
-      relevant jurisdictions.
-    - Initial credit product performance (repayment rates) validating the
-      underlying trust engine's predictive value.
+Dependencies: enough supplier order volume that catalogue management and
+staff access become genuine pain points. Introducing paid tiers before
+that pain exists would violate TP-045 (Trust Before Revenue).
 
 ================================================================================
-PHASE 4 — PARTNER APIS, FINANCIAL INSTITUTIONS, AND OPEN PLATFORM
+STAGE 4 -- SUPPLIER ENTERPRISE
 ================================================================================
 
-Objective: Position TRU Connect as shared, open trust infrastructure
-connecting the informal economy to the broader financial system.
+Objective: serve suppliers operating at scale.
 
 Scope:
-    - Partner APIs — controlled, permissioned API access allowing external
-      partners to integrate with TRU Connect's business/supplier data
-      (subject to consent and privacy rules, Document 09).
-    - Financial Institutions — direct integrations enabling banks, lenders,
-      and insurers to originate products (credit, insurance, savings)
-      using TRU Connect's trust data, with TRU Connect / TruePoint acting
-      as the verified data and relationship layer rather than the sole
-      lender.
-    - Open Platform Expansion — potential extension of the ecosystem to
-      adjacent services (e.g. logistics partners, insurance providers)
-      built on the same trust infrastructure.
+    - Teams and role hierarchies across branches/regions
+    - Advanced reporting and export
+    - ERP integration
+    - Partner API access
+    - Higher-volume operational tooling
 
-Dependencies on Phases 1–3:
-    - Requires a mature, well-validated trust engine (Document 07) and a
-      demonstrated track record of credit performance from Phase 3.
-    - Requires robust data governance, consent, and privacy
-      infrastructure to support external data sharing responsibly.
-
-Exit Criteria:
-    - Signed institutional partnerships with clearly defined data-sharing
-      and revenue arrangements.
-    - Scalable, secure partner API infrastructure independently audited
-      for security and data protection compliance.
+Dependencies: Supplier Pro suppliers demonstrably outgrowing Pro.
 
 ================================================================================
-CROSS-PHASE ARCHITECTURAL COMMITMENTS
+STAGE 5 -- PLATFORM MATURITY (WITHIN TRUCONNECT)
 ================================================================================
 
-To ensure each phase can be built without reworking earlier phases, the
-following commitments apply from Phase 1 onward:
+Objective: deepen operational value and data quality; prepare
+TRUConnect's outputs for consumption by later platform capabilities.
 
-    1. Database schema (Document 04) explicitly reserves entities/fields
-       for Wallet, Credit, and Risk Signal data, even though they are
-       unused until Phases 2–3.
-    2. API versioning (Document 05) uses a stable, versioned base path to
-       allow additive expansion without breaking existing mobile clients.
-    3. The trust engine (Document 07) is built on transparent, rule-based
-       calculations first, to keep early risk indicators explainable
-       before any machine-learning-based refinement is introduced.
-    4. Business Privacy and Supplier Visibility rules (Document 09) are
-       enforced from Phase 1 onward, anticipating the heightened data-
-       governance requirements of Phases 3–4.
+Scope:
+    - Richer business insights (operational, not financial)
+    - Trust signal maturity and methodology refinement
+    - Event-driven architecture between domains (TP-036)
+    - Real-time updates via WebSockets for order and delivery status
+      (TP-037)
+    - Supplier Discovery  [the small, late-phase feature]
+        For the occasional genuine need for a NEW supplier: a new product
+        line, a supplier that closed, relocation. Lives in Discovery.
+        Deliberately secondary; never the primary way to add a supplier.
+    - Performance and scale hardening
+
+================================================================================
+BEYOND TRUCONNECT -- FUTURE TRUEPOINT PLATFORM STAGES
+================================================================================
+
+The following are SEPARATE PRODUCTS at the TruePoint platform level. They
+are listed here only so TRUConnect's architecture does not preclude them.
+They are NOT TRUConnect features and are NOT built inside TRUConnect.
+
+    Stage 6 -- TRUScore
+        Platform-level trust scoring, consuming TRUConnect trust signals
+        alongside signals from other products.
+
+    Stage 7 -- TRUWallet
+        Financial infrastructure. TRUConnect remains outside the payment
+        path regardless.
+
+    Stage 8 -- TRUPayLater
+        Credit products, built upon trusted infrastructure and TRUScore.
+
+Constitutional constraint (TP-084): no financial capability may precede
+the operational infrastructure and trust it depends on. TRUConnect's job
+is to build that foundation well, and nothing more.
+
+================================================================================
+CROSS-STAGE ARCHITECTURAL COMMITMENTS
+================================================================================
+
+    1. Single identity, RBAC-driven capability. New roles and tiers are
+       added as data, never as new user tables (TP-032).
+    2. Additive migrations only. Nothing implemented is dropped or
+       renamed (TP-014, TP-040).
+    3. Versioned APIs; backward compatibility preserved (TP-035, TP-043).
+    4. Domain isolation maintained, enabling event-driven evolution
+       without rewrite (TP-033, TP-034, TP-036).
+    5. Offline capability treated as a first-class requirement at every
+       stage, not retrofitted (TP-062).
+    6. Trust methodology versioned from the first calculation, so
+       historical scores remain interpretable.

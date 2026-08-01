@@ -1,6 +1,6 @@
 /**
  * Reserved integration point for dedicated search infrastructure.
- * Ref: master prompt "External API Ready > Search" (Algolia,
+ * "External API Ready > Search" (Algolia,
  * Meilisearch, ElasticSearch) -- Supplier Search, Product Search,
  * Catalogue Search.
  *

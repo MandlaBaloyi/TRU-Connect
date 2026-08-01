@@ -1,0 +1,435 @@
+================================================================================
+                            TRUCONNECT
+            DOCUMENTATION CHANGE ANALYSIS (v2 -> v3)
+                  Constitution Alignment Pass
+================================================================================
+
+Companion to the revised docs/00-09. Records, per document: current
+assumptions, problems, modifications, new structure, compatibility
+impact, migration notes, and future extensibility.
+
+Previous versions are preserved in docs/_archive_v1_marketplace/.
+
+--------------------------------------------------------------------------------
+DECISIONS GOVERNING THIS PASS
+--------------------------------------------------------------------------------
+1. Business Questions / Business Conversations: REMOVED ENTIRELY.
+2. Supplier Discovery: RETAINED as a small, late-phase (Stage 5) feature.
+3. Loan Book: tracks CUSTOMERS who owe THE BUSINESS (credit sales).
+
+--------------------------------------------------------------------------------
+GLOBAL COMPATIBILITY STATEMENT
+--------------------------------------------------------------------------------
+NO BACKEND REWRITE IS REQUIRED BY THIS DOCUMENTATION PASS.
+
+    - The auth domain is untouched. All nine implemented endpoints are
+      documented exactly as built.
+    - Removing business_questions and supplier_responses requires NO
+      migration: they were documented in v2 but never created. The only
+      migration ever run created users, refresh_tokens,
+      otp_verifications, password_reset_tokens.
+    - All new tables are additive.
+    - The `marketplace` schema keeps its name.
+    - The implemented mobile navigation (5 tabs per role) is unchanged;
+      only tab CONTENT is re-specified.
+    - The notification infrastructure is unchanged.
+
+================================================================================
+DOCUMENT 00 -- PROJECT VISION
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Thesis: "helps businesses discover trusted suppliers". Problem framed
+   as sourcing difficulty and supplier-comparison difficulty. Success
+   measured partly by credit-product uptake.
+
+2. PROBLEMS
+   The founding clause is wrong under the Constitution. Businesses
+   already know their suppliers (TP-055). Framing the problem as
+   discovery misdirects every downstream document. Credit-uptake metrics
+   violate TP-084.
+
+3. MODIFICATIONS
+   Problem restated as operational friction (WhatsApp/phone/paper) and
+   commercial invisibility. Competition explicitly named. Supplier tiers
+   introduced. Explicit "What TRUConnect Is Not" section. Success metrics
+   rebuilt around operational adoption and trust formation.
+
+4. NEW STRUCTURE
+   Constitutional alignment header; Problem; Vision; Mission; Users
+   (Business Free primary, Supplier Free/Pro/Enterprise); Core
+   Philosophy; Why Informal Businesses; Why Suppliers; Why Trust Before
+   Lending; What TRUConnect Is Not; Success Metrics.
+
+5. COMPATIBILITY IMPACT
+   None. Vision document; no code dependency.
+
+6. MIGRATION NOTES
+   None.
+
+7. FUTURE EXTENSIBILITY
+   User tiers and ecosystem stages are named explicitly, so future
+   products slot in without restating the vision.
+
+================================================================================
+DOCUMENT 01 -- PRODUCT SPECIFICATION
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   A "Supplier Discovery Module" (search, categories, nearby, featured,
+   popular, recently viewed) as a core tab. Business Questions as a core
+   module. No tier concept. Wallet as a business feature.
+
+2. PROBLEMS
+   The Suppliers tab was a marketplace browse surface. Business Questions
+   assumed unknown suppliers. Tiers absent entirely. Wallet violates the
+   money-holder prohibition.
+
+3. MODIFICATIONS
+   "Supplier Discovery" -> "My Suppliers". Business Questions removed.
+   Added: Order Queue, Loan Book, Customers, Offline Support, supplier
+   tiers. "Add My Suppliers" established as the defining first action.
+   Wallet removed. Discovery demoted to Stage 5, inside the Discovery
+   tab.
+
+4. NEW STRUCTURE
+   Philosophy; Overview; User Tiers; Business Journey; Supplier Journey;
+   Navigation (aligned to implemented tabs); Features (each with problem
+   solved); Screens; Roles; Design Principles; Future Expansion.
+
+5. COMPATIBILITY IMPACT
+   Navigation structure unchanged -- existing tab layouts remain valid.
+   Existing frontend feature folders (find-supplier, nearby-suppliers,
+   recommended-products) are re-scoped to Stage 5 rather than deleted;
+   they contain no implementation yet.
+
+6. MIGRATION NOTES
+   No code migration. Frontend folders may be renamed at implementation
+   time; none currently contain code.
+
+7. FUTURE EXTENSIBILITY
+   Tiers map to RBAC permissions, so Pro/Enterprise capability arrives
+   without structural change.
+
+================================================================================
+DOCUMENT 02 -- UI/UX SPECIFICATION
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Standard modern mobile design system. Loading/empty states covered.
+   Offline mentioned only briefly.
+
+2. PROBLEMS
+   Insufficient weight on the actual operating conditions: low-end
+   devices, expensive data, limited digital literacy, intermittent
+   connectivity. No typing-reduction discipline. No offline UX
+   specification.
+
+3. MODIFICATIONS
+   Added: minimum-typing patterns; device reality and performance budget;
+   bandwidth discipline; a full offline/connectivity UX section including
+   pending/synced/failed states; plain-language requirement. Existing
+   design tokens unchanged.
+
+4. NEW STRUCTURE
+   Principles; Mobile UX Guidelines; Navigation; Typography; Colour;
+   Components; Cards; Buttons; Forms; Icons; Layout; Offline &
+   Connectivity UX; Animations; Accessibility.
+
+5. COMPATIBILITY IMPACT
+   None to implemented theme tokens (colors.ts, spacing.ts,
+   typography.ts). Additive guidance only.
+
+6. MIGRATION NOTES
+   None.
+
+7. FUTURE EXTENSIBILITY
+   Offline UX rules apply to every future feature by default.
+
+================================================================================
+DOCUMENT 03 -- FRONTEND COMPONENT SPECIFICATION
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Component library including BusinessQuestionThread and a
+   discovery-oriented SupplierCard.
+
+2. PROBLEMS
+   BusinessQuestionThread has no product to belong to. SupplierCard
+   implied a search result with ratings and distance ranking.
+
+3. MODIFICATIONS
+   Removed BusinessQuestionThread. SupplierCard -> MySupplierCard
+   (relationship, not result). Added: OrderQueueCard, LoanBookEntryCard,
+   LoanBookSummaryCard, CustomerCard, AddSupplierSheet, RepeatOrderButton,
+   SyncStatusBadge, MoneyText, StatusPill, MoneyInput,
+   ContactPickerField, QuantityStepper.
+
+4. NEW STRUCTURE
+   Library structure; Auth; Shared primitives; Forms; Feedback; Status &
+   Display; Business; Supplier; Component rules.
+
+5. COMPATIBILITY IMPACT
+   All implemented components are marked and unchanged. New components
+   are additions. BusinessQuestionThread was never implemented.
+
+6. MIGRATION NOTES
+   None. No implemented component is removed or renamed in code.
+
+7. FUTURE EXTENSIBILITY
+   MoneyText and StatusPill centralise two correctness-critical display
+   concerns, so future screens inherit consistency automatically.
+
+================================================================================
+DOCUMENT 04 -- DATABASE DESIGN
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Logical domains within the public schema. business_questions and
+   supplier_responses tables. Reserved wallet/credit tables.
+
+2. PROBLEMS
+   The database now uses PHYSICAL schemas per domain (auth, business,
+   marketplace, platform, supplier, trust, verification), so the document
+   no longer described reality. Question tables belong to a removed
+   feature. Wallet/credit tables violate the money-holder prohibition.
+
+3. MODIFICATIONS
+   Documented the real physical schema architecture. Removed question
+   tables and wallet/credit reservations. Added: business_suppliers,
+   business_customers, credit_ledger_entries, credit_ledger_payments,
+   supplier_tiers, supplier_staff, payment_events,
+   delivery_confirmations, sync_queue_events. Added nullable supplier_id
+   and client_generated_id to orders.
+
+4. NEW STRUCTURE
+   Schema architecture; auth (implemented); business; supplier;
+   marketplace; trust; verification; platform; design notes; out of
+   scope.
+
+5. COMPATIBILITY IMPACT
+   Zero impact on implemented tables. All changes additive.
+
+6. MIGRATION NOTES
+   - Removing business_questions/supplier_responses: NO MIGRATION. Never
+     created.
+   - New tables: standard additive migrations when each feature is built.
+   - orders.client_generated_id must be indexed and unique per business
+     to enforce sync idempotency.
+   - marketplace schema NOT renamed; renaming would be a disruptive
+     migration for zero user benefit.
+
+7. FUTURE EXTENSIBILITY
+   Nullable supplier_id enables off-platform suppliers permanently.
+   supplier_tiers as history (not a column) makes tier changes auditable.
+   Formal RBAC tables are specified as additive for future roles.
+
+================================================================================
+DOCUMENT 05 -- BACKEND API SPECIFICATION
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Discovery-oriented supplier endpoints, question endpoints, reserved
+   wallet/credit endpoints.
+
+2. PROBLEMS
+   Endpoints encoded the marketplace model. Wallet/credit endpoints
+   violate scope.
+
+3. MODIFICATIONS
+   Removed question and wallet/credit endpoints. Discovery endpoints ->
+   /businesses/me/suppliers. Added: Loan Book, Customers, Order Queue,
+   repeat order, delivery confirmation, payment events, supplier tiers
+   and staff, /sync/batch, /suppliers/directory (Stage 5). Documented all
+   implemented auth endpoints exactly as built.
+
+4. NEW STRUCTURE
+   Conventions; 5.1 Auth (implemented); 5.2 Business (incl. My
+   Suppliers, Loan Book, Customers); 5.3 Supplier (incl. Products,
+   directory); 5.4 Marketplace; 5.5 Trust; 5.6 Verification; 5.7 Platform
+   (incl. sync); RBAC summary; out of scope.
+
+5. COMPATIBILITY IMPACT
+   NO implemented endpoint changes. The mobile client continues to work
+   unmodified.
+
+6. MIGRATION NOTES
+   None for existing endpoints. New endpoints are additive under the
+   existing /api/v1 base path.
+
+7. FUTURE EXTENSIBILITY
+   Idempotency via client_generated_id is specified once and applies to
+   every future write endpoint reachable by offline sync.
+
+================================================================================
+DOCUMENT 06 -- BUSINESS RULES AND WORKFLOWS
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Workflows for searching suppliers, asking questions, and supplier
+   responses.
+
+2. PROBLEMS
+   Those workflows describe a product that no longer exists.
+
+3. MODIFICATIONS
+   Removed question and search-as-primary workflows. Added: Add Existing
+   Supplier (core), Invite Supplier, Place Order (on/off-platform),
+   Repeat Order, Order Lifecycle, Delivery Confirmation, Payment Events,
+   Loan Book lifecycle, Supplier Tier changes, Offline Sync. Documented
+   implemented auth workflows precisely.
+
+4. NEW STRUCTURE
+   Registration; Verification; Auth lifecycle; Add Supplier; Invite;
+   Orders; Repeat; Lifecycle; Delivery; Payments; Loan Book; Tiers;
+   Offline Sync; Trust triggers; Notifications; Data integrity.
+
+5. COMPATIBILITY IMPACT
+   Implemented auth workflows are documented as-is, not changed.
+
+6. MIGRATION NOTES
+   None.
+
+7. FUTURE EXTENSIBILITY
+   Trust recalculation triggers are enumerated centrally, so new events
+   attach without rewriting the trust engine.
+
+================================================================================
+DOCUMENT 07 -- DATA AND TRUST ENGINE
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Business Question engagement as a trust signal. "Future Credit
+   Readiness" as a TRUConnect concept.
+
+2. PROBLEMS
+   Question signals reference a removed feature. Credit-readiness inside
+   TRUConnect violates TP-084. The document did not distinguish
+   bilaterally confirmed data from self-reported data -- the single most
+   important distinction in the trust model.
+
+3. MODIFICATIONS
+   Removed question signals and credit-readiness framing. Added a
+   dedicated section on why bilateral confirmation is what makes the data
+   trustworthy. Added delivery, payment, and credit-ledger signals, with
+   the Loan Book explicitly weighted lower as self-reported and
+   privacy-restricted. Scores reframed as operational indicators and
+   TRUScore inputs.
+
+4. NEW STRUCTURE
+   Constitutional sequence; Overview; Why this data is trustworthy;
+   Business profile; Supplier profile; Relationship intelligence;
+   Behavioural signals; Trust vs risk; Scoring methodology; Relationship
+   to TRUScore; AI (future); Data ownership.
+
+5. COMPATIBILITY IMPACT
+   None. Trust schema tables unchanged.
+
+6. MIGRATION NOTES
+   None. methodology_version already exists on score tables.
+
+7. FUTURE EXTENSIBILITY
+   The self-reported vs confirmed distinction is now explicit, so future
+   signals inherit correct weighting discipline.
+
+================================================================================
+DOCUMENT 08 -- PRODUCT ROADMAP
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Four phases with Payments and Wallet in Phase 2, Credit and Trade
+   Finance in Phase 3, inside TRUConnect.
+
+2. PROBLEMS
+   Directly contradicts the Constitution: TRUConnect is not a money
+   holder or lender. TRUWallet and TRUPayLater are separate products at
+   later platform stages.
+
+3. MODIFICATIONS
+   Restructured to the Constitution's staged model. Stages 1-5 are
+   TRUConnect. Stages 6-8 (TRUScore, TRUWallet, TRUPayLater) are listed
+   as explicitly outside TRUConnect. Added an explicit Stage 1 test:
+   does a business still value TRUConnect if no supplier ever joins?
+
+4. NEW STRUCTURE
+   Stage 1 Business Free (current); Stage 2 Supplier Free; Stage 3
+   Supplier Pro; Stage 4 Supplier Enterprise; Stage 5 Platform Maturity
+   (incl. late-phase Discovery); Beyond TRUConnect; Cross-stage
+   commitments.
+
+5. COMPATIBILITY IMPACT
+   None. Roadmap only.
+
+6. MIGRATION NOTES
+   None.
+
+7. FUTURE EXTENSIBILITY
+   TRUConnect's boundary is now explicit, preventing future scope creep
+   into financial services.
+
+================================================================================
+DOCUMENT 09 -- ECOSYSTEM STRATEGY
+================================================================================
+
+1. CURRENT ASSUMPTIONS
+   Built around Business Conversations as the core differentiator, with
+   extended argument for public Q&A over star ratings.
+
+2. PROBLEMS
+   The entire argument presupposed evaluating unknown suppliers. Under
+   the Constitution the premise is false, so the strategy built on it
+   cannot stand.
+
+3. MODIFICATIONS
+   Business Conversations removed, with the reasoning for removal
+   recorded explicitly (so the decision is not silently reversed later).
+   Rewritten around: why not a marketplace; who we actually compete with;
+   why businesses first; why the Loan Book matters strategically; why
+   tiers; why relationships; why bilateral confirmation is the real moat;
+   why TRUConnect never touches money.
+
+4. NEW STRUCTURE
+   What changed and why; Core position; Why not a marketplace;
+   Competition; Businesses first; Loan Book strategy; Tiers;
+   Relationships; Bilateral confirmation moat; No money custody; Trust
+   accumulation; Becoming infrastructure; TruePoint difference; Governing
+   test.
+
+5. COMPATIBILITY IMPACT
+   None. Strategy document.
+
+6. MIGRATION NOTES
+   None.
+
+7. FUTURE EXTENSIBILITY
+   The seven-question governing test gives future teams a concrete filter
+   for evaluating proposed features against the Constitution.
+
+================================================================================
+OPEN ITEMS FOR THE PRODUCT OWNER
+================================================================================
+
+1. Community tab
+   Not named in the Constitution's feature lists and not clearly tied to
+   an operational problem. It exists in the implemented navigation. It is
+   documented here as low-priority and non-commercial, but it should be
+   explicitly justified against the governing test (Document 09,
+   Section 13) or scheduled for removal.
+
+2. Frontend feature folders
+   find-supplier, nearby-suppliers, and recommended-products exist as
+   empty scaffolding under features/dashboard/business. Under the revised
+   model these are Stage 5 concerns. They currently contain no code;
+   recommend leaving them empty rather than building against them.
+
+3. Supplier invitation channel
+   Invitations require SMS or WhatsApp to be effective, since off-platform
+   suppliers are unlikely to be reached by email. The notification
+   infrastructure currently supports email only. This is a Stage 2
+   dependency and should be planned before supplier invitations ship.
+
+4. Loan Book customer consent
+   Loan Book entries record third parties (the business's customers) who
+   are not platform users. The current design keeps this data strictly
+   private to the owning business, which is the correct default. Confirm
+   this satisfies your POPIA position before Stage 1 ships.

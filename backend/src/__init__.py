@@ -1,11 +1,6 @@
 """
 Application Factory.
 Ref: backend master prompt, "Step 3: App Factory".
-
-create_app() builds and configures a Flask application instance. Routes
-are intentionally not registered with real logic yet -- src/api/__init__.py
-currently exposes an empty blueprint; Authentication routes begin at
-Step 7 (Registration) of the phased plan.
 """
 from __future__ import annotations
 
@@ -13,7 +8,7 @@ from flask import Flask
 
 from src.config import get_config
 from src.extensions import db, migrate, jwt, ma
-from src.utils.logger import configure_logging
+from src.shared.logger import configure_logging
 
 
 def create_app(env_name: str | None = None) -> Flask:
@@ -46,6 +41,9 @@ def _register_blueprints(app: Flask) -> None:
 
     app.register_blueprint(api_bp, url_prefix="/api/v1")
 
+    from src.domains.platform.api.reset_password_routes import reset_password_bp
+    app.register_blueprint(reset_password_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """
@@ -59,7 +57,13 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(AppError)
     def handle_app_error(error: AppError):
-        return error_response(message=error.message, errors=error.errors, status_code=error.status_code)
+        return error_response(
+            message=error.message,
+            errors=error.errors,
+            status_code=error.status_code,
+            code=error.code,
+            data=error.data,
+        )
 
     @app.errorhandler(404)
     def handle_not_found(_error):

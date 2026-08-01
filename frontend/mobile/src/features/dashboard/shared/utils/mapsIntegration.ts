@@ -1,6 +1,6 @@
 /**
  * Reserved integration point for map/location providers.
- * Ref: master prompt "External API Ready > Maps" (Google Maps,
+ *  "External API Ready > Maps" (Google Maps,
  * OpenStreetMap, Geoapify) -- used for Nearby Suppliers, Business
  * Location, Delivery Radius, Address Verification.
  *

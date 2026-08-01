@@ -15,7 +15,7 @@ interface AnalyticsCardProps {
  * shape for Phase 3 algorithm output (Top Products, Revenue Trend,
  * Fastest Moving Stock, Customer Growth, Sales Trend, Delivery
  * Performance) without pretending the analysis already exists.
- * Ref: master prompt "Analytics" (Supplier) and "Dashboard Algorithms" --
+ *  "Analytics" (Supplier) and "Dashboard Algorithms" --
  * "Dashboards must not simply display database values. They must
  * prepare for business algorithms."
  */

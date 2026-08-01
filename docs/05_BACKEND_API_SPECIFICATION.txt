@@ -1,457 +1,338 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                   BACKEND API SPECIFICATION
                           Document 05
 ================================================================================
 
-Backend Framework: Python Flask
-Architecture: REST API
-Authentication: JWT + Google Authentication
-Version: 2.0 (Domain Architecture Revision)
-Related Documents: 04_DATABASE_DESIGN.txt, 06_BUSINESS_RULES_AND_WORKFLOWS.txt
+Backend: Python 3.12, Flask, PostgreSQL, SQLAlchemy
+Architecture: Modular Monolith, Domain-Driven, API-First (TP-034, TP-035)
+Authentication: JWT (access + rotating refresh) + Google (planned)
+Version: 3.0 (Constitution Alignment)
 
-Note: Endpoints are described conceptually (resource, method, purpose,
-required role) rather than in code. Standard REST conventions apply
-throughout: collection endpoints for lists, resource endpoints for single
-items, standard HTTP status codes, and pagination on all list responses.
+--------------------------------------------------------------------------------
+CHANGES IN THIS VERSION
+--------------------------------------------------------------------------------
+REMOVED: all /questions and /products/{id}/questions endpoints
+         (Business Questions removed from the product).
+REMOVED: /wallet/* and /credit/* future endpoints
+         (TRUConnect is not a money holder or lender; these belong to
+         future TruePoint products).
+RENAMED: supplier discovery endpoints -> /businesses/me/suppliers
+         (managing EXISTING relationships).
+ADDED:   Loan Book, Customers, Order Queue, payment events, delivery
+         confirmation, supplier tiers, offline sync.
 
-This revision reorganises the API surface to mirror the seven database
-domains defined in Document 04 (Sections 4.1–4.7), so that each domain's
-endpoints, tables, and ownership boundaries stay aligned as the platform
-grows.
-
-================================================================================
-1. GENERAL API CONVENTIONS
-================================================================================
-
-    - All endpoints are prefixed under a versioned base path (e.g. /api/v1).
-    - All authenticated endpoints require a valid JWT bearer token.
-    - Role-restricted endpoints validate the authenticated user's role(s)
-      via the roles/user_roles/permissions structure (Document 04, Section
-      4.1) before processing, rather than a hard-coded role check.
-    - All list endpoints support pagination (page, page_size) and return
-      total count metadata.
-    - All timestamps are returned in ISO 8601 / UTC.
-    - Errors follow a consistent structure: error code, human-readable
-      message, and optional field-level validation details.
-    - Endpoint groupings below are numbered 5.1–5.7 to align directly with
-      the domain numbering in Document 04 (4.1–4.7).
+Section 5.1 (Authentication) documents endpoints EXACTLY AS IMPLEMENTED.
+No change to any implemented endpoint is proposed anywhere in this
+document (TP-043: Backward Compatibility).
 
 ================================================================================
-5.1 AUTHENTICATION DOMAIN — ENDPOINTS
+1. CONVENTIONS
 ================================================================================
 
-Backing tables: users, roles, permissions, role_permissions, user_roles,
-refresh_tokens, login_history, password_reset_tokens.
+    - Versioned base path: /api/v1
+    - JWT bearer authentication on protected endpoints
+    - Authorization via RBAC role/permission checks, not hard-coded roles
+    - Pagination on all list endpoints
+    - ISO 8601 / UTC timestamps
+    - Consistent response envelope:
 
-    POST   /auth/register              Create a new account (business or
-                                        supplier role assigned via
-                                        user_roles at registration).
-    POST   /auth/login                 Authenticate with email/password;
-                                        records a login_history entry;
-                                        returns JWT + refresh token.
-    POST   /auth/google                Authenticate/register via Google
-                                        OAuth token; returns JWT + refresh
-                                        token.
-    POST   /auth/refresh                Exchange a valid refresh_token for
-                                        a new JWT.
-    POST   /auth/logout                 Revoke the current refresh_token.
-    POST   /auth/forgot-password        Initiate password reset flow;
-                                        creates a password_reset_tokens
-                                        entry.
-    POST   /auth/reset-password         Complete password reset flow using
-                                        a valid reset token.
-    GET    /auth/me/roles               List roles assigned to the
-                                        authenticated user (supports future
-                                        multi-role accounts, e.g. admin).
-    GET    /auth/me/login-history       List recent login_history entries
-                                        for the authenticated user (self-
-                                        service security review).
+        Success: {"success": true,  "message": "...", "data": {}}
+        Failure: {"success": false, "message": "...", "errors": []}
 
-    Future: /auth/phone/request-otp, /auth/phone/verify-otp,
-    /auth/biometric/register, /auth/biometric/verify, /auth/passkey/*.
-
-    Admin-only (future role, Document 01 Section 9.3):
-    GET    /admin/roles                 List roles and permissions.
-    PUT    /admin/users/{id}/roles       Assign/revoke a role for a user.
+    - Idempotency: any endpoint that can be retried by offline sync
+      accepts a client_generated_id and returns the original result on
+      duplicate submission rather than creating a second record.
 
 ================================================================================
-5.2 BUSINESS DOMAIN — ENDPOINTS
+5.1 AUTHENTICATION  [IMPLEMENTED -- VERIFIED AGAINST RUNNING CODE]
 ================================================================================
 
-Backing tables: businesses, business_profiles, business_addresses,
-business_categories, business_documents, business_settings,
-business_bookmarks.
+    POST   /auth/register              Create account. Role ("business" |
+                                        "supplier") in payload. Minimal
+                                        fields only.
+    POST   /auth/login                 Email + password. Case-insensitive
+                                        email. Returns access + refresh.
+    POST   /auth/refresh               Refresh-token rotation: revokes the
+                                        presented token, returns a NEW
+                                        access AND refresh token pair.
+    GET    /auth/me                    Current authenticated user.
+    POST   /auth/logout                Revokes refresh token(s).
+    POST   /auth/phone/request-otp     Issues an OTP to a destination.
+                                        Enumeration-safe.
+    POST   /auth/phone/verify-otp      Verifies an OTP. Expiry, attempt
+                                        limiting, single use enforced.
+    POST   /auth/forgot-password       Enumeration-safe; identical
+                                        response whether or not the email
+                                        exists.
+    POST   /auth/reset-password        Single-use token; revokes all
+                                        refresh tokens on success.
 
-    GET    /businesses/me                 Get authenticated business's own
-                                          profile (businesses +
-                                          business_settings).
-    PUT    /businesses/me                 Update own business profile.
-    GET    /businesses/me/dashboard       Aggregated dashboard payload:
-                                          today's orders, pending orders,
-                                          nearby suppliers, recommended
-                                          products, recent activity
-                                          (composed from Marketplace and
-                                          Trust Domain data).
-    GET    /businesses/me/profile         Get own Digital Business Profile
-                                          (business_profiles — read-only,
-                                          system-generated).
-    GET    /businesses/{id}                Get public-safe view of a
-                                          business (supplier-facing,
-                                          respecting Business Privacy
-                                          rules — Document 09).
-
-    GET    /businesses/me/addresses        List own business_addresses.
-    POST   /businesses/me/addresses        Add a new business address.
-    PUT    /businesses/me/addresses/{id}   Update a business address.
-    DELETE /businesses/me/addresses/{id}   Remove a business address.
-    PUT    /businesses/me/addresses/{id}/primary
-                                          Set an address as primary/
-                                          default.
-
-    GET    /businesses/me/categories       List own business_categories.
-    PUT    /businesses/me/categories       Update own business category
-                                          assignment(s).
-
-    GET    /businesses/me/documents        List own business_documents.
-    POST   /businesses/me/documents        Upload a new business document.
-    DELETE /businesses/me/documents/{id}   Remove a business document.
-
-    GET    /businesses/me/settings         Get own business_settings.
-    PUT    /businesses/me/settings         Update own business_settings.
-
-    POST   /businesses/me/bookmarks        Create a business_bookmarks
-                                          entry (general-purpose
-                                          bookmarking; see Document 04,
-                                          Section 4.4 for its relationship
-                                          to saved_suppliers).
-    DELETE /businesses/me/bookmarks/{id}   Remove a bookmark.
-    GET    /businesses/me/bookmarks        List own bookmarks.
+    Planned, additive: /auth/google, /auth/me/roles,
+    /auth/me/login-history, /admin/users/{id}/roles.
 
 ================================================================================
-5.3 SUPPLIER DOMAIN — ENDPOINTS
+5.2 BUSINESS DOMAIN
 ================================================================================
 
-Backing tables: suppliers, supplier_profiles, supplier_categories,
-supplier_products, supplier_product_images, supplier_delivery_regions,
-supplier_business_hours, supplier_updates.
+    GET    /businesses/me                     Own business profile
+    PUT    /businesses/me                     Update own profile
+    GET    /businesses/me/dashboard           Home tab aggregate: pending
+                                              orders, awaiting delivery,
+                                              outstanding Loan Book total,
+                                              recent activity
+    GET    /businesses/me/profile             Derived business profile
+                                              (Document 07)
 
-    GET    /suppliers/me                  Get authenticated supplier's own
-                                          profile.
-    PUT    /suppliers/me                  Update own supplier profile.
-    GET    /suppliers/me/dashboard        Aggregated dashboard payload:
-                                          today's orders, customer
-                                          enquiries, recent orders, top
-                                          products, business performance
-                                          (composed from Marketplace and
-                                          Trust Domain data).
-    GET    /suppliers/me/performance      Get own supplier_profiles
-                                          performance statistics.
-    GET    /suppliers                     List/search suppliers (business-
-                                          facing discovery), supports
-                                          filters: category, province,
-                                          city, verified_only, keyword.
-    GET    /suppliers/{id}                Get public supplier profile
-                                          (business-facing view: profile,
-                                          verification, products, business
-                                          questions, updates, statistics).
-    GET    /suppliers/featured             Featured suppliers list.
-    GET    /suppliers/nearby               Nearby suppliers based on
-                                          business location
-                                          (business_addresses ->
-                                          supplier_delivery_regions match).
+    GET    /businesses/me/addresses           List addresses
+    POST   /businesses/me/addresses           Add address
+    PUT    /businesses/me/addresses/{id}      Update address
+    DELETE /businesses/me/addresses/{id}      Remove address
 
-    GET    /suppliers/me/categories        List own supplier_categories.
-    PUT    /suppliers/me/categories        Update own supplier category
-                                          assignment(s).
+    GET    /businesses/me/documents           List documents
+    POST   /businesses/me/documents           Upload document
 
-    GET    /suppliers/me/delivery-regions  List own
-                                          supplier_delivery_regions.
-    POST   /suppliers/me/delivery-regions  Add a delivery region.
+    GET    /businesses/me/settings            Get settings
+    PUT    /businesses/me/settings            Update settings
+
+--------------------------------------------------------------------------------
+5.2.1 My Suppliers  [replaces supplier discovery]
+--------------------------------------------------------------------------------
+
+    GET    /businesses/me/suppliers           Suppliers this business
+                                              already trades with. Ordered
+                                              by most recent order.
+    POST   /businesses/me/suppliers           Add an existing supplier.
+                                              Accepts name + phone only;
+                                              supplier_id optional. Links
+                                              automatically if a matching
+                                              platform supplier exists.
+    GET    /businesses/me/suppliers/{id}      Relationship detail: contact,
+                                              order history, outstanding
+                                              orders
+    PUT    /businesses/me/suppliers/{id}      Update local record
+    DELETE /businesses/me/suppliers/{id}      Remove from my suppliers
+    POST   /businesses/me/suppliers/{id}/invite
+                                              Invite an off-platform
+                                              supplier to join
+
+--------------------------------------------------------------------------------
+5.2.2 Loan Book
+--------------------------------------------------------------------------------
+
+    GET    /businesses/me/loan-book           Entries; filterable by
+                                              settled/outstanding
+    GET    /businesses/me/loan-book/summary   Total outstanding, customer
+                                              count, oldest outstanding
+    POST   /businesses/me/loan-book           Record a credit sale
+                                              (customer, amount, date,
+                                              note). Accepts
+                                              client_generated_id.
+    GET    /businesses/me/loan-book/{id}      Entry detail with repayment
+                                              history
+    POST   /businesses/me/loan-book/{id}/payments
+                                              Record a repayment (full or
+                                              partial)
+    DELETE /businesses/me/loan-book/{id}      Remove an entry (correction)
+
+--------------------------------------------------------------------------------
+5.2.3 Customers
+--------------------------------------------------------------------------------
+
+    GET    /businesses/me/customers           List customers
+    POST   /businesses/me/customers           Add a customer
+    GET    /businesses/me/customers/{id}      Detail incl. outstanding
+                                              balance
+    PUT    /businesses/me/customers/{id}      Update customer
+
+================================================================================
+5.3 SUPPLIER DOMAIN
+================================================================================
+
+    GET    /suppliers/me                      Own supplier profile
+    PUT    /suppliers/me                      Update own profile
+    GET    /suppliers/me/dashboard            Home tab aggregate: incoming
+                                              orders, to dispatch,
+                                              deliveries pending
+    GET    /suppliers/me/performance          Derived supplier profile
+    GET    /suppliers/me/tier                 Current tier and capabilities
+    GET    /suppliers/me/customers            Businesses ordering from this
+                                              supplier
+
+    GET    /suppliers/me/delivery-regions     List regions
+    POST   /suppliers/me/delivery-regions     Add region
     DELETE /suppliers/me/delivery-regions/{id}
-                                          Remove a delivery region.
+    GET    /suppliers/me/business-hours       Get hours
+    PUT    /suppliers/me/business-hours       Update hours
 
-    GET    /suppliers/me/business-hours    List own
-                                          supplier_business_hours.
-    PUT    /suppliers/me/business-hours    Update business hours (full
-                                          week payload).
+    Supplier Pro only:
+    GET    /suppliers/me/staff                List staff
+    POST   /suppliers/me/staff                Invite staff member
+    DELETE /suppliers/me/staff/{id}           Remove staff
+    GET    /suppliers/me/reports              Reporting data
 
-    GET    /products                      Search/list supplier_products,
-                                          supports filters: category,
-                                          supplier_id, keyword, price
-                                          range.
-    GET    /products/popular              Popular products listing.
-    GET    /products/recommended          Recommended products for the
-                                          authenticated business.
-    GET    /products/{id}                 Get product detail, including
-                                          attached business_questions
-                                          thread and supplier_product_
-                                          images.
-    POST   /products                      Create a supplier_products entry
-                                          (supplier only).
-    PUT    /products/{id}                 Update a product (supplier only,
-                                          own product).
-    DELETE /products/{id}                 Soft-delete/unpublish a product
-                                          (supplier only, own product).
-    PUT    /products/{id}/availability    Toggle stock_status (supplier
-                                          only).
-    POST   /products/{id}/images           Add a supplier_product_images
-                                          entry.
-    DELETE /products/{id}/images/{image_id}
-                                          Remove a product image.
+    Supplier Enterprise only:
+    GET    /suppliers/me/teams                Team structure
+    POST   /suppliers/me/api-keys             Issue API key
 
-    POST   /supplier-updates               Publish a new supplier_updates
-                                          entry (supplier only).
-    GET    /supplier-updates/mine           List own published updates
-                                          (supplier only).
-    GET    /suppliers/{id}/updates          List a supplier's published
-                                          updates (business-facing, public
-                                          view).
+--------------------------------------------------------------------------------
+5.3.1 Products (Supplier Pro)
+--------------------------------------------------------------------------------
 
-================================================================================
-5.4 MARKETPLACE DOMAIN — ENDPOINTS
-================================================================================
+    GET    /products                          Search/list products
+    GET    /products/{id}                     Product detail
+    POST   /products                          Create product
+    PUT    /products/{id}                     Update product
+    DELETE /products/{id}                     Unpublish product
+    PUT    /products/{id}/availability        Toggle stock status
+    POST   /products/{id}/images              Add image
+    DELETE /products/{id}/images/{image_id}   Remove image
 
-Backing tables: orders, order_items, business_questions,
-supplier_responses, product_views, saved_products, saved_suppliers.
+--------------------------------------------------------------------------------
+5.3.2 Supplier Discovery  [LATE PHASE -- deliberately secondary]
+--------------------------------------------------------------------------------
 
-    POST   /orders                        Place a new order (business
-                                          only). Payload includes supplier
-                                          id, order items (product id +
-                                          quantity), delivery_address_id.
-    GET    /orders                        List orders for the authenticated
-                                          user (business: own placed
-                                          orders; supplier: own received
-                                          orders), filterable by status.
-    GET    /orders/{id}                   Get order detail, including
-                                          order_items and delivery tracking
-                                          status.
-    PUT    /orders/{id}/accept             Accept an order (supplier only).
-    PUT    /orders/{id}/reject             Reject an order (supplier only,
-                                          requires reason).
-    PUT    /orders/{id}/cancel             Cancel an order (business only,
-                                          subject to workflow rules —
-                                          Document 06).
-    PUT    /orders/{id}/complete           Mark an order as completed
-                                          (supplier only, or system-
-                                          triggered on delivery
-                                          confirmation).
-    GET    /orders/{id}/invoice            Retrieve invoice for a completed
-                                          order.
-    GET    /orders/{id}/tracking           Retrieve delivery tracking
-                                          status.
+    GET    /suppliers/directory               Find a genuinely new
+                                              supplier. Filters: category,
+                                              province, city, verified.
 
-    POST   /products/{id}/questions        Submit a business_questions
-                                          entry on a product (business
-                                          only).
-    GET    /products/{id}/questions        List business_questions and
-                                          their supplier_responses for a
-                                          product (public — supports
-                                          supplier discovery use case in
-                                          Document 09).
-    POST   /questions/{id}/responses       Submit a supplier_responses
-                                          entry (supplier only, must own
-                                          the related product).
-    GET    /businesses/me/questions        List questions asked by the
-                                          authenticated business.
-    GET    /suppliers/me/questions         List unanswered/answered
-                                          questions across the supplier's
-                                          own products.
-
-    POST   /products/{id}/views             Record a product_views event
-                                          (business only; typically fired
-                                          automatically on product detail
-                                          view, not a user-initiated
-                                          action).
-    GET    /businesses/me/recently-viewed  List recently viewed products
-                                          (derived from product_views).
-
-    POST   /saved-products                 Save a product
-                                          (saved_products entry, business
-                                          only).
-    DELETE /saved-products/{product_id}    Remove a saved product.
-    GET    /saved-products                 List the authenticated
-                                          business's saved products.
-
-    POST   /saved-suppliers                Follow/save a supplier
-                                          (saved_suppliers entry, business
-                                          only). This is the primary
-                                          "save supplier" action used by
-                                          the product UI (Document 04,
-                                          Section 4.4).
-    DELETE /saved-suppliers/{supplier_id}  Unfollow/remove a saved
-                                          supplier.
-    GET    /saved-suppliers                List the authenticated
-                                          business's saved/followed
-                                          suppliers.
+    This endpoint exists because the need occasionally exists. It is NOT
+    the product's core loop and must never be surfaced as the primary way
+    to add a supplier -- POST /businesses/me/suppliers is.
 
 ================================================================================
-5.5 TRUST DOMAIN — ENDPOINTS
+5.4 MARKETPLACE DOMAIN (Orders, Deliveries, Payments)
 ================================================================================
 
-Backing tables: business_supplier_relationships, relationship_events,
-trust_signals, business_health_scores, supplier_reputation_scores,
-trust_score_history.
+    POST   /orders                            Place an order. Accepts
+                                              client_generated_id for
+                                              offline idempotency. Supplier
+                                              may be off-platform.
+    GET    /orders                            List own orders, filterable
+                                              by status
+    GET    /orders/queue                      Order Queue: only orders
+                                              still requiring action, with
+                                              next_action per order
+    GET    /orders/{id}                       Order detail
+    POST   /orders/{id}/repeat                Create a new order from a
+                                              previous one
+    PUT    /orders/{id}/accept                Accept (supplier)
+    PUT    /orders/{id}/reject                Decline with reason
+                                              (supplier)
+    PUT    /orders/{id}/dispatch              Mark dispatched (supplier)
+    PUT    /orders/{id}/cancel                Cancel (business)
+    GET    /orders/{id}/invoice               Invoice for a completed order
 
-Endpoints in this domain are predominantly read-only from the client's
-perspective; writes are performed by internal recalculation jobs triggered
-by Marketplace Domain events (Document 06, Sections 15–17), not by direct
-client requests.
+    POST   /orders/{id}/delivery-confirmation Confirm delivery (either
+                                              party). Timestamped, records
+                                              confirming party.
 
-    GET    /businesses/me/relationships     List the authenticated
-                                           business's business_supplier_
-                                           relationships (i.e. suppliers
-                                           they have an established
-                                           relationship with).
+    POST   /orders/{id}/payment-reference     Supplier issues a payment
+                                              reference
+    POST   /orders/{id}/payment-events        Record a payment event
+                                              (marked sent / confirmed).
+                                              TRUConnect records that a
+                                              payment occurred; it never
+                                              holds or moves funds.
+
+================================================================================
+5.5 TRUST DOMAIN
+================================================================================
+
+Read-only to clients; writes occur through background recalculation
+triggered by marketplace events.
+
+    GET    /businesses/me/relationships              Supplier relationships
     GET    /businesses/me/relationships/{supplier_id}
-                                           Get relationship detail with a
-                                           specific supplier, including
-                                           relationship_health_score and
-                                           recent relationship_events.
-    GET    /suppliers/me/relationships      List the authenticated
-                                           supplier's relationships with
-                                           businesses (subject to Business
-                                           Privacy rules — Document 09 —
-                                           when rendering customer
-                                           identity).
+    GET    /businesses/me/health-score               Current score
+    GET    /businesses/me/health-score/history       Trend
+    GET    /suppliers/me/relationships               Business relationships
+    GET    /suppliers/me/reputation-score            Current score
+    GET    /suppliers/me/reputation-score/history    Trend
 
-    GET    /businesses/me/health-score       Get current
-                                           business_health_scores entry
-                                           for the authenticated business.
-    GET    /businesses/me/health-score/history
-                                           Get trust_score_history for the
-                                           authenticated business (trend
-                                           display, e.g. "Business Growth
-                                           +37%").
-    GET    /suppliers/me/reputation-score    Get current
-                                           supplier_reputation_scores entry
-                                           for the authenticated supplier.
-    GET    /suppliers/me/reputation-score/history
-                                           Get trust_score_history for the
-                                           authenticated supplier.
-
-    Internal/system-only (not exposed to mobile clients):
-    POST   /internal/trust/recalculate      Trigger recalculation of
-                                           trust_signals,
-                                           business_health_scores, and/or
-                                           supplier_reputation_scores for a
-                                           given owner, invoked by
-                                           background workers on the
-                                           trigger events defined in
-                                           Document 06.
+    Internal: POST /internal/trust/recalculate
 
 ================================================================================
-5.6 VERIFICATION DOMAIN — ENDPOINTS
+5.6 VERIFICATION DOMAIN
 ================================================================================
 
-Backing tables: verification_requests, verification_documents,
-verification_history.
-
-    POST   /verification/requests           Submit a new
-                                           verification_requests entry
-                                           (business or supplier), with
-                                           accompanying
-                                           verification_documents.
-    GET    /verification/requests/mine       List the authenticated
-                                           account's own verification
-                                           requests and current status.
-    GET    /verification/requests/{id}       Get a specific verification
-                                           request, including its
-                                           verification_documents and
-                                           verification_history (owner-
-                                           restricted, or admin).
+    POST   /verification/requests             Submit verification
+    GET    /verification/requests/mine        Own requests and status
+    GET    /verification/requests/{id}        Request detail
     POST   /verification/requests/{id}/documents
-                                           Add an additional supporting
-                                           document to an existing
-                                           request.
+                                              Add supporting document
 
-    Admin-only (future role, Document 01 Section 9.3):
-    PUT    /admin/verification/requests/{id}/review
-                                           Approve or reject a
-                                           verification_requests entry;
-                                           writes a verification_history
-                                           entry and updates the
-                                           denormalised is_verified flag
-                                           on the owning business/supplier.
-    GET    /admin/verification/requests      List/queue verification
-                                           requests pending review.
+    Admin: PUT /admin/verification/requests/{id}/review
+           GET /admin/verification/requests
 
 ================================================================================
-5.7 PLATFORM DOMAIN — ENDPOINTS
+5.7 PLATFORM DOMAIN
 ================================================================================
 
-Backing tables: notifications, notification_preferences, audit_logs,
-system_settings, lookup_categories, provinces, cities.
+    GET    /notifications                     List notifications
+    PUT    /notifications/{id}/read           Mark read
+    PUT    /notifications/read-all            Mark all read
+    GET    /notifications/unread-count        Badge count
 
-    GET    /notifications                  List notifications for the
-                                          authenticated user, paginated,
-                                          filterable by read/unread.
-    PUT    /notifications/{id}/read        Mark a notification as read.
-    PUT    /notifications/read-all         Mark all notifications as read.
-    GET    /notifications/unread-count     Get unread notification count
-                                          (for badge display).
+    GET    /notification-preferences          Get preferences
+    PUT    /notification-preferences          Update preferences
 
-    GET    /notification-preferences        Get the authenticated user's
-                                          notification_preferences.
-    PUT    /notification-preferences        Update notification
-                                          preferences (per type/channel).
+    GET    /categories                        Lookup categories
+    GET    /provinces                         Provinces
+    GET    /provinces/{id}/cities             Cities
 
-    GET    /categories                     List lookup_categories,
-                                          filterable by applies_to
-                                          (business, supplier, product).
-    GET    /provinces                      List provinces.
-    GET    /provinces/{id}/cities           List cities within a province.
+    GET    /health/email                      Email infrastructure health
+                                              [IMPLEMENTED]
 
-    Admin-only (future role, Document 01 Section 9.3):
-    GET    /admin/audit-logs                List audit_logs, filterable by
-                                          user, entity_type, and date
-                                          range.
-    GET    /admin/system-settings            List system_settings.
-    PUT    /admin/system-settings/{key}      Update a system_settings
-                                          value.
+    Admin: GET /admin/audit-logs
+           GET /admin/system-settings
+           PUT /admin/system-settings/{key}
 
-================================================================================
-6. FUTURE ENDPOINTS (PLACEHOLDER — NOT IMPLEMENTED IN PHASE 1)
-================================================================================
+--------------------------------------------------------------------------------
+5.7.1 Offline Sync
+--------------------------------------------------------------------------------
 
-Anticipated to form a new "Financial Domain" API grouping (5.8) alongside
-Phase 2/3 of the roadmap (Document 08), backed by the future-scoped tables
-in Document 04, Section 6.
+    POST   /sync/batch                        Submit a batch of queued
+                                              offline actions. Every item
+                                              carries a
+                                              client_generated_id. Returns
+                                              per-item result: applied,
+                                              duplicate, or rejected with
+                                              reason.
+    GET    /sync/status                       Server view of recently
+                                              submitted client actions
 
-6.1 Wallet (Phase 2)
-    GET /wallet/me, POST /wallet/topup, GET /wallet/transactions
-
-6.2 Credit (Phase 3)
-    POST /credit/apply, GET /credit/status, GET /credit/offers
-
-6.3 AI / Recommendations (Phase 2+)
-    GET /ai/recommendations/products, GET /ai/recommendations/suppliers,
-    GET /ai/business-health-insights
-
-These are documented here only to ensure the current API versioning and
-routing structure (/api/v1/...) can accommodate them without breaking
-existing consumers, per the Scalable Architecture principle (Document 01).
+    Duplicate submission MUST return the original result, never create a
+    second record. This is a correctness requirement: sync retries are
+    normal, and a duplicated order becomes a duplicated real-world
+    delivery.
 
 ================================================================================
-7. ROLE-BASED ACCESS SUMMARY
+6. ROLE-BASED ACCESS SUMMARY
 ================================================================================
 
-    Business-only endpoints: place/cancel orders, submit business
-    questions, save products/suppliers, manage own business profile,
-    addresses, documents, and settings.
+    Business only:      place/cancel orders, manage my suppliers, Loan
+                        Book, customers, own profile and documents.
+    Supplier only:      accept/decline/dispatch orders, issue payment
+                        references, manage delivery regions and hours.
+    Supplier Pro only:  product catalogue, staff, reporting.
+    Supplier Ent. only: teams, API keys, advanced reporting.
+    Either party:       delivery confirmation, payment events on a shared
+                        order.
+    Admin only:         verification review, role management, audit logs,
+                        system settings.
 
-    Supplier-only endpoints: manage products (and product images),
-    delivery regions, business hours, accept/reject/complete orders,
-    respond to business questions, publish supplier updates.
+All write operations validate resource ownership in addition to
+authentication.
 
-    Shared/public endpoints: view supplier profiles and products, view
-    business questions threads, view categories/provinces/cities.
+================================================================================
+7. EXPLICITLY OUT OF SCOPE
+================================================================================
 
-    Admin-only endpoints (future role): review verification requests,
-    manage roles/permissions, view audit logs, manage system settings.
+TRUConnect exposes NO endpoints for:
+    - Holding, transferring, or escrowing funds
+    - Wallet balances
+    - Credit applications, loan origination, or repayment collection
 
-    All write operations validate resource ownership (a supplier cannot
-    modify another supplier's product; a business cannot cancel another
-    business's order) at the application layer, using the roles/
-    permissions structure (Document 04, Section 4.1) in addition to
-    authentication.
+These belong to future TruePoint products and will consume TRUConnect's
+trust outputs through platform APIs.

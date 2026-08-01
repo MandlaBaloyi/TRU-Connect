@@ -12,7 +12,7 @@ interface LoadingOverlayProps {
  * Full-screen semi-transparent overlay with a spinner, used for blocking
  * async actions (e.g. submitting the Business Profile wizard) without
  * navigating away from the current screen.
- * Ref: master prompt "REUSABLE COMPONENTS" (LoadingOverlay) and
+ *  "REUSABLE COMPONENTS" (LoadingOverlay) and
  * docs/02_SYSTEM_UI_UX_SPECIFICATION.txt, Section 2.3 (Loading States).
  */
 export function LoadingOverlay({ visible, label = "Loading..." }: LoadingOverlayProps) {

@@ -2,16 +2,19 @@ import React, { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { getSelectedRole } from "@/navigation/routeGuards";
+import { getEffectiveRole, isAuthenticated } from "@/navigation/routeGuards";
 
 /**
- * Role-aware dashboard entry point. Redirects to the Business or
- * Supplier dashboard based on the role stored at registration/role
- * selection (src/navigation/routeGuards.ts), so "/(dashboard)" is a
- * single, stable redirect target for sign-in/sign-up flows regardless of
- * role -- neither useAuth.ts nor verify-otp needs to know which concrete
- * dashboard route to target.
- * Ref: master prompt "There are TWO completely different dashboards".
+ * Role-aware dashboard entry point.
+ *
+ * Reads the authenticated user's role and forwards to the correct
+ * dashboard, so sign-in / registration can always redirect to the single
+ * stable target "/(dashboard)" without knowing the role.
+ *
+ * IMPORTANT: this file previously contained a duplicate of the SPLASH
+ * screen, which redirected back to /(onboarding)/welcome. Since sign-in
+ * redirects here, that produced an infinite loop and the dashboard was
+ * unreachable. Do not paste splash-screen content into this file.
  */
 export default function DashboardIndex() {
   const router = useRouter();
@@ -19,11 +22,16 @@ export default function DashboardIndex() {
 
   useEffect(() => {
     (async () => {
-      const role = await getSelectedRole();
+      if (!(await isAuthenticated())) {
+        router.replace("/(auth)/sign-in");
+        return;
+      }
+
+      const role = await getEffectiveRole();
       if (role === "supplier") {
-        router.replace("/(dashboard)/supplier/(tabs)/home");
+        router.replace("/(dashboard)/supplier/home");
       } else {
-        router.replace("/(dashboard)/business/(tabs)/home");
+        router.replace("/(dashboard)/business/home");
       }
     })();
   }, [router]);

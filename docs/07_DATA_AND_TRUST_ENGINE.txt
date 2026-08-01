@@ -1,260 +1,270 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                     DATA AND TRUST ENGINE
-                          Document 07 ⭐
-                    (Competitive Advantage)
+                          Document 07
 ================================================================================
 
-Version: 1.0
-Related Documents: 04_DATABASE_DESIGN.txt, 06_BUSINESS_RULES_AND_WORKFLOWS.txt,
-                    09_ECOSYSTEM_STRATEGY.txt
+Version: 3.0 (Constitution Alignment)
+Related: 04_DATABASE_DESIGN.txt, 06_BUSINESS_RULES_AND_WORKFLOWS.txt,
+         09_ECOSYSTEM_STRATEGY.txt
 
-Purpose: Document how ordinary business activity on TRU Connect is quietly
-transformed into structured, trusted business intelligence — the platform's
-core long-term asset.
+--------------------------------------------------------------------------------
+CHANGES IN THIS VERSION
+--------------------------------------------------------------------------------
+REMOVED: all Business Question / Supplier Response signals.
+REFRAMED: Business Health Score and Supplier Reputation are TRUConnect
+          OPERATIONAL indicators and INPUTS to a future platform-level
+          TRUScore. They are not credit scores and are never presented as
+          such.
+ADDED:    delivery confirmation, payment event, credit ledger discipline,
+          and offline sync integrity signals.
+
+--------------------------------------------------------------------------------
+CONSTITUTIONAL SEQUENCE (TP-023, TP-027, TP-083)
+--------------------------------------------------------------------------------
+
+    Operations -> Behaviour -> Trust -> Data -> Intelligence -> Finance
+
+This order SHALL NEVER be reversed. TRUConnect operates entirely within
+the first four stages. It produces trusted data. It does not produce
+intelligence products or financial products.
 
 ================================================================================
 1. OVERVIEW
 ================================================================================
 
-Every interaction on TRU Connect — a search, a question, an order, a
-delivery, a repeat purchase — is treated as a signal. These signals are
-continuously aggregated into two outward-facing profiles:
+Every ordinary action on TRUConnect is a signal: recording a supplier,
+placing an order, confirming a delivery, acknowledging a payment,
+settling a credit sale.
 
+These accumulate into two derived profiles:
     - The Digital Business Profile (for businesses)
-    - The Supplier Profile / Business Performance profile (for suppliers)
+    - The Supplier Performance Profile (for suppliers)
 
-Neither profile is manually completed by the user. Both are entirely
-derived from observed platform activity, recalculated asynchronously as
-described in Document 06, Sections 15–17.
-
-================================================================================
-2. DIGITAL BUSINESS PROFILE
-================================================================================
-
-Displayed fields and their derivation:
-
-    Business Since           — registered_since date from Businesses table.
-    Orders                    — count of completed orders (rejected/
-                                cancelled orders excluded).
-    Suppliers                — count of distinct suppliers with at least
-                                one completed order (i.e. established
-                                Relationships, Document 04 Section 16).
-    Average Order            — mean total_amount across completed orders.
-    Largest Order             — maximum total_amount across completed
-                                orders.
-    Repeat Supplier Rate      — percentage of suppliers with more than one
-                                completed order, out of total suppliers
-                                engaged.
-    Average Payment Time      — mean number of days between order
-                                acceptance and payment confirmation (Phase
-                                1: proxied by order completion time in the
-                                absence of a payments module; refined once
-                                Phase 2 payments/wallet data is available).
-    Business Growth           — percentage change in order volume and/or
-                                value over a rolling period (e.g. quarter-
-                                over-quarter).
-    Risk Level                — a categorical (low/medium/high) output
-                                derived from the signals in Section 4,
-                                described further in Section 6.
+Neither is manually completed by the user (TP-022). Both are recalculated
+asynchronously from observed activity.
 
 ================================================================================
-3. SUPPLIER RELATIONSHIPS & RELATIONSHIP HEALTH
+2. WHAT MAKES THIS DATA TRUSTWORTHY
 ================================================================================
 
-Each distinct business-supplier pair accrues its own relationship record
-(Document 04, Section 16), tracking:
+The value of this data comes from a property most self-reported business
+data lacks: it is CONFIRMED BY A COUNTERPARTY.
 
-    - first_interaction_at / last_interaction_at
-    - total_orders / total_order_value
-    - relationship_health_score
+    - An order exists because a business placed it AND a supplier
+      accepted it.
+    - A delivery exists because a known party confirmed it at a known
+      time.
+    - A payment exists because one party marked it sent and the other
+      confirmed receipt.
 
-Relationship Health Score is a composite signal reflecting:
-    - Frequency of orders between the pair.
-    - Recency of the last interaction (a relationship that has gone quiet
-      contributes less to ongoing trust signals than an active one).
-    - Order completion rate within the pair (completed vs. cancelled/
-      rejected).
-    - Responsiveness of Business Questions exchanged between the pair, if
-      any.
+A business cannot unilaterally manufacture a trading history. That
+bilateral confirmation is the foundation of everything in this document.
 
-Relationships are the fundamental unit of trust in TRU Connect, distinct
-from and more informative than isolated transactions (see Document 09,
-"Why Relationships Matter").
+Signals that are NOT bilaterally confirmed (Loan Book entries, orders
+against off-platform suppliers) are still captured, but are explicitly
+weighted lower and flagged as self-reported. Conflating the two would
+undermine the entire trust model.
 
 ================================================================================
-4. REPEAT ORDERS
+3. DIGITAL BUSINESS PROFILE
 ================================================================================
 
-Repeat orders — multiple completed orders between the same business and
-supplier — are weighted more heavily than first-time orders in trust
-calculations, because they represent a demonstrated, ongoing willingness to
-transact again, which is a stronger signal of satisfaction and reliability
-than a single transaction.
+    Business Since            registered_since
+    Active Suppliers          distinct suppliers with >= 1 completed
+                              order
+    Orders Completed          count of completed orders
+    Average Order Value       mean total_amount across completed orders
+    Largest Order             maximum completed order value
+    Repeat Supplier Rate      % of suppliers with more than one completed
+                              order
+    Order Frequency           orders per month, recency-weighted
+    Delivery Confirmation     % of orders with a confirmed delivery
+      Rate
+    Payment Confirmation      % of delivered orders with a confirmed
+      Rate                    payment
+    Trading Consistency       regularity of activity over time
+    Business Growth           change in order volume/value over a rolling
+                              period
 
-Repeat Supplier Rate (Business Profile) and Repeat Customer Rate (Supplier
-Profile) are both first-class, prominently displayed metrics for this
-reason.
-
-================================================================================
-5. PRODUCT VIEWS
-================================================================================
-
-Product view events (Document 06, Section 6) contribute to:
-    - "Recently Viewed" personalisation for the viewing business.
-    - Product and supplier popularity ranking (aggregate, anonymised).
-    - Early-stage interest signals that may precede an order (used for
-      future recommendation-engine training data, Phase 2+).
-
-Product views alone do not materially affect a business's Digital Business
-Profile risk/trust fields; they are primarily a discovery and
-recommendation signal, not a creditworthiness signal.
+Displayed to the business as operational insight, not as a score to be
+optimised.
 
 ================================================================================
-6. BUSINESS QUESTIONS & SUPPLIER RESPONSES AS TRUST SIGNALS
+4. SUPPLIER PERFORMANCE PROFILE
 ================================================================================
 
-Business Questions and Supplier Responses (see Document 09 for the product
-rationale) generate two distinct signal streams:
+    Active Since              active_since
+    Businesses Served         distinct businesses with completed orders
+    Orders Completed          count
+    Order Acceptance Rate     accepted / received
+    Average Response Time     time from order placed to accepted/declined
+    Fulfilment Time           accepted to dispatched
+    Delivery Performance      dispatched to confirmed delivered
+    Repeat Customer Rate      % of businesses ordering more than once
 
-6.1 For the Business (asker)
-    - Engagement signal: businesses that actively ask questions before
-      ordering demonstrate deliberate, considered purchasing behaviour, a
-      mild positive input to overall engagement scoring.
-
-6.2 For the Supplier (responder)
-    - average_response_time_minutes — time between question submission
-      and response submission.
-    - response_rate_percentage — proportion of received questions that
-      receive an official response at all.
-    - These two metrics feed directly into the Supplier Profile and are
-      surfaced publicly, since responsiveness is one of the strongest
-      available proxies for supplier reliability in the absence of
-      traditional reviews (Document 09).
+Response time and acceptance rate matter most: they are what a business
+actually experiences as reliability.
 
 ================================================================================
-7. ORDER BEHAVIOUR
+5. RELATIONSHIP INTELLIGENCE
 ================================================================================
 
-Order-level behavioural signals tracked per business:
-    - Order frequency and volume trend over time.
-    - Distribution of orders across distinct suppliers (concentration vs.
-      diversification of sourcing).
-    - Cancellation rate (business-initiated cancellations, distinct from
-      supplier rejections).
-    - Value consistency (variance in order size over time).
+The business-supplier relationship, not the individual transaction, is
+the fundamental unit of trust (TP-056).
 
-Order-level behavioural signals tracked per supplier:
-    - Acceptance rate of incoming orders.
-    - Fulfilment completion rate.
-    - Time from acceptance to completion.
+Per relationship:
+    - first_interaction_at, last_interaction_at
+    - total_orders, total_order_value
+    - order frequency and recency
+    - completion rate within the pair
+    - delivery and payment confirmation rates within the pair
+    - relationship_health_score (composite)
 
-================================================================================
-8. RISK SIGNALS & TRUST SIGNALS
-================================================================================
-
-The platform distinguishes conceptually between:
-
-    Trust Signals — evidence of positive, reliable commercial behaviour
-    (repeat orders, verification, responsiveness, consistent payment
-    behaviour, longevity on the platform).
-
-    Risk Signals — evidence that may indicate unreliability or elevated
-    risk (frequent cancellations, disputed orders, lapsed verification,
-    inconsistent or declining activity, unusually rapid changes in order
-    volume that do not correspond to a verified business event).
-
-Both signal types feed into the Risk Level field on the Digital Business
-Profile and, in future phases, into more formal risk-scoring models used
-for credit and trade finance decisioning (Phase 3, see Document 08).
+Rationale: relationships are far harder to fabricate than transactions
+and far more predictive of continued reliable behaviour. A business with
+three deep, multi-year supplier relationships may present a stronger
+trust profile than one with thirty one-off purchases.
 
 ================================================================================
-9. AI FEATURE GENERATION (FORWARD-LOOKING)
+6. BEHAVIOURAL SIGNALS
 ================================================================================
 
-As platform activity volume grows, raw signals described above become
-inputs (features) for machine learning models supporting:
-    - Supplier and product recommendations personalised to a business's
-      order history and category.
-    - Early identification of at-risk relationships (e.g. a previously
-      active relationship going quiet) for potential re-engagement
-      prompts.
-    - Business Health Score refinement beyond the initial rule-based
-      calculation described in this document.
-    - Future credit risk models (Phase 3), trained on the accumulated
-      Trust and Risk Signal history described above.
+6.1 Order Behaviour
+    Frequency, volume trend, value consistency, supplier concentration
+    vs diversification, business-initiated cancellation rate.
 
-Phase 1 implementation should favour transparent, rule-based calculations
-(as described in Sections 2–8) over opaque ML models, both for simplicity
-of initial build and for explainability of any early risk indicators shown
-to users or, later, to financial partners.
+6.2 Delivery Behaviour
+    Confirmation rate, time-to-confirm, disputed or unconfirmed
+    deliveries.
 
-================================================================================
-10. BUSINESS HEALTH SCORE
-================================================================================
+6.3 Payment Behaviour
+    Time from delivery to payment confirmation, payment confirmation
+    consistency, unpaid-after-delivery frequency.
 
-The Business Health Score (referenced in the Digital Business Profile as
-"Business Growth" and "Risk Level," and expandable in future UI iterations
-into a single composite score) is calculated from a weighted combination
-of:
+    This is the single most financially predictive signal TRUConnect
+    produces, precisely because it is bilaterally confirmed.
 
-    - Order volume and value trend (recency-weighted)
-    - Repeat Supplier Rate
-    - Verification status
-    - Average Payment Time
-    - Relationship Health Scores across all supplier relationships
-    - Absence of negative Risk Signals (Section 8)
+6.4 Credit Ledger Discipline  [self-reported -- weighted lower]
+    Aggregate patterns only: settlement rate, average time to settle,
+    proportion of book outstanding beyond 30/60/90 days.
 
-The precise weighting formula should be treated as a configurable,
-versioned parameter set (not hard-coded), since it is expected to be
-refined as more platform data becomes available and as Phase 3 credit
-products introduce more rigorous validation requirements.
+    IMPORTANT: the Loan Book records the business's CUSTOMERS' debts to
+    it. It is self-reported, unverified by any counterparty, and
+    describes third parties who are not platform users.
 
-================================================================================
-11. SUPPLIER REPUTATION
-================================================================================
+    Rules:
+        - Only AGGREGATE, DERIVED patterns may inform business signals.
+        - Individual customer records must NEVER leave the business's own
+          account, must never be shared with suppliers, and must never be
+          exposed to any third party from within TRUConnect.
+        - Because it is self-reported, credit ledger discipline is
+          weighted substantially lower than bilaterally confirmed
+          signals, and must be labelled as self-reported wherever it
+          contributes to any derived output.
 
-Mirroring the Business Health Score, supplier reputation is derived from:
-    - Businesses Served (count of distinct businesses with completed
-      orders)
-    - Orders Completed
-    - Repeat Customer Rate
-    - Average Response Time / Response Rate
-    - Verification Status
-    - Active Since (longevity)
-
-This composite reputation is what replaces traditional star ratings across
-the platform (see Document 09 for full rationale), and is displayed via the
-BusinessPerformanceCard component (Document 03).
+6.5 Platform Engagement
+    Consistency of use, verification completion, profile completeness,
+    offline sync integrity (high rejection or conflict rates may indicate
+    data-quality problems rather than business problems).
 
 ================================================================================
-12. COMMERCIAL RELATIONSHIPS AS THE UNIT OF TRUST
+7. TRUST SIGNALS vs RISK SIGNALS
 ================================================================================
 
-Where a traditional marketplace treats each transaction as an independent
-event, TRU Connect's trust engine treats the business-supplier Relationship
-(Document 04, Section 16) as the primary unit of analysis. A business with
-fewer, deeper supplier relationships may in some contexts present a
-stronger trust profile than one with many shallow, one-off transactions,
-because sustained relationships are harder to fabricate and more
-predictive of continued reliable behaviour.
+Trust Signals (positive):
+    Repeat orders within a relationship; sustained relationship duration;
+    high delivery confirmation rate; consistent payment confirmation;
+    verification completed; consistent trading over time.
+
+Risk Signals (caution):
+    High business-initiated cancellation rate; deliveries dispatched but
+    never confirmed; recurring unpaid-after-delivery orders; sharply
+    declining activity without explanation; lapsed verification;
+    inconsistent or contradictory sync data.
+
+Both are stored in the trust schema as discrete, queryable signals rather
+than being baked into a single opaque number.
 
 ================================================================================
-13. FUTURE CREDIT READINESS
+8. SCORING METHODOLOGY
 ================================================================================
 
-"Credit Readiness" is not a Phase 1 user-facing feature, but the trust
-engine described in this document is explicitly designed to produce the
-data needed for it in Phase 3:
+8.1 Business Health Score
+    Weighted composite of: order volume and frequency (recency-weighted),
+    repeat supplier rate, delivery confirmation rate, payment
+    confirmation rate, relationship health across suppliers, verification
+    status, absence of risk signals.
 
-    - A business or supplier is considered "credit-ready" in future
-      phases once their accumulated Trust Signals cross defined,
-      configurable thresholds (e.g. minimum order history length, minimum
-      verification status, minimum relationship health across suppliers).
-    - No business or supplier is ever required to manually assemble this
-      readiness; it is a natural, cumulative output of ordinary platform
-      use, consistent with the "Trust Before Lending" principle in
-      Document 00.
-    - When Phase 3 is reached, this document's signal set becomes the
-      direct input specification for underwriting model design, avoiding
-      the need to retrofit data collection after the fact.
+8.2 Supplier Reputation Score
+    Weighted composite of: orders completed, businesses served, repeat
+    customer rate, acceptance rate, response time, delivery performance,
+    verification status, longevity.
+
+8.3 Methodology Rules
+    - Weightings are CONFIGURABLE and VERSIONED, never hard-coded. Every
+      stored score records the methodology_version that produced it.
+    - Phase 1 scoring is transparent and rule-based, not machine
+      learning. Explainability precedes automation (TP-029).
+    - Scores must be explainable to the user in plain language: which
+      behaviours raised or lowered them.
+    - Self-reported inputs are weighted lower than bilaterally confirmed
+      inputs, always.
+
+================================================================================
+9. RELATIONSHIP TO TRUSCORE  [IMPORTANT SCOPE BOUNDARY]
+================================================================================
+
+TRUConnect's scores are OPERATIONAL indicators. They exist to help
+businesses and suppliers understand their own trading behaviour.
+
+TRUScore is a separate, future, PLATFORM-LEVEL TruePoint capability
+(Constitution Stage Six). It will consume TRUConnect's trust signals as
+inputs, alongside signals from other future products.
+
+Therefore, within TRUConnect:
+    - Scores are NEVER described as credit scores.
+    - Scores NEVER determine access to any financial product.
+    - Scores are NEVER shared with lenders or third parties.
+    - No lending eligibility, pre-qualification, or credit-readiness
+      language appears anywhere in the product.
+
+This boundary is constitutional (TP-084: Infrastructure Before Finance).
+Earlier versions of this document included "Future Credit Readiness"
+framing inside TRUConnect; that framing is removed here.
+
+================================================================================
+10. ARTIFICIAL INTELLIGENCE (FUTURE, PLATFORM-LEVEL)
+================================================================================
+
+No AI is implemented in TRUConnect.
+
+When platform intelligence eventually exists (TP-026 to TP-030), it will:
+    - Interpret trusted data; never create it.
+    - Be a shared TruePoint platform capability, not an isolated
+      TRUConnect feature.
+    - Remain explainable, supported by observable business evidence.
+    - Never bypass the operational infrastructure beneath it.
+
+Signals defined in this document are the eventual feature inputs. Nothing
+in TRUConnect should be built in a way that depends on AI existing.
+
+================================================================================
+11. DATA OWNERSHIP AND RESPONSIBLE USE
+================================================================================
+
+    - Businesses own their operational data (TP-025). TruePoint is a
+      steward, not an owner.
+    - Supplier-facing views of a business respect Business Privacy: a
+      supplier sees the trading relationship it participates in, never a
+      business's wider trading profile, other supplier relationships, or
+      Loan Book.
+    - Loan Book data describes third parties (the business's customers)
+      who are not platform users and have not consented to platform
+      participation. It receives the strictest handling in the product
+      and never leaves the owning business's account.
+    - Data is used for operational, analytical, and platform-improvement
+      purposes only, in compliance with applicable data protection law.
+    - Trust cannot exist without responsible stewardship. A single
+      mishandling of business data would damage the platform's core asset
+      more than any feature could compensate for.

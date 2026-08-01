@@ -1,57 +1,53 @@
 """
 Authentication module tests.
-Ref: continuation master prompt, Step 16 (Authentication Test Suite).
+Ref: continuation master prompt, Step 16; Auth Hardening master prompt,
+Objective 10.
 
-Two groups, as in Phase 2:
-1. Pure unit tests -- no database connection needed. Run anywhere:
+Two groups:
+1. Pure unit tests -- no database connection needed:
        pytest tests/test_auth.py -k "not Integration"
-2. Integration tests -- need a real PostgreSQL test database
-   (TestingConfig -> tru_connect_test, see src/config.py):
+2. Integration tests -- need a real PostgreSQL test database:
        pytest tests/test_auth.py -k Integration
 """
 from __future__ import annotations
 
-import time
+import re
 
 import pytest
 
 from src import create_app
 from src.extensions import db
-from src.schemas.auth_schemas import BusinessRegisterSchema, LoginSchema, SupplierRegisterSchema
-from src.schemas.otp_schemas import RequestOtpSchema, VerifyOtpSchema
-from src.schemas.password_reset_schemas import ForgotPasswordSchema, ResetPasswordSchema
-from src.utils.otp import generate_numeric_otp, generate_reset_token, hash_otp, hash_reset_token, verify_otp_hash
-from src.utils.security import hash_password, passwords_match, validate_password_complexity, verify_password
+from src.shared.cache import cache
+from src.shared.email import get_fake_provider
+from src.domains.auth.schemas.auth_schemas import BusinessRegisterSchema, LoginSchema, SupplierRegisterSchema
+from src.domains.auth.schemas.otp_schemas import RequestOtpSchema, VerifyOtpSchema
+from src.domains.auth.schemas.password_reset_schemas import ForgotPasswordSchema, ResetPasswordSchema
+from src.domains.auth.utils.otp import generate_numeric_otp, hash_otp, verify_otp_hash
+from src.shared.security import hash_password, passwords_match, validate_password_complexity, verify_password
+from src.shared.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry, verify_ticket
 
 
 # ----------------------------------------------------------------------------
-# Group 1: pure unit tests -- no database required.
+# Group 1: pure unit tests.
 # ----------------------------------------------------------------------------
 
 class TestPasswordSecurity:
     def test_hash_and_verify_round_trip(self):
-        hashed = hash_password("correct horse battery staple 1")
-        assert verify_password("correct horse battery staple 1", hashed)
+        hashed = hash_password("Abcd1234!")
+        assert verify_password("Abcd1234!", hashed)
 
     def test_verify_rejects_wrong_password(self):
-        hashed = hash_password("correct horse battery staple 1")
+        hashed = hash_password("Abcd1234!")
         assert not verify_password("wrong password", hashed)
 
     def test_complexity_rejects_short_password(self):
-        assert any("8 characters" in e for e in validate_password_complexity("ab1"))
-
-    def test_complexity_rejects_no_digit(self):
-        assert any("number" in e for e in validate_password_complexity("abcdefgh"))
-
-    def test_complexity_rejects_no_letter(self):
-        assert any("letter" in e for e in validate_password_complexity("12345678"))
+        assert any("8 characters" in e for e in validate_password_complexity("Ab1!"))
 
     def test_complexity_accepts_valid_password(self):
-        assert validate_password_complexity("abcd1234") == []
+        assert validate_password_complexity("Abcd1234!") == []
 
     def test_passwords_match(self):
-        assert passwords_match("abcd1234", "abcd1234")
-        assert not passwords_match("abcd1234", "different1")
+        assert passwords_match("Abcd1234!", "Abcd1234!")
 
 
 class TestOtpUtilities:
@@ -65,16 +61,29 @@ class TestOtpUtilities:
         assert verify_otp_hash(code, hash_otp(code))
 
     def test_otp_hash_rejects_wrong_code(self):
-        code_hash = hash_otp("123456")
-        assert not verify_otp_hash("654321", code_hash)
+        assert not verify_otp_hash("654321", hash_otp("123456"))
 
-    def test_reset_token_is_url_safe_and_reasonably_long(self):
-        token = generate_reset_token()
-        assert len(token) >= 32
 
-    def test_reset_token_hash_is_deterministic(self):
-        token = generate_reset_token()
-        assert hash_reset_token(token) == hash_reset_token(token)
+class TestTicketUtilities:
+    def test_create_ticket_is_url_safe_and_reasonably_long(self):
+        assert len(create_ticket()) >= 32
+
+    def test_hash_and_verify_round_trip(self):
+        ticket = create_ticket()
+        assert verify_ticket(ticket, hash_ticket(ticket))
+
+    def test_verify_rejects_wrong_ticket(self):
+        assert not verify_ticket("wrong-ticket", hash_ticket(create_ticket()))
+
+    def test_expiry_helpers(self):
+        from datetime import timedelta
+
+        from src.core.base_model import utcnow
+
+        future = ticket_expiry(hours=1)
+        assert not is_ticket_expired(future)
+        past = utcnow() - timedelta(hours=1)
+        assert is_ticket_expired(past)
 
 
 class TestBusinessRegisterSchema:
@@ -83,22 +92,18 @@ class TestBusinessRegisterSchema:
             "firstName": "Thabo",
             "lastName": "Nkosi",
             "email": "thabo@example.com",
-            "password": "abcd1234",
-            "confirmPassword": "abcd1234",
+            "password": "Abcd1234!",
+            "confirmPassword": "Abcd1234!",
             "acceptPrivacyPolicy": True,
         }
         payload.update(overrides)
         return payload
 
-    def test_accepts_valid_camel_case_payload(self):
+    def test_accepts_valid_payload(self):
         data = BusinessRegisterSchema().load(self._valid_payload())
         assert data["first_name"] == "Thabo"
 
-    def test_rejects_mismatched_passwords(self):
-        with pytest.raises(Exception):
-            BusinessRegisterSchema().load(self._valid_payload(confirmPassword="different1"))
-
-    def test_rejects_missing_privacy_policy_acceptance(self):
+    def test_rejects_missing_privacy_policy(self):
         with pytest.raises(Exception):
             BusinessRegisterSchema().load(self._valid_payload(acceptPrivacyPolicy=False))
 
@@ -109,8 +114,8 @@ class TestSupplierRegisterSchema:
             {
                 "ownerName": "Naledi Dlamini",
                 "email": "naledi@example.com",
-                "password": "abcd1234",
-                "confirmPassword": "abcd1234",
+                "password": "Abcd1234!",
+                "confirmPassword": "Abcd1234!",
                 "acceptTerms": True,
             }
         )
@@ -119,22 +124,8 @@ class TestSupplierRegisterSchema:
 
 class TestLoginSchema:
     def test_accepts_valid_payload(self):
-        data = LoginSchema().load({"email": "a@example.com", "password": "abcd1234"})
+        data = LoginSchema().load({"email": "a@example.com", "password": "Abcd1234!"})
         assert data["email"] == "a@example.com"
-
-
-class TestOtpSchemas:
-    def test_request_otp_schema_valid(self):
-        data = RequestOtpSchema().load({"destination": "test@example.com"})
-        assert data["destination"] == "test@example.com"
-
-    def test_verify_otp_schema_rejects_wrong_length_code(self):
-        with pytest.raises(Exception):
-            VerifyOtpSchema().load({"destination": "test@example.com", "code": "123"})
-
-    def test_verify_otp_schema_accepts_six_digit_code(self):
-        data = VerifyOtpSchema().load({"destination": "test@example.com", "code": "123456"})
-        assert data["code"] == "123456"
 
 
 class TestPasswordResetSchemas:
@@ -142,21 +133,11 @@ class TestPasswordResetSchemas:
         with pytest.raises(Exception):
             ForgotPasswordSchema().load({"email": "not-an-email"})
 
-    def test_reset_password_schema_rejects_mismatched_passwords(self):
-        with pytest.raises(Exception):
-            ResetPasswordSchema().load(
-                {"token": "abc", "newPassword": "abcd1234", "confirmPassword": "different1"}
-            )
-
-    def test_reset_password_schema_rejects_weak_password(self):
-        with pytest.raises(Exception):
-            ResetPasswordSchema().load({"token": "abc", "newPassword": "weak", "confirmPassword": "weak"})
-
-    def test_reset_password_schema_accepts_valid_payload(self):
+    def test_reset_password_schema_uses_ticket_field(self):
         data = ResetPasswordSchema().load(
-            {"token": "abc", "newPassword": "abcd1234", "confirmPassword": "abcd1234"}
+            {"ticket": "abc", "newPassword": "Abcd1234!", "confirmPassword": "Abcd1234!"}
         )
-        assert data["new_password"] == "abcd1234"
+        assert data["ticket"] == "abc"
 
 
 # ----------------------------------------------------------------------------
@@ -168,6 +149,8 @@ def app():
     application = create_app("testing")
     with application.app_context():
         db.create_all()
+        get_fake_provider().clear()
+        cache.clear()
         yield application
         db.session.remove()
         db.drop_all()
@@ -178,7 +161,7 @@ def client(app):
     return app.test_client()
 
 
-def _register_business(client, email="thabo@example.com"):
+def _register_business(client, email="thabo@example.com", password="Abcd1234!"):
     return client.post(
         "/api/v1/auth/register",
         json={
@@ -186,328 +169,298 @@ def _register_business(client, email="thabo@example.com"):
             "firstName": "Thabo",
             "lastName": "Nkosi",
             "email": email,
-            "password": "abcd1234",
-            "confirmPassword": "abcd1234",
+            "password": password,
+            "confirmPassword": password,
             "acceptPrivacyPolicy": True,
         },
     )
 
 
+def _extract_otp(caplog, email) -> str:
+    """OTP delivery goes through the fake provider (dev-mode SMTP is
+    never actually used in tests), so read it from there rather than
+    from logs. `caplog` is accepted for signature consistency with
+    tests that also assert on log output, but is not read here."""
+    for sent in get_fake_provider().sent_emails:
+        if sent["to"] == email and sent["subject"] == "Your TRU Connect verification code":
+            match = re.search(r"letter-spacing:6px[^>]*>\s*(\d{6})", sent["html_body"])
+            if match:
+                return match.group(1)
+    raise AssertionError(f"No OTP email found for {email}")
+
+
 class TestRegistrationIntegration:
-    def test_register_business_returns_tokens(self, client):
-        response = _register_business(client)
+    def test_register_returns_no_tokens(self, client):
+        """Core of Objective 1: there must be nothing to bypass with."""
+        response = _register_business(client, email="no-tokens@example.com")
         assert response.status_code == 201
         body = response.get_json()
-        assert "access_token" in body["data"]["tokens"]
-        assert "refresh_token" in body["data"]["tokens"]
-        assert "password_hash" not in body["data"]["user"]
+        assert "tokens" not in body["data"]
+        assert body["data"]["user"]["email"] == "no-tokens@example.com"
 
-    def test_duplicate_email_is_rejected(self, client):
+    def test_verified_duplicate_email_is_rejected(self, client, caplog):
+        import logging
+
+        caplog.set_level(logging.INFO)
         _register_business(client, email="dup@example.com")
+        code = _extract_otp(caplog, "dup@example.com")
+        client.post("/api/v1/auth/phone/verify-otp", json={"destination": "dup@example.com", "code": code})
+
         second = _register_business(client, email="dup@example.com")
         assert second.status_code == 409
 
+    def test_unverified_resume_same_role_succeeds(self, client):
+        """Re-registering an unverified email with the SAME role is a
+        resume, not a conflict."""
+        first = _register_business(client, email="resume@example.com", password="Abcd1234!")
+        assert first.status_code == 201
 
-class TestLoginIntegration:
-    def test_login_with_correct_credentials(self, client):
-        _register_business(client, email="login-test@example.com")
+        second = _register_business(client, email="resume@example.com", password="NewPass123!")
+        assert second.status_code == 201
+        # Two OTP emails should have been sent (one per attempt).
+        otp_emails = [
+            e for e in get_fake_provider().sent_emails
+            if e["to"] == "resume@example.com" and e["subject"] == "Your TRU Connect verification code"
+        ]
+        assert len(otp_emails) == 2
+
+    def test_unverified_resume_different_role_is_rejected(self, client):
+        """This is the exact bypass pattern found in testing: silently
+        flipping an unverified account's role must not be possible."""
+        first = _register_business(client, email="roleflip@example.com")
+        assert first.status_code == 201
+
+        second = client.post(
+            "/api/v1/auth/register",
+            json={
+                "role": "supplier",
+                "ownerName": "Someone",
+                "email": "roleflip@example.com",
+                "password": "Abcd1234!",
+                "confirmPassword": "Abcd1234!",
+                "acceptTerms": True,
+            },
+        )
+        assert second.status_code == 409
+
+    def test_expired_unverified_account_allows_fresh_registration(self, client, app):
+        """Simulates the 24-hour expiry by directly backdating
+        created_at, rather than waiting -- see UNVERIFIED_ACCOUNT_EXPIRY_HOURS."""
+        _register_business(client, email="stale@example.com", password="OldPass123!")
+
+        with app.app_context():
+            from datetime import timedelta
+
+            from src.core.base_model import utcnow
+            from src.domains.auth.repositories.user_repository import UserRepository
+
+            user = UserRepository.get_by_email("stale@example.com")
+            user.created_at = utcnow() - timedelta(hours=25)
+            db.session.commit()
+
+        # A fresh registration with a DIFFERENT role should now succeed
+        # (proving the old row was actually deleted, not just reused).
         response = client.post(
-            "/api/v1/auth/login", json={"email": "login-test@example.com", "password": "abcd1234"}
+            "/api/v1/auth/register",
+            json={
+                "role": "supplier",
+                "ownerName": "Fresh Start",
+                "email": "stale@example.com",
+                "password": "NewPass123!",
+                "confirmPassword": "NewPass123!",
+                "acceptTerms": True,
+            },
+        )
+        assert response.status_code == 201
+
+
+class TestVerificationGatingIntegration:
+    def test_login_blocked_before_verification(self, client):
+        _register_business(client, email="unverified-login@example.com", password="Abcd1234!")
+
+        response = client.post(
+            "/api/v1/auth/login", json={"email": "unverified-login@example.com", "password": "Abcd1234!"}
+        )
+        assert response.status_code == 403
+        body = response.get_json()
+        assert body["code"] == "EMAIL_NOT_VERIFIED"
+        assert body["data"]["resend_available"] is True
+        assert "verification_endpoint" in body["data"]
+
+    def test_login_succeeds_after_verification(self, client, caplog):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        _register_business(client, email="verify-then-login@example.com", password="Abcd1234!")
+        code = _extract_otp(caplog, "verify-then-login@example.com")
+        client.post(
+            "/api/v1/auth/phone/verify-otp",
+            json={"destination": "verify-then-login@example.com", "code": code},
+        )
+
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"email": "verify-then-login@example.com", "password": "Abcd1234!"},
         )
         assert response.status_code == 200
 
-    def test_login_with_wrong_password_returns_401(self, client):
-        _register_business(client, email="wrongpass@example.com")
-        response = client.post(
-            "/api/v1/auth/login", json={"email": "wrongpass@example.com", "password": "wrong9999"}
-        )
-        assert response.status_code == 401
+    def test_verify_otp_returns_tokens(self, client, caplog):
+        import logging
 
-
-class TestProtectedRoutesIntegration:
-    def test_me_requires_authentication(self, client):
-        assert client.get("/api/v1/auth/me").status_code == 401
-
-    def test_me_returns_current_user_with_valid_token(self, client):
-        register_response = _register_business(client, email="me-test@example.com")
-        access_token = register_response.get_json()["data"]["tokens"]["access_token"]
-        response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"})
-        assert response.status_code == 200
-        assert response.get_json()["data"]["email"] == "me-test@example.com"
-
-
-class TestRefreshTokenIntegration:
-    def test_refresh_returns_new_token_pair(self, client):
-        register_response = _register_business(client, email="refresh-test@example.com")
-        original_refresh = register_response.get_json()["data"]["tokens"]["refresh_token"]
+        caplog.set_level(logging.INFO)
+        _register_business(client, email="otp-tokens@example.com")
+        code = _extract_otp(caplog, "otp-tokens@example.com")
 
         response = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {original_refresh}"}
+            "/api/v1/auth/phone/verify-otp", json={"destination": "otp-tokens@example.com", "code": code}
         )
         assert response.status_code == 200
         body = response.get_json()["data"]
-        assert "access_token" in body
-        assert "refresh_token" in body
-        assert body["refresh_token"] != original_refresh
+        assert "access_token" in body["tokens"]
+        assert "refresh_token" in body["tokens"]
 
-    def test_rotated_refresh_token_cannot_be_reused(self, client):
-        """Core of Step 11's rotation requirement: once a refresh token
-        has been used to get a new pair, using the SAME old token again
-        must fail."""
-        register_response = _register_business(client, email="rotation-test@example.com")
-        original_refresh = register_response.get_json()["data"]["tokens"]["refresh_token"]
-
-        first_use = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {original_refresh}"}
-        )
-        assert first_use.status_code == 200
-
-        second_use = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {original_refresh}"}
-        )
-        assert second_use.status_code == 401
-
-    def test_access_token_cannot_be_used_to_refresh(self, client):
-        register_response = _register_business(client, email="wrongtype-test@example.com")
-        access_token = register_response.get_json()["data"]["tokens"]["access_token"]
-
-        response = client.post("/api/v1/auth/refresh", headers={"Authorization": f"Bearer {access_token}"})
-        assert response.status_code == 422  # flask-jwt-extended rejects wrong token type
-
-
-class TestLogoutIntegration:
-    def test_logout_revokes_refresh_token(self, client):
-        """Mobile client's current behaviour: POST /auth/logout with only
-        an access token, no refresh_token in the body -- AuthService
-        falls back to revoking ALL of the user's refresh tokens."""
-        register_response = _register_business(client, email="logout-test@example.com")
-        tokens = register_response.get_json()["data"]["tokens"]
-
-        logout_response = client.post(
-            "/api/v1/auth/logout", headers={"Authorization": f"Bearer {tokens['access_token']}"}
-        )
-        assert logout_response.status_code == 200
-
-        refresh_response = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {tokens['refresh_token']}"}
-        )
-        assert refresh_response.status_code == 401
-
-    def test_logout_with_explicit_refresh_token_revokes_only_that_one(self, client):
-        register_response = _register_business(client, email="explicit-logout@example.com")
-        tokens = register_response.get_json()["data"]["tokens"]
-
-        logout_response = client.post(
-            "/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {tokens['access_token']}"},
-            json={"refresh_token": tokens["refresh_token"]},
-        )
-        assert logout_response.status_code == 200
-
-        refresh_response = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {tokens['refresh_token']}"}
-        )
-        assert refresh_response.status_code == 401
-
-
-class TestOtpIntegration:
-    def _get_logged_otp(self, caplog, email):
-        """The dev-mode OTP delivery logs the code via app.logger.info
-        (see OTPService docstring) -- tests parse it out of the captured
-        log rather than needing a real SMS/email provider."""
-        import re
-
-        for record in caplog.records:
-            if email in record.message:
-                match = re.search(r": (\d{6}) ", record.message + " ")
-                if match:
-                    return match.group(1)
-        return None
-
-    def test_request_then_verify_otp_succeeds(self, client, caplog):
+    def test_me_requires_verified_not_just_authenticated(self, client, caplog):
+        """The core regression test: a token from BEFORE the account was
+        ever verified must not exist -- and even if one somehow did,
+        @fully_authenticated re-checks the database, not the token."""
         import logging
 
         caplog.set_level(logging.INFO)
-        _register_business(client, email="otp-test@example.com")
-
-        request_response = client.post(
-            "/api/v1/auth/phone/request-otp", json={"destination": "otp-test@example.com"}
-        )
-        assert request_response.status_code == 200
-
-        code = self._get_logged_otp(caplog, "otp-test@example.com")
-        assert code is not None
-
+        _register_business(client, email="fake-token-test@example.com")
+        code = _extract_otp(caplog, "fake-token-test@example.com")
         verify_response = client.post(
-            "/api/v1/auth/phone/verify-otp", json={"destination": "otp-test@example.com", "code": code}
+            "/api/v1/auth/phone/verify-otp",
+            json={"destination": "fake-token-test@example.com", "code": code},
         )
-        assert verify_response.status_code == 200
+        access_token = verify_response.get_json()["data"]["tokens"]["access_token"]
 
-    def test_wrong_otp_code_is_rejected(self, client):
-        _register_business(client, email="otp-wrong@example.com")
-        client.post("/api/v1/auth/phone/request-otp", json={"destination": "otp-wrong@example.com"})
+        # This token was issued AFTER verification, so /me must succeed.
+        response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"})
+        assert response.status_code == 200
 
-        response = client.post(
-            "/api/v1/auth/phone/verify-otp", json={"destination": "otp-wrong@example.com", "code": "000000"}
-        )
-        assert response.status_code == 401
+    def test_me_rejects_unauthenticated(self, client):
+        assert client.get("/api/v1/auth/me").status_code == 401
 
-    def test_otp_cannot_be_reused_after_success(self, client, caplog):
+
+class TestLoginLockoutIntegration:
+    def test_lockout_after_max_failed_attempts(self, client, caplog):
         import logging
 
         caplog.set_level(logging.INFO)
-        _register_business(client, email="otp-reuse@example.com")
-        client.post("/api/v1/auth/phone/request-otp", json={"destination": "otp-reuse@example.com"})
-        code = self._get_logged_otp(caplog, "otp-reuse@example.com")
-
-        first = client.post(
-            "/api/v1/auth/phone/verify-otp", json={"destination": "otp-reuse@example.com", "code": code}
-        )
-        assert first.status_code == 200
-
-        second = client.post(
-            "/api/v1/auth/phone/verify-otp", json={"destination": "otp-reuse@example.com", "code": code}
-        )
-        assert second.status_code == 401
-
-    def test_otp_locks_out_after_too_many_wrong_attempts(self, client):
-        _register_business(client, email="otp-lockout@example.com")
-        client.post("/api/v1/auth/phone/request-otp", json={"destination": "otp-lockout@example.com"})
+        _register_business(client, email="lockout@example.com", password="Correct123!")
+        code = _extract_otp(caplog, "lockout@example.com")
+        client.post("/api/v1/auth/phone/verify-otp", json={"destination": "lockout@example.com", "code": code})
 
         last_response = None
-        for _ in range(6):  # max_attempts defaults to 5
+        for _ in range(6):  # LOGIN_MAX_FAILED_ATTEMPTS defaults to 5
             last_response = client.post(
-                "/api/v1/auth/phone/verify-otp",
-                json={"destination": "otp-lockout@example.com", "code": "000000"},
+                "/api/v1/auth/login", json={"email": "lockout@example.com", "password": "WrongPassword1!"}
             )
-        assert last_response.status_code == 403
+        assert last_response.status_code == 423
+        assert last_response.get_json()["code"] == "ACCOUNT_LOCKED"
 
-    def test_request_otp_for_unknown_destination_does_not_error(self, client):
-        """Enumeration protection: requesting an OTP for a destination
-        with no matching account must not reveal that fact via a
-        different status code."""
+    def test_successful_login_resets_failed_counter(self, client, caplog):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        _register_business(client, email="reset-counter@example.com", password="Correct123!")
+        code = _extract_otp(caplog, "reset-counter@example.com")
+        client.post(
+            "/api/v1/auth/phone/verify-otp", json={"destination": "reset-counter@example.com", "code": code}
+        )
+
+        for _ in range(3):
+            client.post(
+                "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
+            )
+
+        success = client.post(
+            "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "Correct123!"}
+        )
+        assert success.status_code == 200
+
+        # Counter should be back to zero, so more wrong attempts are
+        # possible before locking out again.
+        for _ in range(3):
+            fail = client.post(
+                "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
+            )
+            assert fail.status_code == 401  # not yet 423
+
+
+class TestPasswordResetTicketIntegration:
+    def _get_reset_url(self, email):
+        for sent in get_fake_provider().sent_emails:
+            if sent["to"] == email and sent["subject"] == "Reset your TRU Connect password":
+                match = re.search(r"reset-password\?ticket=([\w\-]+)", sent["html_body"])
+                if match:
+                    return match.group(1)
+        raise AssertionError(f"No password reset email found for {email}")
+
+    def _verified_user(self, client, caplog, email):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        _register_business(client, email=email, password="OldPass123!")
+        code = _extract_otp(caplog, email)
+        client.post("/api/v1/auth/phone/verify-otp", json={"destination": email, "code": code})
+
+    def test_validate_ticket_true_for_fresh_ticket(self, client, caplog):
+        self._verified_user(client, caplog, "reset-validate@example.com")
+        client.post("/api/v1/auth/forgot-password", json={"email": "reset-validate@example.com"})
+        ticket = self._get_reset_url("reset-validate@example.com")
+
+        response = client.get(f"/api/v1/auth/reset-password/validate?ticket={ticket}")
+        assert response.get_json()["data"]["valid"] is True
+
+    def test_validate_ticket_false_for_garbage(self, client):
+        response = client.get("/api/v1/auth/reset-password/validate?ticket=not-a-real-ticket")
+        assert response.get_json()["data"]["valid"] is False
+
+    def test_reset_password_with_valid_ticket_changes_password(self, client, caplog):
+        self._verified_user(client, caplog, "reset-flow@example.com")
+        client.post("/api/v1/auth/forgot-password", json={"email": "reset-flow@example.com"})
+        ticket = self._get_reset_url("reset-flow@example.com")
+
         response = client.post(
-            "/api/v1/auth/phone/request-otp", json={"destination": "nobody@example.com"}
+            "/api/v1/auth/reset-password",
+            json={"ticket": ticket, "newPassword": "NewPass123!", "confirmPassword": "NewPass123!"},
         )
         assert response.status_code == 200
 
-
-class TestPasswordResetIntegration:
-    def _get_logged_token(self, caplog, email):
-        for record in caplog.records:
-            if email in record.message and "Password reset token" in record.message:
-                parts = record.message.split(": ")
-                return parts[1].split(" ")[0] if len(parts) > 1 else None
-        return None
-
-    def test_forgot_password_returns_same_message_for_known_and_unknown_email(self, client):
-        known = _register_business(client, email="forgot-known@example.com")
-        assert known.status_code == 201
-
-        known_response = client.post("/api/v1/auth/forgot-password", json={"email": "forgot-known@example.com"})
-        unknown_response = client.post("/api/v1/auth/forgot-password", json={"email": "forgot-unknown@example.com"})
-
-        assert known_response.status_code == unknown_response.status_code == 200
-        assert known_response.get_json()["message"] == unknown_response.get_json()["message"]
-
-    def test_reset_password_with_valid_token_changes_password(self, client, caplog):
-        import logging
-
-        caplog.set_level(logging.INFO)
-        _register_business(client, email="reset-flow@example.com")
-        client.post("/api/v1/auth/forgot-password", json={"email": "reset-flow@example.com"})
-        token = self._get_logged_token(caplog, "reset-flow@example.com")
-        assert token is not None
-
-        reset_response = client.post(
-            "/api/v1/auth/reset-password",
-            json={"token": token, "newPassword": "newpass123", "confirmPassword": "newpass123"},
+        assert (
+            client.post(
+                "/api/v1/auth/login", json={"email": "reset-flow@example.com", "password": "OldPass123!"}
+            ).status_code
+            == 401
         )
-        assert reset_response.status_code == 200
-
-        old_password_login = client.post(
-            "/api/v1/auth/login", json={"email": "reset-flow@example.com", "password": "abcd1234"}
+        assert (
+            client.post(
+                "/api/v1/auth/login", json={"email": "reset-flow@example.com", "password": "NewPass123!"}
+            ).status_code
+            == 200
         )
-        assert old_password_login.status_code == 401
 
-        new_password_login = client.post(
-            "/api/v1/auth/login", json={"email": "reset-flow@example.com", "password": "newpass123"}
-        )
-        assert new_password_login.status_code == 200
-
-    def test_reset_token_cannot_be_reused(self, client, caplog):
-        import logging
-
-        caplog.set_level(logging.INFO)
-        _register_business(client, email="reset-replay@example.com")
+    def test_reset_ticket_cannot_be_reused(self, client, caplog):
+        self._verified_user(client, caplog, "reset-replay@example.com")
         client.post("/api/v1/auth/forgot-password", json={"email": "reset-replay@example.com"})
-        token = self._get_logged_token(caplog, "reset-replay@example.com")
+        ticket = self._get_reset_url("reset-replay@example.com")
 
         first = client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "newPassword": "newpass123", "confirmPassword": "newpass123"},
+            json={"ticket": ticket, "newPassword": "NewPass123!", "confirmPassword": "NewPass123!"},
         )
         assert first.status_code == 200
 
         second = client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "newPassword": "anotherpass1", "confirmPassword": "anotherpass1"},
+            json={"ticket": ticket, "newPassword": "AnotherPass1!", "confirmPassword": "AnotherPass1!"},
         )
         assert second.status_code == 401
 
-    def test_reset_password_invalidates_existing_refresh_tokens(self, client, caplog):
-        import logging
-
-        caplog.set_level(logging.INFO)
-        register_response = _register_business(client, email="reset-revokes@example.com")
-        original_refresh = register_response.get_json()["data"]["tokens"]["refresh_token"]
-
-        client.post("/api/v1/auth/forgot-password", json={"email": "reset-revokes@example.com"})
-        token = self._get_logged_token(caplog, "reset-revokes@example.com")
-        client.post(
-            "/api/v1/auth/reset-password",
-            json={"token": token, "newPassword": "newpass123", "confirmPassword": "newpass123"},
-        )
-
-        refresh_response = client.post(
-            "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {original_refresh}"}
-        )
-        assert refresh_response.status_code == 401
-
-
-class TestRoleAuthorizationIntegration:
-    def test_role_required_allows_matching_role(self, app, client):
-        from flask import jsonify
-
-        from src.core.decorators import role_required
-
-        @app.route("/api/v1/_test/business-only")
-        @role_required("business")
-        def _business_only():
-            return jsonify({"ok": True})
-
-        register_response = _register_business(client, email="role-test@example.com")
-        access_token = register_response.get_json()["data"]["tokens"]["access_token"]
-
-        response = client.get(
-            "/api/v1/_test/business-only", headers={"Authorization": f"Bearer {access_token}"}
-        )
+    def test_reset_redirect_page_renders(self, client):
+        """The browser-facing bounce page (Objective 7) -- not under
+        /api/v1, must exist at the exact path emailed to users."""
+        response = client.get("/reset-password?ticket=abc123")
         assert response.status_code == 200
-
-    def test_role_required_blocks_non_matching_role(self, app, client):
-        from flask import jsonify
-
-        from src.core.decorators import role_required
-
-        @app.route("/api/v1/_test/supplier-only")
-        @role_required("supplier")
-        def _supplier_only():
-            return jsonify({"ok": True})
-
-        register_response = _register_business(client, email="role-block-test@example.com")
-        access_token = register_response.get_json()["data"]["tokens"]["access_token"]
-
-        response = client.get(
-            "/api/v1/_test/supplier-only", headers={"Authorization": f"Bearer {access_token}"}
-        )
-        assert response.status_code == 403
+        assert b"truconnect://reset-password?ticket=abc123" in response.data

@@ -9,7 +9,7 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-/** Ref: master prompt "REUSABLE COMPONENTS" (ErrorState) */
+/**  "REUSABLE COMPONENTS" (ErrorState) */
 export function ErrorState({ message = "Something went wrong. Please try again.", onRetry }: ErrorStateProps) {
   const theme = useTheme();
   return (
