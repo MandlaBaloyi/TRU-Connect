@@ -1,6 +1,6 @@
 /**
  * Reserved integration point for barcode/product-lookup providers.
- * Ref: master prompt "External API Ready > Barcode APIs (Future)" --
+ *  "External API Ready > Barcode APIs (Future)" --
  * Product Lookup, Inventory, Catalogues.
  * Not implemented yet -- no current screen calls this.
  */

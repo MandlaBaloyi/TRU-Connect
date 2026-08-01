@@ -2,7 +2,6 @@ import logging
 from logging.config import fileConfig
 
 from flask import current_app
-
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -32,7 +31,7 @@ def get_engine_url():
         return str(get_engine().url).replace('%', '%%')
 
 
-# add your model's MetaData object here
+# add  model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
@@ -65,7 +64,11 @@ def run_migrations_offline():
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url, target_metadata=get_metadata(), literal_binds=True
+        url=url, 
+        target_metadata=get_metadata(), 
+        literal_binds=True,
+        include_schemas=True,         #  Scans all custom domain schemas
+        version_table_schema="auth"   #  Stores alembic_version table in auth schema
     )
 
     with context.begin_transaction():
@@ -82,7 +85,6 @@ def run_migrations_online():
 
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
-    # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
     def process_revision_directives(context, revision, directives):
         if getattr(config.cmd_opts, 'autogenerate', False):
             script = directives[0]
@@ -100,6 +102,8 @@ def run_migrations_online():
         context.configure(
             connection=connection,
             target_metadata=get_metadata(),
+            include_schemas=True,         #  Scans all custom domain schemas
+            version_table_schema="auth",  #  Stores alembic_version table in auth schema
             **conf_args
         )
 

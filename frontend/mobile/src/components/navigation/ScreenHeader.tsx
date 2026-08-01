@@ -14,7 +14,7 @@ interface ScreenHeaderProps {
  * Reusable in-screen header with an optional back button, used on wizard
  * steps and other stacked screens that need a consistent title/back
  * affordance without a full native navigation header.
- * Ref: master prompt component architecture (components/navigation/).
+ *  component architecture (components/navigation/).
  */
 export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
   const theme = useTheme();

@@ -1,325 +1,352 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
               BUSINESS RULES AND WORKFLOWS
-                          Document 06 ⭐
+                          Document 06
 ================================================================================
 
-Version: 1.0
-Related Documents: 05_BACKEND_API_SPECIFICATION.txt,
-                    07_DATA_AND_TRUST_ENGINE.txt
+Version: 3.0 (Constitution Alignment)
+Related: 04_DATABASE_DESIGN.txt, 05_BACKEND_API_SPECIFICATION.txt,
+         07_DATA_AND_TRUST_ENGINE.txt
 
-Purpose: Document every business workflow governing TRU Connect, so that
-engineering, QA, and product teams share a single definition of expected
-system behaviour.
+--------------------------------------------------------------------------------
+CHANGES IN THIS VERSION
+--------------------------------------------------------------------------------
+REMOVED: Business Questions and Supplier Responses workflows.
+REMOVED: "Searching Suppliers" as a primary workflow.
+ADDED:   Add Existing Supplier, Invite Supplier, Order Queue lifecycle,
+         Repeat Order, Delivery Confirmation, Payment Events, Loan Book
+         lifecycle, Offline Sync, Supplier Tier changes.
+UNCHANGED: all authentication and verification workflows (implemented).
 
 ================================================================================
-1. BUSINESS REGISTRATION
+1. BUSINESS REGISTRATION  [IMPLEMENTED]
 ================================================================================
 
-    1. User selects "For Businesses" on the landing screen.
-    2. User registers via email/password or Continue with Google.
-    3. User provides basic business details: business name, category,
-       location, contact number.
-    4. Account is created with role = business, is_verified = false.
-    5. User lands on the Business Home Dashboard.
-    6. A Digital Business Profile record is initialised (zero-state) for
-       the new business, ready to accrue data as described in Document 07.
+    1. User selects "Business Owner" during onboarding.
+    2. Registers with minimal fields: first name, last name, email,
+       password. Optional business name.
+    3. Account created: role = business, verification_status =
+       unverified, account_status = active.
+    4. Welcome email sent (never blocks registration).
+    5. OTP verification.
+    6. Business Profile Setup.
+    7. Prompted to ADD MY SUPPLIERS (Section 5).
 
 Rules:
-    - A single email or Google account may only be associated with one
-      role (business or supplier). Switching roles requires a separate
-      account.
-    - Business registration does not require verification documents to be
-      submitted immediately; verification may be completed at any point
-      but certain actions (see Section 3) require it.
+    - One email owns exactly one account and one role. A single email may
+      not own both a business and a supplier account.
+    - Registration collects only what is necessary. Business detail is
+      collected later, in Profile Setup, to minimise abandonment.
+    - Verification is not required to place orders or use the Loan Book.
+      Requiring it before value would violate TP-019.
 
 ================================================================================
-2. SUPPLIER REGISTRATION
+2. SUPPLIER REGISTRATION  [IMPLEMENTED]
 ================================================================================
 
-    1. User selects "For Suppliers" on the landing screen.
-    2. User registers via email/password or Continue with Google.
-    3. User provides supplier details: supplier name, category, regions
-       served, contact number.
-    4. Account is created with role = supplier, is_verified = false.
-    5. User lands on the Supplier Home Dashboard.
-    6. A Supplier Profile record is initialised (zero-state).
+    1. User selects "Supplier", or accepts an invitation from a business.
+    2. Registers with minimal fields: owner name, email, password.
+       Optional business name.
+    3. Account created: role = supplier, tier = free.
+    4. Welcome email sent.
+    5. OTP verification.
+    6. Supplier Profile Setup.
+    7. If arriving by invitation, the inviting business's
+       business_suppliers record links automatically (Section 6).
 
 Rules:
-    - A supplier cannot publish products until at least basic profile
-      information is complete (name, category, regions served).
-    - As with businesses, verification is not mandatory at registration
-      but gates certain higher-trust actions.
+    - Supplier Free is fully functional for receiving and fulfilling
+      orders. Tier gates additional capability, never core order flow.
 
 ================================================================================
-3. VERIFICATION
+3. VERIFICATION  [IMPLEMENTED]
 ================================================================================
 
-    1. User (business or supplier) submits verification documents via
-       POST /verification/submit.
-    2. Verification record is created with status = pending.
-    3. Verification is reviewed (Phase 1: manual review process; future
-       phases may introduce automated verification checks).
-    4. On approval: status = approved, and is_verified flag on the parent
-       Business/Supplier record is set to true. A Verification Badge
-       becomes visible on the account's public profile and cards.
-    5. On rejection: status = rejected, with reviewer notes retained
-       internally (never shown to the end user beyond a generic
-       "additional information required" message).
+    1. Business or supplier submits verification documents.
+    2. verification_request created with status = pending.
+    3. Reviewed (Phase 1: manual).
+    4. Approved -> status approved, is_verified set true, badge appears.
+       Rejected -> status rejected, reviewer notes retained internally;
+       the user sees only a generic "additional information required".
+    5. Notification sent; verification_history records the transition.
+
+================================================================================
+4. AUTHENTICATION LIFECYCLE  [IMPLEMENTED]
+================================================================================
+
+    Login: case-insensitive email; identical error for unknown email and
+    wrong password (enumeration protection); last_login_at updated;
+    access + refresh tokens issued.
+
+    Refresh: presented refresh token validated against the database,
+    revoked, and a NEW pair issued (rotation). A reused refresh token is
+    rejected.
+
+    Logout: revokes the specified refresh token, or all active refresh
+    tokens for the user if none specified.
+
+    Password reset: enumeration-safe request; single-use token; on
+    success, password updated AND all refresh tokens revoked, forcing
+    re-login everywhere.
+
+    OTP: expires (10 minutes), attempt-limited (5), single use.
+
+================================================================================
+5. ADD EXISTING SUPPLIER   [CORE WORKFLOW]
+================================================================================
+
+This is the defining workflow of TRUConnect.
+
+    1. Business taps "Add Supplier".
+    2. Enters supplier name and phone number (contact picker preferred
+       over typing).
+    3. System checks whether a platform supplier matches the phone
+       number.
+    4a. MATCH FOUND:
+        business_suppliers created with supplier_id set,
+        is_on_platform = true. Orders will flow digitally immediately.
+    4b. NO MATCH:
+        business_suppliers created with supplier_id NULL,
+        is_on_platform = false. The business can still record orders
+        against this supplier for its own records, and may send an
+        invitation.
+    5. Supplier appears in My Suppliers.
 
 Rules:
-    - Suppliers must reach approved verification status before their
-      profile appears in "Featured Suppliers" listings (though they may
-      still appear in general search/discovery as unverified).
-    - Businesses are not required to verify to place orders in Phase 1,
-      but verification directly contributes to a higher Business Health
-      Score (Document 07) and may become a requirement for future credit
-      products (Phase 3).
+    - A supplier can ALWAYS be added, whether or not they are on the
+      platform. This is non-negotiable: requiring supplier presence would
+      make business value dependent on supplier adoption (TP-019).
+    - Duplicate detection is by phone number within a business.
+    - No approval is required from the supplier for the business to keep
+      its own record of the relationship.
 
 ================================================================================
-4. PRODUCT LISTING (SUPPLIER)
+6. INVITE SUPPLIER
 ================================================================================
 
-    1. Supplier creates a product: name, category, description, price,
-       unit, minimum order quantity, stock status.
-    2. Product is created with is_published = true by default (or false, if
-       the supplier chooses to save as draft).
-    3. Published products become visible in business-facing search,
-       category browsing, and recommendations.
-    4. Supplier may update stock status at any time (in_stock, low_stock,
-       out_of_stock); out_of_stock products remain visible but are marked
-       accordingly and excluded from "Popular Products" ranking.
+    1. Business selects an off-platform supplier and taps Invite.
+    2. Invitation sent (SMS/WhatsApp link or email, per available
+       contact detail); invitation_sent_at recorded.
+    3. If the supplier registers using that invitation:
+        - Their new supplier account links to the inviting business's
+          business_suppliers record.
+        - supplier_id populated, is_on_platform set true.
+        - Both parties notified.
+        - Historical orders recorded locally against that supplier remain
+          intact and become visible to the supplier from the link date
+          forward only.
 
 Rules:
-    - A product must belong to exactly one category.
-    - Deleting a product does not hard-delete historical Order Items
-      referencing it; the product record is soft-deleted / unpublished
-      instead, preserving order history integrity.
+    - Historical orders recorded before the supplier joined are the
+      BUSINESS's records. They are not retroactively presented to the
+      supplier as actionable orders -- doing so would surface stale
+      obligations. They remain in the business's own history.
+    - Invitations are rate-limited to prevent misuse.
 
 ================================================================================
-5. SEARCHING SUPPLIERS (BUSINESS)
+7. PLACE ORDER
 ================================================================================
 
-    1. Business enters a keyword and/or selects a category/location filter
-       in the Suppliers tab.
-    2. System returns matching suppliers, ranked by a combination of
-       relevance, verification status, distance, and relationship
-       signals (e.g. previously ordered-from suppliers may rank higher
-       for that specific business — see Document 07).
-    3. Business may further filter by "Verified only."
+    1. Business selects a supplier from My Suppliers.
+    2. Adds items:
+        - Supplier Pro: selects from the supplier's catalogue.
+        - Supplier Free / off-platform: free-text item names, quantities,
+          and (optional) expected prices.
+    3. Confirms delivery address and any note.
+    4. Submits. Order created with status = pending and a
+       client_generated_id.
+    5. If the supplier is on-platform: supplier notified, order appears
+       in their queue.
+       If off-platform: order is recorded for the business's records
+       only, status remains business-managed.
 
 Rules:
-    - Search and view events are logged as business activity, feeding the
-      Digital Business Profile and recommendation systems (Document 07),
-      but this is never surfaced to the user as a step in a "profile
-      building" process — it is purely a background effect of normal use.
+    - One order targets exactly one supplier.
+    - Item prices are captured at order time and never retroactively
+      changed by later catalogue edits.
+    - Orders may be created offline; they queue and sync (Section 14).
 
 ================================================================================
-6. VIEWING PRODUCTS
+8. REPEAT ORDER
 ================================================================================
 
-    1. Business opens a supplier profile or search result and selects a
-       product.
-    2. Product Detail screen loads, including price, availability,
-       minimum order quantity, and the attached Business Questions thread.
-    3. View event is logged (contributes to "Recently Viewed" and supplier/
-       product popularity signals).
+    1. Business opens a previous order and taps Repeat.
+    2. A new draft order is pre-filled with the same supplier, items, and
+       quantities.
+    3. Business adjusts quantities if needed and submits.
+
+Rationale: informal business ordering is highly repetitive. Re-entering
+identical orders is the single largest avoidable friction in the product
+(TP-059, TP-061).
 
 ================================================================================
-7. BUSINESS QUESTIONS (ASK)
+9. ORDER LIFECYCLE (SUPPLIER SIDE)
 ================================================================================
 
-    1. Business submits a question beneath a product via the
-       BusinessQuestionThread component.
-    2. Question is stored, associated with the product and the asking
-       business, and categorised (availability, delivery, pricing, bulk
-       order, packaging, specifications, general).
-    3. Supplier receives a notification of a new, unanswered question.
-    4. Question and any future response remain permanently attached to the
-       product, visible to all future viewers (see Document 09 rationale).
+    pending -> accepted -> in_fulfilment -> dispatched -> delivered ->
+    completed
+
+    Alternate terminal states: rejected, cancelled.
+
+    Accept:    supplier accepts; accepted_at recorded; business notified.
+    Reject:    supplier declines WITH a reason (out of stock, outside
+               delivery area, minimum not met); business notified with the
+               reason.
+    Dispatch:  supplier marks dispatched; dispatched_at recorded.
+    Deliver:   see Section 10.
 
 Rules:
-    - A business may ask multiple questions on the same product.
-    - Questions are not private messages; they are treated as shared,
-      public product knowledge by design.
+    - A rejection is a supplier-side decision and does NOT count against
+      the business's trading history (Document 07).
+    - Frequent rejection affects supplier reputation signals.
+    - Only the supplier who owns the order may progress its status.
 
 ================================================================================
-8. SUPPLIER RESPONSES
+10. DELIVERY CONFIRMATION
 ================================================================================
 
-    1. Supplier views unanswered questions across their product catalogue
-       (aggregated view) or on an individual product.
-    2. Supplier submits a response.
-    3. Responding business (and all future viewers of the product) can see
-       the response attached beneath the original question.
-    4. Response event updates the supplier's average_response_time_minutes
-       and response_rate_percentage (Document 07).
+    1. Either party marks the order delivered.
+    2. delivery_confirmation recorded with timestamp, confirming user,
+       and confirming role.
+    3. Both parties notified.
+    4. Order moves to delivered.
 
 Rules:
-    - Only the supplier who owns the product may respond to a question on
-      that product.
-    - A question may only have one official Supplier Response (edits to an
-      existing response are allowed; a second independent response is
-      not, to avoid conflicting or duplicated answers).
+    - Confirmation by either party is valid and recorded as such. Who
+      confirmed is preserved, because that is precisely what resolves
+      later disputes.
+    - Delivery confirmation is separate from payment. An order may be
+      delivered and unpaid, or paid and undelivered.
+
+Problem solved: today delivery is confirmed verbally and disputes reduce
+to memory. A timestamped record from a known party removes the most
+common source of informal trade dispute.
 
 ================================================================================
-9. BOOKMARK SUPPLIER
+11. PAYMENT EVENTS
 ================================================================================
 
-    1. Business selects "Save" or "Follow" on a supplier profile or
-       Supplier Card.
-    2. A Bookmark record is created linking the business and supplier.
-    3. Bookmarked suppliers appear in the "Saved Suppliers" list and the
-       business begins receiving notifications for that supplier's future
-       Business Updates.
+    1. Supplier issues a payment reference for the order
+       (reference_issued).
+    2. Business pays the supplier DIRECTLY, outside TRUConnect, by
+       whatever means the two parties already use.
+    3. Business marks payment sent (payment_marked_sent).
+    4. Supplier confirms receipt (payment_confirmed).
+    5. Order moves to completed once delivered AND payment confirmed.
 
-Rules:
-    - Bookmarking is a one-directional signal; it does not require
-      supplier approval and does not notify the supplier.
-
-================================================================================
-10. PLACE ORDER
-================================================================================
-
-    1. Business adds one or more products (with quantities, respecting
-       each product's minimum order quantity) from a single supplier to an
-       order.
-    2. Business confirms delivery address and reviews order total.
-    3. Business submits the order (POST /orders); order is created with
-       status = pending.
-    4. Supplier receives a notification of a new incoming order.
-
-Rules:
-    - An order may only contain products from a single supplier (no
-      cross-supplier carts in Phase 1); ordering from multiple suppliers
-      requires separate orders.
-    - Order total is calculated at submission time using each product's
-      current price and any applicable bulk pricing rules; this price is
-      locked into the Order Item (unit_price_at_order_time) regardless of
-      later price changes.
+Rules (constitutional, non-negotiable):
+    - TRUConnect NEVER holds, transfers, or escrows funds.
+    - TRUConnect records THAT a payment occurred, not the payment itself.
+    - Payment events are claims by each party, timestamped and
+      attributed. The platform does not adjudicate disputes; it makes the
+      record unambiguous.
 
 ================================================================================
-11. ACCEPT ORDER
+12. LOAN BOOK LIFECYCLE
 ================================================================================
 
-    1. Supplier reviews an incoming pending order.
-    2. Supplier accepts the order (PUT /orders/{id}/accept).
-    3. Order status transitions to accepted; accepted_at timestamp is
+12.1 Record a Credit Sale
+    1. Business selects or adds a customer (name; phone optional).
+    2. Enters amount and date (defaults to today), optional description.
+    3. credit_ledger_entry created; outstanding_amount = original_amount.
+
+12.2 Record a Repayment
+    1. Business opens the entry and records a payment amount.
+    2. credit_ledger_payment created.
+    3. outstanding_amount recalculated.
+    4. If outstanding reaches zero: is_settled = true, settled_at
        recorded.
-    4. Business receives a notification of acceptance.
-    5. Order proceeds to in_fulfilment status once the supplier begins
-       preparing/dispatching the order (implementation may combine this
-       step with acceptance depending on supplier workflow needs).
+
+12.3 Rules
+    - Partial repayment is fully supported; this is how informal credit
+      actually behaves.
+    - Repayments may exceed neither the outstanding amount nor be
+      negative.
+    - Entries may be corrected or removed (with audit trail) because
+      manual entry errors are inevitable.
+    - Loan Book entries may be created offline and queue for sync.
+    - TRUConnect does not lend, does not collect, and does not charge
+      interest. It replaces a paper book.
 
 ================================================================================
-12. REJECT ORDER
+13. SUPPLIER TIER CHANGES
 ================================================================================
 
-    1. Supplier declines an incoming pending order, providing a reason
-       (e.g. out of stock, outside delivery area, minimum not met).
-    2. Order status transitions to rejected.
-    3. Business receives a notification including the rejection reason.
+    1. Supplier upgrades (Free -> Pro, Pro -> Enterprise).
+    2. A new supplier_tiers row is created with effective_from = now;
+       the previous row's effective_until is set.
+    3. Permissions are re-resolved; new capabilities become available
+       immediately.
+    4. On downgrade: previously created data (products, staff) is
+       RETAINED but becomes read-only or hidden, never deleted.
+
+Rationale: destroying a supplier's catalogue on downgrade would be a
+severe and irreversible data loss for a paying-then-lapsed customer.
+
+================================================================================
+14. OFFLINE SYNC
+================================================================================
+
+    1. User performs an action while offline (place order, record credit
+       sale, record repayment, confirm delivery).
+    2. The action is stored locally with a client_generated_id and
+       displayed with SyncStatusBadge = pending_sync.
+    3. On reconnect, queued actions are submitted via /sync/batch.
+    4. Server processes each item:
+        - Not seen before -> applied; result returned.
+        - client_generated_id already seen -> duplicate; ORIGINAL result
+          returned, no second record created.
+        - Invalid -> rejected with a reason.
+    5. Client updates each item to synced or sync_failed.
 
 Rules:
-    - A rejected order does not count against the business's order
-      history in a negative way; it is excluded from repeat-order and
-      trust calculations for that business (Document 07), since the
-      failure to fulfil originates with the supplier's decision.
-    - Frequent rejections by a supplier negatively affect that supplier's
-      response_rate_percentage and overall Supplier Profile.
+    - Duplicate submission must NEVER create a second record. A retried
+      order sync becoming two orders becomes two real deliveries.
+    - The user must always be able to distinguish confirmed from pending
+      actions.
+    - Sync is automatic and background; it never requires user action.
+    - Failed items remain visible and retryable rather than silently
+      disappearing.
 
 ================================================================================
-13. COMPLETE ORDER
+15. TRUST RECALCULATION TRIGGERS
 ================================================================================
 
-    1. Supplier fulfils and delivers the order.
-    2. Order status transitions to completed, either via explicit supplier
-       action or system-triggered confirmation (e.g. delivery tracking
-       reaching a "delivered" state, in later phases with more advanced
-       logistics integration).
-    3. completed_at timestamp is recorded.
-    4. An Invoice becomes available for the order.
-    5. Completion triggers recalculation of both the business's Digital
-       Business Profile and the supplier's Supplier Profile statistics
-       (Document 07).
+Recalculation of derived profiles and scores (Document 07) is triggered
+asynchronously by:
 
-================================================================================
-14. ORDER HISTORY
-================================================================================
-
-    - Both business and supplier can view historical orders, filterable by
-      status (current, pending, completed, cancelled/rejected).
-    - Order history is immutable once an order reaches a terminal state
-      (completed, cancelled, rejected); only delivery tracking metadata may
-      continue to update post-completion for record-keeping purposes.
-
-================================================================================
-15. BUSINESS PROFILE UPDATES (DIGITAL BUSINESS PROFILE RECALCULATION)
-================================================================================
-
-Trigger events that cause recalculation of a business's Digital Business
-Profile:
-    - Order placed
-    - Order completed
-    - Order cancelled/rejected
-    - New supplier relationship established (first order with a new
-      supplier)
+    - Order placed, accepted, rejected, dispatched, delivered, completed,
+      cancelled
+    - Delivery confirmed
+    - Payment confirmed
+    - New supplier relationship established (first completed order)
     - Verification status change
+    - Loan Book settlement patterns (aggregate behaviour only)
 
-Recalculated fields: orders_count, suppliers_count, average_order_value,
-largest_order_value, repeat_supplier_rate, average_payment_time_days,
-business_growth_percentage, risk_level.
-
-Full methodology is defined in Document 07.
+Recalculation never blocks the user-facing request.
 
 ================================================================================
-16. SUPPLIER STATISTICS (SUPPLIER PROFILE RECALCULATION)
+16. NOTIFICATION RULES
 ================================================================================
 
-Trigger events:
-    - Order received / accepted / rejected / completed
-    - Business Question response submitted
-    - New verification status change
-
-Recalculated fields: businesses_served_count, orders_completed_count,
-repeat_customer_rate, average_response_time_minutes,
-response_rate_percentage.
-
-================================================================================
-17. TRUST UPDATES
-================================================================================
-
-    1. Any of the trigger events in Sections 15–16 causes an asynchronous
-       recalculation job to run (rather than blocking the user-facing
-       request/response cycle).
-    2. Updated profile values are persisted to the Business Profile /
-       Supplier Profile tables.
-    3. Relationship-level statistics (Document 04, Section 16) are updated
-       for the specific business-supplier pair involved.
-    4. See Document 07 for the full set of signals feeding these
-       calculations and their intended future use in risk assessment.
+    - Order status changes notify the counterparty immediately.
+    - Delivery and payment confirmations notify both parties.
+    - Supplier invitations notify the inviting business on acceptance.
+    - Verification outcomes notify immediately.
+    - Loan Book reminders are business-local and never sent to the
+      customer by TRUConnect. The platform does not contact a business's
+      customers on its behalf.
 
 ================================================================================
-18. NOTIFICATION DELIVERY RULES
+17. DATA INTEGRITY RULES
 ================================================================================
 
-    - Order-related notifications (placed, accepted, rejected, completed)
-      are delivered immediately/synchronously with the triggering event.
-    - Business Question response notifications are delivered immediately
-      to the original asking business.
-    - Business Update notifications are delivered to all businesses that
-      have bookmarked/followed the publishing supplier.
-    - Verification status change notifications are delivered immediately
-      upon review completion.
-
-================================================================================
-19. ACCOUNT & DATA INTEGRITY RULES
-================================================================================
-
-    - Soft-delete is used for Businesses, Suppliers, Orders, and
-      Verification Records to preserve historical trust data (Document 04,
-      Section 19).
-    - A business or supplier may deactivate their own account; deactivation
-      hides the profile from discovery but preserves historical order and
-      relationship data for trust-engine integrity and any pending legal/
-      financial record-keeping requirements.
+    - Soft delete for businesses, suppliers, orders, verification
+      requests, and Loan Book entries.
+    - Account deactivation hides the account from discovery but preserves
+      historical trade records for both counterparties.
+    - Order history is immutable once terminal, except for post-delivery
+      metadata.
+    - A business's Loan Book is private to that business. It is never
+      exposed to suppliers, other businesses, or (in TRUConnect) any
+      third party.

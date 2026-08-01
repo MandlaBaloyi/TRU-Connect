@@ -1,71 +1,87 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                           PROJECT VISION
                           Document 00
 ================================================================================
 
 Parent Platform: TruePoint
-Document Owner: Product & Engineering Leadership
-Status: Source of Truth — Phase 1
-Version: 1.0
+Governing Document: 00A_TRUEPOINT_PLATFORM_CONSTITUTION.txt
+Status: Source of Truth -- Phase 1
+Version: 2.0 (Constitution Alignment)
+
+--------------------------------------------------------------------------------
+CONSTITUTIONAL ALIGNMENT
+--------------------------------------------------------------------------------
+This document is subordinate to the TruePoint Platform Constitution. Where
+any statement here appears to conflict with the Constitution, the
+Constitution prevails (TP-089).
+
+Primary constitutional references: TP-003 (Mission), TP-008 (TRUConnect Is
+The First Layer), TP-009 (Operational Value Before Financial Value),
+TP-054 (Understand The Real Competition), TP-055 (Digitize Existing Trade),
+TP-057 (Infrastructure, Not Marketplace).
 
 ================================================================================
 1. PROBLEM STATEMENT
 ================================================================================
 
-Millions of informal and small businesses across South Africa — spaza shops,
-salons, restaurants, mechanics, street vendors, and small wholesalers — operate
-entirely outside of the formal financial system.
+Millions of informal and small businesses across South Africa -- spaza
+shops, salons, restaurants, mechanics, street vendors, and small
+wholesalers -- already trade successfully every day. They already know
+their suppliers. Their suppliers already know them.
 
-They face a recurring set of problems:
+The problem is not that these relationships are missing.
 
-1.1 Sourcing Problems
-    - Limited visibility into which suppliers are reliable, competitively
-      priced, or capable of delivering to their area.
-    - No structured way to compare suppliers beyond word of mouth.
-    - Time lost travelling to physical markets or wholesalers to place orders.
+The problem is that these relationships are managed with tools that were
+never designed for business operations.
 
-1.2 Trust Problems
-    - No shared record of a supplier's reliability, delivery performance, or
-      responsiveness.
-    - No shared record of a business's own reliability as a customer.
-    - Star ratings and reviews are easily manipulated and rarely reflect real
-      commercial behaviour.
+1.1 Operational Friction (the problem TRUConnect solves today)
+    - Orders are placed by WhatsApp message, phone call, or SMS, then
+      forgotten, misremembered, or lost in a chat thread.
+    - Order details are re-explained on every call: quantities, prices,
+      delivery address, payment reference.
+    - Delivery confirmations are verbal. Disputes come down to memory.
+    - Credit sales to customers are recorded in a paper book -- easily
+      lost, damaged, miscounted, or disputed.
+    - Stock reordering depends on the owner remembering what they bought
+      last time and from whom.
+    - Nothing is searchable. Nothing is summarised. Nothing carries over
+      when a phone is lost or replaced.
 
-1.3 Data & Financial Invisibility
-    - Informal businesses transact largely in cash and outside of any
-      recorded system.
-    - Because there is no digital trail of their commercial activity, they
-      cannot demonstrate creditworthiness to banks or lenders.
-    - Suppliers face the same problem: they cannot easily demonstrate
-      reliability or scale to potential financial or institutional partners.
+1.2 The Consequence: Commercial Invisibility
+    Because none of this activity is recorded in any structured form:
+    - The business cannot demonstrate what it actually trades, to anyone.
+    - The supplier cannot demonstrate its reliability or scale.
+    - No external party can distinguish a disciplined, consistently
+      trading business from an inconsistent one.
 
-1.4 Supplier-Side Problems
-    - Suppliers (FMCG suppliers, regional wholesalers, beverage suppliers,
-      manufacturers, distributors, equipment and service providers) rely on
-      manual order-taking, phone calls, and informal relationships.
-    - Suppliers have no digital channel to reach new business customers or to
-      demonstrate their own track record.
+    This is not a credit problem. It is a trust infrastructure problem
+    (Constitution TP-005, TP-077).
 
-The core problem is not the absence of a marketplace. It is the absence of
-trusted, verifiable digital infrastructure connecting businesses and
-suppliers.
+1.3 Supplier-Side Friction
+    Suppliers (FMCG suppliers, regional wholesalers, beverage suppliers,
+    manufacturers, distributors) experience the mirror image:
+    - Orders arrive across WhatsApp, phone, and SMS with no single queue.
+    - Order details must be transcribed manually, introducing errors.
+    - Delivery and payment status live in a spreadsheet, a notebook, or
+      an employee's memory.
+    - There is no reliable record of which customers order consistently.
 
 ================================================================================
 2. VISION
 ================================================================================
 
-TRU Connect will become the trusted digital infrastructure connecting
-businesses, suppliers, and — in time — financial institutions across South
-Africa.
+TRUConnect will become the digital trade infrastructure that informal
+businesses and their existing suppliers use to run their daily trading
+relationships.
 
-TRU Connect helps businesses discover trusted suppliers, build trusted
-business relationships, and quietly creates the business data needed to
-unlock future financial opportunities.
+    TRUConnect does not create relationships.
+    TRUConnect digitizes them.
 
-Every ordinary business activity — searching for a supplier, asking a
-question, placing an order, receiving a delivery — becomes a data point in a
-growing, trustworthy record of commercial behaviour.
+It is the first operational layer of the TruePoint ecosystem (TP-008).
+Every completed order, confirmed delivery, and recorded payment makes the
+underlying trade relationship visible, measurable, and reliable -- which
+is what makes every later layer of the ecosystem possible.
 
 ================================================================================
 3. MISSION
@@ -73,182 +89,177 @@ growing, trustworthy record of commercial behaviour.
 
 To give every informal and small business in South Africa:
 
-    - A simple way to find and order from suppliers they can trust.
-    - A digital business identity that grows automatically through everyday
-      use, without requiring manual data entry or paperwork.
-    - A pathway toward financial inclusion built on real commercial evidence
-      rather than paperwork or collateral.
+    - A simple, fast, mobile way to run the supplier relationships they
+      already have -- replacing scattered WhatsApp threads and paper
+      records with one operational tool.
+    - A record of who owes them money, so credit sales stop depending on
+      a paper book.
+    - A trading history that accumulates automatically through ordinary
+      use, requiring no paperwork and no data entry beyond normal work.
 
 To give every supplier:
 
-    - A digital storefront and order channel that reaches business customers
-      directly.
-    - A reputation system based on real transaction history rather than
-      manipulable reviews.
-    - Access, over time, to trade finance and working capital based on their
-      demonstrated performance on the platform.
+    - One queue containing every incoming order, instead of orders
+      scattered across three communication channels.
+    - Reliable order, delivery, and payment records without manual
+      transcription.
+    - Operational tooling that scales with them as they grow
+      (Free -> Pro -> Enterprise).
 
 ================================================================================
 4. TARGET USERS
 ================================================================================
 
-4.1 Primary Users — Businesses
-    - Spaza shops
-    - Informal traders
-    - SMEs
-    - Local retailers
-    - Salons and hair studios
-    - Restaurants
-    - Mechanics
-    - Street vendors
-    - Small wholesalers
+4.1 Primary Users -- Informal Businesses (Business Free)
+    Spaza shops, informal traders, SMEs, local retailers, salons and hair
+    studios, restaurants, mechanics, street vendors, small wholesalers.
 
-4.2 Secondary Users — Suppliers
-    - FMCG suppliers
-    - Regional wholesalers
-    - Beverage suppliers
-    - Manufacturers
-    - Distributors
-    - Equipment suppliers
-    - Service providers
+    Business Free is the primary user of the entire platform
+    (Constitution TP-086: Businesses First). Business functionality is
+    free because the platform cannot build trusted infrastructure without
+    active businesses (TP-046).
 
-Both groups interact through a single mobile application, with the
-experience adapted to their role.
+4.2 Secondary Users -- Suppliers (tiered)
+
+    Supplier Free
+        FMCG suppliers, regional wholesalers, beverage suppliers,
+        distributors, and service providers who need to receive and
+        fulfil orders reliably. Free because supplier participation is
+        what makes the business experience complete.
+
+    Supplier Pro
+        Suppliers who have outgrown order-taking alone and need product
+        management, staff accounts, reporting, and a web dashboard.
+
+    Supplier Enterprise
+        Suppliers operating at scale who need teams, advanced reporting,
+        ERP integration, and API access.
+
+4.3 Future Users
+    Lenders and financial institutions -- only after trusted operational
+    infrastructure exists (TP-084: Infrastructure Before Finance). They
+    are out of scope for TRUConnect itself and belong to later TruePoint
+    platform stages.
 
 ================================================================================
 5. CORE PHILOSOPHY
 ================================================================================
 
-TRU Connect is built on one governing idea:
+5.1 Digitize, Don't Introduce
+    The strongest network in the informal economy already exists: the
+    relationship between a business and the suppliers it already trades
+    with (TP-056). TRUConnect strengthens that network rather than
+    attempting to replace it with a marketplace.
 
-    Help businesses buy better, help suppliers sell more, and quietly build
-    trusted business data in the background.
+5.2 Operational Value First
+    Businesses adopt TRUConnect because it solves today's operational
+    problems -- not because they want loans (TP-009). Every feature must
+    answer: "What business problem does this solve today?"
 
-This philosophy has three direct implications for product design:
+5.3 Invisible Data Accumulation
+    Users should never be asked to manually create information that can
+    emerge naturally from ordinary use (TP-022). Placing an order,
+    confirming a delivery, recording a payment -- each is a normal
+    business action that happens to also produce trusted data.
 
-5.1 Invisible Data Collection
-    Users should never feel like they are filling out a credit application
-    or building a financial record. Every normal action — searching,
-    asking a question, ordering — should feel like an ordinary part of
-    running a business, while quietly contributing to a structured business
-    profile behind the scenes.
-
-5.2 Relationships Over Transactions
-    Unlike a conventional marketplace, TRU Connect optimises for durable,
-    repeat relationships between specific businesses and suppliers, not
-    one-off transactions. Repeat behaviour is the strongest trust signal
-    available and is treated as such throughout the product.
-
-5.3 Trust Before Lending
-    Financial products (credit, trade finance, working capital) are never
-    the entry point. They are the eventual output of a long period of
-    verified, trusted commercial activity. Trust must be earned and
-    observed before it can be underwritten.
+5.4 Independent Value At Every Layer
+    Businesses must gain value before suppliers exist on the platform.
+    Suppliers must gain value before enterprise capabilities exist.
+    Enterprise suppliers must gain value before lender services exist
+    (TP-019). No future capability may become a prerequisite for today's
+    value.
 
 ================================================================================
 6. WHY INFORMAL BUSINESSES
 ================================================================================
 
-Informal businesses are chosen as the primary user group because:
-
     - They represent an enormous, underserved segment of the economy with
-      real, recurring purchasing needs (stock, supplies, equipment).
-    - They are almost entirely excluded from formal credit and financial
-      services today, despite being creditworthy in practice.
-    - Their daily operational needs (finding suppliers, placing orders) are
-      immediate and valuable enough to drive habitual use, independent of
-      any future financial product.
-    - Habitual use is exactly what is required to generate the volume and
-      quality of behavioural data needed to build trusted business profiles.
+      real, recurring operational needs.
+    - Their daily friction (orders, deliveries, credit sales) is severe
+      enough that a tool which genuinely reduces it will be used every
+      day -- and habitual use is precisely what produces meaningful
+      trading history.
+    - They are almost entirely invisible to the formal financial system
+      today, despite trading reliably in practice.
+    - They are the starting point of the entire ecosystem (TP-086).
 
 ================================================================================
 7. WHY SUPPLIERS
 ================================================================================
 
-Suppliers are included as a first-class user group, not an afterthought,
-because:
-
-    - A marketplace without engaged, responsive suppliers has nothing for
-      businesses to discover.
-    - Suppliers benefit directly and immediately from a digital order
-      channel and reduced manual overhead, giving them a standalone reason
-      to participate.
-    - Supplier reliability (delivery performance, responsiveness, pricing
-      consistency) is itself a critical trust signal that businesses need,
-      and that only suppliers can generate through their own activity.
-    - Over time, suppliers themselves become candidates for trade finance
-      and working capital products, mirroring the trust-building journey of
-      businesses.
+    - A business's supplier relationships cannot be fully digitized if
+      only one side is present. Order confirmation, delivery status, and
+      payment acknowledgement all require the supplier.
+    - Suppliers gain immediate, standalone value: one order queue instead
+      of three channels, and far less manual transcription.
+    - Supplier reliability (acceptance, fulfilment, delivery performance)
+      is itself operational data that only suppliers can produce.
+    - Supplier tiers create the platform's primary sustainable revenue
+      path (TP-047) without restricting access to essential functionality.
 
 ================================================================================
 8. WHY TRUST BEFORE LENDING
 ================================================================================
 
-TRU Connect deliberately sequences its roadmap so that trust infrastructure
-is built before any financial product is introduced.
+The Constitution fixes this sequence permanently (TP-023, TP-083, TP-084):
 
-    - Lending without a trust foundation is high-risk and unsustainable at
-      the scale TRU Connect intends to operate.
-    - Businesses and suppliers are more willing to engage with a tool that
-      solves an immediate operational problem (sourcing, selling) than one
-      that immediately positions itself as a financial or credit product.
-    - A trust and data layer built from real, verified commercial activity
-      produces far stronger risk signals than self-reported financial
-      information.
-    - This sequencing (utility first, trust second, credit third) is what
-      allows TRU Connect to eventually underwrite financial products with
-      confidence, rather than relying on traditional collateral or
-      documentation-heavy processes that exclude the very businesses it
-      aims to serve.
+    Business Operations -> Trusted Relationships -> Digital Trade ->
+    Behavioural Data -> Trust -> Intelligence -> Finance
+
+    - Lending without a trust foundation is unsustainable at scale.
+    - Businesses engage far more readily with a tool that solves an
+      immediate operational problem than with one presenting itself as a
+      financial product.
+    - Trust built from real, observed commercial activity produces far
+      stronger signals than self-reported financial information.
+
+TRUConnect therefore contains NO lending, NO money custody, and NO credit
+products. It produces the trusted operational record that later TruePoint
+products (TRUScore, TRUWallet, TRUPayLater) eventually depend on.
 
 ================================================================================
-9. LONG-TERM VISION
+9. WHAT TRUCONNECT IS NOT
 ================================================================================
 
-TRU Connect is designed to evolve in four broad phases:
-
-    Phase 1 — Establish the core marketplace: supplier discovery, ordering,
-               verification, and business questions.
-    Phase 2 — Introduce payments, wallet functionality, and business
-               insights derived from platform activity.
-    Phase 3 — Introduce credit, trade finance, and working capital products,
-               underwritten using data generated in Phases 1 and 2.
-    Phase 4 — Open the platform via partner APIs to financial institutions
-               and other ecosystem partners, positioning TRU Connect as
-               shared trust infrastructure for the informal economy.
-
-Over time, TRU Connect aims to support millions of businesses and suppliers,
-becoming the default trusted layer between informal commerce and the formal
-financial system in South Africa.
+    - NOT a marketplace. It does not exist to help businesses find
+      suppliers they don't already know (TP-057).
+    - NOT a payment processor or money holder. Payments flow directly
+      from customer to supplier. TRUConnect records that a payment
+      happened; it never holds funds.
+    - NOT a lender. Financial products belong to later TruePoint stages.
+    - NOT competing with Amazon, Takealot, or Alibaba. It competes with
+      WhatsApp, phone calls, SMS, paper order books, handwritten
+      invoices, memory, and Excel (TP-054).
 
 ================================================================================
 10. SUCCESS METRICS
 ================================================================================
 
-Success for TRU Connect is measured differently at each phase, but always in
-terms of relationships and trust, not just transaction volume.
+Success is measured in operational adoption first, and trust second --
+never in transaction volume alone.
 
-10.1 Phase 1 Metrics (Engagement & Trust Foundations)
-    - Number of verified businesses and suppliers onboarded.
-    - Number of active supplier-business relationships (repeat interactions
-      between the same pair of accounts).
-    - Order completion rate and repeat order rate.
-    - Business Question engagement (questions asked, response rate, response
-      time).
-    - Supplier response rate and average response time.
-    - Month-over-month retention of both businesses and suppliers.
+10.1 Phase 1 -- Operational Adoption
+    - Number of businesses actively using TRUConnect weekly.
+    - Number of existing supplier relationships digitized per business.
+    - Orders placed through the platform vs. estimated orders still
+      placed by WhatsApp/phone (friction displaced).
+    - Loan Book entries recorded and settled (paper-book displacement).
+    - Weekly retention of Business Free users.
+    - Offline actions successfully synchronised (reliability under real
+      network conditions).
 
-10.2 Longer-Term Metrics (Trust & Financial Readiness)
-    - Growth in Business Health Score / Digital Business Profile completeness
-      across the user base.
-    - Percentage of businesses with sufficient verified activity to be
-      considered for future financial products.
-    - Supplier reliability scores and their correlation with business
-      retention.
-    - Volume and value of orders flowing through the platform.
-    - Eventual: credit product uptake, repayment performance, and trade
-      finance volume, once Phase 3 is reached.
+10.2 Phase 2 -- Supplier Participation
+    - Supplier Free accounts activated by invitation from a business.
+    - Percentage of a business's suppliers present on the platform.
+    - Supplier order acceptance and fulfilment rates.
+    - Conversion from Supplier Free to Supplier Pro.
 
-Ultimately, TRU Connect's success is measured by the depth and reliability
-of the trusted commercial data it generates — the asset that makes every
-later phase of the platform possible.
+10.3 Longer Term -- Trust Formation
+    - Depth and consistency of trading history per business.
+    - Repeat-order rate within established relationships.
+    - Payment record consistency.
+    - Proportion of businesses with sufficient verified activity to be
+      meaningful to a future TRUScore assessment.
+
+Revenue metrics belong to Supplier Pro/Enterprise adoption, never to
+monetising trust itself (TP-047).

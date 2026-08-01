@@ -1,77 +1,95 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                      PRODUCT SPECIFICATION
-                          Document 01 ⭐
+                          Document 01
                     (Master Source of Truth)
 ================================================================================
 
-Version: 1.0
-Related Documents: 00_PROJECT_VISION.txt, 09_ECOSYSTEM_STRATEGY.txt
+Version: 2.0 (Constitution Alignment)
+Governing Document: 00A_TRUEPOINT_PLATFORM_CONSTITUTION.txt
+Related: 00_PROJECT_VISION.txt, 09_ECOSYSTEM_STRATEGY.txt
 
 ================================================================================
 1. PRODUCT PHILOSOPHY
 ================================================================================
 
-TRU Connect helps businesses buy better, helps suppliers sell more, and
-quietly builds trusted business data in the background.
+TRUConnect digitizes the supplier relationships an informal business
+already has, and the customer credit it already extends.
 
-Users should never feel like they are completing credit applications or
-creating financial records. Every normal business activity — searching,
-asking questions, ordering, receiving deliveries — contributes to a trusted
-digital business profile without requiring any deliberate data-entry effort
-from the user.
+It replaces:
+    WhatsApp order threads. Phone calls. SMS. Paper order books.
+    Handwritten credit ledgers. Memory.
 
-Guiding product principles (elaborated in Section 10):
+It does not replace:
+    The relationships themselves.
 
-    - Simple First
-    - Business Focused
-    - Component Driven
-    - Mobile First
-    - Trust by Design
-    - Scalable Architecture
+Every feature must answer one question: "What business problem does this
+solve today?" (TP-016, TP-049). Features that only make sense once
+lending, AI, or payments exist do not belong in TRUConnect.
+
+Governing product principles (elaborated in Section 10):
+    Simple First - Operational First - Mobile First - Offline Aware -
+    Component Driven - Trust By Design - Scalable Architecture
 
 ================================================================================
 2. APPLICATION OVERVIEW
 ================================================================================
 
-TRU Connect is a single React Native mobile application serving two distinct
-user experiences from one shared codebase, backend, and database.
+TRUConnect is a single React Native mobile application serving two
+distinct user experiences from one shared backend, database, and identity
+platform (Constitution TP-032: One User Identity).
 
-                              TRU CONNECT
+                              TRUCONNECT
                                    |
                   -------------------------------------
                   |                                     |
-          FOR BUSINESSES                        FOR SUPPLIERS
-          (Primary Users)                       (Secondary Users)
+          INFORMAL BUSINESSES                     SUPPLIERS
+          (Primary Users)                         (Secondary Users)
+          Business Free                           Free -> Pro -> Enterprise
 
-Both experiences share the following backend systems:
-
-    - Authentication
-    - Database
-    - Notifications
-    - Product Catalogue
-    - Orders
-    - Messaging / Business Questions
+Shared platform services:
+    - Authentication & Authorization (single users table, RBAC)
+    - Notifications (shared notification infrastructure)
+    - Orders & Trade Events
     - Verification
+    - Audit & Observability
 
-Only the presented features and navigation differ according to the
-authenticated user's role (business vs. supplier).
+Only the presented features and navigation differ by role. Supplier Pro
+additionally gains a web dashboard (frontend/web); Business remains
+mobile-only.
 
 ================================================================================
-3. ONE APP, TWO EXPERIENCES
+3. USER TIERS
 ================================================================================
 
-3.1 Role Determination
-    A single account is associated with exactly one role at a time
-    (business or supplier). Role is established at registration and
-    determines which dashboard, navigation set, and feature set the user
-    sees after authentication.
+3.1 Business Free (Primary)
+    Free, permanently. The platform cannot build trusted infrastructure
+    without active businesses (TP-046).
 
-3.2 Shared Infrastructure, Divergent UI
-    The application shell (authentication, notifications, settings, support)
-    is shared. Role-specific modules (dashboards, catalogues, order
-    management) are rendered conditionally based on role, using the shared
-    component library defined in Document 03.
+    Capabilities: Business Profile, My Suppliers, Order Queue, Orders,
+    Loan Book, Customers, Notifications, Offline Support.
+
+3.2 Supplier Free
+    Free. Exists so that a business's existing suppliers can participate
+    without a purchase decision.
+
+    Capabilities: Receive Orders, Update Order Status, Provide Payment
+    Reference, Confirm Delivery, basic business profile.
+
+3.3 Supplier Pro
+    Paid. For suppliers who have outgrown order-taking alone.
+
+    Adds: Product Management (catalogue), Staff Users, Reporting, Web
+    Dashboard.
+
+3.4 Supplier Enterprise
+    Paid. For suppliers operating at scale.
+
+    Adds: Teams and role hierarchies, Advanced Reporting, ERP
+    Integration, API access.
+
+Tier capability is enforced through the existing RBAC role/permission
+system -- not through duplicate user implementations (TP-032).
 
 ================================================================================
 4. BUSINESS USER JOURNEY
@@ -79,250 +97,285 @@ authenticated user's role (business vs. supplier).
 
     Launch App
         |
-    Landing Screen (role selection: Business / Supplier)
+    Landing / Onboarding
         |
-    Authentication (Login / Register / Continue with Google)
+    Authentication (Register / Sign In / Continue with Google)
         |
-    Business Dashboard (Home)
+    Verify (OTP)
         |
-    Daily Operations:
-        - Browse / search suppliers
-        - View supplier profiles and products
-        - Ask Business Questions on products
-        - Bookmark / follow suppliers
-        - Place orders
-        - Track order status and delivery
-        - View and manage Digital Business Profile
-        - Manage business documents and verification
-        - Receive notifications (order updates, responses, promotions)
+    Business Profile Setup
+        |
+    ADD MY SUPPLIERS  <-- the defining first action
+        |
+    Daily Operations
 
-4.1 First-Time Business Experience
-    1. View landing screen introduction slides (business-focused).
-    2. Register or continue with Google.
-    3. Complete lightweight business profile (name, category, location).
-    4. Land on Home dashboard with guided prompts (e.g. "Find your first
-       supplier").
-    5. Begin building Digital Business Profile automatically as they browse
-       and transact.
+4.1 The Defining First Action: Add My Suppliers
+    A new business does not search a catalogue. It records the suppliers
+    it ALREADY buys from -- by name and contact number, in seconds.
+
+    - If the supplier is already on TRUConnect, the relationship links
+      immediately and orders flow digitally.
+    - If the supplier is not yet on TRUConnect, the business can still
+      record orders against that supplier for its own records, and may
+      invite the supplier to join.
+
+    This is the single most important design decision in the product. The
+    business gets value from day one, with or without supplier adoption
+    (TP-019).
+
+4.2 Daily Operations (Business)
+    - Place an order with an existing supplier (repeat-order in a few
+      taps, using previous orders as the template).
+    - Track order status: placed, accepted, dispatched, delivered.
+    - Confirm delivery and record payment reference.
+    - Record a credit sale in the Loan Book, and mark it settled when the
+      customer pays.
+    - View trading history and business profile.
+    - Work offline; actions queue and synchronise automatically.
 
 ================================================================================
 5. SUPPLIER USER JOURNEY
 ================================================================================
 
-    Launch App
+    Launch App (or accept a business's invitation)
         |
-    Landing Screen (role selection: Business / Supplier)
+    Authentication -> Verify -> Supplier Profile Setup
         |
-    Authentication (Login / Register / Continue with Google)
-        |
-    Supplier Dashboard (Home)
-        |
-    Daily Operations:
-        - Manage product catalogue
-        - Receive and respond to orders
-        - Respond to Business Questions on products
-        - Publish Business Updates (promotions, new products, hours)
-        - View customer enquiries
-        - Track order fulfilment and delivery
-        - View business performance and statistics
-        - Manage verification and supplier documents
+    Daily Operations
 
-5.1 First-Time Supplier Experience
-    1. View landing screen introduction slides (supplier-focused).
-    2. Register or continue with Google.
-    3. Complete supplier profile (business name, category, regions served).
-    4. Upload initial product catalogue.
-    5. Begin receiving business enquiries and orders; profile statistics
-       accrue automatically.
+5.1 Daily Operations (Supplier Free)
+    - See every incoming order in ONE queue.
+    - Accept or decline an order, with a reason.
+    - Update order status through to delivery.
+    - Provide a payment reference for the business to pay against
+      directly.
+    - Confirm delivery.
+
+5.2 Additional Operations (Supplier Pro)
+    - Manage a product catalogue so businesses order against real items
+      and prices instead of free-text.
+    - Add staff users who can process orders.
+    - View reporting on orders, customers, and fulfilment.
+    - Operate from a web dashboard rather than mobile only.
+
+5.3 Additional Operations (Supplier Enterprise)
+    - Teams with role hierarchies across branches or regions.
+    - Advanced reporting and export.
+    - ERP integration and API access.
 
 ================================================================================
 6. NAVIGATION
 ================================================================================
 
-6.1 Business Bottom Navigation (5 tabs)
-    - Home       — daily overview and recommendations
-    - Business    — profile, verification, wallet, insights, documents
-    - Suppliers   — discovery, search, categories, saved suppliers
-    - Orders      — current, pending, completed, cancelled orders
-    - More        — settings, support, account
+The implemented mobile application uses a five-tab bottom navigation per
+role. This specification aligns the CONTENT of those tabs with the
+Constitution; the navigation structure itself is unchanged, preserving
+compatibility with the existing codebase.
 
-6.2 Supplier Bottom Navigation (5 tabs)
-    - Home        — daily overview and performance
-    - Products    — catalogue management
-    - Orders      — order fulfilment and history
-    - Customers   — enquiries and customer statistics
-    - More        — settings, support, account
+6.1 Business Navigation
+    Home        Today's operational picture: pending orders, orders
+                awaiting delivery, outstanding Loan Book balance, recent
+                activity.
+    Account     Operational workspace: My Suppliers, Order Queue, Loan
+                Book, Customers, Business Profile, Verification,
+                Documents, Settings.
+    Community   Business-to-business knowledge and platform updates.
+                NOT a marketplace and NOT supplier promotion. Optional,
+                and lower priority than operational features.
+    Discovery   Ecosystem content: platform updates, verified supplier
+                announcements, programmes, campaigns. Late-phase supplier
+                discovery lives here (Section 7.9), deliberately
+                secondary.
+    More        Settings, support, help, legal, logout.
 
-Navigation structure is defined in detail, including component composition,
-in Document 03 (Frontend Component Specification).
-
-================================================================================
-7. FEATURES & MODULES (PHASE 1 SCOPE)
-================================================================================
-
-7.1 Authentication Module
-    - Login
-    - Register
-    - Continue with Google
-    - (Future: Phone Login, Biometric Authentication, Passkeys)
-
-7.2 Business Dashboard Module
-    - Welcome / business summary card
-    - Today's Orders
-    - Pending Orders
-    - Nearby Suppliers
-    - Recommended Products
-    - Recent Activity
-
-7.3 Supplier Dashboard Module
-    - Welcome / supplier summary card
-    - Today's Orders
-    - Customer Enquiries
-    - Recent Orders
-    - Top Products
-    - Business Performance
-
-7.4 Supplier Discovery Module (Business-facing)
-    - Search
-    - Categories
-    - Nearby Suppliers
-    - Featured Suppliers
-    - Popular Products
-    - Recently Viewed
-    - Saved Suppliers
-
-7.5 Product Catalogue Module (Supplier-facing)
-    - Product listing management
-    - Categories
-    - Pricing and bulk pricing
-    - Availability and stock status
-    - Minimum order quantities
-
-7.6 Orders Module (Shared)
-    - Order placement (business)
-    - Order acceptance / rejection (supplier)
-    - Order status tracking
-    - Invoices
-    - Delivery tracking
-    - Order history (current, pending, completed, cancelled)
-
-7.7 Business Questions Module (Shared)
-    - Ask a question beneath a product (business)
-    - Respond to a question (supplier)
-    - Questions and answers remain attached to the product for future
-      visibility (see Document 09 for rationale).
-
-7.8 Verification Module
-    - Business verification
-    - Supplier verification
-    - Verification badge display across profiles and cards
-
-7.9 Notifications Module
-    - Order status changes
-    - New responses to Business Questions
-    - Business Updates from followed/saved suppliers
-    - System and account notifications
-
-7.10 Digital Business Profile Module
-    - Automatically generated business statistics (orders, suppliers,
-      average order value, repeat supplier rate, payment behaviour,
-      business growth, risk level)
-    - See Document 07 for the underlying trust engine.
-
-7.11 Business Updates Module (Supplier-facing)
-    - Publish updates: new products, promotions, price changes, holiday
-      hours, new locations, service announcements.
+6.2 Supplier Navigation
+    Home        Incoming orders, orders to dispatch, deliveries pending,
+                today's activity.
+    Account     Operational workspace: Orders, Deliveries, Customers,
+                Products (Pro), Staff (Pro), Reporting (Pro), Profile,
+                Settings.
+    Community   Supplier announcements and platform updates.
+    Discovery   Ecosystem content and platform announcements.
+    More        Settings, support, help, legal, logout.
 
 ================================================================================
-8. SCREENS (PHASE 1)
+7. FEATURES & MODULES
 ================================================================================
 
-8.1 Shared / Pre-Authentication Screens
-    - Landing Screen (with two-slide role introduction)
-    - Login Screen
-    - Register Screen
-    - Google Authentication flow screen
+7.1 Authentication (IMPLEMENTED)
+    Register (business or supplier), Sign In, Continue with Google, OTP
+    verification, Forgot/Reset Password, JWT with refresh-token rotation,
+    logout with token revocation, RBAC.
+
+    Registration is deliberately minimal: only what is needed to create
+    an account. Business detail is collected later, in Profile Setup.
+
+7.2 Business Profile
+    Business name, trading name, category, location, contact, trading
+    information, documents. Feeds verification and, much later, TRUScore.
+
+7.3 My Suppliers  [replaces the former "Supplier Discovery" module]
+    Purpose: manage the suppliers this business ALREADY trades with.
+
+    Problem solved: today a business keeps supplier numbers in its phone
+    contacts and its order history in WhatsApp. Nothing connects them.
+
+    Components:
+        - Add a supplier (name + phone; seconds, minimal typing)
+        - My Suppliers list (most recently ordered first)
+        - Supplier detail: contact, order history with this supplier,
+          outstanding orders, typical items
+        - Invite supplier to TRUConnect
+        - Saved/preferred supplier ordering
+
+7.4 Order Queue
+    Purpose: a single place showing every order that still needs
+    something to happen.
+
+    Problem solved: orders currently live scattered across WhatsApp
+    threads, with no reliable "what is outstanding right now" view.
+
+    Business view: awaiting acceptance, accepted, dispatched, awaiting
+    delivery confirmation, awaiting payment.
+    Supplier view: new, accepted, being prepared, dispatched, delivered.
+
+7.5 Orders
+    Place order, repeat previous order, accept/decline (supplier),
+    status progression, delivery confirmation, payment reference and
+    payment confirmation, order history, order detail.
+
+    Repeat-order is a first-class action: most informal business ordering
+    is repetitive, and re-entering it every time is pure friction
+    (TP-059, TP-061).
+
+7.6 Loan Book
+    Purpose: record which CUSTOMERS owe this business money from credit
+    sales, and track settlement.
+
+    Problem solved: credit sales are recorded in a paper book that is
+    lost, damaged, miscounted, or disputed. This is one of the most
+    universally reported operational pains for spaza shops and similar
+    businesses.
+
+    Components:
+        - Record a credit sale (customer, amount, date, optional note)
+        - Outstanding balance per customer and in total
+        - Record a repayment (full or partial)
+        - Settlement history
+        - Reminders
+
+    IMPORTANT: The Loan Book is a RECORD-KEEPING tool. TRUConnect does
+    not lend, does not hold money, and does not collect on the business's
+    behalf. It replaces the paper book, nothing more.
+
+7.7 Customers
+    Purpose: a light record of the business's repeat customers, primarily
+    to support the Loan Book.
+
+    Components: customer list, contact, credit history, outstanding
+    balance. Deliberately minimal -- this is not a CRM.
+
+7.8 Product Catalogue (Supplier Pro)
+    Purpose: let businesses order against real items and prices.
+
+    Problem solved: free-text ordering causes errors, price disputes, and
+    repeated clarifying phone calls.
+
+    Components: product list, create/edit product, pricing, availability,
+    minimum order quantity, product images, drafts.
+
+7.9 Supplier Discovery  [LATE PHASE, DELIBERATELY SECONDARY]
+    Purpose: help a business find a genuinely NEW supplier on the rare
+    occasions it needs one -- a new product line, a supplier that closed,
+    relocation.
+
+    This is NOT the core loop and must never be presented as the primary
+    way to use TRUConnect. It lives inside Discovery, arrives in a later
+    phase (Document 08), and exists only because the need occasionally
+    exists in reality.
+
+7.10 Notifications
+    Order placed, accepted, declined, dispatched, delivered; payment
+    confirmed; supplier joined by invitation; verification status; Loan
+    Book reminders; platform announcements.
+
+7.11 Verification
+    Business and supplier verification with a verification badge. Feeds
+    trust signals (Document 07).
+
+7.12 Offline Support
+    Read access to cached suppliers, orders, and Loan Book entries.
+    Write actions queue locally and synchronise automatically when
+    connectivity returns (TP-062). The user should rarely have to think
+    about connectivity.
+
+================================================================================
+8. SCREENS
+================================================================================
+
+8.1 Shared / Pre-Authentication (IMPLEMENTED)
+    Splash, Welcome, Role Selection, Sign In, Create Account, OTP
+    Verification.
 
 8.2 Business Screens
-    - Business Home Dashboard
-    - Business Profile
-    - Verification
-    - Wallet (future-scoped placeholder in Phase 1)
-    - Saved Suppliers
-    - Business Documents
-    - Business Insights (future-scoped placeholder in Phase 1)
-    - Supplier Search / Discovery
-    - Supplier Profile (public view)
-    - Product Detail (with Business Questions thread)
-    - Cart / Order Placement
-    - Order List (current, pending, completed, cancelled)
-    - Order Detail / Delivery Tracking
-    - Notifications
-    - Settings / More
+    Home Dashboard; Business Profile; Verification; Business Documents;
+    My Suppliers (list, detail, add, invite); Order Queue; Place Order;
+    Order Detail; Order History; Loan Book (list, add entry, entry
+    detail, record repayment); Customers (list, detail); Notifications;
+    Community; Discovery; More/Settings.
 
 8.3 Supplier Screens
-    - Supplier Home Dashboard
-    - Product Catalogue Management
-    - Product Create / Edit
-    - Order List (incoming, accepted, completed, cancelled)
-    - Order Detail / Fulfilment
-    - Customer Enquiries List
-    - Business Performance / Statistics
-    - Business Updates Composer
-    - Notifications
-    - Settings / More
+    Home Dashboard; Supplier Profile; Verification; Order Queue; Order
+    Detail / Fulfilment; Deliveries; Customers; Product Catalogue (Pro:
+    list, add, edit, images, drafts); Staff (Pro); Reporting (Pro);
+    Notifications; Community; Discovery; More/Settings.
 
 ================================================================================
-9. USER ROLES
+9. USER ROLES & PERMISSIONS
 ================================================================================
 
-9.1 Business (Primary)
-    Permissions: search/browse suppliers, view public supplier profiles,
-    ask Business Questions, bookmark suppliers, place orders, manage own
-    business profile and documents, view own Digital Business Profile.
+Implemented today (single users table + RBAC, TP-032):
+    business    Business Free user.
+    supplier    Supplier user; tier determines capability.
+    admin       Reserved platform administrator role.
 
-9.2 Supplier (Secondary)
-    Permissions: manage own product catalogue, respond to Business
-    Questions, accept/reject/fulfil orders, publish Business Updates,
-    view own customer statistics (aggregated, privacy-preserving — see
-    Document 09, Business Privacy).
+Planned, additive (no new user tables):
+    supplier_staff        Staff member acting for a Supplier Pro account.
+    supplier_enterprise   Enterprise supplier with team management.
+    lender                Future, read-only, out of TRUConnect scope.
 
-9.3 Future Roles (Not in Phase 1 scope, noted for architecture readiness)
-    - Platform Administrator (internal moderation, verification review)
-    - Financial Partner (read-only access to aggregated trust data via
-      future partner APIs — Phase 4)
+Supplier tier is an attribute of the supplier account resolved into
+permissions -- not a separate identity model.
 
 ================================================================================
 10. PRODUCT DESIGN PRINCIPLES
 ================================================================================
 
-Every screen and feature within TRU Connect must follow these principles:
-
-    1. Simple First — Prioritise clarity over visual complexity. Every
-       screen should answer one clear question for the user.
-    2. Business Focused — Every feature should help businesses buy, sell,
-       or grow. Features that do not serve this goal are out of scope.
-    3. Component Driven — Build reusable components (Document 03) that
-       scale consistently across both business and supplier experiences.
-    4. Mobile First — Design for fast, intuitive use on smartphones,
-       including on lower-end devices and inconsistent connectivity.
-    5. Trust by Design — Verification, transparency, and security are
-       embedded throughout the experience, not bolted on afterward.
-    6. Scalable Architecture — Every feature must support future expansion
-       into supplier services, financial products, and institutional
-       partnerships without requiring architectural rework.
+    1. Simple First -- fewer taps, less reading, less typing, less
+       training (TP-061).
+    2. Operational First -- every feature solves a problem the business
+       has TODAY (TP-049).
+    3. Mobile First -- one-handed operation, large touch targets, fast
+       startup, low-end device tolerance (TP-018, TP-060).
+    4. Offline Aware -- graceful behaviour on intermittent connectivity
+       (TP-062).
+    5. Component Driven -- reusable components across both experiences.
+    6. Trust By Design -- verification and transparency embedded, never
+       bolted on.
+    7. Scalable Architecture -- every feature must support millions of
+       businesses without rework (TP-038).
 
 ================================================================================
-11. FUTURE EXPANSION (ROADMAP SUMMARY)
+11. FUTURE EXPANSION
 ================================================================================
 
-See Document 08 (Product Roadmap) for full detail. Summary:
+Within TRUConnect (Document 08): Supplier Pro capabilities, Supplier
+Enterprise capabilities, richer business insights, late-phase supplier
+discovery.
 
-    Phase 2 — Payments, Wallet, Business Insights, Supplier Analytics
-    Phase 3 — Credit, Trade Finance, Working Capital, Financial Products
-    Phase 4 — Partner APIs, Financial Institution Integrations, Open
-              Platform Expansion
+Beyond TRUConnect (TruePoint platform stages, separate products):
+TRUScore, TRUWallet, TRUPayLater.
 
-Architectural decisions in Documents 04 (Database Design) and 05 (Backend
-API Specification) explicitly account for this roadmap to avoid rework as
-each phase is introduced.
+TRUConnect itself will NOT become a wallet, a payment processor, or a
+lender. It produces the trusted operational record those later products
+depend on (TP-084).

@@ -1,6 +1,6 @@
 """
 Extensions Layer.
-Ref: backend master prompt, "Step 2: Extensions".
+ 
 
 Instantiates Flask extensions WITHOUT binding them to an app instance.
 Binding happens in the application factory (src/__init__.py) via each

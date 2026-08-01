@@ -15,7 +15,7 @@ interface StatCardProps {
  * dashboards (Today's Snapshot / Business Overview). Shared because the
  * shape (label + big value + optional icon) is identical across roles;
  * only the metrics shown differ.
- * Ref: master prompt "Today's Snapshot" and "Business Overview".
+ * "Today's Snapshot" and "Business Overview".
  */
 export function StatCard({ label, value, icon }: StatCardProps) {
   const theme = useTheme();

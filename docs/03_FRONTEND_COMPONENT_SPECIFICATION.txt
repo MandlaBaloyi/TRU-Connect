@@ -1,225 +1,240 @@
 ================================================================================
-                            TRU CONNECT
+                            TRUCONNECT
                 FRONTEND COMPONENT SPECIFICATION
                           Document 03
 ================================================================================
 
-Target Platform: React Native
-Version: 1.0
-Related Documents: 02_SYSTEM_UI_UX_SPECIFICATION.txt
+Target Platform: React Native (Expo SDK 54)
+Version: 2.0 (Constitution Alignment)
+Related: 02_SYSTEM_UI_UX_SPECIFICATION.txt
 
-Purpose: Define every reusable component in the TRU Connect React Native
-component library. Every screen in the application must be composed from
-these components rather than one-off, screen-specific implementations.
+Purpose: define every reusable component. Every screen must be composed
+from these rather than one-off implementations (TP-012: Build Platforms,
+Not Features).
+
+--------------------------------------------------------------------------------
+CHANGES IN THIS VERSION
+--------------------------------------------------------------------------------
+REMOVED: BusinessQuestionThread -- Business Questions are removed from the
+         product entirely (see Document 09).
+RENAMED: SupplierCard -> MySupplierCard (it now represents an existing
+         trading relationship, not a discovery result).
+ADDED:   OrderQueueCard, LoanBookEntryCard, CustomerCard, AddSupplierSheet,
+         RepeatOrderButton, SyncStatusBadge, MoneyText, StatusPill.
+
+Components already implemented in frontend/mobile/src/components/ are
+marked (IMPLEMENTED) and must not be recreated.
 
 ================================================================================
-1. COMPONENT LIBRARY STRUCTURE
+1. LIBRARY STRUCTURE
 ================================================================================
 
-Components are organised into four groups:
+    src/components/ui/            Primitives (buttons, containers)
+    src/components/cards/         Card components
+    src/components/forms/         Form controls
+    src/components/feedback/      Loading, empty, error, offline
+    src/components/navigation/    Headers, tab bar
 
-    1. Authentication Components
-    2. Business Components
-    3. Supplier Components
-    4. Shared Components
+    src/features/<feature>/components/   Feature-specific components
 
-Each component below is defined by: Purpose, Props (conceptual, not code),
-Visual States, and Usage Notes.
+Rule: a component used by more than one feature belongs in
+src/components/. A component used by exactly one feature belongs to that
+feature.
 
 ================================================================================
-2. AUTHENTICATION COMPONENTS
+2. AUTHENTICATION COMPONENTS (IMPLEMENTED)
 ================================================================================
 
-2.1 LoginScreen
-    Purpose: Capture credentials and authenticate an existing user.
-    Contains: Email/username input, password input, "Continue with Google"
-    action, "Forgot password" link, link to Register.
-    States: default, validating, error (invalid credentials), loading.
+2.1 SignInScreen, CreateAccountScreen, VerifyOtpScreen
+    Implemented. Registration is deliberately minimal.
 
-2.2 RegisterScreen
-    Purpose: Create a new account and capture initial role (Business or
-    Supplier).
-    Contains: Role selector, basic account fields, terms acceptance,
-    "Continue with Google" action, link to Login.
-    States: default, validating, error, loading.
+2.2 RoleSelector (IMPLEMENTED as RoleCard + pager)
+    Business Owner vs Supplier selection.
 
 2.3 GoogleAuthButton
-    Purpose: Trigger Google OAuth flow.
-    Props: onSuccess handler, onError handler, role context (business or
-    supplier, for first-time registrations).
-    States: default, loading, error.
-
-2.4 RoleSelector
-    Purpose: Let a first-time user choose Business or Supplier during
-    registration or on the landing screen.
-    Props: selectedRole, onSelect.
-    States: unselected, business-selected, supplier-selected.
+    Present in UI; OAuth flow itself not yet implemented.
 
 ================================================================================
-3. BUSINESS COMPONENTS
+3. SHARED PRIMITIVES (IMPLEMENTED)
 ================================================================================
 
-3.1 BusinessSummaryCard
-    Purpose: Dashboard summary of the business's account (name, category,
-    verification status).
-    Props: businessName, category, verificationStatus.
-
-3.2 SupplierCard
-    Purpose: Represent a supplier in list/grid contexts (search results,
-    nearby suppliers, saved suppliers).
-    Props: supplierName, category, distance (optional), verificationStatus,
-    ratingSummary (derived from Business Questions / statistics, not star
-    rating — see Document 09), onPress.
-    States: default, saved/bookmarked, unverified.
-
-3.3 ProductCard
-    Purpose: Represent a product in catalogue, search, or recommendation
-    contexts.
-    Props: productName, price, unit, supplierName, availabilityStatus,
-    thumbnailImage, onPress.
-    States: default, out-of-stock, on-promotion.
-
-3.4 OrderCard (Business view)
-    Purpose: Represent a single order in the business's order list.
-    Props: orderId, supplierName, status (pending/accepted/completed/
-    cancelled), totalAmount, orderDate, onPress.
-    States: pending, accepted, completed, cancelled, delayed.
-
-3.5 CategoryCard / Category Chips
-    Purpose: Browse suppliers or products by category.
-    Props: categoryName, icon, isSelected, onPress.
-
-3.6 BusinessQuestionThread
-    Purpose: Display and submit Business Questions beneath a product.
-    Props: productId, questions (list of question + supplier response +
-    timestamp), onSubmitQuestion.
-    States: no questions yet (empty state), questions with pending
-    response, questions with response.
-
-3.7 DigitalBusinessProfileCard
-    Purpose: Present the automatically generated business trust profile
-    (see Document 07).
-    Props: businessSince, ordersCount, suppliersCount, averageOrderValue,
-    repeatSupplierRate, averagePaymentTime, businessGrowth, riskLevel.
-    Usage Notes: Read-only. Data is generated entirely server-side; this
-    component never accepts manual input for these fields.
+3.1 SafeAreaScreen        Safe-area + themed background.
+3.2 ScreenContainer       Standard screen shell with horizontal padding.
+3.3 PrimaryButton         Solid, single most important action.
+3.4 SecondaryButton       Outlined, supporting action.
+3.5 ProgressStepper       Multi-step form indicator.
+3.6 AppCard               Shared card shell.
+3.7 FeatureTile           Icon + label tile for Account grids.
+3.8 ScreenHeader          Back navigation + contextual title.
+3.9 BrandTopBar           Branded top bar.
+3.10 DashboardTabBar      Role-aware five-tab bottom navigation.
 
 ================================================================================
-4. SUPPLIER COMPONENTS
+4. FORM COMPONENTS (IMPLEMENTED)
 ================================================================================
 
-4.1 SupplierSummaryCard
-    Purpose: Dashboard summary of the supplier's account.
-    Props: supplierName, category, verificationStatus.
+4.1 FormTextField     React Hook Form + Paper input, inline errors.
+4.2 PasswordField     Password entry with show/hide toggle.
+4.3 OtpInput          Six-box OTP entry.
 
-4.2 CustomerCard
-    Purpose: Represent a business customer in enquiry or order contexts,
-    respecting Business Privacy rules (Document 09).
-    Props: displayName ("Verified Business" or "ABC Store (Verified)"),
-    verificationStatus, lastInteractionDate, onPress.
-    Usage Notes: Must never render full, unmasked business identity details
-    beyond what the platform's privacy rules permit.
+New:
 
-4.3 ProductManagementCard
-    Purpose: Represent a product in the supplier's own catalogue management
-    view, with edit/status controls.
-    Props: productName, price, stockStatus, isPublished, onEdit, onToggle
-    Availability.
+4.4 MoneyInput
+    Purpose: currency entry with numeric keypad, thousands formatting,
+    and no ambiguity about decimals.
+    Problem solved: money is entered constantly (orders, Loan Book) and
+    is the highest-consequence field in the product to get wrong.
+    Props: control, name, label, currency (default ZAR).
 
-4.4 OrderCard (Supplier view)
-    Purpose: Represent a single incoming or historical order in the
-    supplier's order list.
-    Props: orderId, customerDisplayName, status, totalAmount, orderDate,
-    onAccept, onReject, onPress.
-    States: new/incoming, accepted, in-fulfilment, completed, cancelled.
+4.5 ContactPickerField
+    Purpose: select a phone number from device contacts instead of typing
+    it.
+    Problem solved: typing a phone number is slow and error-prone, and
+    adding a supplier or customer is the most common data-entry moment in
+    the product (TP-059).
+    Props: control, name, label, onManualEntry fallback.
+    Note: requires a contacts permission; must degrade to manual entry
+    if permission is declined.
 
-4.5 BusinessPerformanceCard
-    Purpose: Present supplier-facing performance statistics (see Document
-    07 for underlying metrics).
-    Props: activeSince, businessesServed, ordersCompleted, repeatCustomer
-    Rate, averageResponseTime, responseRate, verificationStatus.
-
-4.6 BusinessUpdateComposer
-    Purpose: Allow a supplier to publish a Business Update.
-    Props: updateType (new product / promotion / price update / hours /
-    location / announcement), content, onPublish.
+4.6 QuantityStepper
+    Purpose: increment/decrement quantity without keyboard entry.
+    Problem solved: removes typing from the most repeated field in order
+    placement.
 
 ================================================================================
-5. SHARED COMPONENTS
+5. FEEDBACK COMPONENTS
 ================================================================================
 
-5.1 AppHeader
-    Purpose: Persistent header used across top-level tab screens.
-    Props: title, showNotificationIcon, showProfileIcon, onNotificationPress,
-    onProfilePress.
+5.1 LoadingOverlay      (IMPLEMENTED) Blocking overlay for submissions.
+5.2 EmptyState          (IMPLEMENTED) Icon + message + optional action.
+5.3 ErrorState          (IMPLEMENTED) Message + retry.
+5.4 OfflineBanner       (IMPLEMENTED) Slim persistent offline indicator.
 
-5.2 SearchBar
-    Purpose: Text-based search entry point for suppliers, products, or
-    orders depending on context.
-    Props: placeholder, value, onChangeText, onSubmit, onFilterPress.
+New:
 
-5.3 BottomNavigation
-    Purpose: Primary tab navigation, rendered conditionally based on
-    authenticated role.
-    Props: activeTab, role (business | supplier), onTabPress.
+5.5 SyncStatusBadge
+    Purpose: show whether an individual item has reached the server.
+    States: pending_sync, synced, sync_failed.
+    Problem solved: a business must never believe an order was placed
+    when it is still queued locally (Document 02, Section 12.3). This is
+    a correctness-critical component, not decoration.
+    Props: status, onRetry.
 
-5.4 StatisticsCard
-    Purpose: Generic single-metric display card used by both
-    DigitalBusinessProfileCard and BusinessPerformanceCard.
-    Props: label, value, trendDirection (optional), trendValue (optional).
+================================================================================
+6. STATUS & DISPLAY COMPONENTS
+================================================================================
 
-5.5 NotificationCard
-    Purpose: Represent a single notification in the notification list.
-    Props: notificationType, message, timestamp, isRead, onPress.
-    States: unread, read.
+6.1 StatusPill
+    Purpose: one consistent representation of any order/delivery/payment
+    status across both roles.
+    Props: status, size.
+    Rule: always renders icon + colour + text label, never colour alone.
 
-5.6 VerificationBadge
-    Purpose: Consistent visual indicator of verified status, used across
-    Business Cards, Supplier Cards, and profile headers.
+6.2 MoneyText
+    Purpose: one consistent money format everywhere.
+    Props: amount, currency, emphasis (normal | outstanding | settled).
+    Problem solved: inconsistent money formatting erodes trust in a
+    product whose entire purpose is accurate records.
+
+6.3 VerificationBadge
+    Purpose: consistent verified indicator.
     Props: isVerified.
-    Usage Notes: Always paired with icon + text label, never colour alone
-    (accessibility requirement, Document 02 Section 13).
 
-5.7 CategoryChips
-    Purpose: Horizontally scrollable filter/browse control.
-    Props: categories (list), selectedCategory(ies), onSelect,
-    multiSelect (boolean).
+6.4 StatCard
+    Purpose: single metric with label and optional trend.
 
-5.8 ActionButton
-    Purpose: Generic button component supporting Primary, Secondary,
-    Tertiary, and Destructive visual variants (Document 02, Section 8).
-    Props: label, variant, onPress, isLoading, isDisabled.
-
-5.9 EmptyState
-    Purpose: Consistent placeholder for any list-based screen with no
-    content.
-    Props: icon, message, actionLabel (optional), onActionPress (optional).
-
-5.10 LoadingState
-    Purpose: Consistent skeleton-loading placeholder matching the shape of
-    pending content (card skeleton, list skeleton, profile skeleton).
-    Props: variant (card | list | profile), count.
-
-5.11 Modal
-    Purpose: Generic overlay container for short-lived focused tasks (e.g.
-    filter selection, image preview).
-    Props: isVisible, onClose, children.
-
-5.12 Dialog
-    Purpose: Confirmation prompt for destructive or high-consequence
-    actions (Document 02, Section 2.4).
-    Props: title, message, confirmLabel, cancelLabel, onConfirm, onCancel.
+6.5 SectionHeader
+    Purpose: consistent section title with optional trailing action.
 
 ================================================================================
-6. COMPONENT REUSE RULES
+7. BUSINESS COMPONENTS
 ================================================================================
 
-    1. No screen may implement its own one-off version of a component
-       listed above; all variations must be expressed through props.
-    2. Role-specific components (Business vs Supplier) must share the same
-       underlying visual shell (card structure, spacing, typography) as
-       defined in Document 02, differing only in content and available
-       actions.
-    3. Any new component required during development must be proposed as
-       an addition to this document before implementation, to preserve a
-       single, consistent component library as the codebase scales.
+7.1 MySupplierCard   [was SupplierCard]
+    Purpose: represent a supplier this business ALREADY trades with.
+    Props: supplierName, category, isOnPlatform, isVerified,
+           lastOrderDate, outstandingOrderCount, onPress.
+    States: on-platform (orders flow digitally), off-platform (local
+    record only, invite available).
+    Note the change of meaning: this is a relationship, not a search
+    result. There is no rating, no distance-ranking, and no promotional
+    surface.
+
+7.2 AddSupplierSheet
+    Purpose: add an existing supplier in seconds.
+    Problem solved: this is the first action a new business takes; it
+    determines whether the product is adopted at all.
+    Contains: name field, ContactPickerField, optional category,
+    save action.
+    Requirement: must be completable with minimal typing.
+
+7.3 OrderQueueCard
+    Purpose: one outstanding order requiring attention.
+    Props: orderId, counterpartyName, status, totalAmount, placedAt,
+           nextAction, syncStatus, onPress.
+    Problem solved: replaces "scroll back through WhatsApp to find what
+    is outstanding".
+
+7.4 OrderCard
+    Purpose: an order in history or list contexts.
+    Props: orderId, counterpartyName, status, totalAmount, orderDate,
+           onPress.
+
+7.5 RepeatOrderButton
+    Purpose: re-place a previous order in one action.
+    Props: sourceOrderId, onPress.
+    Problem solved: informal business ordering is highly repetitive;
+    re-entering it every time is pure friction.
+
+7.6 LoanBookEntryCard
+    Purpose: one credit sale owed by a customer.
+    Props: customerName, originalAmount, outstandingAmount, saleDate,
+           isSettled, onPress.
+    Rule: outstanding amount uses MoneyText with emphasis="outstanding".
+
+7.7 LoanBookSummaryCard
+    Purpose: total outstanding across all customers.
+    Problem solved: a paper book cannot total itself. This single number
+    is one of the most valuable things the product shows.
+
+7.8 CustomerCard
+    Purpose: a repeat customer of the business.
+    Props: customerName, contactNumber, outstandingBalance, onPress.
+
+================================================================================
+8. SUPPLIER COMPONENTS
+================================================================================
+
+8.1 IncomingOrderCard
+    Purpose: a new order awaiting acceptance.
+    Props: orderId, customerDisplayName, itemCount, totalAmount,
+           placedAt, onAccept, onDecline, onPress.
+
+8.2 DeliveryStatusRow
+    Purpose: horizontal status counts across the fulfilment pipeline.
+
+8.3 BusinessCustomerCard
+    Purpose: a business that orders from this supplier.
+    Props: displayName, isVerified, lastOrderDate, totalOrders, onPress.
+
+8.4 ProductCard (Supplier Pro)
+    Purpose: a catalogue product.
+    Props: productName, price, unit, availability, imageUrl, onPress.
+
+8.5 ProductForm, ProductImageUploader, ProductStatusBadge,
+    ProductCategorySelector, ProductSearchBar (Supplier Pro)
+    Implemented under features/dashboard/supplier/product-catalogue.
+
+================================================================================
+9. COMPONENT RULES
+================================================================================
+
+    1. No screen may implement a one-off version of a component listed
+       here; variation is expressed through props.
+    2. Business and Supplier components share the same visual shell,
+       differing only in content and available actions.
+    3. Money is rendered only through MoneyText. Status is rendered only
+       through StatusPill. No exceptions -- these carry correctness
+       meaning, not just styling.
+    4. Any new component must be added to this document before
+       implementation (TP-066: Documentation Before Implementation).

@@ -11,7 +11,7 @@ interface EmptyStateProps {
   onActionPress?: () => void;
 }
 
-/** Ref: master prompt "REUSABLE COMPONENTS" (EmptyState) */
+/**  "REUSABLE COMPONENTS" (EmptyState) */
 export function EmptyState({ icon, message, actionLabel, onActionPress }: EmptyStateProps) {
   const theme = useTheme();
   return (

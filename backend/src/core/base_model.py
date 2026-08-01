@@ -1,6 +1,6 @@
 """
 Base Model Mixin.
-Ref: backend master prompt, "DATABASE" -- UUID primary keys, timezone-
+ "DATABASE" -- UUID primary keys, timezone-
 aware timestamps, soft-delete + future audit support on every table.
 
 Every SQLAlchemy model in src/models should inherit from BaseModel rather

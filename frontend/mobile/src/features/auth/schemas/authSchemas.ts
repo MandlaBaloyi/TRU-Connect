@@ -59,3 +59,27 @@ export const otpSchema = z.object({
   code: z.string().length(6, "Enter the 6-digit code"),
 });
 export type OtpFormValues = z.infer<typeof otpSchema>;
+
+
+
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .regex(
+        PASSWORD_REGEX,
+        "Password must be at least 8 characters, with uppercase, lowercase, a number, and a special character"
+      ),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;

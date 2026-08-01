@@ -1,31 +1,110 @@
 """
 Authorization decorators.
-Ref: continuation master prompt, Step 10 (role_required) and Step 15
-(permission_required) -- "Authorization must remain independent from
-authentication... Create reusable decorators... Support Role validation,
-Permission validation, Future granular permissions."
+Ref: continuation master prompt, Step 10/15 (role_required,
+permission_required -- UNCHANGED below); Auth Hardening master prompt,
+Objective 3 (login_required, verified_required, active_account_required,
+fully_authenticated -- NEW).
+
+verified_required / active_account_required / fully_authenticated
+deliberately RE-CHECK THE DATABASE on every request rather than trusting
+a JWT claim. A claim baked into a token at issue time cannot reflect a
+status that changes afterwards (e.g. an account verified, or
+deactivated, after its current token was already issued) without an
+explicit token re-issue -- a database check is what actually closes
+that gap, at the cost of one extra query per protected request.
 """
 from __future__ import annotations
 
 from functools import wraps
 
-from flask_jwt_extended import get_jwt, jwt_required
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from src.core.exceptions import ForbiddenError
+from src.core.exceptions import AccountInactiveError, EmailNotVerifiedError, ForbiddenError
+
+
+def _load_current_user():
+    """Local import avoids a circular import between core (imported very
+    early, by the app factory) and the auth domain."""
+    from src.domains.auth.repositories.user_repository import UserRepository
+
+    return UserRepository.get_by_id(get_jwt_identity())
+
+
+def login_required(fn):
+    """Thin, explicitly-named wrapper around flask_jwt_extended's
+    jwt_required() -- exists so route declarations read @login_required
+    rather than a raw library call, and so future session/audit hooks
+    have one place to attach to."""
+
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def verified_required(fn):
+    """Requires authentication AND a current, database-fresh
+    verification_status == VERIFIED. This is the decorator that closes
+    the "a valid token from an unverified account can still be used"
+    hole -- apply it to any endpoint an unverified user must not reach."""
+
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        from src.domains.auth.models.user import VerificationStatus
+
+        user = _load_current_user()
+        if user is None or user.verification_status != VerificationStatus.VERIFIED:
+            raise EmailNotVerifiedError("Please verify your email before continuing.")
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def active_account_required(fn):
+    """Requires authentication and account_status == ACTIVE."""
+
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        from src.domains.auth.models.user import AccountStatus
+
+        user = _load_current_user()
+        if user is None or user.account_status != AccountStatus.ACTIVE:
+            raise AccountInactiveError("This account is not active.")
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def fully_authenticated(fn):
+    """Convenience combination: authenticated + verified + active, in
+    ONE decorator and ONE database lookup, for the common case (Auth
+    Hardening master prompt, Objective 3 examples: /dashboard, /orders,
+    /profile, /catalogue, /notifications)."""
+
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        from src.domains.auth.models.user import AccountStatus, VerificationStatus
+
+        user = _load_current_user()
+        if user is None or user.verification_status != VerificationStatus.VERIFIED:
+            raise EmailNotVerifiedError("Please verify your email before continuing.")
+        if user.account_status != AccountStatus.ACTIVE:
+            raise AccountInactiveError("This account is not active.")
+        return fn(*args, **kwargs)
+
+    return wrapper
 
 
 def role_required(*allowed_roles: str):
-    """Stacks JWT verification + role authorization in one decorator.
-
-        @some_bp.get("/business-only-thing")
-        @role_required("business")
-        def business_only_thing():
-            ...
-
-    Multiple roles may be passed (e.g. @role_required("business", "admin")).
-    Supports every role in UserRole (business, supplier, admin) and any
-    future role added to that enum without this decorator changing.
-    """
+    """UNCHANGED from the continuation master prompt (Step 10/15).
+    Stacks JWT verification + role authorization in one decorator.
+    Supports every role in UserRole and any future role added to that
+    enum without this decorator changing."""
 
     def decorator(fn):
         @wraps(fn)
@@ -42,22 +121,8 @@ def role_required(*allowed_roles: str):
 
 
 def permission_required(*required_permissions: str):
-    """STRUCTURAL PLACEHOLDER for granular, permission-level
-    authorization (Step 15: "Future granular permissions"). No
-    Permission/RolePermission model exists yet -- there is nowhere to
-    look up what permissions a role actually grants. This decorator
-    checks for a "permissions" JWT claim, which nothing currently
-    populates, so as written it will deny access to everything until:
-
-      1. A Permission model + role-to-permission mapping is built, and
-      2. AuthService._issue_tokens is updated to include a resolved
-         "permissions" list in additional_claims.
-
-    Included now so route signatures that will eventually need
-    permission checks (rather than just role checks) can be written
-    against this decorator today, without every call site needing to
-    change later -- only this function's internals do.
-    """
+    """UNCHANGED -- structural placeholder for granular permissions;
+    see the continuation master prompt, Step 15, for the full rationale."""
 
     def decorator(fn):
         @wraps(fn)

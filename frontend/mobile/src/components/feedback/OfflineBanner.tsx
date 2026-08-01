@@ -9,7 +9,7 @@ import { spacing } from "@/theme/spacing";
 /**
  * Slim banner shown at the top of the app when offline. Mounted once in
  * app/_layout.tsx so it is visible across every screen.
- * Ref: master prompt "REUSABLE COMPONENTS" (OfflineBanner) and "USER
+ * "REUSABLE COMPONENTS" (OfflineBanner) and "USER
  * EXPERIENCE" (Offline States).
  */
 export function OfflineBanner() {

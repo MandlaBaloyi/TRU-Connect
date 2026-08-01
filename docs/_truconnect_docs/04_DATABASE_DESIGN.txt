@@ -1,0 +1,780 @@
+================================================================================
+                            TRU CONNECT
+                        DATABASE DESIGN
+                          Document 04
+================================================================================
+
+Database Engine: PostgreSQL
+Version: 2.0 (Domain Architecture Revision)
+Related Documents: 05_BACKEND_API_SPECIFICATION.txt,
+                    07_DATA_AND_TRUST_ENGINE.txt
+
+Note: This document describes entities, attributes, and relationships in
+plain language for architectural planning. It intentionally contains no SQL
+DDL, per project instructions. Primary keys are assumed to be UUIDs unless
+otherwise noted; all entities include created_at and updated_at timestamps
+unless otherwise noted.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+TRU Connect's data model is organised into seven logical domains, each
+owning a specific business capability. This replaces the flat entity list
+used in earlier drafts of this document with a structure that maps
+directly onto the platform's functional areas (authentication, business,
+supplier, marketplace, trust, verification, platform).
+
+All domains currently share a single PostgreSQL "public" schema and a
+single database instance. The domain boundaries are logical, not physical,
+but are deliberately drawn so that each domain could later be extracted
+into its own schema, or even its own service/database, with minimal
+redesign — consistent with the Scalable Architecture principle (Document
+01, Section 10).
+
+================================================================================
+2. DOMAIN INDEX
+================================================================================
+
+    4.1  Authentication Domain
+    4.2  Business Domain
+    4.3  Supplier Domain
+    4.4  Marketplace Domain
+    4.5  Trust Domain
+    4.6  Verification Domain
+    4.7  Platform Domain
+
+Section numbers below intentionally mirror the domain numbering (4.1–4.7)
+used across this document and Document 05, so the two documents can be
+cross-referenced directly by domain.
+
+================================================================================
+4. DATABASE DOMAIN ARCHITECTURE
+================================================================================
+
+The TRU Connect database is organised into logical business domains rather
+than physical PostgreSQL schemas.
+
+Each domain owns a specific business capability and groups related tables
+together to improve maintainability, readability, and future scalability.
+
+Although all tables currently reside within the PostgreSQL public schema,
+this logical organisation allows the platform to evolve into separate
+database schemas or services in the future without requiring significant
+redesign.
+
+--------------------------------------------------------------------------------
+4.1 Authentication Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Manages user identity, authentication, authorisation, and account security.
+
+Tables
+------
+    - users
+    - roles
+    - permissions
+    - role_permissions
+    - user_roles
+    - refresh_tokens
+    - login_history
+    - password_reset_tokens
+
+Table Definitions
+------------------
+
+users
+    - id
+    - email
+    - phone_number (nullable; reserved for future phone login)
+    - password_hash (nullable when authenticated via Google only)
+    - google_id (nullable)
+    - is_active
+    - last_login_at
+    - created_at / updated_at
+    Notes: role assignment is no longer a fixed enum column on users; it is
+    modelled through user_roles/roles below, allowing a single account to
+    hold multiple roles in future (e.g. a Platform Administrator role,
+    Document 01 Section 9.3) without a schema change.
+
+roles
+    - id
+    - name (e.g. business, supplier, admin, financial_partner)
+    - description
+
+permissions
+    - id
+    - name (e.g. manage_own_products, review_verification, view_audit_logs)
+    - description
+
+role_permissions
+    - role_id (FK -> roles)
+    - permission_id (FK -> permissions)
+    Join table; composite primary key (role_id, permission_id).
+
+user_roles
+    - user_id (FK -> users)
+    - role_id (FK -> roles)
+    Join table; composite primary key (user_id, role_id). In Phase 1, a
+    user is expected to hold exactly one of the "business" or "supplier"
+    roles, enforced at the application layer; the schema itself does not
+    prevent multi-role accounts, anticipating future admin/partner roles.
+
+refresh_tokens
+    - id
+    - user_id (FK -> users)
+    - token_hash
+    - expires_at
+    - revoked_at (nullable)
+    - created_at
+
+login_history
+    - id
+    - user_id (FK -> users)
+    - ip_address
+    - user_agent
+    - login_at
+    - success (boolean)
+    Usage Notes: supports security auditing and can additionally feed
+    anomaly-detection signals for the Trust Domain in later phases (e.g.
+    unusual login patterns as a risk signal).
+
+password_reset_tokens
+    - id
+    - user_id (FK -> users)
+    - token_hash
+    - expires_at
+    - used_at (nullable)
+
+--------------------------------------------------------------------------------
+4.2 Business Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Stores all information related to businesses using TRU Connect.
+
+Tables
+------
+    - businesses
+    - business_profiles
+    - business_addresses
+    - business_categories
+    - business_documents
+    - business_settings
+    - business_bookmarks
+
+Table Definitions
+------------------
+
+businesses
+    - id
+    - user_id (FK -> users)
+    - business_name
+    - registered_since (used for "Business Since" display)
+    - is_verified (denormalised flag; source of truth is
+      verification_requests in the Verification Domain)
+    - created_at / updated_at
+
+business_profiles
+    - id
+    - business_id (FK -> businesses, 1:1)
+    - orders_count
+    - suppliers_count
+    - average_order_value
+    - largest_order_value
+    - repeat_supplier_rate
+    - average_payment_time_days
+    - business_growth_percentage
+    - risk_level (enum: low, medium, high)
+    - last_calculated_at
+    Notes: this is the Digital Business Profile described in Document 07.
+    It stores current, display-ready derived values; historical trend data
+    lives in trust_score_history (Trust Domain, 4.5). Populated and updated
+    exclusively by background recalculation jobs (Document 06, Section
+    15) — never edited directly by the business user.
+
+business_addresses
+    - id
+    - business_id (FK -> businesses)
+    - address_line
+    - city_id (FK -> cities, Platform Domain)
+    - province_id (FK -> provinces, Platform Domain)
+    - latitude
+    - longitude
+    - is_primary (boolean)
+    Notes: a business may hold multiple addresses (e.g. multiple outlets);
+    orders reference a specific business_address as the delivery address.
+
+business_categories
+    - id
+    - business_id (FK -> businesses)
+    - category_id (FK -> lookup_categories, Platform Domain)
+    Join table; supports a business belonging to more than one category if
+    needed, while defaulting to a single primary category at registration.
+
+business_documents
+    - id
+    - business_id (FK -> businesses)
+    - document_type (e.g. business_registration, tax_certificate, id_copy)
+    - file_url
+    - uploaded_at
+    Notes: distinct from verification_documents (Verification Domain);
+    business_documents supports the general "Business Documents" screen
+    (Document 01, Section 8.2), while verification_documents specifically
+    supports an active verification review workflow. A document may be
+    referenced by both in practice.
+
+business_settings
+    - id
+    - business_id (FK -> businesses, 1:1)
+    - preferred_language
+    - preferred_currency
+    - default_delivery_address_id (FK -> business_addresses, nullable)
+    - other app-level preferences as required
+
+business_bookmarks
+    - id
+    - business_id (FK -> businesses)
+    - supplier_id (FK -> suppliers)
+    - created_at
+    Notes: represents a business saving/following a supplier. See Section
+    4.4 (saved_suppliers) for an important clarification on how this table
+    relates to the Marketplace Domain's saved-item tables.
+    Constraint: unique on (business_id, supplier_id).
+
+--------------------------------------------------------------------------------
+4.3 Supplier Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Stores supplier information, catalogues, products, and supplier
+operations.
+
+Tables
+------
+    - suppliers
+    - supplier_profiles
+    - supplier_categories
+    - supplier_products
+    - supplier_product_images
+    - supplier_delivery_regions
+    - supplier_business_hours
+    - supplier_updates
+
+Table Definitions
+------------------
+
+suppliers
+    - id
+    - user_id (FK -> users)
+    - supplier_name
+    - active_since (used for "Active Since" display)
+    - is_verified (denormalised flag; source of truth is
+      verification_requests in the Verification Domain)
+    - created_at / updated_at
+
+supplier_profiles
+    - id
+    - supplier_id (FK -> suppliers, 1:1)
+    - businesses_served_count
+    - orders_completed_count
+    - repeat_customer_rate
+    - average_response_time_minutes
+    - response_rate_percentage
+    - last_calculated_at
+    Notes: current, display-ready supplier performance statistics
+    (Document 07); historical trend data lives in trust_score_history
+    (Trust Domain, 4.5).
+
+supplier_categories
+    - id
+    - supplier_id (FK -> suppliers)
+    - category_id (FK -> lookup_categories, Platform Domain)
+    Join table; supports a supplier belonging to more than one category.
+
+supplier_products
+    - id
+    - supplier_id (FK -> suppliers)
+    - category_id (FK -> lookup_categories, Platform Domain)
+    - name
+    - description
+    - price
+    - unit (e.g. each, case, kg)
+    - bulk_pricing_rules (structured; may be normalised into a separate
+      table if multiple price tiers are required)
+    - minimum_order_quantity
+    - stock_status (enum: in_stock, low_stock, out_of_stock)
+    - is_published
+    - created_at / updated_at
+    Notes: previously referred to simply as "Products" in earlier drafts;
+    renamed to supplier_products to make domain ownership explicit.
+
+supplier_product_images
+    - id
+    - product_id (FK -> supplier_products)
+    - image_url
+    - sort_order
+    Notes: normalises product imagery out of supplier_products to support
+    multiple images per product without repeating columns.
+
+supplier_delivery_regions
+    - id
+    - supplier_id (FK -> suppliers)
+    - province_id (FK -> provinces, Platform Domain, nullable)
+    - city_id (FK -> cities, Platform Domain, nullable)
+    - region_description (free-text fallback for areas not covered by the
+      provinces/cities lookup)
+    Notes: supports the "regions served" concept referenced in Document 06,
+    Section 2, as a structured, queryable set rather than a single field.
+
+supplier_business_hours
+    - id
+    - supplier_id (FK -> suppliers)
+    - day_of_week (enum: monday–sunday)
+    - open_time
+    - close_time
+    - is_closed (boolean, for days with no trading hours)
+
+supplier_updates
+    - id
+    - supplier_id (FK -> suppliers)
+    - update_type (enum: new_product, promotion, price_update, hours,
+      new_location, announcement)
+    - content
+    - published_at
+    - expires_at (nullable, e.g. for time-bound promotions)
+    Notes: previously referred to as "Business Updates" in earlier drafts;
+    renamed to supplier_updates to make domain ownership explicit and to
+    avoid naming collision with businesses.
+
+--------------------------------------------------------------------------------
+4.4 Marketplace Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Contains all marketplace interactions between businesses and suppliers.
+
+Tables
+------
+    - orders
+    - order_items
+    - business_questions
+    - supplier_responses
+    - product_views
+    - saved_products
+    - saved_suppliers
+
+Table Definitions
+------------------
+
+orders
+    - id
+    - business_id (FK -> businesses)
+    - supplier_id (FK -> suppliers)
+    - status (enum: pending, accepted, rejected, in_fulfilment, completed,
+      cancelled)
+    - total_amount
+    - placed_at
+    - accepted_at (nullable)
+    - completed_at (nullable)
+    - cancelled_at (nullable)
+    - delivery_address_id (FK -> business_addresses, Business Domain)
+    - delivery_tracking_reference (nullable)
+
+order_items
+    - id
+    - order_id (FK -> orders)
+    - product_id (FK -> supplier_products, Supplier Domain)
+    - quantity
+    - unit_price_at_order_time (captured at time of order to preserve
+      historical accuracy independent of later price changes)
+    - line_total
+
+business_questions
+    - id
+    - product_id (FK -> supplier_products, Supplier Domain)
+    - business_id (FK -> businesses)
+    - question_text
+    - question_category (enum: availability, delivery, pricing, bulk_order,
+      packaging, specifications, general)
+    - created_at
+    Notes: central to the "Business Conversations" model (Document 09).
+    Has zero or one supplier_response.
+
+supplier_responses
+    - id
+    - business_question_id (FK -> business_questions, 1:1)
+    - supplier_id (FK -> suppliers)
+    - response_text
+    - responded_at
+
+product_views
+    - id
+    - business_id (FK -> businesses)
+    - product_id (FK -> supplier_products, Supplier Domain)
+    - viewed_at
+    Notes: explicit event log backing the "Recently Viewed" feature
+    (Document 01, Section 7.4) and product/supplier popularity ranking. Feeds
+    the Trust Domain as a discovery/interest signal (Document 07, Section
+    5) without directly affecting business risk/trust scoring.
+
+saved_products
+    - id
+    - business_id (FK -> businesses)
+    - product_id (FK -> supplier_products, Supplier Domain)
+    - created_at
+    Notes: allows a business to save individual products, independent of
+    saving the supplier as a whole. Constraint: unique on (business_id,
+    product_id).
+
+saved_suppliers
+    - id
+    - business_id (FK -> businesses)
+    - supplier_id (FK -> suppliers)
+    - created_at
+    Notes: this is the operational "save/follow a supplier" relationship
+    consumed by the Suppliers tab, the notification-of-Business-Updates
+    workflow (Document 06, Section 9), and the Digital Business Profile's
+    "Saved Suppliers" list. Constraint: unique on (business_id,
+    supplier_id).
+
+    Relationship to business_bookmarks (Business Domain, 4.2): to avoid
+    ambiguity between these two similarly-purposed tables, the following
+    division of responsibility applies —
+        - business_bookmarks is the general-purpose bookmarking table
+          owned by the Business Domain, intended to support bookmarking of
+          multiple entity types over time (suppliers today; potentially
+          products, categories, or Business Updates in future releases)
+          via a polymorphic or typed reference.
+        - saved_suppliers is the specific, high-frequency, marketplace-
+          facing join table optimised for the one well-defined "follow a
+          supplier" interaction and its downstream effects (notifications,
+          discovery ranking).
+    Phase 1 implementation should treat saved_suppliers as the single
+    source of truth actually driving product behaviour; business_bookmarks
+    may be introduced alongside it or deferred until a second bookmarkable
+    entity type is required, to avoid maintaining two systems for an
+    identical Phase 1 use case.
+
+--------------------------------------------------------------------------------
+4.5 Trust Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Stores relationship intelligence and behavioural trust data generated from
+business activity across the platform.
+
+Tables
+------
+    - business_supplier_relationships
+    - relationship_events
+    - trust_signals
+    - business_health_scores
+    - supplier_reputation_scores
+    - trust_score_history
+
+Table Definitions
+------------------
+
+business_supplier_relationships
+    - id
+    - business_id (FK -> businesses, Business Domain)
+    - supplier_id (FK -> suppliers, Supplier Domain)
+    - first_interaction_at
+    - last_interaction_at
+    - total_orders
+    - total_order_value
+    - relationship_health_score
+    Notes: previously referred to simply as "Relationships"; renamed to
+    business_supplier_relationships for domain clarity. Constraint: unique
+    on (business_id, supplier_id). This is the fundamental unit of trust
+    described in Document 07, Section 3.
+
+relationship_events
+    - id
+    - relationship_id (FK -> business_supplier_relationships)
+    - event_type (enum: order_placed, order_accepted, order_completed,
+      order_cancelled, order_rejected, question_asked, response_received)
+    - event_value (nullable numeric payload, e.g. order value)
+    - occurred_at
+    Notes: a granular, append-only event log per relationship, providing
+    the raw input for relationship_health_score recalculation and for any
+    future audit or model-training needs, without requiring
+    business_supplier_relationships itself to store full history.
+
+trust_signals
+    - id
+    - owner_type (enum: business, supplier)
+    - owner_id (polymorphic reference to businesses or suppliers)
+    - signal_type (e.g. repeat_order_rate, verification_status,
+      response_rate, cancellation_rate, payment_consistency)
+    - signal_value
+    - calculated_at
+    Notes: the normalised, queryable store of the individual Trust Signals
+    and Risk Signals described in Document 07, Sections 6–8, decoupled
+    from the specific display-ready fields in business_profiles /
+    supplier_profiles so that new signal types can be added without
+    schema migrations to those tables.
+
+business_health_scores
+    - id
+    - business_id (FK -> businesses, Business Domain)
+    - score
+    - calculated_at
+    - methodology_version
+    Notes: stores the current, versioned Business Health Score described
+    in Document 07, Section 10. Kept separate from business_profiles so
+    that the scoring methodology can evolve (methodology_version) without
+    disrupting the simpler display fields businesses see day-to-day.
+
+supplier_reputation_scores
+    - id
+    - supplier_id (FK -> suppliers, Supplier Domain)
+    - score
+    - calculated_at
+    - methodology_version
+    Notes: mirrors business_health_scores for suppliers, backing the
+    Supplier Reputation concept in Document 07, Section 11.
+
+trust_score_history
+    - id
+    - owner_type (enum: business, supplier)
+    - owner_id (polymorphic reference to businesses or suppliers)
+    - score_type (enum: business_health, supplier_reputation)
+    - score_value
+    - recorded_at
+    Notes: append-only time series enabling trend displays (e.g. "Business
+    Growth +37%") and future model back-testing, distinct from the
+    single-current-value fields in business_health_scores /
+    supplier_reputation_scores.
+
+--------------------------------------------------------------------------------
+4.6 Verification Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Manages verification of businesses, suppliers, and supporting documents.
+
+Tables
+------
+    - verification_requests
+    - verification_documents
+    - verification_history
+
+Table Definitions
+------------------
+
+verification_requests
+    - id
+    - owner_type (enum: business, supplier)
+    - owner_id (polymorphic reference to businesses or suppliers)
+    - verification_type (e.g. identity, business_registration, address)
+    - status (enum: pending, approved, rejected)
+    - submitted_at
+    - reviewed_at (nullable)
+    - reviewer_notes (internal only, never exposed to end users)
+    Notes: previously referred to as "Verification Records"; renamed to
+    verification_requests to better reflect the request/review lifecycle
+    described in Document 06, Section 3.
+
+verification_documents
+    - id
+    - verification_request_id (FK -> verification_requests)
+    - document_type
+    - file_url
+    - uploaded_at
+    Notes: distinct from business_documents (Business Domain); this table
+    is scoped specifically to documents submitted in support of an active
+    verification_request.
+
+verification_history
+    - id
+    - verification_request_id (FK -> verification_requests)
+    - previous_status
+    - new_status
+    - changed_at
+    - changed_by (nullable reference to an internal reviewing user/admin)
+    Notes: append-only audit trail of status transitions on a verification
+    request, supporting compliance and dispute resolution.
+
+--------------------------------------------------------------------------------
+4.7 Platform Domain
+--------------------------------------------------------------------------------
+
+Purpose
+-------
+Supports platform-wide services and administration.
+
+Tables
+------
+    - notifications
+    - notification_preferences
+    - audit_logs
+    - system_settings
+    - lookup_categories
+    - provinces
+    - cities
+
+Table Definitions
+------------------
+
+notifications
+    - id
+    - user_id (FK -> users, Authentication Domain)
+    - notification_type (enum: order_update, question_response,
+      supplier_update, system, verification_update)
+    - title
+    - body
+    - related_entity_type (nullable; e.g. order, product, business_question)
+    - related_entity_id (nullable)
+    - is_read
+    - created_at
+
+notification_preferences
+    - id
+    - user_id (FK -> users, Authentication Domain)
+    - notification_type (enum: matches notifications.notification_type)
+    - is_enabled (boolean)
+    - channel (enum: push, email, sms)
+    Notes: allows a user to opt out of specific notification types per
+    channel, rather than an all-or-nothing setting.
+
+audit_logs
+    - id
+    - user_id (FK -> users, nullable for system-initiated actions)
+    - action (e.g. product_updated, order_cancelled, verification_reviewed)
+    - entity_type
+    - entity_id
+    - metadata (structured, e.g. before/after values where relevant)
+    - created_at
+    Notes: platform-wide administrative audit trail, distinct from the
+    domain-specific relationship_events (Trust Domain) and
+    verification_history (Verification Domain), which serve business-
+    logic purposes rather than general administrative auditing.
+
+system_settings
+    - id
+    - key
+    - value
+    - description
+    - updated_at
+    Notes: generic key-value store for platform configuration (e.g.
+    feature flags, minimum app version, scoring methodology toggles)
+    that should not require a code deployment to change.
+
+lookup_categories
+    - id
+    - name
+    - parent_category_id (nullable, self-referencing FK, supports category
+      hierarchies)
+    - applies_to (enum: business, supplier, product)
+    Notes: previously referred to simply as "Categories"; renamed to
+    lookup_categories to reflect its role as a shared platform lookup
+    table, referenced by business_categories, supplier_categories, and
+    supplier_products.
+
+provinces
+    - id
+    - name
+
+cities
+    - id
+    - name
+    - province_id (FK -> provinces)
+    Notes: provinces and cities together back business_addresses and
+    supplier_delivery_regions, supporting structured location filtering
+    for supplier discovery (Document 06, Section 5).
+
+================================================================================
+5. CROSS-DOMAIN RELATIONSHIP SUMMARY
+================================================================================
+
+    - Authentication Domain -> Business/Supplier Domains: users.id is
+      referenced by exactly one of businesses.user_id or suppliers.user_id
+      per account in Phase 1.
+    - Business Domain -> Marketplace Domain: businesses.id is referenced by
+      orders, business_questions, saved_products, saved_suppliers, and
+      product_views.
+    - Supplier Domain -> Marketplace Domain: suppliers.id is referenced by
+      orders and supplier_responses; supplier_products.id is referenced by
+      order_items, business_questions, product_views, and saved_products.
+    - Business Domain + Supplier Domain -> Trust Domain:
+      business_supplier_relationships is the join entity connecting a
+      specific business and supplier, with relationship_events,
+      trust_signals, business_health_scores, and supplier_reputation_scores
+      all deriving from activity recorded in the Marketplace Domain.
+    - Business/Supplier Domains -> Verification Domain:
+      verification_requests uses a polymorphic owner_type/owner_id
+      reference back to either businesses or suppliers.
+    - All Domains -> Platform Domain: notifications reference users
+      directly; lookup_categories, provinces, and cities are shared
+      reference data consumed by the Business and Supplier Domains.
+
+================================================================================
+6. FUTURE-SCOPED ENTITIES (PLACEHOLDERS)
+================================================================================
+
+These are documented now, per the roadmap in Document 08, so that current
+domain and schema design does not preclude their addition later. They are
+expected to form a new Financial Domain alongside the seven domains above
+once Phase 2/3 begins.
+
+6.1 Wallets (Phase 2) — Financial Domain (future)
+    - id, owner_type, owner_id, balance, currency, status
+
+6.2 Wallet Transactions (Phase 2) — Financial Domain (future)
+    - id, wallet_id, type (credit/debit), amount, related_order_id,
+      created_at
+
+6.3 Credit Applications / Trade Finance (Phase 3) — Financial Domain (future)
+    - id, business_id or supplier_id, requested_amount, status,
+      risk_assessment_reference, decision_at
+
+The Financial Domain will consume trust_signals, business_health_scores,
+and supplier_reputation_scores from the Trust Domain as its primary risk-
+assessment inputs, avoiding duplication of trust logic within the new
+domain.
+
+================================================================================
+7. RELATIONAL DESIGN NOTES
+================================================================================
+
+    1. Businesses and Suppliers are deliberately modelled as separate
+       domains and separate core tables, rather than a single polymorphic
+       "accounts" table with a type flag, because their attributes and
+       downstream domain relationships (e.g. supplier_delivery_regions,
+       business_addresses) diverge significantly and are expected to
+       diverge further as the roadmap progresses.
+    2. business_profiles/supplier_profiles are kept separate from
+       business_health_scores/supplier_reputation_scores: the former hold
+       simple, current, display-ready statistics consumed directly by the
+       mobile UI (Document 03); the latter hold versioned, methodology-
+       aware scores intended for risk assessment and future underwriting,
+       allowing the scoring methodology to evolve independently of the
+       UI-facing profile fields.
+    3. All monetary values should be stored using a fixed-point/decimal
+       type, never floating point, to avoid rounding errors in financial
+       reporting.
+    4. All foreign keys should enforce referential integrity at the
+       database level; soft-deletes (an is_deleted / deleted_at column)
+       should be used in place of hard deletes for businesses, suppliers,
+       orders, and verification_requests, to preserve the historical
+       integrity of the Trust Domain's data.
+    5. Authorisation logic should prefer the roles/permissions/
+       role_permissions/user_roles structure (Authentication Domain) over
+       hard-coded role checks in application code, so that future roles
+       (e.g. Platform Administrator, Financial Partner — Document 01,
+       Section 9.3) can be introduced by inserting data rather than
+       shipping new code paths.
+    6. Where two tables appear to serve a similar purpose across domains
+       (e.g. business_bookmarks vs. saved_suppliers, Section 4.4), the
+       documented division of responsibility should be followed rather
+       than treating the tables as interchangeable, to avoid divergent or
+       duplicated state.

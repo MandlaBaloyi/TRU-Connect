@@ -1,17 +1,18 @@
 """
 Standard JSON response envelope.
-Ref: backend master prompt, "API DESIGN" -- every response follows the
-same success/failure shape:
+Ref: docs/05_BACKEND_API_SPECIFICATION.txt §1; Auth Hardening master
+prompt, Objective 1.
 
     Success: {"success": true,  "message": "...", "data": {}}
-    Failure: {"success": false, "message": "...", "errors": []}
+    Failure: {"success": false, "message": "...", "errors": [],
+              "code": "...", "data": {}}   <- code/data optional
 
-Routes and error handlers call these helpers rather than hand-rolling a
-response dict, so the envelope shape can never drift between endpoints.
+`code` and the failure-side `data` are additive: existing callers that
+only pass message/errors/status_code are completely unaffected.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from flask import jsonify
 
@@ -21,6 +22,16 @@ def success_response(data: Any = None, message: str = "Success", status_code: in
     return jsonify(payload), status_code
 
 
-def error_response(message: str = "An error occurred", errors: list | None = None, status_code: int = 400):
-    payload = {"success": False, "message": message, "errors": errors or []}
+def error_response(
+    message: str = "An error occurred",
+    errors: Optional[list] = None,
+    status_code: int = 400,
+    code: Optional[str] = None,
+    data: Optional[dict] = None,
+):
+    payload: dict = {"success": False, "message": message, "errors": errors or []}
+    if code is not None:
+        payload["code"] = code
+    if data is not None:
+        payload["data"] = data
     return jsonify(payload), status_code

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Verification update{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px; color:#D64545; font-size:20px;">More information needed</h1>
+<p style="margin:0 0 16px; color:#3A3F44; font-size:15px; line-height:1.5;">
+  We weren't able to verify your {{ account_type }} account with the documents provided.
+  {% if reason %}{{ reason }}{% endif %}
+</p>
+<p style="margin:0; color:#6B7280; font-size:13px;">
+  Please review and resubmit your verification documents in the app.
+</p>
+{% endblock %}

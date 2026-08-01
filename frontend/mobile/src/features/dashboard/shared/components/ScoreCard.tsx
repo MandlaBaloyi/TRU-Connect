@@ -18,7 +18,7 @@ interface ScoreCardProps {
  * "Supplier Quality Score". Deliberately generic/reusable rather than
  * business- or supplier-specific, since both dashboards need an
  * identically-shaped "our trust engine's score for you" card.
- * Ref: master prompt "Business Trust Score" / "Trust Engine Integration"
+ *  "Business Trust Score" / "Trust Engine Integration"
  * and docs/07_DATA_AND_TRUST_ENGINE.txt (Business Health Score, Supplier
  * Reputation).
  */

@@ -4,7 +4,7 @@ Ref: docs/04_DATABASE_DESIGN.txt, docs/05_BACKEND_API_SPECIFICATION.txt
 
 Defines environment-specific configuration classes consumed by the Flask
 application factory (src/__init__.py). All secrets and environment-
-specific values are read from environment variables (see .env.example)
+specific values are read from environment variables (see .env)
 -- nothing is ever hard-coded here.
 
 Flask's CLI (and python-dotenv, already in requirements.txt) auto-loads a
@@ -24,6 +24,25 @@ class BaseConfig:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # --- Shared Notification Infrastructure (email) ---
+    # Ref: "Shared Notification Infrastructure,
+    # "CONFIGURATION". MAIL_PROVIDER defaults to "smtp" (Gmail today);
+    # TestingConfig overrides this to "fake" so tests never send real
+    # email.
+    MAIL_PROVIDER = os.environ.get("MAIL_PROVIDER", "smtp")
+    MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME", "")
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "TRU Connect <no-reply@truconnect.dev>")
+    MAIL_TIMEOUT = int(os.environ.get("MAIL_TIMEOUT", 10))
+    MAIL_MAX_RETRIES = int(os.environ.get("MAIL_MAX_RETRIES", 3))
+    MAIL_RETRY_DELAYS = [
+        int(x) for x in os.environ.get("MAIL_RETRY_DELAY", "5,15,60").split(",") if x.strip()
+    ]
+    MAIL_ASYNC = os.environ.get("MAIL_ASYNC", "True").lower() in ("true", "1", "yes")
+
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         minutes=int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", 15))
     )
@@ -32,6 +51,18 @@ class BaseConfig:
     )
     JWT_TOKEN_LOCATION = ["headers"]
     JWT_HEADER_TYPE = "Bearer"
+
+    # --- Auth Hardening additions ---
+    # Base URL for the password-reset browser bounce page
+    # (src/domains/platform/api/reset_redirect_routes.py). In dev, point
+    # this at your machine's LAN IP so the emailed link works on a
+    # physical phone; in production, your real domain.
+    APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:5000")
+
+    UNVERIFIED_ACCOUNT_EXPIRY_HOURS = int(os.environ.get("UNVERIFIED_ACCOUNT_EXPIRY_HOURS", 24))
+    LOGIN_MAX_FAILED_ATTEMPTS = int(os.environ.get("LOGIN_MAX_FAILED_ATTEMPTS", 5))
+    LOGIN_LOCKOUT_WINDOW_MINUTES = int(os.environ.get("LOGIN_LOCKOUT_WINDOW_MINUTES", 15))
+    PASSWORD_RESET_TICKET_EXPIRY_HOURS = int(os.environ.get("PASSWORD_RESET_TICKET_EXPIRY_HOURS", 1))
 
     @staticmethod
     def _build_database_uri() -> str:
@@ -66,6 +97,11 @@ class TestingConfig(BaseConfig):
     )
     # Short-lived tokens keep auth tests fast and deliberate about expiry.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
+    # Never send real email in tests -- FakeEmailProvider records sends
+    # in memory instead, and MAIL_ASYNC=False makes send_template() run
+    # synchronously so tests can assert against it immediately.
+    MAIL_PROVIDER = "fake"
+    MAIL_ASYNC = False
 
 
 class ProductionConfig(BaseConfig):

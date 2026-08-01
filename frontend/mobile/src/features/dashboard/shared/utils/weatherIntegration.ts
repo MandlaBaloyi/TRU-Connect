@@ -1,6 +1,6 @@
 /**
  * Reserved integration point for weather providers.
- * Ref: master prompt "External API Ready > Weather APIs (Future)" --
+ * "External API Ready > Weather APIs (Future)" --
  * Agriculture, Delivery Planning.
  * Not implemented yet -- no current screen calls this.
  */

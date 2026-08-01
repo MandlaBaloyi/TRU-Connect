@@ -1,60 +1,210 @@
 TRU_Connect
 ├── backend
 │   ├── migrations
+│   │   ├── versions
+│   │   │   └── acccb39c3c86_initial_auth_domain_schema_migration.py
+│   │   ├── alembic.ini
+│   │   ├── env.py
+│   │   ├── README
+│   │   └── script.py.mako
 │   ├── src
 │   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── auth_routes.py
+│   │   │   └── __init__.py
 │   │   ├── core
 │   │   │   ├── __init__.py
 │   │   │   ├── base_model.py
 │   │   │   ├── decorators.py
 │   │   │   ├── exceptions.py
 │   │   │   └── responses.py
-│   │   ├── models
+│   │   ├── domains
+│   │   │   ├── auth
+│   │   │   │   ├── api
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── routes.py
+│   │   │   │   ├── models
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── otp_verification.py
+│   │   │   │   │   ├── password_reset_token.py
+│   │   │   │   │   ├── refresh_token.py
+│   │   │   │   │   └── user.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── otp_repository.py
+│   │   │   │   │   ├── password_reset_repository.py
+│   │   │   │   │   ├── refresh_token_repository.py
+│   │   │   │   │   └── user_repository.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auth_schemas.py
+│   │   │   │   │   ├── otp_schemas.py
+│   │   │   │   │   └── password_reset_schemas.py
+│   │   │   │   ├── services
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auth_service.py
+│   │   │   │   │   ├── otp_service.py
+│   │   │   │   │   └── password_reset_service.py
+│   │   │   │   ├── utils
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── otp.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── business
+│   │   │   │   ├── api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── models
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── services
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── utils
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── marketplace
+│   │   │   │   ├── api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── models
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── services
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── utils
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── platform
+│   │   │   │   ├── api
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── health_routes.py
+│   │   │   │   │   └── reset_redirect_routes.py
+│   │   │   │   ├── models
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── services
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── utils
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── supplier
+│   │   │   │   ├── api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── models
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── services
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── utils
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── trust
+│   │   │   │   ├── api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── models
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── services
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── utils
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   └── verification
+│   │   │       ├── api
+│   │   │       │   └── __init__.py
+│   │   │       ├── models
+│   │   │       │   └── __init__.py
+│   │   │       ├── repositories
+│   │   │       │   └── __init__.py
+│   │   │       ├── schemas
+│   │   │       │   └── __init__.py
+│   │   │       ├── services
+│   │   │       │   └── __init__.py
+│   │   │       ├── utils
+│   │   │       │   └── __init__.py
+│   │   │       └── __init__.py
+│   │   ├── shared
+│   │   │   ├── templates
+│   │   │   │   ├── base.html
+│   │   │   │   ├── order_delivered.html
+│   │   │   │   ├── order_received.html
+│   │   │   │   ├── order_shipped.html
+│   │   │   │   ├── otp.html
+│   │   │   │   ├── password_reset.html
+│   │   │   │   ├── resume_registration.html
+│   │   │   │   ├── supplier_invitation.html
+│   │   │   │   ├── verification_failed.html
+│   │   │   │   ├── verification_success.html
+│   │   │   │   ├── welcome_business.html
+│   │   │   │   └── welcome_supplier.html
 │   │   │   ├── __init__.py
-│   │   │   ├── otp_verification.py
-│   │   │   ├── password_reset_token.py
-│   │   │   ├── refresh_token.py
-│   │   │   └── user.py
-│   │   ├── repositories
-│   │   │   ├── __init__.py
-│   │   │   ├── otp_repository.py
-│   │   │   ├── password_reset_repository.py
-│   │   │   ├── refresh_token_repository.py
-│   │   │   └── user_repository.py
-│   │   ├── schemas
-│   │   │   ├── __init__.py
-│   │   │   ├── auth_schemas.py
-│   │   │   ├── otp_schemas.py
-│   │   │   └── password_reset_schemas.py
-│   │   ├── services
-│   │   │   ├── __init__.py
-│   │   │   ├── auth_service.py
-│   │   │   ├── otp_service.py
-│   │   │   └── password_reset_service.py
-│   │   ├── utils
-│   │   │   ├── __init__.py
+│   │   │   ├── audit.py
+│   │   │   ├── cache.py
+│   │   │   ├── constants.py
+│   │   │   ├── email.py
+│   │   │   ├── helpers.py
 │   │   │   ├── logger.py
-│   │   │   ├── otp.py
-│   │   │   └── security.py
+│   │   │   ├── metrics.py
+│   │   │   ├── monitoring.py
+│   │   │   ├── queue.py
+│   │   │   ├── security.py
+│   │   │   ├── tickets.py
+│   │   │   └── validators.py
 │   │   ├── __init__.py
 │   │   ├── config.py
 │   │   └── extensions.py
 │   ├── tests
 │   │   └── test_auth.py
 │   ├── .env
-│   ├── .env.example
 │   ├── .gitignore
 │   ├── app.py
 │   ├── plan.md
 │   ├── README.md
-│   ├── req(hint).txt
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── structure.txt
 ├── database
 ├── deployment
 ├── docs
+│   ├── _archive_v1_marketplace
+│   │   ├── 00_PROJECT_VISION.txt
+│   │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
+│   │   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
+│   │   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
+│   │   ├── 04_DATABASE_DESIGN.txt
+│   │   ├── 05_BACKEND_API_SPECIFICATION.txt
+│   │   ├── 06_BUSINESS_RULES_AND_WORKFLOWS.txt
+│   │   ├── 07_DATA_AND_TRUST_ENGINE.txt
+│   │   ├── 08_PRODUCT_ROADMAP.txt
+│   │   ├── 09_ECOSYSTEM_STRATEGY.txt
+│   │   └── README.txt
+│   ├── _truconnect_docs
+│   │   ├── 00_PROJECT_VISION.txt
+│   │   ├── 00A_TRUEPOINT_ENGINEERING_PRINCIPLES.txt
+│   │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
+│   │   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
+│   │   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
+│   │   ├── 04_DATABASE_DESIGN.txt
+│   │   ├── 05_BACKEND_API_SPECIFICATION.txt
+│   │   ├── 06_BUSINESS_RULES_AND_WORKFLOWS.txt
+│   │   ├── 07_DATA_AND_TRUST_ENGINE.txt
+│   │   ├── 08_PRODUCT_ROADMAP.txt
+│   │   ├── 09_ECOSYSTEM_STRATEGY.txt
+│   │   ├── 10_Expo_SDK54_Dependency_Reference.txt
+│   │   ├── PLATFORM_FEATURES.TXT
+│   │   ├── THE_IDEA_BEHIND_TRUs.txt
+│   │   └── TRU_Connect_Master_Engineering_Roadmap.xlsx
 │   ├── 00_PROJECT_VISION.txt
+│   ├── 00A_TRUEPOINT_PLATFORM_CONSTITUTION.txt
 │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
 │   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
 │   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
@@ -64,14 +214,17 @@ TRU_Connect
 │   ├── 07_DATA_AND_TRUST_ENGINE.txt
 │   ├── 08_PRODUCT_ROADMAP.txt
 │   ├── 09_ECOSYSTEM_STRATEGY.txt
+│   ├── 0A_DOCUMENTATION_CHANGE_ANALYSIS.txt
 │   ├── 10_Expo_SDK54_Dependency_Reference.txt
-│   └── TRU_Connect_Master_Engineering_Roadmap.xlsx
+│   └── THE_IDEA_BEHIND_TRUs.txt
 ├── frontend
 │   ├── mobile
 │   │   ├── app
 │   │   │   ├── (auth)
 │   │   │   │   ├── _layout.tsx
 │   │   │   │   ├── create-account.tsx
+│   │   │   │   ├── forgot-password.tsx
+│   │   │   │   ├── reset-password.tsx
 │   │   │   │   ├── sign-in.tsx
 │   │   │   │   └── verify-otp.tsx
 │   │   │   ├── (dashboard)
@@ -146,6 +299,8 @@ TRU_Connect
 │   │   │   │   │   │   └── useOtp.ts
 │   │   │   │   │   ├── schemas
 │   │   │   │   │   │   └── authSchemas.ts
+│   │   │   │   │   ├── utils
+│   │   │   │   │   │   └── persistSession.ts
 │   │   │   │   │   └── types.ts
 │   │   │   │   ├── business
 │   │   │   │   │   ├── api
@@ -334,8 +489,12 @@ TRU_Connect
 │   │   └── tsconfig.json
 │   └── web
 ├── scripts
+├── tests
+│   ├── backend
+│   └── sql
+│       └── auth_domain.sql
 ├── .gitignore
-├── generate_backend_auth_module_phase3_.py
+├── generate_auth_hardening_.py
 ├── print_project_tree.py
 ├── README.md
 └── structure.txt

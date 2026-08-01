@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
  * once Reanimated is confirmed stable end-to-end.
  *
  * SPLASH_DURATION_MS is set to 50 seconds for visual QA/testing.
- * Change it back to 5000 (5 seconds) before shipping.
+ * Change it back to 3000 (3 seconds) before shipping.
  */
 const SPLASH_DURATION_MS = 3000;
 

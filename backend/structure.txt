@@ -1,0 +1,173 @@
+backend
+├── migrations
+│   ├── versions
+│   │   └── acccb39c3c86_initial_auth_domain_schema_migration.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+├── src
+│   ├── api
+│   │   └── __init__.py
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── base_model.py
+│   │   ├── decorators.py
+│   │   ├── exceptions.py
+│   │   └── responses.py
+│   ├── domains
+│   │   ├── auth
+│   │   │   ├── api
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── routes.py
+│   │   │   ├── models
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── otp_verification.py
+│   │   │   │   ├── password_reset_token.py
+│   │   │   │   ├── refresh_token.py
+│   │   │   │   └── user.py
+│   │   │   ├── repositories
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── otp_repository.py
+│   │   │   │   ├── password_reset_repository.py
+│   │   │   │   ├── refresh_token_repository.py
+│   │   │   │   └── user_repository.py
+│   │   │   ├── schemas
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth_schemas.py
+│   │   │   │   ├── otp_schemas.py
+│   │   │   │   └── password_reset_schemas.py
+│   │   │   ├── services
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth_service.py
+│   │   │   │   ├── otp_service.py
+│   │   │   │   └── password_reset_service.py
+│   │   │   ├── utils
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── otp.py
+│   │   │   └── __init__.py
+│   │   ├── business
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── marketplace
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── platform
+│   │   │   ├── api
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── health_routes.py
+│   │   │   │   └── reset_redirect_routes.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── supplier
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── trust
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   └── verification
+│   │       ├── api
+│   │       │   └── __init__.py
+│   │       ├── models
+│   │       │   └── __init__.py
+│   │       ├── repositories
+│   │       │   └── __init__.py
+│   │       ├── schemas
+│   │       │   └── __init__.py
+│   │       ├── services
+│   │       │   └── __init__.py
+│   │       ├── utils
+│   │       │   └── __init__.py
+│   │       └── __init__.py
+│   ├── shared
+│   │   ├── templates
+│   │   │   ├── base.html
+│   │   │   ├── order_delivered.html
+│   │   │   ├── order_received.html
+│   │   │   ├── order_shipped.html
+│   │   │   ├── otp.html
+│   │   │   ├── password_reset.html
+│   │   │   ├── resume_registration.html
+│   │   │   ├── supplier_invitation.html
+│   │   │   ├── verification_failed.html
+│   │   │   ├── verification_success.html
+│   │   │   ├── welcome_business.html
+│   │   │   └── welcome_supplier.html
+│   │   ├── __init__.py
+│   │   ├── audit.py
+│   │   ├── cache.py
+│   │   ├── constants.py
+│   │   ├── email.py
+│   │   ├── helpers.py
+│   │   ├── logger.py
+│   │   ├── metrics.py
+│   │   ├── monitoring.py
+│   │   ├── queue.py
+│   │   ├── security.py
+│   │   ├── tickets.py
+│   │   └── validators.py
+│   ├── __init__.py
+│   ├── config.py
+│   └── extensions.py
+├── tests
+│   └── test_auth.py
+├── .env
+├── .gitignore
+├── app.py
+├── plan.md
+├── README.md
+├── requirements.txt
+└── structure.txt
