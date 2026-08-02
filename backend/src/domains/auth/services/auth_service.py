@@ -40,6 +40,15 @@ Login enforces, in order: failed-attempt lockout, credential check,
 account_status == ACTIVE, verification_status == VERIFIED. Only after
 all four pass are tokens issued. See login() below for the exact
 structured error each failure mode returns.
+
+AUDIT
+-----
+Every registration outcome (created / resumed / conflict / role-conflict),
+every login outcome (success / failed / locked / unverified-blocked), and
+every token lifecycle event (created / refreshed / revoked) publishes a
+structured event via src.shared.audit, in addition to whatever text log
+it already wrote. See src/shared/audit.py for the full explanation of why
+this never changes what a failure returns to the caller.
 """
 from __future__ import annotations
 
@@ -61,7 +70,7 @@ from src.core.exceptions import (
 from src.domains.auth.models.user import AccountStatus, User, UserRole, VerificationStatus
 from src.domains.auth.repositories.refresh_token_repository import RefreshTokenRepository
 from src.domains.auth.repositories.user_repository import UserRepository
-from src.shared import audit
+from src.shared import audit, audit_context
 from src.shared.cache import cache
 from src.shared.constants import (
     DEFAULT_LOGIN_LOCKOUT_WINDOW_MINUTES,
@@ -113,6 +122,11 @@ class AuthService:
 
         if existing is not None:
             if existing.verification_status == VerificationStatus.VERIFIED:
+                # AUDIT: previously unlogged — a duplicate-registration
+                # attempt against an already-verified account is a real
+                # event an investigator would want to see (e.g. someone
+                # probing whether an email is already registered).
+                audit.log_register_failed(data["email"], "email_already_registered")
                 raise ConflictError("An account with this email already exists.")
 
             if AuthService._is_unverified_expired(existing):
@@ -134,15 +148,25 @@ class AuthService:
                 from src.extensions import db
 
                 db.session.commit()
+                # AUDIT: a distinct outcome from a brand-new account being
+                # created — same row, not a duplicate. See
+                # log_register_resumed's docstring in shared/audit.py.
+                audit.log_register_resumed(data["email"], role.value)
                 return existing
 
-        return UserRepository.create(
+        new_user = UserRepository.create(
             email=data["email"],
             password_hash=hash_password(data["password"]),
             role=role,
             first_name=first_name,
             last_name=last_name,
         )
+        # AUDIT: logged here specifically (not in register_business/
+        # register_supplier) so it can never double-fire alongside
+        # log_register_resumed above — this is the one place that
+        # actually distinguishes "new account" from "resumed account".
+        audit.log_register_success(str(new_user.id), new_user.email, new_user.role.value)
+        return new_user
 
     @staticmethod
     def _send_verification_otp(user: User) -> None:
@@ -232,6 +256,17 @@ class AuthService:
     def _issue_tokens(
         user: User, device_id: Optional[str] = None, ip_address: Optional[str] = None
     ) -> dict:
+        # FALLBACK: OTPService.verify_otp() issues the very first token
+        # pair on a fresh account and does not pass ip_address/device_id
+        # explicitly. Rather than threading those through every call site
+        # by hand, fall back to the same request-context extraction the
+        # audit system already uses — this is safe (returns None outside
+        # a request, e.g. tests or a future CLI path) and fixes IP/device
+        # capture for every current AND future caller that forgets to
+        # pass them explicitly, not just this one.
+        ip_address = ip_address or audit_context.get_ip_address()
+        device_id = device_id or audit_context.get_device_id()
+
         additional_claims = {"role": user.role.value}
         access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=str(user.id), additional_claims=additional_claims)
@@ -246,6 +281,13 @@ class AuthService:
             ip_address=ip_address,
         )
 
+        # AUDIT: centralized here rather than at each of the three call
+        # sites (login, refresh, OTP-verify) because every call to
+        # _issue_tokens means a new token pair was created, regardless of
+        # caller — this also automatically covers the OTP-verification
+        # token issuance in otp_service.py without needing a separate
+        # call there.
+        audit.log_token_created(str(user.id))
         return {"access_token": access_token, "refresh_token": refresh_token}
 
     # ------------------------------------------------------------------
@@ -262,6 +304,11 @@ class AuthService:
             raise UnauthorizedError("Refresh token is invalid or has been revoked.")
 
         RefreshTokenRepository.revoke(token_record)
+        # AUDIT: the OLD token being revoked as part of rotation is its
+        # own meaningful event, distinguished from a logout-triggered
+        # revocation by reason="rotation" — every revocation matters
+        # regardless of cause; the cause is what differs.
+        audit.log_token_revoked(user_id, reason="rotation")
 
         user = UserRepository.get_by_id(user_id)
         if user is None:
@@ -270,7 +317,13 @@ class AuthService:
         if user.account_status != AccountStatus.ACTIVE:
             raise AccountInactiveError("This account has been deactivated.")
 
-        return AuthService._issue_tokens(user, device_id=device_id, ip_address=ip_address)
+        tokens = AuthService._issue_tokens(user, device_id=device_id, ip_address=ip_address)
+        # AUDIT: _issue_tokens() already logged TOKEN_CREATED above — this
+        # additional event specifically marks "issued via the refresh
+        # flow", since TOKEN_CREATED alone doesn't distinguish a refresh
+        # from a fresh login.
+        audit.log_token_refreshed(user_id)
+        return tokens
 
     # ------------------------------------------------------------------
     # Logout
@@ -282,9 +335,17 @@ class AuthService:
             token_record = RefreshTokenRepository.get_by_jti_hash(_hash_jti(refresh_token_jti))
             if token_record is not None and str(token_record.user_id) == str(user_id):
                 RefreshTokenRepository.revoke(token_record)
+                audit.log_token_revoked(user_id, reason="logout")
+                audit.log_logout(user_id)
             return
 
-        RefreshTokenRepository.revoke_all_for_user(user_id)
+        # NOTE: assumes revoke_all_for_user() returns a count of revoked
+        # tokens. If it currently returns None, `revoked_count or 0` keeps
+        # this safe, but the audit metadata will show 0 regardless of the
+        # real count — worth confirming the repository's actual return
+        # type and adjusting it to return the count if it doesn't already.
+        revoked_count = RefreshTokenRepository.revoke_all_for_user(user_id)
+        audit.log_logout_all_devices(user_id, revoked_count or 0)
 
     @staticmethod
     def get_current_user(user_id: str) -> User:

@@ -24,6 +24,11 @@ SQLAlchemy==2.0.51
 typing_extensions==4.16.0
 Werkzeug==3.1.8
 
-# --- TRU Connect Auth Foundation additions ---
+# --- TRU Connect Auth Foundation ---
 Flask-Marshmallow==1.4.0
 marshmallow-sqlalchemy==1.0.0
+
+# --- TRU Connect Security Domain: job scheduler  ---
+APScheduler==3.11.3
+tzlocal==5.4.4
+tzdata==2026.3
