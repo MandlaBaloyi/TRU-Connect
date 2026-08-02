@@ -1,0 +1,253 @@
+backend
+├── migrations
+│   ├── versions
+│   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
+│   │   └── b1a2c3d4e5f6_security_audit_events.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+├── src
+│   ├── api
+│   │   └── __init__.py
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── base_model.py
+│   │   ├── decorators.py
+│   │   ├── exceptions.py
+│   │   └── responses.py
+│   ├── domains
+│   │   ├── auth
+│   │   │   ├── api
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── routes.py
+│   │   │   ├── jobs
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── cleanup_unverified_emails.py
+│   │   │   ├── models
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── otp_verification.py
+│   │   │   │   ├── password_reset_token.py
+│   │   │   │   ├── refresh_token.py
+│   │   │   │   └── user.py
+│   │   │   ├── repositories
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── otp_repository.py
+│   │   │   │   ├── password_reset_repository.py
+│   │   │   │   ├── refresh_token_repository.py
+│   │   │   │   └── user_repository.py
+│   │   │   ├── schemas
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth_schemas.py
+│   │   │   │   ├── otp_schemas.py
+│   │   │   │   └── password_reset_schemas.py
+│   │   │   ├── services
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth_service.py
+│   │   │   │   ├── otp_service.py
+│   │   │   │   └── password_reset_service.py
+│   │   │   ├── utils
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── otp.py
+│   │   │   └── __init__.py
+│   │   ├── business
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── marketplace
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── platform
+│   │   │   ├── api
+│   │   │   │   ├── templates
+│   │   │   │   │   └── reset_password_web.html
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── health_routes.py
+│   │   │   │   └── reset_password_routes.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schedulers
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── engine.py
+│   │   │   │   ├── interfaces.py
+│   │   │   │   ├── registry.py
+│   │   │   │   ├── runner.py
+│   │   │   │   └── trigger.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── security
+│   │   │   ├── analytics
+│   │   │   │   └── __init__.py
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── detection
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── engine.py
+│   │   │   │   ├── interfaces.py
+│   │   │   │   └── registry.py
+│   │   │   ├── models
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── audit_event.py
+│   │   │   ├── monitoring
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── audit_repository.py
+│   │   │   ├── rules
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── event_config.py
+│   │   │   │   └── thresholds.py
+│   │   │   ├── schedulers
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── monitor.py
+│   │   │   ├── schemas
+│   │   │   │   └── audit_schemas.py
+│   │   │   ├── services
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── audit_service.py
+│   │   │   └── __init__.py
+│   │   ├── supplier
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── trust
+│   │   │   ├── api
+│   │   │   │   └── __init__.py
+│   │   │   ├── models
+│   │   │   │   └── __init__.py
+│   │   │   ├── repositories
+│   │   │   │   └── __init__.py
+│   │   │   ├── schemas
+│   │   │   │   └── __init__.py
+│   │   │   ├── services
+│   │   │   │   └── __init__.py
+│   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   └── verification
+│   │       ├── api
+│   │       │   └── __init__.py
+│   │       ├── models
+│   │       │   └── __init__.py
+│   │       ├── repositories
+│   │       │   └── __init__.py
+│   │       ├── schemas
+│   │       │   └── __init__.py
+│   │       ├── services
+│   │       │   └── __init__.py
+│   │       ├── utils
+│   │       │   └── __init__.py
+│   │       └── __init__.py
+│   ├── shared
+│   │   ├── templates
+│   │   │   ├── base.html
+│   │   │   ├── order_delivered.html
+│   │   │   ├── order_received.html
+│   │   │   ├── order_shipped.html
+│   │   │   ├── otp.html
+│   │   │   ├── password_reset.html
+│   │   │   ├── resume_registration.html
+│   │   │   ├── supplier_invitation.html
+│   │   │   ├── verification_failed.html
+│   │   │   ├── verification_success.html
+│   │   │   ├── welcome_business.html
+│   │   │   └── welcome_supplier.html
+│   │   ├── __init__.py
+│   │   ├── audit.py
+│   │   ├── audit.py.bak
+│   │   ├── audit_context.py
+│   │   ├── audit_types.py
+│   │   ├── cache.py
+│   │   ├── constants.py
+│   │   ├── email.py
+│   │   ├── helpers.py
+│   │   ├── logger.py
+│   │   ├── metrics.py
+│   │   ├── monitoring.py
+│   │   ├── queue.py
+│   │   ├── scheduling_types.py
+│   │   ├── security.py
+│   │   ├── tickets.py
+│   │   └── validators.py
+│   ├── __init__.py
+│   ├── config.py
+│   └── extensions.py
+├── tests
+│   ├── domains
+│   │   ├── auth
+│   │   │   ├── jobs
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── test_cleanup_unverified_emails.py
+│   │   │   └── __init__.py
+│   │   ├── platform
+│   │   │   ├── schedulers
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_engine.py
+│   │   │   │   ├── test_registry.py
+│   │   │   │   ├── test_runner.py
+│   │   │   │   └── test_trigger.py
+│   │   │   └── __init__.py
+│   │   ├── security
+│   │   │   ├── audit
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_append_only.py
+│   │   │   │   ├── test_audit_context.py
+│   │   │   │   ├── test_audit_publisher.py
+│   │   │   │   ├── test_audit_repository.py
+│   │   │   │   ├── test_audit_schemas.py
+│   │   │   │   ├── test_detection_scaffolding.py
+│   │   │   │   └── test_event_config.py
+│   │   │   ├── schedulers
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── test_monitor.py
+│   │   │   └── __init__.py
+│   │   └── __init__.py
+│   └── test_auth.py
+├── .env
+├── .gitignore
+├── app.py
+├── generate_security_audit.py
+├── INTEGRATION.md
+├── INTEGRATION_AUDIT.md
+├── MIGRATION_NOTES.md
+├── plan.md
+├── README.md
+└── requirements.txt

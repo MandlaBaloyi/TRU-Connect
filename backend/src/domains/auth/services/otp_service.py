@@ -16,6 +16,22 @@ TOKENS: register() no longer issues tokens (Auth Hardening, Objective 1)
 issues the first access/refresh pair on success, since proving control
 of the email address is the first genuinely authenticated moment for a
 brand-new account.
+
+AUDIT
+-----
+request_otp() is the single entry point for both the initial
+registration OTP and any later resend, so it always publishes
+OTP_CREATED (a new code genuinely was generated either way) -- it has no
+way to distinguish "first ever" from "resend" from inside this function
+alone. If that distinction matters, the ROUTE that specifically handles
+a resend button/endpoint should call audit.log_otp_resent() itself,
+since it knows the caller's intent even though this service doesn't.
+
+verify_otp() publishes OTP_VERIFIED on every successful code check, and
+EMAIL_VERIFIED only on the genuine unverified->verified transition --
+mirroring the existing was_already_verified check that already gates the
+welcome email, so both follow exactly the same "never on re-verification"
+rule.
 """
 from __future__ import annotations
 
@@ -32,6 +48,7 @@ from src.domains.auth.repositories.otp_repository import OTPRepository
 from src.domains.auth.repositories.user_repository import UserRepository
 from src.domains.auth.utils.otp import generate_numeric_otp, hash_otp, verify_otp_hash
 from src.extensions import db
+from src.shared import audit
 from src.shared.constants import MAX_OTP_EMAILS_PER_HOUR
 from src.shared.email import EmailService
 
@@ -55,6 +72,7 @@ class OTPService:
             otp_code_hash=hash_otp(code),
             expires_at=expires_at,
         )
+        audit.log_otp_created(str(user.id), destination)
 
         purpose_label = "email address" if purpose == OTPPurpose.EMAIL_VERIFICATION else "phone number"
         EmailService.send_template(
@@ -77,16 +95,20 @@ class OTPService:
 
         record = OTPRepository.get_latest_active(user.id, purpose)
         if record is None:
+            audit.log_otp_failed(destination, "no_pending_otp")
             raise UnauthorizedError("No pending verification code found. Please request a new one.")
 
         if record.is_expired():
+            audit.log_otp_failed(destination, "expired")
             raise UnauthorizedError("This verification code has expired. Please request a new one.")
 
         if not record.has_attempts_remaining():
+            audit.log_otp_failed(destination, "too_many_attempts")
             raise ForbiddenError("Too many incorrect attempts. Please request a new verification code.")
 
         if record.destination != destination or not verify_otp_hash(code, record.otp_code_hash):
             OTPRepository.increment_attempts(record)
+            audit.log_otp_failed(destination, "incorrect_code")
             raise UnauthorizedError("Incorrect verification code.")
 
         OTPRepository.mark_used(record)
@@ -95,7 +117,10 @@ class OTPService:
         user.verification_status = VerificationStatus.VERIFIED
         db.session.commit()
 
+        audit.log_otp_verified(str(user.id), destination)
+
         if not was_already_verified:
+            audit.log_email_verified(str(user.id), destination)
             OTPService._send_welcome_email(user)
 
         # Local import: AuthService imports OTPService (for the

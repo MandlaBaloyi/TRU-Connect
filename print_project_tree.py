@@ -42,15 +42,14 @@ EXCLUDED_FILES = {
 
 
 def should_skip(path: Path):
-    # Skip excluded folders
+    """Determine whether a file/folder should be skipped."""
+
     if any(part in EXCLUDED for part in path.parts):
         return True
 
-    # Skip excluded files
     if path.name in EXCLUDED_FILES:
         return True
 
-    # Skip excluded file types
     if path.is_file() and path.suffix.lower() in EXCLUDED_SUFFIXES:
         return True
 
@@ -58,15 +57,12 @@ def should_skip(path: Path):
 
 
 def generate_tree(directory: Path, prefix=""):
-    """Generate project tree as a list of strings."""
+    """Generate a directory tree as a list of strings."""
+
     lines = []
 
     items = sorted(
-        [
-            item
-            for item in directory.iterdir()
-            if not should_skip(item)
-        ],
+        [item for item in directory.iterdir() if not should_skip(item)],
         key=lambda x: (x.is_file(), x.name.lower()),
     )
 
@@ -81,16 +77,30 @@ def generate_tree(directory: Path, prefix=""):
     return lines
 
 
-def main():
-    tree_lines = [ROOT.name]
-    tree_lines.extend(generate_tree(ROOT))
+def save_tree(start_directory: Path, output_filename: str):
+    """Generate and save one tree."""
 
-    output_path = ROOT / "structure.txt"
+    if not start_directory.exists():
+        return
+
+    tree = [start_directory.name]
+    tree.extend(generate_tree(start_directory))
+
+    output_path = ROOT / output_filename
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(tree_lines))
+        f.write("\n".join(tree))
 
-    print(f" Project tree saved to {output_path}")
+
+def main():
+    # Entire project
+    save_tree(ROOT, "structure.txt")
+
+    # Backend only
+    save_tree(ROOT / "backend", "backend_structure.txt")
+
+    # Frontend only
+    save_tree(ROOT / "frontend", "frontend_structure.txt")
 
 
 if __name__ == "__main__":

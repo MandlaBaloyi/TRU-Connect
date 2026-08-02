@@ -1,0 +1,271 @@
+frontend
+├── mobile
+│   ├── app
+│   │   ├── (auth)
+│   │   │   ├── _layout.tsx
+│   │   │   ├── create-account.tsx
+│   │   │   ├── forgot-password.tsx
+│   │   │   ├── reset-password.tsx
+│   │   │   ├── sign-in.tsx
+│   │   │   └── verify-otp.tsx
+│   │   ├── (dashboard)
+│   │   │   ├── business
+│   │   │   │   └── (tabs)
+│   │   │   │       ├── _layout.tsx
+│   │   │   │       ├── account.tsx
+│   │   │   │       ├── community.tsx
+│   │   │   │       ├── discovery.tsx
+│   │   │   │       ├── home.tsx
+│   │   │   │       └── more.tsx
+│   │   │   ├── supplier
+│   │   │   │   ├── (tabs)
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── account.tsx
+│   │   │   │   │   ├── community.tsx
+│   │   │   │   │   ├── discovery.tsx
+│   │   │   │   │   ├── home.tsx
+│   │   │   │   │   └── more.tsx
+│   │   │   │   └── product-catalogue
+│   │   │   │       ├── [id]
+│   │   │   │       │   ├── edit.tsx
+│   │   │   │       │   ├── images.tsx
+│   │   │   │       │   └── index.tsx
+│   │   │   │       ├── _layout.tsx
+│   │   │   │       ├── add.tsx
+│   │   │   │       ├── drafts.tsx
+│   │   │   │       └── index.tsx
+│   │   │   └── index.tsx
+│   │   ├── (onboarding)
+│   │   │   ├── _layout.tsx
+│   │   │   ├── role-selection.tsx
+│   │   │   └── welcome.tsx
+│   │   ├── _layout.tsx
+│   │   └── index.tsx
+│   ├── assets
+│   │   ├── icons
+│   │   └── images
+│   │       └── tru-connect-logo.png
+│   ├── src
+│   │   ├── components
+│   │   │   ├── cards
+│   │   │   │   ├── AppCard.tsx
+│   │   │   │   ├── FeatureTile.tsx
+│   │   │   │   └── RoleCard.tsx
+│   │   │   ├── feedback
+│   │   │   │   ├── EmptyState.tsx
+│   │   │   │   ├── ErrorState.tsx
+│   │   │   │   ├── LoadingOverlay.tsx
+│   │   │   │   └── OfflineBanner.tsx
+│   │   │   ├── forms
+│   │   │   │   ├── FormTextField.tsx
+│   │   │   │   ├── OtpInput.tsx
+│   │   │   │   └── PasswordField.tsx
+│   │   │   ├── navigation
+│   │   │   │   ├── BrandTopBar.tsx
+│   │   │   │   ├── DashboardTabBar.tsx
+│   │   │   │   └── ScreenHeader.tsx
+│   │   │   └── ui
+│   │   │       ├── PrimaryButton.tsx
+│   │   │       ├── ProgressStepper.tsx
+│   │   │       ├── SafeAreaScreen.tsx
+│   │   │       ├── ScreenContainer.tsx
+│   │   │       └── SecondaryButton.tsx
+│   │   ├── constants
+│   │   │   ├── config.ts
+│   │   │   └── regex.ts
+│   │   ├── features
+│   │   │   ├── auth
+│   │   │   │   ├── hooks
+│   │   │   │   │   ├── useAuth.ts
+│   │   │   │   │   └── useOtp.ts
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── authSchemas.ts
+│   │   │   │   ├── utils
+│   │   │   │   │   └── persistSession.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── business
+│   │   │   │   ├── api
+│   │   │   │   │   └── businessApi.ts
+│   │   │   │   ├── hooks
+│   │   │   │   │   └── useBusinessProfileWizard.ts
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── businessSchemas.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── dashboard
+│   │   │   │   ├── business
+│   │   │   │   │   ├── business-profile
+│   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   ├── api
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   ├── services
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   ├── find-supplier
+│   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   ├── api
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   ├── services
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   ├── nearby-suppliers
+│   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   ├── api
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   ├── services
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   ├── orders
+│   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   ├── api
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   ├── services
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   ├── recommended-products
+│   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   ├── api
+│   │   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   ├── services
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   └── verify-business
+│   │   │   │   │       ├── algorithms
+│   │   │   │   │       ├── api
+│   │   │   │   │       ├── components
+│   │   │   │   │       ├── hooks
+│   │   │   │   │       ├── screens
+│   │   │   │   │       ├── services
+│   │   │   │   │       └── types.ts
+│   │   │   │   ├── hooks
+│   │   │   │   ├── shared
+│   │   │   │   │   ├── components
+│   │   │   │   │   │   ├── AnalyticsCard.tsx
+│   │   │   │   │   │   ├── HomeHeader.tsx
+│   │   │   │   │   │   ├── NotificationCard.tsx
+│   │   │   │   │   │   ├── ScoreCard.tsx
+│   │   │   │   │   │   ├── SectionHeader.tsx
+│   │   │   │   │   │   └── StatCard.tsx
+│   │   │   │   │   ├── hooks
+│   │   │   │   │   │   └── useDashboardNotifications.ts
+│   │   │   │   │   ├── types
+│   │   │   │   │   │   └── index.ts
+│   │   │   │   │   └── utils
+│   │   │   │   │       ├── barcodeIntegration.ts
+│   │   │   │   │       ├── mapsIntegration.ts
+│   │   │   │   │       ├── messagingIntegration.ts
+│   │   │   │   │       ├── searchIntegration.ts
+│   │   │   │   │       └── weatherIntegration.ts
+│   │   │   │   └── supplier
+│   │   │   │       ├── add-product
+│   │   │   │       │   ├── algorithms
+│   │   │   │       │   ├── api
+│   │   │   │       │   ├── components
+│   │   │   │       │   ├── hooks
+│   │   │   │       │   ├── screens
+│   │   │   │       │   ├── services
+│   │   │   │       │   └── types.ts
+│   │   │   │       ├── manage-deliveries
+│   │   │   │       │   ├── algorithms
+│   │   │   │       │   ├── api
+│   │   │   │       │   ├── components
+│   │   │   │       │   ├── hooks
+│   │   │   │       │   ├── screens
+│   │   │   │       │   ├── services
+│   │   │   │       │   └── types.ts
+│   │   │   │       ├── manage-orders
+│   │   │   │       │   ├── algorithms
+│   │   │   │       │   ├── api
+│   │   │   │       │   ├── components
+│   │   │   │       │   ├── hooks
+│   │   │   │       │   ├── screens
+│   │   │   │       │   ├── services
+│   │   │   │       │   └── types.ts
+│   │   │   │       ├── product-catalogue
+│   │   │   │       │   ├── algorithms
+│   │   │   │       │   │   └── README.md
+│   │   │   │       │   ├── api
+│   │   │   │       │   │   └── productCatalogueApi.ts
+│   │   │   │       │   ├── components
+│   │   │   │       │   │   ├── ProductCard.tsx
+│   │   │   │       │   │   ├── ProductCatalogueIcon.tsx
+│   │   │   │       │   │   ├── ProductCategorySelector.tsx
+│   │   │   │       │   │   ├── ProductFilterSheet.tsx
+│   │   │   │       │   │   ├── ProductForm.tsx
+│   │   │   │       │   │   ├── ProductImageUploader.tsx
+│   │   │   │       │   │   ├── ProductPriceCard.tsx
+│   │   │   │       │   │   ├── ProductSearchBar.tsx
+│   │   │   │       │   │   └── ProductStatusBadge.tsx
+│   │   │   │       │   ├── hooks
+│   │   │   │       │   │   ├── useCreateProduct.ts
+│   │   │   │       │   │   ├── useDeleteProduct.ts
+│   │   │   │       │   │   ├── useProducts.ts
+│   │   │   │       │   │   ├── useProductSearch.ts
+│   │   │   │       │   │   └── useUpdateProduct.ts
+│   │   │   │       │   ├── screens
+│   │   │   │       │   │   ├── AddProductScreen.tsx
+│   │   │   │       │   │   ├── DraftProductsScreen.tsx
+│   │   │   │       │   │   ├── EditProductScreen.tsx
+│   │   │   │       │   │   ├── ProductCatalogueScreen.tsx
+│   │   │   │       │   │   ├── ProductDetailsScreen.tsx
+│   │   │   │       │   │   └── ProductImagesScreen.tsx
+│   │   │   │       │   ├── services
+│   │   │   │       │   │   ├── pricingCalculator.ts
+│   │   │   │       │   │   ├── productMapper.ts
+│   │   │   │       │   │   ├── productValidation.ts
+│   │   │   │       │   │   └── stockManager.ts
+│   │   │   │       │   └── types.ts
+│   │   │   │       └── verify-business
+│   │   │   │           ├── algorithms
+│   │   │   │           ├── api
+│   │   │   │           ├── components
+│   │   │   │           ├── hooks
+│   │   │   │           ├── screens
+│   │   │   │           ├── services
+│   │   │   │           └── types.ts
+│   │   │   └── supplier
+│   │   │       ├── api
+│   │   │       │   └── supplierApi.ts
+│   │   │       ├── schemas
+│   │   │       │   └── supplierSchemas.ts
+│   │   │       └── types.ts
+│   │   ├── hooks
+│   │   │   ├── useColorScheme.ts
+│   │   │   ├── useCountdown.ts
+│   │   │   └── useNetworkStatus.ts
+│   │   ├── navigation
+│   │   │   └── routeGuards.ts
+│   │   ├── services
+│   │   │   ├── api
+│   │   │   │   ├── apiClient.ts
+│   │   │   │   ├── mockData.ts
+│   │   │   │   └── queryClient.ts
+│   │   │   ├── auth
+│   │   │   │   └── authService.ts
+│   │   │   └── storage
+│   │   │       └── secureStorage.ts
+│   │   ├── theme
+│   │   │   ├── colors.ts
+│   │   │   ├── paperTheme.ts
+│   │   │   ├── spacing.ts
+│   │   │   ├── ThemeProvider.tsx
+│   │   │   ├── typography.ts
+│   │   │   └── wordmark.ts
+│   │   ├── types
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       └── validators.ts
+│   ├── .env
+│   ├── .gitignore
+│   ├── .npmrc
+│   ├── app.json
+│   ├── babel.config.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── supplierFeature.md
+│   └── tsconfig.json
+└── web

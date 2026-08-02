@@ -2,7 +2,8 @@ TRU_Connect
 ├── backend
 │   ├── migrations
 │   │   ├── versions
-│   │   │   └── acccb39c3c86_initial_auth_domain_schema_migration.py
+│   │   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
+│   │   │   └── b1a2c3d4e5f6_security_audit_events.py
 │   │   ├── alembic.ini
 │   │   ├── env.py
 │   │   ├── README
@@ -21,6 +22,9 @@ TRU_Connect
 │   │   │   │   ├── api
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   └── routes.py
+│   │   │   │   ├── jobs
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── cleanup_unverified_emails.py
 │   │   │   │   ├── models
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── otp_verification.py
@@ -77,19 +81,59 @@ TRU_Connect
 │   │   │   │   └── __init__.py
 │   │   │   ├── platform
 │   │   │   │   ├── api
+│   │   │   │   │   ├── templates
+│   │   │   │   │   │   └── reset_password_web.html
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── health_routes.py
-│   │   │   │   │   └── reset_redirect_routes.py
+│   │   │   │   │   └── reset_password_routes.py
 │   │   │   │   ├── models
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── repositories
 │   │   │   │   │   └── __init__.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── engine.py
+│   │   │   │   │   ├── interfaces.py
+│   │   │   │   │   ├── registry.py
+│   │   │   │   │   ├── runner.py
+│   │   │   │   │   └── trigger.py
 │   │   │   │   ├── schemas
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── services
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── utils
 │   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── security
+│   │   │   │   ├── analytics
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── detection
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── engine.py
+│   │   │   │   │   ├── interfaces.py
+│   │   │   │   │   └── registry.py
+│   │   │   │   ├── models
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── audit_event.py
+│   │   │   │   ├── monitoring
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── audit_repository.py
+│   │   │   │   ├── rules
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── event_config.py
+│   │   │   │   │   └── thresholds.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── monitor.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   └── audit_schemas.py
+│   │   │   │   ├── services
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── audit_service.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── supplier
 │   │   │   │   ├── api
@@ -149,6 +193,9 @@ TRU_Connect
 │   │   │   │   └── welcome_supplier.html
 │   │   │   ├── __init__.py
 │   │   │   ├── audit.py
+│   │   │   ├── audit.py.bak
+│   │   │   ├── audit_context.py
+│   │   │   ├── audit_types.py
 │   │   │   ├── cache.py
 │   │   │   ├── constants.py
 │   │   │   ├── email.py
@@ -157,6 +204,7 @@ TRU_Connect
 │   │   │   ├── metrics.py
 │   │   │   ├── monitoring.py
 │   │   │   ├── queue.py
+│   │   │   ├── scheduling_types.py
 │   │   │   ├── security.py
 │   │   │   ├── tickets.py
 │   │   │   └── validators.py
@@ -164,45 +212,56 @@ TRU_Connect
 │   │   ├── config.py
 │   │   └── extensions.py
 │   ├── tests
+│   │   ├── domains
+│   │   │   ├── auth
+│   │   │   │   ├── jobs
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── test_cleanup_unverified_emails.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── platform
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── test_engine.py
+│   │   │   │   │   ├── test_registry.py
+│   │   │   │   │   ├── test_runner.py
+│   │   │   │   │   └── test_trigger.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── security
+│   │   │   │   ├── audit
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── test_append_only.py
+│   │   │   │   │   ├── test_audit_context.py
+│   │   │   │   │   ├── test_audit_publisher.py
+│   │   │   │   │   ├── test_audit_repository.py
+│   │   │   │   │   ├── test_audit_schemas.py
+│   │   │   │   │   ├── test_detection_scaffolding.py
+│   │   │   │   │   └── test_event_config.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── test_monitor.py
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
 │   │   └── test_auth.py
 │   ├── .env
 │   ├── .gitignore
 │   ├── app.py
+│   ├── generate_security_audit.py
+│   ├── INTEGRATION.md
+│   ├── INTEGRATION_AUDIT.md
+│   ├── MIGRATION_NOTES.md
 │   ├── plan.md
 │   ├── README.md
-│   ├── requirements.txt
-│   └── structure.txt
+│   └── requirements.txt
 ├── database
 ├── deployment
 ├── docs
-│   ├── _archive_v1_marketplace
-│   │   ├── 00_PROJECT_VISION.txt
-│   │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
-│   │   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
-│   │   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
-│   │   ├── 04_DATABASE_DESIGN.txt
-│   │   ├── 05_BACKEND_API_SPECIFICATION.txt
-│   │   ├── 06_BUSINESS_RULES_AND_WORKFLOWS.txt
-│   │   ├── 07_DATA_AND_TRUST_ENGINE.txt
-│   │   ├── 08_PRODUCT_ROADMAP.txt
-│   │   ├── 09_ECOSYSTEM_STRATEGY.txt
-│   │   └── README.txt
 │   ├── _truconnect_docs
-│   │   ├── 00_PROJECT_VISION.txt
-│   │   ├── 00A_TRUEPOINT_ENGINEERING_PRINCIPLES.txt
-│   │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
-│   │   ├── 02_SYSTEM_UI_UX_SPECIFICATION.txt
-│   │   ├── 03_FRONTEND_COMPONENT_SPECIFICATION.txt
-│   │   ├── 04_DATABASE_DESIGN.txt
-│   │   ├── 05_BACKEND_API_SPECIFICATION.txt
-│   │   ├── 06_BUSINESS_RULES_AND_WORKFLOWS.txt
-│   │   ├── 07_DATA_AND_TRUST_ENGINE.txt
-│   │   ├── 08_PRODUCT_ROADMAP.txt
-│   │   ├── 09_ECOSYSTEM_STRATEGY.txt
-│   │   ├── 10_Expo_SDK54_Dependency_Reference.txt
-│   │   ├── PLATFORM_FEATURES.TXT
-│   │   ├── THE_IDEA_BEHIND_TRUs.txt
-│   │   └── TRU_Connect_Master_Engineering_Roadmap.xlsx
+│   │   ├── AUDIT_ DB_ SCALLING_PLAN(ADMIN PORTAL).md
+│   │   ├── IdentityProviders(google.txt
+│   │   └── trueconnect_audit.txt
+│   ├── enginnering_docs
+│   │   ├── 00_ENGINEERING_PHILOSOPHY.txt
+│   │   └── 01_PERFORMANCE_ENGINEERING.txt
 │   ├── 00_PROJECT_VISION.txt
 │   ├── 00A_TRUEPOINT_PLATFORM_CONSTITUTION.txt
 │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
@@ -215,8 +274,7 @@ TRU_Connect
 │   ├── 08_PRODUCT_ROADMAP.txt
 │   ├── 09_ECOSYSTEM_STRATEGY.txt
 │   ├── 0A_DOCUMENTATION_CHANGE_ANALYSIS.txt
-│   ├── 10_Expo_SDK54_Dependency_Reference.txt
-│   └── THE_IDEA_BEHIND_TRUs.txt
+│   └── 10_Expo_SDK54_Dependency_Reference.txt
 ├── frontend
 │   ├── mobile
 │   │   ├── app
@@ -494,7 +552,8 @@ TRU_Connect
 │   └── sql
 │       └── auth_domain.sql
 ├── .gitignore
-├── generate_auth_hardening_.py
+├── backend_structure.txt
+├── frontend_structure.txt
 ├── print_project_tree.py
 ├── README.md
 └── structure.txt

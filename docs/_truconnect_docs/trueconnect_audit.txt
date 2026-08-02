@@ -1,0 +1,530 @@
+================================================================================
+TRU CONNECT
+SECURITY DOMAIN
+PHASE 1 - ENTERPRISE AUDIT ARCHITECTURE PLAN
+================================================================================
+
+OBJECTIVE
+
+Build an enterprise-grade auditing backend that becomes the single source of
+truth for every security-related event occurring throughout the TRU Connect
+ecosystem.
+
+For Phase 1, only the Authentication domain will integrate with the Security
+domain.
+
+The architecture, however, must be designed from day one to support every
+future domain without requiring redesign.
+
+The Security domain is NOT part of Authentication.
+
+Authentication simply publishes security events.
+
+The Security domain owns:
+
+• Security Auditing
+• Security Monitoring
+• Security Analytics
+• Threat Detection
+• Compliance
+• Incident Investigation
+• Regulatory Audit Trails
+• Security Intelligence
+
+================================================================================
+ARCHITECTURE PHILOSOPHY
+================================================================================
+
+Authentication is responsible for authentication.
+
+Security is responsible for auditing.
+
+Authentication should never know how audit data is stored.
+
+Instead, Authentication simply publishes events.
+
+Example
+
+Authentication
+      │
+      ▼
+Security Audit Service
+      │
+      ▼
+Audit Repository
+      │
+      ▼
+PostgreSQL (security schema)
+      │
+      ▼
+Detection Engine
+      │
+      ▼
+Security Alerts
+      │
+      ▼
+Admin Control Center
+
+This separation keeps the Authentication domain clean while allowing the
+Security domain to evolve independently.
+
+================================================================================
+ENTERPRISE AUDIT PRINCIPLES
+================================================================================
+
+The audit system should answer the following questions for every important
+system action:
+
+Who performed the action?
+
+When did it occur?
+
+Where did it originate?
+
+What action was performed?
+
+Was it successful?
+
+Why did it fail?
+
+What happened afterwards?
+
+Every audit record must be append-only.
+
+Audit records should never be modified.
+
+Audit records should never be deleted manually.
+
+Historical integrity is essential for regulators, investigations and compliance.
+
+================================================================================
+PHASE 1 SCOPE
+================================================================================
+
+Only the Authentication domain publishes events.
+
+No other domain should integrate yet.
+
+The architecture must remain generic enough that future domains can publish
+events without changing the Security architecture.
+
+Future domains include:
+
+• Business
+• Supplier
+• Marketplace
+• Trust
+• Verification
+• Platform
+• Wallet
+• Admin Portal
+• AI Services
+
+================================================================================
+AUTHENTICATION EVENTS
+================================================================================
+
+Registration
+
+REGISTER_REQUESTED
+
+REGISTER_SUCCESS
+
+REGISTER_FAILED
+
+--------------------------------------------------------------------------------
+
+Email Verification
+
+EMAIL_VERIFICATION_SENT
+
+EMAIL_VERIFIED
+
+EMAIL_VERIFICATION_FAILED
+
+EMAIL_VERIFICATION_EXPIRED
+
+--------------------------------------------------------------------------------
+
+OTP
+
+OTP_CREATED
+
+OTP_SENT
+
+OTP_VERIFIED
+
+OTP_FAILED
+
+OTP_RESENT
+
+OTP_EXPIRED
+
+--------------------------------------------------------------------------------
+
+Login
+
+LOGIN_SUCCESS
+
+LOGIN_FAILED
+
+LOGIN_BLOCKED
+
+LOGIN_LOCKED
+
+LOGIN_RATE_LIMITED
+
+LOGIN_UNVERIFIED
+
+--------------------------------------------------------------------------------
+
+Password Reset
+
+PASSWORD_RESET_REQUESTED
+
+PASSWORD_RESET_TOKEN_CREATED
+
+PASSWORD_RESET_SUCCESS
+
+PASSWORD_RESET_FAILED
+
+PASSWORD_RESET_EXPIRED
+
+--------------------------------------------------------------------------------
+
+Refresh Tokens
+
+TOKEN_CREATED
+
+TOKEN_REFRESHED
+
+TOKEN_REVOKED
+
+TOKEN_EXPIRED
+
+--------------------------------------------------------------------------------
+
+Logout
+
+LOGOUT
+
+LOGOUT_ALL_DEVICES
+
+--------------------------------------------------------------------------------
+
+Administration
+
+ACCOUNT_ENABLED
+
+ACCOUNT_DISABLED
+
+ACCOUNT_DELETED
+
+ROLE_CHANGED
+
+PERMISSION_CHANGED
+
+================================================================================
+AUDIT EVENT MODEL
+================================================================================
+
+The audit model must remain generic.
+
+It must never contain Authentication-specific assumptions.
+
+Recommended fields include:
+
+Audit Event ID
+
+Timestamp (UTC)
+
+Domain
+
+Module
+
+Event Name
+
+Event Category
+
+Severity
+
+Status (Success/Failure)
+
+Failure Reason
+
+User ID (nullable)
+
+Email
+
+Role
+
+Tenant ID
+
+Session ID
+
+Correlation ID
+
+Request ID
+
+IP Address
+
+User Agent
+
+Browser
+
+Operating System
+
+Platform
+
+Device ID
+
+HTTP Method
+
+Endpoint
+
+HTTP Status Code
+
+Metadata (JSON)
+
+The Metadata field allows future domains to store additional information without
+requiring database redesign.
+
+================================================================================
+DETECTION RESPONSIBILITY
+================================================================================
+
+Authentication should never contain security intelligence.
+
+Bad Example
+
+if failed_logins >= 5:
+    lock_account()
+
+Good Example
+
+Authentication
+
+↓
+
+Publish Audit Event
+
+↓
+
+Security Detection Engine
+
+↓
+
+Evaluate Rules
+
+↓
+
+Create Alert
+
+↓
+
+Notify Administrator
+
+↓
+
+(Optional) Lock Account
+
+The Security domain owns all detection logic.
+
+================================================================================
+SECURITY CONTROL CENTER
+================================================================================
+
+The future Admin Portal should expose a Security Operations Center rather than
+just an Audit Log.
+
+Recommended navigation:
+
+Security Center
+
+Dashboard
+
+Live Activity
+
+Audit Events
+
+Authentication
+
+Threat Detection
+
+Security Alerts
+
+Failed Logins
+
+Locked Accounts
+
+Suspicious IP Addresses
+
+Suspicious Devices
+
+Active Sessions
+
+Investigations
+
+Compliance
+
+Reports
+
+Rules
+
+Settings
+
+================================================================================
+AUTHENTICATION SECTION
+================================================================================
+
+The Authentication page inside the Security Center should include:
+
+Registration Events
+
+Login Success
+
+Login Failures
+
+Account Lockouts
+
+OTP Events
+
+Password Reset Events
+
+Refresh Token Activity
+
+Logout Activity
+
+Authentication Statistics
+
+Authentication Alerts
+
+================================================================================
+RBAC
+================================================================================
+
+Only privileged users should access Security functionality.
+
+Examples include:
+
+Platform Owner
+
+Platform Administrator
+
+Security Administrator
+
+Compliance Officer
+
+Risk Officer
+
+Internal Auditor
+
+Normal businesses, suppliers and lenders must never access platform-wide audit
+information.
+
+================================================================================
+ABAC (Future)
+================================================================================
+
+Future Attribute-Based Access Control should allow policies such as:
+
+Can view only own tenant
+
+Can view only Authentication events
+
+Can view only Marketplace events
+
+Can export reports
+
+Can close investigations
+
+Can acknowledge alerts
+
+Can create security rules
+
+Can manage detection policies
+
+================================================================================
+DATABASE DESIGN
+================================================================================
+
+Do NOT create separate audit tables for every domain.
+
+Avoid:
+
+auth_audit
+
+supplier_audit
+
+wallet_audit
+
+business_audit
+
+Instead create a single enterprise audit table.
+
+Example
+
+audit_events
+
+Every row identifies its origin using fields such as:
+
+Domain
+
+Module
+
+Event
+
+This allows every domain to share the same enterprise audit platform.
+
+================================================================================
+LONG TERM VISION
+================================================================================
+
+The Security domain should eventually support:
+
+Redis
+
+Celery
+
+RabbitMQ
+
+Kafka
+
+OpenTelemetry
+
+Prometheus
+
+Grafana
+
+SIEM Integrations
+
+Compliance Reporting
+
+Fraud Detection
+
+Risk Scoring
+
+Machine Learning Detection
+
+Behavioural Analytics
+
+Without requiring architectural redesign.
+
+================================================================================
+ENGINEERING GOAL
+================================================================================
+
+The Security domain should become the enterprise Security Operations Center
+(SOC) for TRU Connect.
+
+Every important action performed anywhere within the platform should eventually
+produce a standardized audit event.
+
+The Authentication domain is simply the first publisher.
+
+Future domains should integrate seamlessly by publishing events to the same
+Security infrastructure.
+
+The final architecture must remain modular, scalable, regulator-friendly,
+enterprise-ready and maintainable for long-term growth.
+================================================================================

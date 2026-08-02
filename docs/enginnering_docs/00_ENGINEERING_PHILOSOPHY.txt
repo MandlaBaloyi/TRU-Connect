@@ -1,0 +1,115 @@
+===========================================================================
+ENGINEERING/
+00_ENGINEERING_PHILOSOPHY.txt
+===========================================================================
+
+"TruePoint is more than a startup. It is my engineering laboratory. 
+Every architecture decision, every production challenge, every bug,
+ every deployment, and every optimization is an opportunity to become a better engineer. 
+ Whether the platform succeeds commercially or not, 
+ the knowledge gained while building it will remain with me for the rest of my career."
+
+
+Engineering is not the process of writing code.
+
+Engineering is the process of solving problems through well-designed systems.
+
+Code is only one of the tools used to achieve that goal.
+
+The objective of engineering is to build software that is:
+
+Reliable.
+
+Maintainable.
+
+Scalable.
+
+Secure.
+
+Observable.
+
+Efficient.
+
+Simple.
+
+Software should continue operating correctly as users, data, and complexity grow.
+
+True engineering begins before the first line of code is written.
+
+It begins by understanding the problem.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #1
+
+Understand the problem before designing the solution.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #2
+
+Design before implementation.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #3
+
+Measure before optimization.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #4
+
+Optimize without sacrificing maintainability.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #5
+
+Scalability should be designed, not added later.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #6
+
+Every engineering decision has trade-offs.
+
+Good engineers understand those trade-offs.
+
+---------------------------------------------------------------------------
+
+ENGINEERING PRINCIPLE #7
+
+Artificial Intelligence accelerates engineering.
+
+It does not replace engineering.
+
+Engineers define:
+
+• Problems
+
+• Architecture
+
+• Algorithms
+
+• Data Flow
+
+• Business Logic
+
+Artificial Intelligence assists with:
+
+• Implementation
+
+• Refactoring
+
+• Optimization
+
+• Testing
+
+• Documentation
+
+• Verification
+
+Architecture remains an engineering responsibility.
+
+===========================================================================

@@ -26,6 +26,12 @@ def create_app(env_name: str | None = None) -> Flask:
         "TRU Connect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
     )
 
+    from src.domains.security.services import audit_service
+    audit_service.register()
+
+    from src.domains.platform.schedulers import trigger
+    trigger.start(app)
+
     return app
 
 

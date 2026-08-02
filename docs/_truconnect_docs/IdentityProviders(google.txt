@@ -1,0 +1,125 @@
+==========================================================
+GOOGLE OAUTH IMPLEMENTATION PLAN
+TRU CONNECT
+==========================================================
+
+Status:
+Deferred until Beta / Production Preparation
+
+Decision Date:
+August 2026
+
+----------------------------------------------------------
+BACKGROUND
+----------------------------------------------------------
+
+TRU Connect currently uses a complete first-party
+authentication system consisting of:
+
+• Email & Password Authentication
+• Email OTP Verification
+• Password Reset Tickets
+• JWT Authentication
+• Refresh Tokens
+• Login Rate Limiting
+• Account Lockout Protection
+• Security Audit Logging
+• Scheduled Security Cleanup Jobs
+
+This authentication architecture satisfies the current
+requirements of the MVP.
+
+----------------------------------------------------------
+WHY GOOGLE OAUTH IS DEFERRED
+----------------------------------------------------------
+
+Google Sign-In requires a Google Cloud project with
+OAuth credentials.
+
+During development, Google Cloud currently requires a
+one-time refundable prepayment before enabling Cloud
+Billing and activating the free trial.
+
+Since TRU Connect is still in active MVP development,
+there is no business value in enabling Google Cloud
+billing at this stage.
+
+The project will therefore continue using the existing
+authentication system until the product approaches Beta
+or Production.
+
+----------------------------------------------------------
+CURRENT PRIORITIES
+----------------------------------------------------------
+
+Higher priority engineering work includes:
+
+• Business Onboarding
+• Supplier Platform
+• Marketplace
+• Product Catalogue
+• Order Management
+• Verification Engine
+• Security Domain
+• Audit Centre
+• Background Scheduler
+• Offline Support
+• Performance Optimisation
+
+These features provide significantly more value to the
+platform than social authentication during MVP.
+
+----------------------------------------------------------
+FUTURE IMPLEMENTATION
+----------------------------------------------------------
+
+Before public launch, implement:
+
+✓ Google Sign-In
+✓ Google Account Linking
+✓ Existing Account Linking
+✓ OAuth Token Verification
+✓ Refresh Token Support
+✓ Secure User Mapping
+
+Potential future providers:
+
+• Google
+• Microsoft
+• Apple
+• Facebook (optional)
+
+The authentication architecture has already been designed
+to accommodate additional identity providers without
+changing the existing user model.
+
+----------------------------------------------------------
+IMPLEMENTATION NOTE
+----------------------------------------------------------
+
+Google OAuth should remain a separate authentication
+provider.
+
+The existing Email/Password authentication remains the
+primary identity system.
+
+Users may choose either:
+
+• Continue with Email Authentication
+• Sign in with Google
+
+If both methods use the same verified email address,
+they should be linked to a single user account.
+
+----------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------
+
+Google OAuth has been intentionally deferred.
+
+This is a product planning decision, not a technical
+limitation.
+
+The existing authentication system is production-grade
+for the MVP and provides a strong foundation for future
+social authentication providers.
