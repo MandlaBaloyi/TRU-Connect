@@ -1,257 +1,289 @@
 #!/usr/bin/env python3
 """
-reorganize_shared.py
+fix_shared_imports.py
 
-Restructures backend/src/shared/ (and the email templates it contains)
-from a flat layout into grouped subpackages, to support future growth
-(per-domain audit event types, per-domain email templates) without one
-folder becoming an unstructured pile of files.
+Fixes every import statement broken by reorganize_shared.py's file moves —
+scans your ENTIRE src/ and tests/ tree and rewrites old dotted import
+paths to their new location. You do not need to identify which files are
+affected; this script finds all of them automatically.
 
-THIS SCRIPT ONLY MOVES FILES. It does not read, parse, or modify the
-content of any .py or .html file — every moved file is byte-for-byte
-identical at its new path. Import statements inside those files will be
-broken after this runs (e.g. audit.py's `from src.shared.audit_context
-import ...` needs to become `from src.shared.audit.audit_context import
-...`) — fixing those is a deliberate separate pass, not done here.
+WHY NO FILE UPLOADS WERE NEEDED FOR THIS: this is a pure, deterministic
+text substitution. The exact same (old_path -> new_path) mapping used to
+physically move the files is reused here to fix every reference to them,
+regardless of which file contains that reference or what else is in it.
 
-WHAT MOVES:
-    src/shared/audit.py            -> src/shared/audit/audit.py
-    src/shared/audit_context.py    -> src/shared/audit/audit_context.py
-    src/shared/audit_types.py      -> src/shared/audit/audit_types.py
-    src/shared/cache.py            -> src/shared/cache/cache.py
-    src/shared/constants.py        -> src/shared/constants/constants.py
-    src/shared/email.py            -> src/shared/email/email.py
-    src/shared/helpers.py          -> src/shared/helpers/helpers.py
-    src/shared/logger.py           -> src/shared/logging/logger.py
-    src/shared/metrics.py          -> src/shared/logging/metrics.py
-    src/shared/monitoring.py       -> src/shared/monitoring/monitoring.py
-    src/shared/queue.py            -> src/shared/queue/queue.py
-    src/shared/scheduling_types.py -> src/shared/scheduling/scheduling_types.py
-    src/shared/security.py         -> src/shared/security/security.py
-    src/shared/tickets.py          -> src/shared/tickets/tickets.py
-    src/shared/validators.py       -> src/shared/validation/validators.py
+RULE APPLIED, for every moved module (e.g. audit.py: shared/ -> shared/audit/):
+    from src.shared.audit import X        -> from src.shared.audit.audit import X
+    from src.shared import audit          -> from src.shared.audit import audit
+    from src.shared import audit, other   -> from src.shared.audit import audit
+                                              (other left/handled on its own
+                                               merged line if it moved too --
+                                               see MULTI-IMPORT NOTE below)
+    import src.shared.audit                -> import src.shared.audit.audit
+    src.shared.audit.something (rare        -> src.shared.audit.audit.something
+        fully-qualified in-code reference)
 
-    src/shared/templates/base.html                  -> src/shared/email/templates/base/base.html
-    src/shared/templates/otp.html                   -> src/shared/email/templates/auth/otp.html
-    src/shared/templates/password_reset.html        -> src/shared/email/templates/auth/password_reset.html
-    src/shared/templates/resume_registration.html   -> src/shared/email/templates/auth/resume_registration.html
-    src/shared/templates/verification_success.html  -> src/shared/email/templates/auth/verification_success.html
-    src/shared/templates/verification_failed.html   -> src/shared/email/templates/auth/verification_failed.html
-    src/shared/templates/welcome_business.html       -> src/shared/email/templates/business/welcome_business.html
-    src/shared/templates/welcome_supplier.html       -> src/shared/email/templates/supplier/welcome_supplier.html
-    src/shared/templates/supplier_invitation.html    -> src/shared/email/templates/supplier/supplier_invitation.html
-    src/shared/templates/order_received.html         -> src/shared/email/templates/supplier/order_received.html
-    src/shared/templates/order_shipped.html           -> src/shared/email/templates/supplier/order_shipped.html
-    src/shared/templates/order_delivered.html         -> src/shared/email/templates/supplier/order_delivered.html
+MULTI-IMPORT NOTE: `from src.shared import audit, audit_context` is a
+special case where TWO names on one line both moved into the SAME new
+package (src.shared.audit). The script detects this and merges them onto
+one corrected line: `from src.shared.audit import audit, audit_context`
+rather than producing two separate lines that would each re-import the
+same package. If a bare multi-import line mixes names that moved to
+DIFFERENT new packages, the script reports it instead of guessing, since
+that split cannot be done safely by regex alone.
 
-WHAT'S CREATED NEW (empty scaffolding, not moved from anywhere):
-    src/shared/audit/event_types/{auth,supplier,business,marketplace,
-        verification,trust,security,platform,admin}.py -- placeholder
-        files, docstring only. The real AuditEventName enum stays fully
-        intact in audit/audit_types.py; nothing is split today.
-    src/shared/email/templates/{security,platform,admin}/.gitkeep --
-        future template categories, no templates exist yet.
-    An __init__.py in every new subpackage.
-
-WHAT'S DELIBERATELY LEFT ALONE:
-    src/shared/audit.py.bak -- stays at the old flat location untouched.
-    Anything not in the mapping above.
+WHAT THIS SCRIPT DOES NOT TOUCH:
+    - .html template files (no Python imports to fix).
+    - src/shared/email/email.py's Jinja2/template FOLDER PATH, if it is
+      expressed as a string literal (e.g. a hardcoded "shared/templates"
+      path) rather than derived relative to the module's own file
+      location. That is a file-path string, not an import statement, and
+      this script only touches import statements. See the printed
+      reminder at the end of a run.
+    - src/shared/audit.py.bak (left alone, as agreed during the move).
 
 SAFETY:
-    - Refuses to overwrite an existing destination file unless --force.
-    - Skips (and reports) any source file that doesn't exist, rather than
-      failing the whole run -- handles a partially-completed prior run
-      gracefully.
-    - --dry-run previews every move without touching the filesystem.
+    - --dry-run shows every change as a unified diff without writing
+      anything.
+    - Without --dry-run, each changed file is backed up alongside itself
+      as `<file>.importfix.bak` before being overwritten (skip with
+      --no-backup once you've reviewed the dry-run output and trust it).
+    - Only rewrites files that actually contain a broken pattern; every
+      other file is left completely alone.
 
 Usage:
-    python reorganize_shared.py --root .
-    python reorganize_shared.py --root . --dry-run
-    python reorganize_shared.py --root . --force
+    python fix_shared_imports.py --root . --dry-run
+    python fix_shared_imports.py --root .
+    python fix_shared_imports.py --root . --no-backup
 """
 
 from __future__ import annotations
 
 import argparse
-import shutil
+import difflib
+import re
 import sys
 from pathlib import Path
 
-# (source path relative to --root, destination path relative to --root)
-FILE_MOVES: list[tuple[str, str]] = [
-    ("src/shared/audit.py", "src/shared/audit/audit.py"),
-    ("src/shared/audit_context.py", "src/shared/audit/audit_context.py"),
-    ("src/shared/audit_types.py", "src/shared/audit/audit_types.py"),
-    ("src/shared/cache.py", "src/shared/cache/cache.py"),
-    ("src/shared/constants.py", "src/shared/constants/constants.py"),
-    ("src/shared/email.py", "src/shared/email/email.py"),
-    ("src/shared/helpers.py", "src/shared/helpers/helpers.py"),
-    ("src/shared/logger.py", "src/shared/logging/logger.py"),
-    ("src/shared/metrics.py", "src/shared/logging/metrics.py"),
-    ("src/shared/monitoring.py", "src/shared/monitoring/monitoring.py"),
-    ("src/shared/queue.py", "src/shared/queue/queue.py"),
-    ("src/shared/scheduling_types.py", "src/shared/scheduling/scheduling_types.py"),
-    ("src/shared/security.py", "src/shared/security/security.py"),
-    ("src/shared/tickets.py", "src/shared/tickets/tickets.py"),
-    ("src/shared/validators.py", "src/shared/validation/validators.py"),
-
-    # Email templates, regrouped by owning domain.
-    ("src/shared/templates/base.html", "src/shared/email/templates/base/base.html"),
-    ("src/shared/templates/otp.html", "src/shared/email/templates/auth/otp.html"),
-    ("src/shared/templates/password_reset.html", "src/shared/email/templates/auth/password_reset.html"),
-    ("src/shared/templates/resume_registration.html", "src/shared/email/templates/auth/resume_registration.html"),
-    ("src/shared/templates/verification_success.html", "src/shared/email/templates/auth/verification_success.html"),
-    ("src/shared/templates/verification_failed.html", "src/shared/email/templates/auth/verification_failed.html"),
-    ("src/shared/templates/welcome_business.html", "src/shared/email/templates/business/welcome_business.html"),
-    ("src/shared/templates/welcome_supplier.html", "src/shared/email/templates/supplier/welcome_supplier.html"),
-    ("src/shared/templates/supplier_invitation.html", "src/shared/email/templates/supplier/supplier_invitation.html"),
-    ("src/shared/templates/order_received.html", "src/shared/email/templates/supplier/order_received.html"),
-    ("src/shared/templates/order_shipped.html", "src/shared/email/templates/supplier/order_shipped.html"),
-    ("src/shared/templates/order_delivered.html", "src/shared/email/templates/supplier/order_delivered.html"),
+# (old_module_name, new_subpackage) -- derived from the exact same
+# mapping reorganize_shared.py used to physically move each file.
+# old dotted path is always `src.shared.<old_module_name>`
+# new dotted path is always `src.shared.<new_subpackage>.<old_module_name>`
+MOVED_MODULES: list[tuple[str, str]] = [
+    ("audit", "audit"),
+    ("audit_context", "audit"),
+    ("audit_types", "audit"),
+    ("cache", "cache"),
+    ("constants", "constants"),
+    ("email", "email"),
+    ("helpers", "helpers"),
+    ("logger", "logging"),
+    ("metrics", "logging"),
+    ("monitoring", "monitoring"),
+    ("queue", "queue"),
+    ("scheduling_types", "scheduling"),
+    ("security", "security"),
+    ("tickets", "tickets"),
+    ("validators", "validation"),
 ]
 
-# Every new subpackage needs an __init__.py to be importable.
-NEW_PACKAGE_INITS: list[str] = [
-    "src/shared/audit/__init__.py",
-    "src/shared/audit/event_types/__init__.py",
-    "src/shared/cache/__init__.py",
-    "src/shared/constants/__init__.py",
-    "src/shared/email/__init__.py",
-    "src/shared/helpers/__init__.py",
-    "src/shared/logging/__init__.py",
-    "src/shared/monitoring/__init__.py",
-    "src/shared/queue/__init__.py",
-    "src/shared/scheduling/__init__.py",
-    "src/shared/security/__init__.py",
-    "src/shared/tickets/__init__.py",
-    "src/shared/validation/__init__.py",
-]
+OLD_TO_NEW = {old: new for old, new in MOVED_MODULES}
 
-# Placeholder files reserving future per-domain audit event splits.
-# Comment-only, per your instruction -- no actual enum content moved here.
-EVENT_TYPE_PLACEHOLDERS: list[str] = [
-    "src/shared/audit/event_types/auth.py",
-    "src/shared/audit/event_types/supplier.py",
-    "src/shared/audit/event_types/business.py",
-    "src/shared/audit/event_types/marketplace.py",
-    "src/shared/audit/event_types/verification.py",
-    "src/shared/audit/event_types/trust.py",
-    "src/shared/audit/event_types/security.py",
-    "src/shared/audit/event_types/platform.py",
-    "src/shared/audit/event_types/admin.py",
-]
-
-EVENT_TYPE_PLACEHOLDER_CONTENT = (
-    "# Reserved for future {domain}-specific audit event types.\n"
-    "# Not yet in use -- the full AuditEventName enum currently lives in\n"
-    "# src/shared/audit/audit_types.py. This file is a placeholder for a\n"
-    "# future per-domain split, added by the shared/ reorganization.\n"
-)
-
-# Future template categories: no templates exist yet, but the folders
-# should exist and be tracked by git (which doesn't track empty dirs),
-# so each gets a .gitkeep placeholder.
-FUTURE_TEMPLATE_DIRS: list[str] = [
-    "src/shared/email/templates/security",
-    "src/shared/email/templates/platform",
-    "src/shared/email/templates/admin",
-]
+SCAN_DIRS = ["src", "tests"]
+FILE_GLOB = "*.py"
 
 
-def _domain_from_placeholder_path(path: str) -> str:
-    return Path(path).stem
+def _build_multi_import_pattern() -> re.Pattern:
+    # Matches: from src.shared import name1, name2, ...
+    # Captures the whole name list so we can inspect/rewrite it.
+    return re.compile(r"from\s+src\.shared\s+import\s+([A-Za-z0-9_,\s]+)")
 
 
-def do_file_moves(root: Path, force: bool, dry_run: bool) -> tuple[list[str], list[str], list[str]]:
-    moved, skipped_missing, skipped_conflict = [], [], []
-
-    for src_rel, dst_rel in FILE_MOVES:
-        src = root / src_rel
-        dst = root / dst_rel
-
-        if not src.exists():
-            skipped_missing.append(src_rel)
-            continue
-
-        if dst.exists() and not force:
-            skipped_conflict.append(dst_rel)
-            continue
-
-        if not dry_run:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
-
-        moved.append(f"{src_rel}  ->  {dst_rel}")
-
-    return moved, skipped_missing, skipped_conflict
+MULTI_IMPORT_RE = _build_multi_import_pattern()
 
 
-def do_create_inits(root: Path, force: bool, dry_run: bool) -> tuple[list[str], list[str]]:
-    created, skipped = [], []
-    for rel in NEW_PACKAGE_INITS:
-        target = root / rel
-        if target.exists() and not force:
-            skipped.append(rel)
-            continue
-        if not dry_run:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("", encoding="utf-8")
-        created.append(rel)
-    return created, skipped
-
-
-def do_create_event_type_placeholders(root: Path, force: bool, dry_run: bool) -> tuple[list[str], list[str]]:
-    created, skipped = [], []
-    for rel in EVENT_TYPE_PLACEHOLDERS:
-        target = root / rel
-        if target.exists() and not force:
-            skipped.append(rel)
-            continue
-        domain = _domain_from_placeholder_path(rel)
-        content = EVENT_TYPE_PLACEHOLDER_CONTENT.format(domain=domain)
-        if not dry_run:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
-        created.append(rel)
-    return created, skipped
-
-
-def do_create_future_template_dirs(root: Path, dry_run: bool) -> list[str]:
-    created = []
-    for rel in FUTURE_TEMPLATE_DIRS:
-        gitkeep = root / rel / ".gitkeep"
-        if gitkeep.exists():
-            continue
-        if not dry_run:
-            gitkeep.parent.mkdir(parents=True, exist_ok=True)
-            gitkeep.write_text("", encoding="utf-8")
-        created.append(f"{rel}/.gitkeep")
-    return created
-
-
-def cleanup_empty_dirs(root: Path, dry_run: bool) -> list[str]:
+def fix_bare_multi_import(line: str) -> tuple[str, list[str]]:
     """
-    After moving every file out of the old flat src/shared/templates/,
-    that directory (and possibly others) is left empty. Remove empty
-    directories left behind by the moves above -- but ONLY directories
-    this script's own moves could plausibly have emptied, never a blanket
-    sweep of the repo.
+    Handles `from src.shared import name1, name2, ...` where one or more
+    names are modules that moved. Names moving to the SAME new
+    subpackage are merged onto one corrected import line. Names moving to
+    DIFFERENT subpackages, or names that did NOT move at all (still live
+    directly in src/shared/), are reported as warnings rather than guessed.
+
+    Returns (possibly-rewritten line, list of warning strings).
     """
-    candidates = [root / "src/shared/templates"]
-    removed = []
-    for d in candidates:
-        if d.exists() and d.is_dir() and not any(d.iterdir()):
-            if not dry_run:
-                d.rmdir()
-            removed.append(str(d.relative_to(root)))
-    return removed
+    match = MULTI_IMPORT_RE.search(line)
+    if not match:
+        return line, []
+
+    names = [n.strip() for n in match.group(1).split(",") if n.strip()]
+    moved = [n for n in names if n in OLD_TO_NEW]
+    not_moved = [n for n in names if n not in OLD_TO_NEW]
+
+    if not moved:
+        return line, []  # nothing here moved; not our concern
+
+    warnings = []
+    if not_moved:
+        warnings.append(
+            f"Line mixes moved and un-moved names, left as-is for manual review: {line.strip()!r} "
+            f"(un-moved: {not_moved})"
+        )
+        return line, warnings
+
+    destinations = {OLD_TO_NEW[n] for n in moved}
+    if len(destinations) > 1:
+        warnings.append(
+            f"Line's names moved to DIFFERENT subpackages, cannot auto-merge, "
+            f"needs manual split: {line.strip()!r} (destinations: {destinations})"
+        )
+        return line, warnings
+
+    dest = destinations.pop()
+    prefix_match = re.match(r"^(\s*)", line)
+    indent = prefix_match.group(1) if prefix_match else ""
+    new_line = f"{indent}from src.shared.{dest} import {', '.join(moved)}\n"
+    return new_line, []
+
+
+def _build_destination_groups() -> dict[str, list[str]]:
+    """Maps each new subpackage name to every old module name that moves
+    into it -- e.g. "audit" -> ["audit", "audit_context", "audit_types"].
+    Used to build guards that stop an already-correct path from being
+    matched again on a re-run."""
+    groups: dict[str, list[str]] = {}
+    for old, new_sub in MOVED_MODULES:
+        groups.setdefault(new_sub, []).append(old)
+    return groups
+
+
+DESTINATION_GROUPS = _build_destination_groups()
+
+
+def _build_qualified_patterns() -> list[tuple[re.Pattern, str]]:
+    """
+    Builds one guarded regex per moved module. A guard is only needed
+    when `old == new_sub` -- that's the only situation where the fixed
+    path ("src.shared.<old>.<old>...") still contains the OLD pattern as
+    a literal, matchable prefix, since the destination folder happens to
+    share the module's original name (audit, cache, constants, email,
+    helpers, monitoring, queue, security, tickets all hit this).
+
+    Two guards, for two different already-fixed shapes:
+      1. `(?!\\.(?:sibling1|sibling2|...)\\b)` -- blocks re-matching a
+         path that's already correctly nested under this folder, e.g.
+         "src.shared.audit.audit_types" (audit_types is a SIBLING of
+         audit.py in the same audit/ folder, not a re-fixable target).
+      2. `(?!\\s+import\\b)` -- audit-SPECIFIC. audit.py is exclusively
+         ever imported via the bare `from src.shared import audit` form
+         in this codebase (never `from src.shared.audit import
+         something`) -- so once the bare-import fixer produces `from
+         src.shared.audit import audit, audit_context`, that shape must
+         never be treated as still-broken. This guard is intentionally
+         NOT applied to the other 8 self-named entries (cache, constants,
+         email, helpers, monitoring, queue, security, tickets), because
+         THEIR genuinely-broken original form really is
+         "from src.shared.<name> import <thing>" -- applying this guard
+         there would incorrectly skip fixing them on the very first run.
+    """
+    patterns = []
+    for old, new_sub in MOVED_MODULES:
+        guard = ""
+        if old == new_sub:
+            siblings = DESTINATION_GROUPS[new_sub]
+            alternation = "|".join(re.escape(s) for s in siblings)
+            guard = rf"(?!\.(?:{alternation})\b)"
+            if old == "audit":
+                guard += r"(?!\s+import\b)"
+        pattern = re.compile(rf"\bsrc\.shared\.{re.escape(old)}\b{guard}")
+        patterns.append((pattern, f"src.shared.{new_sub}.{old}"))
+    return patterns
+
+
+QUALIFIED_PATTERNS = _build_qualified_patterns()
+
+
+def fix_qualified_imports(text: str) -> tuple[str, int]:
+    """
+    Handles the two common single-target forms:
+        from src.shared.<old> import ...
+        import src.shared.<old>
+        import src.shared.<old> as ...
+    and any other in-code fully-qualified reference to src.shared.<old>
+    (e.g. a string used in mock.patch("src.shared.audit.log_x")).
+
+    Uses \\b (word boundary) after <old> so e.g. "audit" never matches
+    inside "audit_context" or "audit_types" -- underscore is a "word"
+    character in regex, so there is no boundary between "audit" and "_",
+    meaning this is safe by construction, not by luck.
+
+    IDEMPOTENT: guarded (see _build_qualified_patterns) so re-running this
+    script on already-fixed files is a safe no-op rather than progressively
+    re-nesting paths that happen to share a name with their destination
+    folder.
+    """
+    count = 0
+    for pattern, replacement in QUALIFIED_PATTERNS:
+        text, n = pattern.subn(replacement, text)
+        count += n
+    return text, count
+
+
+BARE_IMPORT_LINE_RE = re.compile(r"^\s*from\s+src\.shared\s+import\s+")
+
+
+def fix_file(text: str) -> tuple[str, int, list[str]]:
+    """
+    Processes the file ONE LINE AT A TIME, dispatching each line to
+    exactly one fix path:
+      - lines matching `from src.shared import ...` (bare form) go
+        through fix_bare_multi_import ONLY.
+      - every other line goes through fix_qualified_imports ONLY.
+
+    CRITICAL: a line must never pass through both fixers. An earlier
+    version of this script ran the bare-import fix first, then re-ran the
+    qualified-import regex over the WHOLE file afterward — which matched
+    already-corrected bare-import lines a second time and double-nested
+    them (e.g. `from src.shared.audit import audit_context` incorrectly
+    became `from src.shared.audit.audit import audit_context`). Dispatching
+    per-line instead of per-file-then-per-file eliminates that class of
+    bug by construction: each line is touched by exactly one regex pass.
+    """
+    lines = text.splitlines(keepends=True)
+    new_lines = []
+    warnings: list[str] = []
+    total_fixes = 0
+
+    for line in lines:
+        if BARE_IMPORT_LINE_RE.match(line):
+            fixed_line, line_warnings = fix_bare_multi_import(line)
+            if fixed_line != line:
+                total_fixes += 1
+            warnings.extend(line_warnings)
+            new_lines.append(fixed_line)
+        else:
+            fixed_line, n = fix_qualified_imports(line)
+            total_fixes += n
+            new_lines.append(fixed_line)
+
+    return "".join(new_lines), total_fixes, warnings
+
+
+def iter_python_files(root: Path):
+    for scan_dir in SCAN_DIRS:
+        base = root / scan_dir
+        if not base.exists():
+            continue
+        for path in base.rglob(FILE_GLOB):
+            if path.is_file():
+                yield path
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", required=True, help="Path to your backend repo root")
-    parser.add_argument("--force", action="store_true", help="Overwrite existing destination files")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without touching the filesystem")
+    parser.add_argument("--dry-run", action="store_true", help="Show diffs without writing anything")
+    parser.add_argument("--no-backup", action="store_true", help="Skip creating .importfix.bak copies")
     args = parser.parse_args()
 
     root = Path(args.root).expanduser().resolve()
@@ -259,50 +291,58 @@ def main() -> None:
         print(f"Root path does not exist: {root}", file=sys.stderr)
         sys.exit(1)
 
-    verb = "Would move" if args.dry_run else "Moved"
-    moved, skipped_missing, skipped_conflict = do_file_moves(root, args.force, args.dry_run)
-    print(f"\n{verb} {len(moved)} file(s):")
-    for m in moved:
-        print(f"  * {m}")
+    changed_files = []
+    all_warnings: list[tuple[str, str]] = []
 
-    if skipped_missing:
-        print(f"\nSkipped {len(skipped_missing)} file(s) not found (already moved, or never existed):")
-        for s in skipped_missing:
-            print(f"  - {s}")
+    for path in iter_python_files(root):
+        original = path.read_text(encoding="utf-8")
+        fixed, count, warnings = fix_file(original)
 
-    if skipped_conflict:
-        print(f"\nSkipped {len(skipped_conflict)} file(s) — destination already exists (use --force to overwrite):")
-        for s in skipped_conflict:
-            print(f"  ! {s}")
+        for w in warnings:
+            all_warnings.append((str(path.relative_to(root)), w))
 
-    verb2 = "Would create" if args.dry_run else "Created"
-    inits_created, inits_skipped = do_create_inits(root, args.force, args.dry_run)
-    print(f"\n{verb2} {len(inits_created)} __init__.py file(s) for new subpackages.")
-    if inits_skipped:
-        print(f"Skipped {len(inits_skipped)} __init__.py file(s) that already exist.")
+        if count == 0:
+            continue
 
-    placeholders_created, placeholders_skipped = do_create_event_type_placeholders(root, args.force, args.dry_run)
-    print(f"{verb2} {len(placeholders_created)} event_types/ placeholder file(s) (comment-only, no enum content).")
-    if placeholders_skipped:
-        print(f"Skipped {len(placeholders_skipped)} event_types/ placeholder file(s) that already exist.")
+        changed_files.append((path, original, fixed, count))
 
-    template_dirs_created = do_create_future_template_dirs(root, args.dry_run)
-    print(f"{verb2} {len(template_dirs_created)} future template folder(s) (security/platform/admin, empty).")
+    verb = "Would fix" if args.dry_run else "Fixed"
+    print(f"\n{verb} {len(changed_files)} file(s):\n")
 
-    removed = cleanup_empty_dirs(root, args.dry_run)
-    if removed:
-        verb3 = "Would remove" if args.dry_run else "Removed"
-        print(f"\n{verb3} {len(removed)} now-empty directory(ies):")
-        for r in removed:
-            print(f"  x {r}")
+    for path, original, fixed, count in changed_files:
+        rel = path.relative_to(root)
+        print(f"--- {rel} ({count} import reference(s) updated) ---")
+        if args.dry_run:
+            diff = difflib.unified_diff(
+                original.splitlines(keepends=True),
+                fixed.splitlines(keepends=True),
+                fromfile=f"{rel} (before)",
+                tofile=f"{rel} (after)",
+            )
+            sys.stdout.writelines(diff)
+            print()
+        else:
+            if not args.no_backup:
+                backup_path = path.with_suffix(path.suffix + ".importfix.bak")
+                backup_path.write_text(original, encoding="utf-8")
+            path.write_text(fixed, encoding="utf-8")
+
+    if all_warnings:
+        print(f"\n{len(all_warnings)} line(s) need MANUAL review (not auto-fixed):")
+        for rel, w in all_warnings:
+            print(f"  ! {rel}: {w}")
 
     print(
-        "\nNOTE: src/shared/audit.py.bak was left untouched at its original "
-        "location, as agreed.\n"
-        "NOTE: import statements inside moved files are now broken and "
-        "need a separate fix pass (e.g. audit.py's imports of "
-        "audit_context/audit_types) -- this script only relocates files, "
-        "it never edits their contents."
+        "\nNOT covered by this script (check manually):\n"
+        "  - src/shared/email/email.py's template FOLDER PATH, if hardcoded\n"
+        "    as a string rather than derived from the module's own file\n"
+        "    location (e.g. Path(__file__).parent / 'templates'). If it's\n"
+        "    file-relative, it likely still resolves correctly since both\n"
+        "    email.py and templates/ moved down one level together --\n"
+        "    verify, don't assume.\n"
+        "  - Any string (not a Python import statement) that references the\n"
+        "    old flat path, e.g. in config files, .env, or Flask app_config\n"
+        "    template_folder= settings."
     )
 
 

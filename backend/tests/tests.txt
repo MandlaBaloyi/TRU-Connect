@@ -1,0 +1,91 @@
+TRU CONNECT BACKEND -- TEST COMMAND REFERENCE
+================================================
+Last confirmed: 179/179 passing, real Postgres, full suite.
+
+RUN EVERYTHING
+--------------
+python -m pytest tests/ -v
+
+
+RUN BY CONCERN (no database needed -- always safe, fast)
+----------------------------------------------------------
+python -m pytest tests/shared/finance/ tests/architecture/ -v
+    Money, arithmetic, allocation, formatting, parsing.
+    Boundary enforcement (Finance can't import domains/audit/
+    security/queue/Flask/SQLAlchemy, never uses float()).
+
+python -m pytest tests/domains/platform/schedulers/ tests/domains/auth/schedulers/ tests/domains/security/schedulers/ -v
+    Master Scheduler: engine, registry composition, runner,
+    trigger. Auth's job list. Security's job-health monitoring.
+
+python -m pytest tests/domains/security/audit/ -v -k "not repository and not append_only and not service"
+    Audit pure-logic: context enrichment, publisher, schemas,
+    event policy, detection scaffolding. No database touched.
+
+
+RUN BY CONCERN (needs TEST_DATABASE_URL -- see setup below)
+--------------------------------------------------------------
+python -m pytest tests/domains/auth/jobs/ tests/domains/security/audit/ tests/test_auth.py -v
+    The scheduled cleanup job against real data.
+    Audit repository INSERT, the append-only trigger, the
+    app-context bug fix (async events on a real thread).
+    Full registration/login/lockout/password-reset integration.
+
+
+ONE-TIME DATABASE SETUP (only needed once per machine)
+----------------------------------------------------------
+1. Create the test database, owned by the app user:
+
+python -c "
+import psycopg2
+conn = psycopg2.connect(host='localhost', port=5432, user='postgres', password='YOUR_SUPERUSER_PASSWORD', dbname='postgres')
+conn.autocommit = True
+cur = conn.cursor()
+cur.execute('CREATE DATABASE tru_connect_test OWNER tru_connect_app')
+print('DATABASE CREATED')
+conn.close()
+"
+
+2. Create the 8 schemas:
+
+python -c "
+import psycopg2
+conn = psycopg2.connect(host='localhost', port=5432, user='tru_connect_app', password='YOUR_APP_PASSWORD', dbname='tru_connect_test')
+conn.autocommit = True
+cur = conn.cursor()
+for schema in ['auth', 'business', 'marketplace', 'platform', 'supplier', 'trust', 'verification', 'security']:
+    cur.execute(f'CREATE SCHEMA IF NOT EXISTS {schema} AUTHORIZATION tru_connect_app')
+print('SCHEMAS CREATED')
+conn.close()
+"
+
+3. Apply every migration (creates tables AND the append-only trigger):
+
+$env:DATABASE_URL = "postgresql+psycopg2://tru_connect_app:YOUR_APP_PASSWORD@localhost:5432/tru_connect_test"
+flask db upgrade
+
+If your password contains any of @ : / ? # % , URL-encode it first:
+python -c "import urllib.parse; print(urllib.parse.quote_plus('YOUR_REAL_PASSWORD'))"
+
+
+EVERY SESSION (this variable does not persist across terminal windows)
+--------------------------------------------------------------------------
+$env:TEST_DATABASE_URL = "postgresql+psycopg2://tru_connect_app:YOUR_APP_PASSWORD@localhost:5432/tru_connect_test"
+
+
+PERMANENT FIX -- STOP TYPING "python -m" EVERY TIME
+--------------------------------------------------------
+Create backend/pytest.ini containing:
+
+[pytest]
+pythonpath = .
+
+Then plain `pytest tests/ -v` works too, not just `python -m pytest`.
+
+
+QUICK SANITY CHECK AFTER ANY BIG CHANGE
+--------------------------------------------
+python -m pytest tests/ -v --tb=short -q
+    -q keeps output short; --tb=short trims tracebacks.
+    Read the LAST LINE first: "X passed, Y failed" tells you
+    everything before you scroll up.

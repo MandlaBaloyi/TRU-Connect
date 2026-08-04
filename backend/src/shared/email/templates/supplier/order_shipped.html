@@ -1,0 +1,8 @@
+{% extends "base/base.html" %}
+{% block title %}Your order is on its way{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px; color:#111417; font-size:20px;">Order #{{ order_id }} shipped</h1>
+<p style="margin:0; color:#3A3F44; font-size:15px; line-height:1.5;">
+  {{ supplier_name }} has dispatched your order.{% if tracking_reference %} Tracking reference: {{ tracking_reference }}.{% endif %}
+</p>
+{% endblock %}

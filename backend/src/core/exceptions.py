@@ -1,6 +1,6 @@
 """
 Custom exception hierarchy.
-Ref: backend master prompt, "Proper exception handling"; Auth Hardening
+"Proper exception handling"; Auth Hardening
 master prompt, Objective 1 (structured error codes).
 
 Services raise these instead of returning ad-hoc error tuples; the app
@@ -63,7 +63,7 @@ class ForbiddenError(AppError):
 
 
 class EmailNotVerifiedError(ForbiddenError):
-    """Ref: Auth Hardening master prompt, Objective 1, Rule 3."""
+    """ Auth Hardening ."""
 
     code = "EMAIL_NOT_VERIFIED"
 
@@ -73,7 +73,7 @@ class AccountInactiveError(ForbiddenError):
 
 
 class AccountLockedError(AppError):
-    """Ref: Auth Hardening master prompt, Objective 9 -- temporary
+    """ Auth Hardening  -- temporary
     lockout after repeated failed login attempts."""
 
     status_code = 423  # Locked
@@ -81,7 +81,7 @@ class AccountLockedError(AppError):
 
 
 class TicketInvalidError(UnauthorizedError):
-    """Ref: Auth Hardening master prompt, Objectives 4/5/7 -- password
+    """-- password
     reset (and future magic-link/invitation) ticket flows."""
 
     code = "TICKET_INVALID"

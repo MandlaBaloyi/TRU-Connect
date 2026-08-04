@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
-from src.shared import audit, audit_context
-from src.shared.audit_types import AuditEventName
+from src.shared.audit import audit, audit_context
+from src.shared.audit.audit_types import AuditEventName
 
 
 @pytest.fixture()

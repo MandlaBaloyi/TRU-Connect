@@ -40,7 +40,7 @@ from src.domains.security.rules.thresholds import (
     UNVERIFIED_EMAIL_CLEANUP_DAYS,
 )
 from src.extensions import db
-from src.shared.scheduling_types import JobResult
+from src.shared.scheduling.scheduling_types import JobResult
 
 logger = logging.getLogger(__name__)
 

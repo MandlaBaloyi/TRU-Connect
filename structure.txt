@@ -37,6 +37,11 @@ TRU_Connect
 │   │   │   │   │   ├── password_reset_repository.py
 │   │   │   │   │   ├── refresh_token_repository.py
 │   │   │   │   │   └── user_repository.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   ├── auth_scheduler.py
+│   │   │   │   │   └── auth_scheduler.py.bak
 │   │   │   │   ├── schemas
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── auth_schemas.py
@@ -52,17 +57,77 @@ TRU_Connect
 │   │   │   │   │   └── otp.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── business
-│   │   │   │   ├── api
+│   │   │   │   ├── business_profile
+│   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── api
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── commands
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── events
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── models
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── queries
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── repositories
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── services
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── utils
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── validators
+│   │   │   │   │   │   └── __init__.py
 │   │   │   │   │   └── __init__.py
-│   │   │   │   ├── models
+│   │   │   │   ├── loan_book
+│   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── api
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── commands
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── events
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── models
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── queries
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── repositories
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── services
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── utils
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── validators
+│   │   │   │   │   │   └── __init__.py
 │   │   │   │   │   └── __init__.py
-│   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── schemas
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── services
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── utils
+│   │   │   │   ├── order_queue
+│   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── api
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── commands
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── events
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── models
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── queries
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── repositories
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── services
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── utils
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── validators
+│   │   │   │   │   │   └── __init__.py
 │   │   │   │   │   └── __init__.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── marketplace
@@ -92,11 +157,9 @@ TRU_Connect
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── schedulers
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── engine.py
-│   │   │   │   │   ├── interfaces.py
-│   │   │   │   │   ├── registry.py
-│   │   │   │   │   ├── runner.py
-│   │   │   │   │   └── trigger.py
+│   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   ├── platform_scheduler.py
+│   │   │   │   │   └── platform_scheduler.py.bak
 │   │   │   │   ├── schemas
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── services
@@ -109,44 +172,80 @@ TRU_Connect
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── api
 │   │   │   │   │   └── __init__.py
+│   │   │   │   ├── audit
+│   │   │   │   │   ├── models
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   │   ├── audit_event.py
+│   │   │   │   │   │   └── audit_event.py.bak
+│   │   │   │   │   ├── repositories
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   │   ├── audit_repository.py
+│   │   │   │   │   │   └── audit_repository.py.bak
+│   │   │   │   │   ├── rules
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   │   ├── event_config.py
+│   │   │   │   │   │   └── event_config.py.bak
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   │   ├── audit_schemas.py
+│   │   │   │   │   │   └── audit_schemas.py.bak
+│   │   │   │   │   ├── services
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   │   ├── audit_service.py
+│   │   │   │   │   │   └── audit_service.py.bak
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── __init__.py.bak
 │   │   │   │   ├── detection
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── engine.py
 │   │   │   │   │   ├── interfaces.py
 │   │   │   │   │   └── registry.py
 │   │   │   │   ├── models
-│   │   │   │   │   ├── __init__.py
-│   │   │   │   │   └── audit_event.py
+│   │   │   │   │   └── __init__.py
 │   │   │   │   ├── monitoring
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── repositories
-│   │   │   │   │   ├── __init__.py
-│   │   │   │   │   └── audit_repository.py
+│   │   │   │   │   └── __init__.py
 │   │   │   │   ├── rules
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── event_config.py
 │   │   │   │   │   └── thresholds.py
 │   │   │   │   ├── schedulers
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   └── monitor.py
+│   │   │   │   │   ├── monitor.py
+│   │   │   │   │   └── monitor.py.bak
 │   │   │   │   ├── schemas
-│   │   │   │   │   └── audit_schemas.py
 │   │   │   │   ├── services
-│   │   │   │   │   ├── __init__.py
-│   │   │   │   │   └── audit_service.py
+│   │   │   │   │   └── __init__.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── supplier
-│   │   │   │   ├── api
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── models
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── schemas
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── services
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── utils
+│   │   │   │   ├── supplier_profile
+│   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── api
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── commands
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── events
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── models
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── queries
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── repositories
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── schemas
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── services
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── utils
+│   │   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── validators
+│   │   │   │   │   │   └── __init__.py
 │   │   │   │   │   └── __init__.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── trust
@@ -177,91 +276,242 @@ TRU_Connect
 │   │   │       ├── utils
 │   │   │       │   └── __init__.py
 │   │   │       └── __init__.py
-│   │   ├── shared
-│   │   │   ├── templates
-│   │   │   │   ├── base.html
-│   │   │   │   ├── order_delivered.html
-│   │   │   │   ├── order_received.html
-│   │   │   │   ├── order_shipped.html
-│   │   │   │   ├── otp.html
-│   │   │   │   ├── password_reset.html
-│   │   │   │   ├── resume_registration.html
-│   │   │   │   ├── supplier_invitation.html
-│   │   │   │   ├── verification_failed.html
-│   │   │   │   ├── verification_success.html
-│   │   │   │   ├── welcome_business.html
-│   │   │   │   └── welcome_supplier.html
+│   │   ├── master_scheduler
 │   │   │   ├── __init__.py
-│   │   │   ├── audit.py
-│   │   │   ├── audit.py.bak
-│   │   │   ├── audit_context.py
-│   │   │   ├── audit_types.py
-│   │   │   ├── cache.py
-│   │   │   ├── constants.py
-│   │   │   ├── email.py
-│   │   │   ├── helpers.py
-│   │   │   ├── logger.py
-│   │   │   ├── metrics.py
-│   │   │   ├── monitoring.py
-│   │   │   ├── queue.py
-│   │   │   ├── scheduling_types.py
-│   │   │   ├── security.py
-│   │   │   ├── tickets.py
-│   │   │   └── validators.py
+│   │   │   ├── __init__.py.bak
+│   │   │   ├── engine.py
+│   │   │   ├── engine.py.bak
+│   │   │   ├── interfaces.py
+│   │   │   ├── interfaces.py.bak
+│   │   │   ├── registry.py
+│   │   │   ├── registry.py.bak
+│   │   │   ├── runner.py
+│   │   │   ├── runner.py.bak
+│   │   │   ├── trigger.py
+│   │   │   └── trigger.py.bak
+│   │   ├── shared
+│   │   │   ├── audit
+│   │   │   │   ├── event_types
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── admin.py
+│   │   │   │   │   ├── auth.py
+│   │   │   │   │   ├── business.py
+│   │   │   │   │   ├── marketplace.py
+│   │   │   │   │   ├── platform.py
+│   │   │   │   │   ├── security.py
+│   │   │   │   │   ├── supplier.py
+│   │   │   │   │   ├── trust.py
+│   │   │   │   │   └── verification.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── audit.py
+│   │   │   │   ├── audit_context.py
+│   │   │   │   └── audit_types.py
+│   │   │   ├── cache
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── cache.py
+│   │   │   ├── constants
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── constants.py
+│   │   │   ├── email
+│   │   │   │   ├── templates
+│   │   │   │   │   ├── admin
+│   │   │   │   │   │   └── .gitkeep
+│   │   │   │   │   ├── auth
+│   │   │   │   │   │   ├── otp.html
+│   │   │   │   │   │   ├── password_reset.html
+│   │   │   │   │   │   ├── resume_registration.html
+│   │   │   │   │   │   ├── verification_failed.html
+│   │   │   │   │   │   └── verification_success.html
+│   │   │   │   │   ├── base
+│   │   │   │   │   │   └── base.html
+│   │   │   │   │   ├── business
+│   │   │   │   │   │   └── welcome_business.html
+│   │   │   │   │   ├── platform
+│   │   │   │   │   │   └── .gitkeep
+│   │   │   │   │   ├── security
+│   │   │   │   │   │   └── .gitkeep
+│   │   │   │   │   └── supplier
+│   │   │   │   │       ├── order_delivered.html
+│   │   │   │   │       ├── order_received.html
+│   │   │   │   │       ├── order_shipped.html
+│   │   │   │   │       ├── supplier_invitation.html
+│   │   │   │   │       └── welcome_supplier.html
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── email.py
+│   │   │   ├── finance
+│   │   │   │   ├── core
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   ├── allocation.py
+│   │   │   │   │   ├── allocation.py.bak
+│   │   │   │   │   ├── calculations.py
+│   │   │   │   │   ├── calculations.py.bak
+│   │   │   │   │   ├── constants.py
+│   │   │   │   │   ├── constants.py.bak
+│   │   │   │   │   ├── currency.py
+│   │   │   │   │   ├── currency.py.bak
+│   │   │   │   │   ├── exceptions.py
+│   │   │   │   │   ├── exceptions.py.bak
+│   │   │   │   │   ├── formatter.py
+│   │   │   │   │   ├── formatter.py.bak
+│   │   │   │   │   ├── money.py
+│   │   │   │   │   ├── money.py.bak
+│   │   │   │   │   ├── parser.py
+│   │   │   │   │   ├── parser.py.bak
+│   │   │   │   │   ├── rounding.py
+│   │   │   │   │   ├── rounding.py.bak
+│   │   │   │   │   ├── validation.py
+│   │   │   │   │   └── validation.py.bak
+│   │   │   │   ├── future
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── __init__.py.bak
+│   │   │   │   ├── receipts
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   ├── qr.py
+│   │   │   │   │   ├── qr.py.bak
+│   │   │   │   │   ├── reference.py
+│   │   │   │   │   ├── reference.py.bak
+│   │   │   │   │   ├── signing.py
+│   │   │   │   │   ├── signing.py.bak
+│   │   │   │   │   ├── verification.py
+│   │   │   │   │   └── verification.py.bak
+│   │   │   │   ├── reconciliation
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── __init__.py.bak
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __init__.py.bak
+│   │   │   │   ├── README.md
+│   │   │   │   └── README.md.bak
+│   │   │   ├── helpers
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── helpers.py
+│   │   │   ├── logging
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── logger.py
+│   │   │   │   └── metrics.py
+│   │   │   ├── monitoring
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── monitoring.py
+│   │   │   ├── queue
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── queue.py
+│   │   │   ├── scheduling
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── scheduling_types.py
+│   │   │   ├── security
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── security.py
+│   │   │   ├── tickets
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── tickets.py
+│   │   │   ├── validation
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── validators.py
+│   │   │   └── __init__.py
 │   │   ├── __init__.py
 │   │   ├── config.py
 │   │   └── extensions.py
 │   ├── tests
+│   │   ├── architecture
+│   │   │   ├── __init__.py
+│   │   │   ├── __init__.py.bak
+│   │   │   ├── test_finance_boundaries.py
+│   │   │   └── test_finance_boundaries.py.bak
 │   │   ├── domains
 │   │   │   ├── auth
 │   │   │   │   ├── jobs
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   └── test_cleanup_unverified_emails.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── __init__.py.bak
+│   │   │   │   │   ├── test_auth_scheduler.py
+│   │   │   │   │   └── test_auth_scheduler.py.bak
 │   │   │   │   └── __init__.py
 │   │   │   ├── platform
 │   │   │   │   ├── schedulers
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── test_engine.py
+│   │   │   │   │   ├── test_engine.py.bak
 │   │   │   │   │   ├── test_registry.py
+│   │   │   │   │   ├── test_registry.py.bak
+│   │   │   │   │   ├── test_registry.py.importfix.bak
 │   │   │   │   │   ├── test_runner.py
-│   │   │   │   │   └── test_trigger.py
+│   │   │   │   │   ├── test_runner.py.importfix.bak
+│   │   │   │   │   ├── test_trigger.py
+│   │   │   │   │   └── test_trigger.py.bak
 │   │   │   │   └── __init__.py
 │   │   │   ├── security
 │   │   │   │   ├── audit
 │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── conftest.py
 │   │   │   │   │   ├── test_append_only.py
+│   │   │   │   │   ├── test_append_only.py.bak
 │   │   │   │   │   ├── test_audit_context.py
+│   │   │   │   │   ├── test_audit_context.py.importfix.bak
 │   │   │   │   │   ├── test_audit_publisher.py
+│   │   │   │   │   ├── test_audit_publisher.py.importfix.bak
 │   │   │   │   │   ├── test_audit_repository.py
+│   │   │   │   │   ├── test_audit_repository.py.bak
 │   │   │   │   │   ├── test_audit_schemas.py
+│   │   │   │   │   ├── test_audit_schemas.py.bak
+│   │   │   │   │   ├── test_audit_service.py
+│   │   │   │   │   ├── test_audit_service.py.bak
 │   │   │   │   │   ├── test_detection_scaffolding.py
-│   │   │   │   │   └── test_event_config.py
+│   │   │   │   │   ├── test_event_config.py
+│   │   │   │   │   ├── test_event_config.py.bak
+│   │   │   │   │   └── test_event_config.py.importfix.bak
 │   │   │   │   ├── schedulers
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   └── test_monitor.py
+│   │   │   │   │   ├── test_monitor.py
+│   │   │   │   │   └── test_monitor.py.importfix.bak
 │   │   │   │   └── __init__.py
 │   │   │   └── __init__.py
-│   │   └── test_auth.py
+│   │   ├── shared
+│   │   │   ├── finance
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __init__.py.bak
+│   │   │   │   ├── test_allocation.py
+│   │   │   │   ├── test_allocation.py.bak
+│   │   │   │   ├── test_calculations.py
+│   │   │   │   ├── test_calculations.py.bak
+│   │   │   │   ├── test_formatting_parsing.py
+│   │   │   │   ├── test_formatting_parsing.py.bak
+│   │   │   │   ├── test_money_core.py
+│   │   │   │   └── test_money_core.py.bak
+│   │   │   ├── __init__.py
+│   │   │   └── __init__.py.bak
+│   │   ├── conftest.py
+│   │   ├── test_auth.py
+│   │   ├── tests.md
+│   │   └── tests.txt
 │   ├── .env
 │   ├── .gitignore
 │   ├── app.py
-│   ├── generate_security_audit.py
+│   ├── AUDIT_MIGRATION_NOTES.md
+│   ├── AUDIT_MIGRATION_NOTES.md.bak
 │   ├── INTEGRATION.md
 │   ├── INTEGRATION_AUDIT.md
+│   ├── MASTER_SCHEDULER_MIGRATION_NOTES.md
+│   ├── MASTER_SCHEDULER_MIGRATION_NOTES.md.bak
 │   ├── MIGRATION_NOTES.md
 │   ├── plan.md
 │   ├── README.md
+│   ├── reorganize_shared.py
 │   └── requirements.txt
 ├── database
 ├── deployment
 ├── docs
 │   ├── _truconnect_docs
-│   │   ├── AUDIT_ DB_ SCALLING_PLAN(ADMIN PORTAL).md
+│   │   ├── AUDIT_ DB_ SCALLING_PLAN(ADMIN PORTAL).txt
 │   │   ├── IdentityProviders(google.txt
+│   │   ├── money_module_plan.txt
 │   │   └── trueconnect_audit.txt
 │   ├── enginnering_docs
 │   │   ├── 00_ENGINEERING_PHILOSOPHY.txt
-│   │   └── 01_PERFORMANCE_ENGINEERING.txt
+│   │   ├── 01_PERFORMANCE_ENGINEERING.txt
+│   │   └── 02_PLATFORM_ENGINEERING_CAPABILITIES.txt
 │   ├── 00_PROJECT_VISION.txt
 │   ├── 00A_TRUEPOINT_PLATFORM_CONSTITUTION.txt
 │   ├── 01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt
@@ -287,13 +537,24 @@ TRU_Connect
 │   │   │   │   └── verify-otp.tsx
 │   │   │   ├── (dashboard)
 │   │   │   │   ├── business
-│   │   │   │   │   └── (tabs)
+│   │   │   │   │   ├── (tabs)
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── account.tsx
+│   │   │   │   │   │   ├── community.tsx
+│   │   │   │   │   │   ├── discovery.tsx
+│   │   │   │   │   │   ├── home.tsx
+│   │   │   │   │   │   └── more.tsx
+│   │   │   │   │   └── loan-book
+│   │   │   │   │       ├── customer
+│   │   │   │   │       │   └── [customerId].tsx
+│   │   │   │   │       ├── [loanId].tsx
 │   │   │   │   │       ├── _layout.tsx
-│   │   │   │   │       ├── account.tsx
-│   │   │   │   │       ├── community.tsx
-│   │   │   │   │       ├── discovery.tsx
-│   │   │   │   │       ├── home.tsx
-│   │   │   │   │       └── more.tsx
+│   │   │   │   │       ├── add-payment.tsx
+│   │   │   │   │       ├── analytics.tsx
+│   │   │   │   │       ├── history.tsx
+│   │   │   │   │       ├── index.tsx
+│   │   │   │   │       ├── record-sale.tsx
+│   │   │   │   │       └── trash.tsx
 │   │   │   │   ├── supplier
 │   │   │   │   │   ├── (tabs)
 │   │   │   │   │   │   ├── _layout.tsx
@@ -385,6 +646,76 @@ TRU_Connect
 │   │   │   │   │   │   │   ├── hooks
 │   │   │   │   │   │   │   ├── screens
 │   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   └── types.ts
+│   │   │   │   │   │   ├── loan-book
+│   │   │   │   │   │   │   ├── algorithms
+│   │   │   │   │   │   │   │   ├── agingCalculator.ts
+│   │   │   │   │   │   │   │   ├── balanceCalculator.ts
+│   │   │   │   │   │   │   │   ├── paymentAllocation.ts
+│   │   │   │   │   │   │   │   ├── repaymentPredictor.ts
+│   │   │   │   │   │   │   │   ├── riskIndicator.ts
+│   │   │   │   │   │   │   │   └── trashRetention.ts
+│   │   │   │   │   │   │   ├── api
+│   │   │   │   │   │   │   │   ├── repository
+│   │   │   │   │   │   │   │   │   ├── LoanRepository.ts
+│   │   │   │   │   │   │   │   │   └── MockDataRepository.ts
+│   │   │   │   │   │   │   │   └── loanBookApi.ts
+│   │   │   │   │   │   │   ├── components
+│   │   │   │   │   │   │   │   ├── ContactActionsRow.tsx
+│   │   │   │   │   │   │   │   ├── CustomerAvatar.tsx
+│   │   │   │   │   │   │   │   ├── CustomerCard.tsx
+│   │   │   │   │   │   │   │   ├── CustomerFilterBar.tsx
+│   │   │   │   │   │   │   │   ├── EmptyLoanBook.tsx
+│   │   │   │   │   │   │   │   ├── HistoryEventRow.tsx
+│   │   │   │   │   │   │   │   ├── index.ts
+│   │   │   │   │   │   │   │   ├── InsightList.tsx
+│   │   │   │   │   │   │   │   ├── LoanBookIcon.tsx
+│   │   │   │   │   │   │   │   ├── LoanCard.tsx
+│   │   │   │   │   │   │   │   ├── LoanFilterBar.tsx
+│   │   │   │   │   │   │   │   ├── LoanReceiptCard.tsx
+│   │   │   │   │   │   │   │   ├── LoanSearchBar.tsx
+│   │   │   │   │   │   │   │   ├── LoanStatusBadge.tsx
+│   │   │   │   │   │   │   │   ├── LoanSummaryCard.tsx
+│   │   │   │   │   │   │   │   ├── OutstandingAmountCard.tsx
+│   │   │   │   │   │   │   │   ├── PaymentCard.tsx
+│   │   │   │   │   │   │   │   ├── QuickAmountRow.tsx
+│   │   │   │   │   │   │   │   ├── ReasonPromptModal.tsx
+│   │   │   │   │   │   │   │   ├── ReceiptPreviewModal.tsx
+│   │   │   │   │   │   │   │   ├── RestoreRow.tsx
+│   │   │   │   │   │   │   │   └── TransactionRow.tsx
+│   │   │   │   │   │   │   ├── hooks
+│   │   │   │   │   │   │   │   ├── index.ts
+│   │   │   │   │   │   │   │   ├── loanBookKeys.ts
+│   │   │   │   │   │   │   │   ├── useCustomerActions.ts
+│   │   │   │   │   │   │   │   ├── useCustomerFilters.ts
+│   │   │   │   │   │   │   │   ├── useLoan.ts
+│   │   │   │   │   │   │   │   ├── useLoanBook.ts
+│   │   │   │   │   │   │   │   ├── useLoanFilters.ts
+│   │   │   │   │   │   │   │   ├── useLoanHistory.ts
+│   │   │   │   │   │   │   │   ├── useLoanPayments.ts
+│   │   │   │   │   │   │   │   ├── useLoanSearch.ts
+│   │   │   │   │   │   │   │   ├── useShareReceipt.ts
+│   │   │   │   │   │   │   │   └── useTrash.ts
+│   │   │   │   │   │   │   ├── screens
+│   │   │   │   │   │   │   │   ├── AddPaymentScreen.tsx
+│   │   │   │   │   │   │   │   ├── CustomerLoansScreen.tsx
+│   │   │   │   │   │   │   │   ├── index.ts
+│   │   │   │   │   │   │   │   ├── LoanAnalyticsScreen.tsx
+│   │   │   │   │   │   │   │   ├── LoanBookScreen.tsx
+│   │   │   │   │   │   │   │   ├── LoanDetailsScreen.tsx
+│   │   │   │   │   │   │   │   ├── LoanHistoryScreen.tsx
+│   │   │   │   │   │   │   │   ├── RecordSaleScreen.tsx
+│   │   │   │   │   │   │   │   └── TrashScreen.tsx
+│   │   │   │   │   │   │   ├── services
+│   │   │   │   │   │   │   │   ├── contactActions.ts
+│   │   │   │   │   │   │   │   ├── customerFilters.ts
+│   │   │   │   │   │   │   │   ├── loanFilters.ts
+│   │   │   │   │   │   │   │   ├── loanHistory.ts
+│   │   │   │   │   │   │   │   ├── loanMapper.ts
+│   │   │   │   │   │   │   │   ├── loanValidation.ts
+│   │   │   │   │   │   │   │   ├── localReminderService.ts
+│   │   │   │   │   │   │   │   └── receiptService.ts
+│   │   │   │   │   │   │   ├── README.md
 │   │   │   │   │   │   │   └── types.ts
 │   │   │   │   │   │   ├── nearby-suppliers
 │   │   │   │   │   │   │   ├── algorithms
@@ -552,8 +883,11 @@ TRU_Connect
 │   └── sql
 │       └── auth_domain.sql
 ├── .gitignore
+├── additinal_info.txt
 ├── backend_structure.txt
 ├── frontend_structure.txt
+├── generate_audit_reorg.py
+├── generate_master_scheduler.py
 ├── print_project_tree.py
 ├── README.md
 └── structure.txt

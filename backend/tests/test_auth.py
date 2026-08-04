@@ -17,14 +17,14 @@ import pytest
 
 from src import create_app
 from src.extensions import db
-from src.shared.cache import cache
-from src.shared.email import get_fake_provider
+from src.shared.cache.cache import cache
+from src.shared.email.email import get_fake_provider
 from src.domains.auth.schemas.auth_schemas import BusinessRegisterSchema, LoginSchema, SupplierRegisterSchema
 from src.domains.auth.schemas.otp_schemas import RequestOtpSchema, VerifyOtpSchema
 from src.domains.auth.schemas.password_reset_schemas import ForgotPasswordSchema, ResetPasswordSchema
 from src.domains.auth.utils.otp import generate_numeric_otp, hash_otp, verify_otp_hash
-from src.shared.security import hash_password, passwords_match, validate_password_complexity, verify_password
-from src.shared.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry, verify_ticket
+from src.shared.security.security import hash_password, passwords_match, validate_password_complexity, verify_password
+from src.shared.tickets.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry, verify_ticket
 
 
 # ----------------------------------------------------------------------------

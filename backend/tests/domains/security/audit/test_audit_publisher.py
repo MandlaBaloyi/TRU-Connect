@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.shared import audit
-from src.shared.audit_types import ActorType, AuditEventName, AuditStatus
+from src.shared.audit import audit
+from src.shared.audit.audit_types import ActorType, AuditEventName, AuditStatus
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 """
 Authorization decorators.
-Ref: continuation master prompt, Step 10/15 (role_required,
-permission_required -- UNCHANGED below); Auth Hardening master prompt,
+ (role_required,
+permission_required -- UNCHANGED below),
 Objective 3 (login_required, verified_required, active_account_required,
 fully_authenticated -- NEW).
 
@@ -82,7 +82,7 @@ def active_account_required(fn):
 def fully_authenticated(fn):
     """Convenience combination: authenticated + verified + active, in
     ONE decorator and ONE database lookup, for the common case (Auth
-    Hardening master prompt, Objective 3 examples: /dashboard, /orders,
+    Hardening, Objective 3 examples: /dashboard, /orders,
     /profile, /catalogue, /notifications)."""
 
     @wraps(fn)
@@ -101,7 +101,7 @@ def fully_authenticated(fn):
 
 
 def role_required(*allowed_roles: str):
-    """UNCHANGED from the continuation master prompt (Step 10/15).
+    """
     Stacks JWT verification + role authorization in one decorator.
     Supports every role in UserRole and any future role added to that
     enum without this decorator changing."""
@@ -122,7 +122,7 @@ def role_required(*allowed_roles: str):
 
 def permission_required(*required_permissions: str):
     """UNCHANGED -- structural placeholder for granular permissions;
-    see the continuation master prompt, Step 15, for the full rationale."""
+     for the full rationale."""
 
     def decorator(fn):
         @wraps(fn)

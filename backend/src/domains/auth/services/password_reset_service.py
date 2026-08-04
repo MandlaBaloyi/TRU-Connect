@@ -42,6 +42,11 @@ The RESPONSE the caller (the route) sees is IDENTICAL in all three
 cases -- this method always returns None, never raises, and never
 reveals which branch was taken. Enumeration-safety is unaffected; only
 the internal behaviour, and which email template is used, changed.
+
+TEMPLATE PATHS: template_name values below are relative to
+src/shared/email/templates/, which is grouped into per-domain
+subfolders (auth/, business/, supplier/, ...) rather than a flat
+directory -- both templates used here live under auth/.
 """
 from __future__ import annotations
 
@@ -53,11 +58,11 @@ from src.domains.auth.repositories.password_reset_repository import PasswordRese
 from src.domains.auth.repositories.refresh_token_repository import RefreshTokenRepository
 from src.domains.auth.repositories.user_repository import UserRepository
 from src.extensions import db
-from src.shared import audit
-from src.shared.constants import DEFAULT_PASSWORD_RESET_TICKET_EXPIRY_HOURS, MAX_PASSWORD_RESET_EMAILS_PER_HOUR
-from src.shared.email import EmailService
-from src.shared.security import hash_password
-from src.shared.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry
+from src.shared.audit import audit
+from src.shared.constants.constants import DEFAULT_PASSWORD_RESET_TICKET_EXPIRY_HOURS, MAX_PASSWORD_RESET_EMAILS_PER_HOUR
+from src.shared.email.email import EmailService
+from src.shared.security.security import hash_password
+from src.shared.tickets.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry
 
 
 class PasswordResetService:
@@ -73,7 +78,7 @@ class PasswordResetService:
         if user.verification_status != VerificationStatus.VERIFIED:
             EmailService.send_template(
                 to=email,
-                template_name="resume_registration.html",
+                template_name="auth/resume_registration.html",
                 subject="Verify your TRU Connect account",
                 context={},
                 rate_limit_key=f"password_reset:{email}",
@@ -96,7 +101,7 @@ class PasswordResetService:
 
         EmailService.send_template(
             to=email,
-            template_name="password_reset.html",
+            template_name="auth/password_reset.html",
             subject="Reset your TRU Connect password",
             context={"reset_url": reset_url, "expiry_hours": expiry_hours},
             rate_limit_key=f"password_reset:{email}",

@@ -1,0 +1,549 @@
+=========================================================
+TRU CONNECT
+MONEY ENGINE ARCHITECTURE
+Engineering Specification v1.0
+=========================================================
+
+PURPOSE
+
+Money Modules are any platform feature responsible for
+creating, modifying, moving, calculating or storing money.
+
+These modules require the highest engineering standards
+because even a one-cent error is unacceptable.
+
+Money Modules DO NOT become a separate domain.
+
+Instead:
+
+• Every feature remains inside its own business domain.
+• Every money feature uses the Shared Money Engine.
+
+This preserves domain ownership while guaranteeing
+consistent financial behaviour across the platform.
+
+=========================================================
+CURRENT MONEY MODULES
+=========================================================
+
+Business Domain
+
+    Loan Book
+
+Platform Domain
+
+    TRU Wallet
+    Financing
+    Settlement
+    Billing
+    Platform Fees
+    Commissions
+    Payouts
+    Reconciliation
+
+Supplier Domain
+
+    Supplier Payments
+
+Lending Domain (Future)
+
+    Loan Management
+    Repayments
+
+=========================================================
+EXPECTED PROJECT STRUCTURE
+=========================================================
+
+backend/
+
+src/
+
+domains/
+
+    business/
+
+        loan_book/
+
+        order_queue/
+
+        business_profile/
+
+    supplier/
+
+        supplier_profile/
+
+        supplier_payments/
+
+    platform/
+
+        tru_wallet/
+
+        financing/
+
+        settlement/
+
+        billing/
+
+        platform_fees/
+
+        commissions/
+
+        payouts/
+
+        reconciliation/
+
+    lending/                     (Future)
+
+        loan_management/
+
+        repayments/
+
+=========================================================
+SHARED MONEY ENGINE
+=========================================================
+
+Every Money Module must use the same Money Engine.
+
+src/
+
+shared/
+
+    money/
+
+        __init__.py
+
+        core/
+
+            __init__.py
+
+            money.py
+
+            currency.py
+
+            precision.py
+
+            constants.py
+
+            exceptions.py
+
+        calculations/
+
+            __init__.py
+
+            arithmetic.py
+
+            allocation.py
+
+            rounding.py
+
+            interest.py                 (Future)
+
+            discounts.py               (Future)
+
+            tax.py                     (Future)
+
+            settlement.py              (Future)
+
+            commissions.py            (Future)
+
+            fees.py                   (Future)
+
+        formatting/
+
+            __init__.py
+
+            formatter.py
+
+            parser.py
+
+            serializers.py
+
+        validation/
+
+            __init__.py
+
+            validator.py
+
+            rules.py
+
+        receipts/
+
+            __init__.py
+
+            receipt_builder.py
+
+            receipt_reference.py
+
+            qr_security.py
+
+            signing.py
+
+            verification.py
+
+        reconciliation/               (Future)
+
+            __init__.py
+
+        exchange/                     (Future)
+
+            __init__.py
+
+        tests/
+
+=========================================================
+ENGINE RESPONSIBILITIES
+=========================================================
+
+CORE
+
+Responsible for defining money itself.
+
+• Money object
+• Currency
+• Precision
+• Constants
+• Exceptions
+
+----------------------------------------
+
+CALCULATIONS
+
+Responsible for every financial calculation.
+
+Examples
+
+• Addition
+
+• Subtraction
+
+• Allocation
+
+• Interest
+
+• Fees
+
+• Tax
+
+• Discounts
+
+• Settlement calculations
+
+No feature performs its own calculations.
+
+----------------------------------------
+
+FORMATTING
+
+Responsible for converting money between
+system format and human format.
+
+Examples
+
+5000
+
+↓
+
+R50.00
+
+Supports
+
+• Currency symbols
+
+• Thousand separators
+
+• Parsing user input
+
+• JSON serialization
+
+----------------------------------------
+
+VALIDATION
+
+Responsible for validating all money values.
+
+Rejects
+
+• Negative amounts
+
+• Invalid precision
+
+• Overflow
+
+• Invalid currency
+
+• Business rule violations
+
+----------------------------------------
+
+RECEIPTS
+
+Responsible for generating secure receipts.
+
+Includes
+
+• Receipt builder
+
+• Receipt references
+
+• QR security
+
+• Digital signing
+
+• Receipt verification
+
+Future
+
+• QR verification portal
+
+• Tamper detection
+
+=========================================================
+EVERY MONEY MODULE MUST FOLLOW
+=========================================================
+
+✓ Integer cents only
+
+✓ Immutable financial transactions
+
+✓ Audit logging
+
+✓ Validation
+
+✓ Atomic database transactions
+
+✓ Idempotent operations
+
+✓ Fraud detection
+
+✓ Tamper detection
+
+✓ Permissions
+
+✓ Rate limiting
+
+✓ Error recovery
+
+✓ Conflict resolution
+
+=========================================================
+SHARED SECURITY INFRASTRUCTURE
+=========================================================
+
+Money modules reuse the existing shared platform
+infrastructure.
+
+src/
+
+shared/
+
+    audit/
+
+    security/
+
+    validation/
+
+    logging/
+
+    monitoring/
+
+    queue/
+
+    cache/
+
+=========================================================
+MONEY SECURITY PIPELINE
+=========================================================
+
+Incoming Request
+
+↓
+
+Authentication
+
+↓
+
+Permissions
+
+↓
+
+Rate Limiter
+
+↓
+
+Input Validation
+
+↓
+
+Business Rules
+
+↓
+
+Fraud Detection
+
+↓
+
+Money Validation
+
+↓
+
+Atomic Database Transaction
+
+↓
+
+Audit Event
+
+↓
+
+Response
+
+=========================================================
+PER-MODULE RESPONSIBILITIES
+=========================================================
+
+Loan Book
+
+Responsible for
+
+• Credit Sales
+
+• Customer Debt
+
+• Repayments
+
+• Outstanding Balance
+
+• Loan History
+
+• Loan Receipts
+
+----------------------------------------
+
+TRU Wallet
+
+Responsible for
+
+• Wallet Balance
+
+• Wallet Transactions
+
+• Controlled Financing
+
+• Supplier Settlement
+
+----------------------------------------
+
+Supplier Payments
+
+Responsible for
+
+• Supplier Invoices
+
+• Supplier Settlement
+
+• Payment History
+
+----------------------------------------
+
+Loan Management
+
+Responsible for
+
+• Loan Accounts
+
+• Interest
+
+• Installments
+
+• Repayment Schedule
+
+• Loan Closure
+
+----------------------------------------
+
+Financing
+
+Responsible for
+
+• Loan Disbursement
+
+• Funding Sources
+
+• Financing Records
+
+----------------------------------------
+
+Settlement
+
+Responsible for
+
+• Clearing
+
+• Final Settlement
+
+• Financial Reconciliation
+
+=========================================================
+ENGINEERING PRINCIPLES
+=========================================================
+
+Business logic stays inside its feature.
+
+Money logic NEVER gets duplicated.
+
+Every financial feature imports the Shared Money Engine.
+
+Examples
+
+Loan Book
+
+↓
+
+from shared.money.calculations.allocation import allocate_payment
+
+----------------------------------------
+
+TRU Wallet
+
+↓
+
+from shared.money.calculations.arithmetic import add_money
+
+----------------------------------------
+
+Supplier Payments
+
+↓
+
+from shared.money.validation.validator import validate_amount
+
+----------------------------------------
+
+Receipts
+
+↓
+
+from shared.money.receipts.receipt_builder import build_receipt
+
+----------------------------------------
+
+Formatting
+
+↓
+
+from shared.money.formatting.formatter import format_money
+
+=========================================================
+ARCHITECTURE PHILOSOPHY
+=========================================================
+
+Features own the business logic.
+
+The Shared Money Engine owns financial behaviour.
+
+Every financial feature behaves consistently because
+they all use the same Money Engine.
+
+This eliminates duplicated calculations, inconsistent
+rounding, formatting differences, validation drift,
+and receipt generation inconsistencies across the
+entire TRU Connect platform.

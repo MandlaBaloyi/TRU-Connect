@@ -20,7 +20,7 @@ attacker who already possesses a valid ticket gains nothing from a
 forged cross-site request that a direct POST wouldn't already give
 them.
 
-IP rate limiting (via src.shared.cache.check_rate_limit, the same
+IP rate limiting (via src.shared.cache.cache.check_rate_limit, the same
 abstraction every other rate limit in this codebase uses) is defense-in-
 depth, not the primary protection -- the ticket's entropy already makes
 brute-forcing infeasible.
@@ -37,7 +37,7 @@ from marshmallow import ValidationError as MarshmallowValidationError
 from src.core.exceptions import TicketInvalidError
 from src.domains.auth.schemas.password_reset_schemas import ResetPasswordSchema
 from src.domains.auth.services.password_reset_service import PasswordResetService
-from src.shared.cache import check_rate_limit
+from src.shared.cache.cache import check_rate_limit
 
 reset_password_bp = Blueprint("reset_password", __name__, template_folder="templates")
 
