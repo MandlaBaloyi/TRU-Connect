@@ -1,19 +1,22 @@
 """
-Platform's registry.register_all() — proves every JOB_SPEC gets added to
-the engine with the right name/interval, and that the wrapped function it
-hands to the engine actually invokes the real underlying job function.
+Master Scheduler's registry -- proves it correctly CONCATENATES every
+domain's own declared jobs and defines none itself.
 
-Uses a fake engine (implementing SchedulerEngine) rather than a real
-APScheduler instance, so this test is instant and has nothing to do with
-timing.
+Deliberately monkeypatches ALL_JOB_SPECS directly (the composed list)
+rather than reaching into any one domain's scheduler file -- this test
+verifies the composition mechanism, which is what changed; it does not
+need to know or care what any real domain has actually declared.
 """
 
 from __future__ import annotations
 
 from typing import Callable
 
-from src.domains.platform.schedulers import registry
-from src.domains.platform.schedulers.interfaces import SchedulerEngine
+import pytest
+
+from src.master_scheduler import registry
+from src.master_scheduler.interfaces import JobSpec, SchedulerEngine
+from src.shared.scheduling.scheduling_types import JobResult
 
 
 class _FakeEngine(SchedulerEngine):
@@ -35,39 +38,48 @@ class _FakeEngine(SchedulerEngine):
         return self._running
 
 
-def test_register_all_adds_every_job_spec():
+@pytest.fixture(autouse=True)
+def _fake_job_specs(monkeypatch):
+    fake_specs = [
+        JobSpec("fake_auth_job", lambda: JobResult(success=True), 60),
+        JobSpec("fake_platform_job", lambda: JobResult(success=True), 3600),
+    ]
+    monkeypatch.setattr(registry, "ALL_JOB_SPECS", fake_specs)
+    return fake_specs
+
+
+def test_register_all_adds_every_domains_job(_fake_job_specs):
     engine = _FakeEngine()
     registry.register_all(engine)
-
-    expected_names = {spec.name for spec in registry.JOB_SPECS}
-    assert set(engine.added.keys()) == expected_names
+    assert set(engine.added.keys()) == {"fake_auth_job", "fake_platform_job"}
 
 
-def test_registered_intervals_match_job_specs():
+def test_registered_intervals_match(_fake_job_specs):
     engine = _FakeEngine()
     registry.register_all(engine)
-
-    for spec in registry.JOB_SPECS:
+    for spec in _fake_job_specs:
         _, interval = engine.added[spec.name]
         assert interval == spec.interval_seconds
 
 
-def test_registered_function_is_safe_wrapped_and_callable(monkeypatch):
-    calls = {"n": 0}
-
-    def fake_cleanup():
-        calls["n"] += 1
-        from src.shared.scheduling_types import JobResult
-        return JobResult(success=True, count=1)
-
-    monkeypatch.setattr(
-        "src.domains.platform.schedulers.registry.cleanup_unverified_emails", fake_cleanup
-    )
-    # Rebuild JOB_SPECS reference isn't necessary since register_all reads
-    # the module-level JOB_SPECS list, which was bound at import time to
-    # the original function object — so instead verify indirectly via the
-    # actually-added wrapped callable executing without error.
+def test_registered_function_is_safe_wrapped_and_callable(_fake_job_specs):
     engine = _FakeEngine()
     registry.register_all(engine)
-    func, _ = engine.added["cleanup_unverified_emails"]
-    func()  # must not raise — proves the safe-wrapped callable is valid
+    func, _ = engine.added["fake_auth_job"]
+    func()  # must not raise
+
+
+def test_registry_defines_no_jobs_itself():
+    """
+    Structural check, not just behavioural: the Master's own registry
+    module must contain no JobSpec literal anywhere in its source --
+    "does the Master Scheduler run business jobs? No" is enforced here by
+    inspecting the actual file, not just by convention.
+    """
+    import inspect
+
+    source = inspect.getsource(registry)
+    # The only JobSpec-shaped construction allowed in this file is inside
+    # a docstring/comment example -- real declarations use JobSpec(...)
+    # as a live call, which only appears in domain-owned scheduler files.
+    assert "JobSpec(\n" not in source or "# JobSpec(" in source

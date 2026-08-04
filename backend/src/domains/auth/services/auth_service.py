@@ -46,7 +46,7 @@ AUDIT
 Every registration outcome (created / resumed / conflict / role-conflict),
 every login outcome (success / failed / locked / unverified-blocked), and
 every token lifecycle event (created / refreshed / revoked) publishes a
-structured event via src.shared.audit, in addition to whatever text log
+structured event via src.shared.audit.audit, in addition to whatever text log
 it already wrote. See src/shared/audit.py for the full explanation of why
 this never changes what a failure returns to the caller.
 """
@@ -70,14 +70,14 @@ from src.core.exceptions import (
 from src.domains.auth.models.user import AccountStatus, User, UserRole, VerificationStatus
 from src.domains.auth.repositories.refresh_token_repository import RefreshTokenRepository
 from src.domains.auth.repositories.user_repository import UserRepository
-from src.shared import audit, audit_context
-from src.shared.cache import cache
-from src.shared.constants import (
+from src.shared.audit import audit, audit_context
+from src.shared.cache.cache import cache
+from src.shared.constants.constants import (
     DEFAULT_LOGIN_LOCKOUT_WINDOW_MINUTES,
     DEFAULT_LOGIN_MAX_FAILED_ATTEMPTS,
     DEFAULT_UNVERIFIED_ACCOUNT_EXPIRY_HOURS,
 )
-from src.shared.security import hash_password, verify_password
+from src.shared.security.security import hash_password, verify_password
 
 
 def _hash_jti(jti: str) -> str:

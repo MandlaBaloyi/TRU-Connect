@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from src.domains.security.schedulers import monitor
-from src.shared.scheduling_types import JobExecutionOutcome, JobResult
+from src.shared.scheduling.scheduling_types import JobExecutionOutcome, JobResult
 
 
 @pytest.fixture(autouse=True)

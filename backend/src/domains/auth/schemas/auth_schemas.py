@@ -15,7 +15,7 @@ from __future__ import annotations
 from marshmallow import Schema, fields, validate, validates, validates_schema
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.shared.security import validate_password_complexity
+from src.shared.security.security import validate_password_complexity
 
 
 class BusinessRegisterSchema(Schema):

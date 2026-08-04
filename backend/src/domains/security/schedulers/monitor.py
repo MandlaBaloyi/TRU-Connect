@@ -1,16 +1,11 @@
 """
-Monitoring layer for scheduled jobs — job health, execution history,
-failure tracking, best-effort missed-execution detection.
+Monitoring layer for scheduled jobs -- job health, bounded execution
+history, and best-effort missed-execution detection.
 
-This file owns NO scheduling engine, NO timer, and NO apscheduler import.
-It only consumes JobExecutionOutcome events published by
-platform.schedulers.runner — Security depends on Platform, never the
-other way around. Platform's runner.py has no idea this file exists.
-
-In-memory for now, same reasoning applied elsewhere in this project: a
-single process is fine for MVP. If this needs to survive restarts or be
-queried across multiple worker processes later, that is the trigger to add
-a persistence table — not before.
+This file owns NO scheduling engine, NO timer, and NO apscheduler
+import. It only consumes JobExecutionOutcome events published by
+src.master_scheduler.runner -- Security depends on the Master Scheduler,
+never the other way around.
 """
 
 from __future__ import annotations
@@ -18,104 +13,94 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Set
 
-from src.domains.platform.schedulers import runner
-from src.shared.scheduling_types import JobExecutionOutcome
+from src.master_scheduler import runner
+from src.shared.scheduling.scheduling_types import JobExecutionOutcome
 
 logger = logging.getLogger(__name__)
+
+# How many recent executions to keep per job. Bounded deliberately --
+# unbounded history on a daily job running for years would grow forever
+# for no benefit; recent history is what actually matters for spotting
+# a job that's started failing or gone quiet.
+_MAX_HISTORY_PER_JOB = 50
 
 
 @dataclass
 class JobHealth:
-    """Read-facing rollup for a single job — shaped for eventual admin-panel
-    consumption, same spirit as the earlier JobStatusView design."""
     job_name: str
     run_count: int = 0
     failure_count: int = 0
-    last_run_at: Optional[datetime] = None
     last_success: Optional[bool] = None
-    last_duration_ms: Optional[float] = None
     last_error: Optional[str] = None
-    last_result_count: Optional[int] = None
-    last_result_detail: Optional[str] = None
-    history: list = field(default_factory=list)  # list[JobExecutionOutcome], bounded below
+    last_run_at: Optional[datetime] = None
+    history: List[JobExecutionOutcome] = field(default_factory=list)
 
 
 _lock = threading.RLock()
-_health: dict[str, JobHealth] = {}
-_MAX_HISTORY_PER_JOB = 50  # bounded so this never grows unbounded in memory
+_health: Dict[str, JobHealth] = {}
 
 
 def on_job_executed(outcome: JobExecutionOutcome) -> None:
-    """Listener callback — registered with runner.add_listener() below."""
     with _lock:
         health = _health.setdefault(outcome.job_name, JobHealth(job_name=outcome.job_name))
         health.run_count += 1
         if not outcome.success:
             health.failure_count += 1
-            logger.warning("security monitor: job '%s' failed — %s", outcome.job_name, outcome.error)
-        health.last_run_at = outcome.started_at
         health.last_success = outcome.success
-        health.last_duration_ms = outcome.duration_ms
         health.last_error = outcome.error
-        if outcome.result is not None:
-            health.last_result_count = outcome.result.count
-            health.last_result_detail = outcome.result.detail
+        health.last_run_at = outcome.started_at
+
         health.history.append(outcome)
+        # Trim from the front so `history` always holds the MOST RECENT
+        # _MAX_HISTORY_PER_JOB entries, not the oldest.
         if len(health.history) > _MAX_HISTORY_PER_JOB:
-            health.history.pop(0)
+            del health.history[: len(health.history) - _MAX_HISTORY_PER_JOB]
 
 
-def get_job_health(job_name: Optional[str] = None) -> list[JobHealth]:
-    """
-    Read-only view, intended for a future admin API route. Permission-
-    agnostic on purpose — RBAC/ABAC filtering (who can see what) belongs
-    at the API layer, not here, matching the pattern already used
-    elsewhere in this project.
-    """
+def get_job_health(job_name: Optional[str] = None) -> List[JobHealth]:
     with _lock:
         if job_name is not None:
-            h = _health.get(job_name)
-            return [h] if h else []
+            health = _health.get(job_name)
+            return [health] if health else []
         return list(_health.values())
 
 
-def detect_missed_jobs(expected_interval_seconds: dict, grace_multiplier: float = 2.0) -> list:
+def detect_missed_jobs(
+    job_intervals: Dict[str, float],
+    grace_multiplier: float = 1.5,
+    now: Optional[datetime] = None,
+) -> Set[str]:
     """
-    Best-effort check: returns names of jobs whose last run is older than
-    (their expected interval * grace_multiplier), or that have never run
-    despite being expected to.
+    Best-effort detection of jobs that should have run recently and
+    haven't -- either they never ran at all, or their last run is older
+    than `interval_seconds * grace_multiplier`.
 
-    Not wired to any automatic alerting yet — call it on demand (e.g. from
-    a future admin health-check route). Deliberately callable rather than
-    self-scheduling, since Security must not own a timer of its own; if
-    periodic alerting is ever wanted, that alert job would itself be
-    registered through Platform's registry like any other scheduled job,
-    with THIS function as its business logic — same "Platform owns when,
-    a domain owns what" split applied recursively.
+    `grace_multiplier` exists because a job due every 3600s finishing at
+    3601s isn't actually a problem -- only genuinely missed executions
+    should be flagged, not ordinary scheduling jitter.
     """
+    now = now or datetime.now(timezone.utc)
+    missed: Set[str] = set()
+
     with _lock:
-        now = datetime.now(timezone.utc)
-        missed = []
-        for name, interval in expected_interval_seconds.items():
-            health = _health.get(name)
+        for job_name, interval_seconds in job_intervals.items():
+            health = _health.get(job_name)
             if health is None or health.last_run_at is None:
-                missed.append(name)
+                missed.add(job_name)  # never run at all
                 continue
-            grace = timedelta(seconds=interval * grace_multiplier)
-            if (now - health.last_run_at) > grace:
-                missed.append(name)
-        return missed
+            elapsed = (now - health.last_run_at).total_seconds()
+            if elapsed > interval_seconds * grace_multiplier:
+                missed.add(job_name)
+
+    return missed
 
 
 def _reset_for_tests() -> None:
-    """Not for production use — lets tests start from a clean state."""
     with _lock:
         _health.clear()
 
 
-# Self-registers as a runner listener on import. This is the one place
-# Security reaches toward Platform — Platform never imports Security.
 runner.add_listener(on_job_executed)

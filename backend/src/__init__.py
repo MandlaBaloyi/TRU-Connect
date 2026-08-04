@@ -1,6 +1,6 @@
 """
 Application Factory.
-Ref: backend master prompt, "Step 3: App Factory".
+App Factory".
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from flask import Flask
 
 from src.config import get_config
 from src.extensions import db, migrate, jwt, ma
-from src.shared.logger import configure_logging
+from src.shared.logging.logger import configure_logging
 
 
 def create_app(env_name: str | None = None) -> Flask:
@@ -26,10 +26,10 @@ def create_app(env_name: str | None = None) -> Flask:
         "TRU Connect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
     )
 
-    from src.domains.security.services import audit_service
-    audit_service.register()
+    from src.domains.security.audit.services import audit_service
+    audit_service.register(app)
 
-    from src.domains.platform.schedulers import trigger
+    from src.master_scheduler import trigger
     trigger.start(app)
 
     return app

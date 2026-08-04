@@ -127,6 +127,10 @@ native packages is safe for SDK 54.
                                     handling) -- not imported directly by
                                     our code, but expo-router will crash
                                     at bundle time without it.
+
+     expo-sharing
+     react-native-view-shot
+                                
     react-native-safe-area-context  Safe-area-aware layout (notches, status
                                     bars). Required by expo-router itself
                                     as well as our own ScreenContainer.

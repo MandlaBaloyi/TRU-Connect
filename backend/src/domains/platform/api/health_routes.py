@@ -9,7 +9,7 @@ from __future__ import annotations
 from flask import Blueprint
 
 from src.core.responses import error_response, success_response
-from src.shared.email import EmailService
+from src.shared.email.email import EmailService
 
 health_bp = Blueprint("health", __name__)
 

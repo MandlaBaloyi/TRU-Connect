@@ -1,0 +1,20 @@
+/** Loan Book components — single import surface for screens. */
+export { LoanStatusBadge } from "./LoanStatusBadge";
+export { CustomerAvatar, getInitials } from "./CustomerAvatar";
+export { OutstandingAmountCard } from "./OutstandingAmountCard";
+export { LoanCard } from "./LoanCard";
+export { CustomerCard } from "./CustomerCard";
+export { PaymentCard } from "./PaymentCard";
+export { LoanSearchBar } from "./LoanSearchBar";
+export { LoanFilterBar } from "./LoanFilterBar";
+export { EmptyLoanBook } from "./EmptyLoanBook";
+export { InsightList } from "./InsightList";
+export { QuickAmountRow } from "./QuickAmountRow";
+export { LoanSummaryCard } from "./LoanSummaryCard";
+export { LoanBookIcon } from "./LoanBookIcon";
+export { ContactActionsRow } from "./ContactActionsRow";
+export { LoanReceiptCard } from "./LoanReceiptCard";
+export { ReceiptPreviewModal } from "./ReceiptPreviewModal";
+export { CustomerFilterBar } from "./CustomerFilterBar";
+export { ReasonPromptModal } from "./ReasonPromptModal";
+export { RestoreRow } from "./RestoreRow";

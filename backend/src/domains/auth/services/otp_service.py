@@ -32,6 +32,14 @@ EMAIL_VERIFIED only on the genuine unverified->verified transition --
 mirroring the existing was_already_verified check that already gates the
 welcome email, so both follow exactly the same "never on re-verification"
 rule.
+
+TEMPLATE PATHS: template_name values below are relative to
+src/shared/email/templates/, which is now grouped into per-domain
+subfolders (auth/, business/, supplier/, ...) rather than a flat
+directory -- "otp.html" alone would raise TemplateNotFound after that
+reorganization, silently (EmailService.send_template swallows template
+render errors so email failures never crash a caller), so this is worth
+getting right rather than discovering it via "why didn't my OTP arrive."
 """
 from __future__ import annotations
 
@@ -48,9 +56,9 @@ from src.domains.auth.repositories.otp_repository import OTPRepository
 from src.domains.auth.repositories.user_repository import UserRepository
 from src.domains.auth.utils.otp import generate_numeric_otp, hash_otp, verify_otp_hash
 from src.extensions import db
-from src.shared import audit
-from src.shared.constants import MAX_OTP_EMAILS_PER_HOUR
-from src.shared.email import EmailService
+from src.shared.audit import audit
+from src.shared.constants.constants import MAX_OTP_EMAILS_PER_HOUR
+from src.shared.email.email import EmailService
 
 OTP_EXPIRY_MINUTES = 10
 
@@ -77,7 +85,7 @@ class OTPService:
         purpose_label = "email address" if purpose == OTPPurpose.EMAIL_VERIFICATION else "phone number"
         EmailService.send_template(
             to=destination,
-            template_name="otp.html",
+            template_name="auth/otp.html",
             subject="Your TRU Connect verification code",
             context={"otp_code": code, "purpose_label": purpose_label, "expiry_minutes": OTP_EXPIRY_MINUTES},
             rate_limit_key=f"otp:{destination}",
@@ -135,10 +143,10 @@ class OTPService:
     def _send_welcome_email(user: User) -> None:
         try:
             if user.role == UserRole.SUPPLIER:
-                template_name = "welcome_supplier.html"
+                template_name = "supplier/welcome_supplier.html"
                 context = {"owner_name": user.first_name}
             else:
-                template_name = "welcome_business.html"
+                template_name = "business/welcome_business.html"
                 context = {"first_name": user.first_name}
 
             EmailService.send_template(

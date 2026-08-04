@@ -28,7 +28,8 @@
     },
     "scheme": "truconnect",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "extra": {
       "apiBaseUrl": "https://api.truconnect.dev/api/v1"

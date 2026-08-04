@@ -1,7 +1,6 @@
 """
 Standard JSON response envelope.
-Ref: docs/05_BACKEND_API_SPECIFICATION.txt §1; Auth Hardening master
-prompt, Objective 1.
+Ref: docs/05_BACKEND_API_SPECIFICATION.txt §1;  Objective 1.
 
     Success: {"success": true,  "message": "...", "data": {}}
     Failure: {"success": false, "message": "...", "errors": [],

@@ -1,0 +1,1113 @@
+====================================================================================
+TRU CONNECT
+PLATFORM ENGINEERING CAPABILITIES
+Cross-Cutting Infrastructure Architecture
+====================================================================================
+
+Version:
+1.0
+
+Purpose
+-------
+
+This document defines the platform-level engineering capabilities that every
+TRU Connect domain and feature must use.
+
+These capabilities are NOT feature-specific.
+
+They are shared infrastructure responsible for platform reliability,
+offline-first behaviour, scalability, resilience, security, observability,
+and future enterprise growth.
+
+Every new feature must integrate with these services instead of implementing
+its own solution.
+
+The objective is to ensure consistency across the entire platform while
+keeping business domains simple.
+
+====================================================================================
+CORE ENGINEERING PRINCIPLE
+====================================================================================
+
+Business Features should contain ONLY business logic.
+
+Everything else belongs to Shared Platform Infrastructure.
+
+Business modules must never implement their own:
+
+• retry logic
+• sync engine
+• offline engine
+• logging
+• audit system
+• scheduler
+• notification queue
+• encryption
+• rate limiting
+• conflict resolution
+
+Instead they consume shared platform services.
+
+Architecture:
+
+Feature
+
+↓
+
+Shared Platform Infrastructure
+
+↓
+
+Database / APIs / Device
+
+====================================================================================
+1. ERROR RECOVERY
+====================================================================================
+
+Purpose
+
+Ensure failures do not immediately become user failures.
+
+The platform must attempt safe recovery whenever possible.
+
+Responsibilities
+
+• Retry temporary failures
+• Resume interrupted operations
+• Recover after application restart
+• Continue interrupted registration
+• Resume uploads
+• Resume downloads
+• Retry API requests
+• Recover scheduled jobs
+• Recover background sync
+
+Examples
+
+Auth
+
+• Email sending fails
+→ retry automatically
+
+Loan Book
+
+• Payment saved offline
+→ retry sync later
+
+Orders
+
+• Order upload interrupted
+→ resume upload
+
+Supplier
+
+• Product image upload interrupted
+→ continue later
+
+Implementation
+
+shared/
+
+error-recovery/
+
+retryPolicy.ts
+
+retryQueue.ts
+
+failureClassifier.ts
+
+recoveryEngine.ts
+
+====================================================================================
+2. RATE LIMITING
+====================================================================================
+
+Purpose
+
+Protect platform resources against abuse while ensuring fair usage.
+
+Responsibilities
+
+Prevent
+
+• OTP abuse
+• Login abuse
+• Password reset spam
+• API flooding
+• Brute-force attacks
+
+Examples
+
+OTP
+
+Maximum
+
+3 requests
+
+per 15 minutes
+
+Login
+
+10 failed attempts
+
+↓
+
+temporary lock
+
+Search API
+
+100 requests/minute
+
+Supplier uploads
+
+Daily upload quota
+
+Architecture
+
+shared/
+
+security/
+
+rateLimiter/
+
+====================================================================================
+3. PLATFORM SCHEDULER
+====================================================================================
+
+Purpose
+
+Run background work automatically.
+
+Business features never schedule their own jobs directly.
+
+Instead
+
+Scheduler
+
+↓
+
+Calls Feature Service
+
+Responsibilities
+
+• Delete expired OTPs
+• Remove abandoned registrations
+• Cleanup temporary files
+• Rotate logs
+• Refresh analytics
+• Generate reports
+• Send local reminder events
+• Detect suspicious behaviour
+• Health monitoring
+
+Architecture
+
+shared/
+
+scheduler/
+
+jobs/
+
+engine.py
+
+registry.py
+
+trigger.py
+
+====================================================================================
+4. WIRE PROTOCOL
+====================================================================================
+
+Purpose
+
+Define how every component communicates.
+
+The platform must expose a single consistent communication standard.
+
+Standards
+
+REST
+
+HTTPS
+
+JSON
+
+UTF-8
+
+UUID identifiers
+
+ISO timestamps
+
+Consistent API Response
+
+Success
+
+{
+    success: true,
+    data: ...
+}
+
+Failure
+
+{
+    success: false,
+    error: {
+        code:
+        message:
+    }
+}
+
+Benefits
+
+• predictable APIs
+
+• reusable frontend
+
+• easier testing
+
+• future mobile/web compatibility
+
+====================================================================================
+5. CONFLICT RESOLUTION
+====================================================================================
+
+Purpose
+
+Resolve disagreements between local device data and server data.
+
+Required because TRU Connect is Offline First.
+
+Possible conflicts
+
+Loan edited offline
+
+↓
+
+Server also changed
+
+Order updated twice
+
+↓
+
+Different devices
+
+Product modified
+
+↓
+
+Supplier edits while offline
+
+Responsibilities
+
+Detect
+
+Compare
+
+Resolve
+
+Record
+
+Resolution Strategies
+
+• Server Wins
+
+• Local Wins
+
+• Last Write Wins
+
+• Merge
+
+• Manual Review
+
+Every conflict must generate an Audit Event.
+
+Architecture
+
+shared/
+
+sync/
+
+conflicts/
+
+====================================================================================
+6. KEY MANAGEMENT
+====================================================================================
+
+Purpose
+
+Protect every cryptographic operation.
+
+Responsibilities
+
+JWT signing
+
+Password hashing
+
+Encryption
+
+API secrets
+
+Refresh tokens
+
+Key rotation
+
+Secure storage
+
+Keys must NEVER be hardcoded.
+
+Architecture
+
+shared/
+
+security/
+
+keys/
+
+====================================================================================
+7. PLATFORM OPTIMIZATION
+====================================================================================
+
+Purpose
+
+Continuously improve performance without changing business behaviour.
+
+Areas
+
+Database
+
+• indexes
+
+• query optimisation
+
+Caching
+
+• memory
+
+• redis
+
+Algorithms
+
+• search
+
+• recommendations
+
+Images
+
+• compression
+
+• resizing
+
+Frontend
+
+• pagination
+
+• lazy loading
+
+• memoisation
+
+Network
+
+• batching
+
+• request deduplication
+
+====================================================================================
+8. OFFLINE ENGINE
+====================================================================================
+
+Purpose
+
+Offline capability is a PLATFORM capability.
+
+Not a Loan Book capability.
+
+Not an Orders capability.
+
+Not a Marketplace capability.
+
+Every feature uses the same Offline Engine.
+
+Responsibilities
+
+Local persistence
+
+Queue operations
+
+Reconnect detection
+
+Automatic sync
+
+Conflict detection
+
+Sync retries
+
+Sync progress
+
+Architecture
+
+shared/
+
+offline/
+
+SQLite
+
+↓
+
+Repository
+
+↓
+
+Sync Queue
+
+↓
+
+Conflict Engine
+
+↓
+
+API
+
+Business features only read/write data.
+
+They never perform synchronization directly.
+
+====================================================================================
+9. SHARED REPOSITORY ABSTRACTION
+====================================================================================
+
+Business Features must NEVER know where data comes from.
+
+The UI receives
+
+Loan[]
+
+Order[]
+
+Supplier[]
+
+Business[]
+
+The source is hidden.
+
+Possible sources
+
+Mock Repository
+
+↓
+
+SQLite Repository
+
+↓
+
+Flask Repository
+
+↓
+
+Future Cloud Repository
+
+UI remains unchanged.
+
+Only repository implementation changes.
+
+====================================================================================
+10. OBSERVABILITY
+====================================================================================
+
+Every engineering capability must expose telemetry.
+
+Logs
+
+Metrics
+
+Audit
+
+Health
+
+Examples
+
+Retry Count
+
+Sync Duration
+
+Conflict Count
+
+Scheduler Jobs
+
+Average API Latency
+
+Cache Hit Ratio
+
+Database Query Time
+
+Error Recovery Success Rate
+
+====================================================================================
+11. PLATFORM AUDITING
+====================================================================================
+
+Every shared capability must publish audit events.
+
+Examples
+
+Retry Attempt
+
+Sync Started
+
+Sync Finished
+
+Conflict Detected
+
+Conflict Resolved
+
+Rate Limit Triggered
+
+Scheduler Job Started
+
+Scheduler Job Failed
+
+Recovery Completed
+
+These events become visible inside the future Admin Portal.
+
+====================================================================================
+12. DESIGN PRINCIPLES
+====================================================================================
+
+Every engineering capability must satisfy:
+
+✓ Reusable
+
+✓ Stateless where possible
+
+✓ Independently testable
+
+✓ Feature agnostic
+
+✓ Replaceable
+
+✓ Observable
+
+✓ Offline compatible
+
+✓ Secure by default
+
+✓ Scalable
+
+✓ Backwards compatible
+
+====================================================================================
+ENGINEERING RULE
+====================================================================================
+
+When building any new feature, engineers must first ask:
+
+"Does this belong to the feature?"
+
+or
+
+"Does this belong to the Shared Platform?"
+
+If multiple features could benefit from it, it belongs to the Shared Platform.
+
+Business Features must focus only on business workflows.
+
+Platform Infrastructure handles everything else.
+
+====================================================================================
+LONG-TERM PLATFORM VISION
+====================================================================================
+
+These engineering capabilities form the operational backbone of TRU Connect.
+
+As the platform grows from authentication into marketplaces, supplier ecosystems,
+offline commerce, lending infrastructure, and eventually the broader TruePoint
+ecosystem, every domain will inherit the same reliability, security, scalability,
+and offline-first behaviour without reimplementing foundational infrastructure.
+
+The goal is to build the engineering platform once, then allow every future
+business capability to stand on that foundation.
+====================================================================================
+
+
+ADDITINAL INFO ON OFFLINE PLAN 
+============================================================
+TRU CONNECT
+OFFLINE PLATFORM ARCHITECTURE
+Version 1.0
+============================================================
+
+Author:
+TRU Connect Engineering
+
+Purpose
+
+This document defines the Offline Platform Architecture used throughout
+TRU Connect.
+
+Offline capability is NOT a feature.
+
+Offline capability is part of the Platform Infrastructure.
+
+Every business feature (Loan Book, Order Queue, Inventory, Wallet,
+Supplier Management, etc.) must use the same shared offline engine.
+
+No feature is allowed to implement its own SQLite database,
+sync engine, retry logic or conflict resolution.
+
+The Platform Domain owns all offline infrastructure.
+
+============================================================
+ARCHITECTURE PRINCIPLE
+============================================================
+
+Business Features
+should ONLY contain business logic.
+
+Platform
+should contain all infrastructure.
+
+Example
+
+Loan Book
+    ✓ loan calculations
+    ✓ customer logic
+    ✓ repayment logic
+
+Order Queue
+    ✓ order logic
+    ✓ queue logic
+
+Inventory
+    ✓ stock logic
+
+Platform
+    ✓ SQLite
+    ✓ Offline storage
+    ✓ Sync Engine
+    ✓ Conflict Resolution
+    ✓ Retry Engine
+    ✓ Queue Manager
+    ✓ Network Detection
+    ✓ Error Recovery
+
+Business Features NEVER implement infrastructure.
+
+============================================================
+HIGH LEVEL ARCHITECTURE
+============================================================
+
+
+                    TRU CONNECT
+
+              ┌────────────────────┐
+              │   Flask Backend    │
+              │   PostgreSQL       │
+              └─────────┬──────────┘
+                        ▲
+                   HTTPS / JSON
+                        ▼
+             ┌────────────────────┐
+             │ React Native App   │
+             └─────────┬──────────┘
+                       │
+               Platform Offline
+                    Engine
+                       │
+                 expo-sqlite
+                       │
+           Shared by every feature
+
+
+The Backend never talks to SQLite.
+
+SQLite exists ONLY inside the mobile application.
+
+============================================================
+RESPONSIBILITIES
+============================================================
+
+Frontend Platform Domain
+
+Responsible for:
+
+• SQLite Database
+• Local Storage
+• Repository Framework
+• Sync Queue
+• Background Synchronisation
+• Retry Engine
+• Conflict Resolution
+• Error Recovery
+• Connectivity Monitoring
+• Offline First Behaviour
+
+Backend Platform Domain
+
+Responsible for:
+
+• PostgreSQL
+• Sync APIs
+• Conflict Policies
+• Authentication
+• Scheduler
+• Audit
+• Logging
+• Background Jobs
+• Server Validation
+
+============================================================
+EXPECTED FRONTEND PROJECT TREE
+============================================================
+
+frontend/
+
+mobile/
+
+src/
+
+features/
+
+business/
+
+loan-book/
+
+orders/
+
+inventory/
+
+wallet/
+
+suppliers/
+
+nearby-businesses/
+
+verification/
+
+analytics/
+
+platform/
+
+offline/
+
+database/
+
+sqlite.ts
+schema.ts
+migrations.ts
+
+repositories/
+
+BaseRepository.ts
+RepositoryFactory.ts
+
+queue/
+
+SyncQueue.ts
+QueueRepository.ts
+
+sync/
+
+SyncEngine.ts
+ConflictResolver.ts
+RetryManager.ts
+ErrorRecovery.ts
+
+network/
+
+ConnectivityMonitor.ts
+useNetworkStatus.ts
+
+scheduler/
+
+BackgroundSync.ts
+
+storage/
+
+LocalStorage.ts
+
+types/
+
+utils/
+
+============================================================
+FEATURE ARCHITECTURE
+============================================================
+
+Each feature only contains feature-specific code.
+
+Example
+
+loan-book/
+
+algorithms/
+
+components/
+
+hooks/
+
+screens/
+
+services/
+
+api/
+
+types.ts
+
+There should NEVER be
+
+loan-book/sqlite.ts
+
+loan-book/sync.ts
+
+loan-book/offlineStorage.ts
+
+loan-book/retry.ts
+
+loan-book/network.ts
+
+Those belong to Platform.
+
+============================================================
+DATA FLOW
+============================================================
+
+Loan Book Screen
+
+↓
+
+useLoanBook()
+
+↓
+
+LoanBookRepository
+
+↓
+
+Platform Repository
+
+↓
+
+SQLite
+
+↓
+
+Sync Queue
+
+↓
+
+Flask API
+
+↓
+
+PostgreSQL
+
+
+The screen never knows where the data comes from.
+
+Today
+
+LoanBookScreen
+
+↓
+
+SQLite
+
+
+Tomorrow
+
+LoanBookScreen
+
+↓
+
+SQLite
+
+↓
+
+Flask
+
+
+No screen changes.
+
+No component changes.
+
+No hook changes.
+
+Only Platform changes.
+
+============================================================
+BENEFITS
+============================================================
+
+Single SQLite database.
+
+Single Sync Engine.
+
+Single Retry Engine.
+
+Single Queue.
+
+Single Conflict Resolver.
+
+Single Error Recovery.
+
+Reusable infrastructure.
+
+No duplicated offline logic.
+
+Every feature behaves consistently.
+
+============================================================
+FUTURE FEATURES
+============================================================
+
+Every future feature automatically gains offline support.
+
+Examples
+
+Loan Book
+
+↓
+
+Platform
+
+Order Queue
+
+↓
+
+Platform
+
+Inventory
+
+↓
+
+Platform
+
+Supplier Marketplace
+
+↓
+
+Platform
+
+Wallet
+
+↓
+
+Platform
+
+Nearby Suppliers
+
+↓
+
+Platform
+
+Business Verification
+
+↓
+
+Platform
+
+Receipts
+
+↓
+
+Platform
+
+Analytics
+
+↓
+
+Platform
+
+Notifications
+
+↓
+
+Platform
+
+Everything shares the same infrastructure.
+
+============================================================
+ENGINEERING RULES
+============================================================
+
+Rule 1
+
+Business Domains never communicate directly with SQLite.
+
+Always go through Platform Repositories.
+
+------------------------------------------------------------
+
+Rule 2
+
+Business Domains never create their own sync engine.
+
+------------------------------------------------------------
+
+Rule 3
+
+Business Domains never detect network connectivity.
+
+Platform owns connectivity.
+
+------------------------------------------------------------
+
+Rule 4
+
+Business Domains never implement retry logic.
+
+Platform Retry Manager handles retries.
+
+------------------------------------------------------------
+
+Rule 5
+
+Business Domains never resolve sync conflicts.
+
+Platform Conflict Resolver decides.
+
+------------------------------------------------------------
+
+Rule 6
+
+Business Domains only implement business rules.
+
+Infrastructure belongs to Platform.
+
+------------------------------------------------------------
+
+Rule 7
+
+The backend is always the System of Record.
+
+SQLite is a temporary local cache used for offline operation.
+
+Once synchronization succeeds, PostgreSQL becomes the authoritative source.
+
+============================================================
+LONG-TERM VISION
+============================================================
+
+TRU Connect is an Offline-First Platform.
+
+Offline capability is not implemented separately for each feature.
+
+Instead, a single shared Platform Offline Engine provides:
+
+• Local Database
+• Sync Queue
+• Conflict Resolution
+• Error Recovery
+• Retry Management
+• Connectivity Monitoring
+• Background Synchronisation
+
+Every feature automatically benefits from this shared infrastructure.
+
+This architecture minimizes duplicated code, improves maintainability,
+ensures consistent behaviour across the application, and allows new
+features to become offline-capable with minimal additional work.
+
+============================================================
+END
+============================================================
