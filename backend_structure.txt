@@ -2,7 +2,9 @@ backend
 ├── migrations
 │   ├── versions
 │   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
-│   │   └── b1a2c3d4e5f6_security_audit_events.py
+│   │   ├── b1a2c3d4e5f6_security_audit_events.py
+│   │   ├── c2d3e4f5a6b7_loan_book_tables.py
+│   │   └── d3e4f5a6b7c8_loan_book_table_prefix.py
 │   ├── alembic.ini
 │   ├── env.py
 │   ├── README
@@ -38,9 +40,7 @@ backend
 │   │   │   │   └── user_repository.py
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── __init__.py.bak
-│   │   │   │   ├── auth_scheduler.py
-│   │   │   │   └── auth_scheduler.py.bak
+│   │   │   │   └── auth_scheduler.py
 │   │   │   ├── schemas
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── auth_schemas.py
@@ -81,29 +81,33 @@ backend
 │   │   │   │   │   └── __init__.py
 │   │   │   │   └── __init__.py
 │   │   │   ├── loan_book
-│   │   │   │   ├── algorithms
-│   │   │   │   │   └── __init__.py
 │   │   │   │   ├── api
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── commands
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── events
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── loan_book_routes.py
 │   │   │   │   ├── models
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── queries
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── customer.py
+│   │   │   │   │   ├── loan_entry.py
+│   │   │   │   │   ├── loan_history_event.py
+│   │   │   │   │   └── payment.py
 │   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── customer_repository.py
+│   │   │   │   │   ├── history_repository.py
+│   │   │   │   │   ├── loan_repository.py
+│   │   │   │   │   └── payment_repository.py
 │   │   │   │   ├── schemas
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── loan_book_schemas.py
 │   │   │   │   ├── services
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── errors.py
+│   │   │   │   │   └── loan_book_service.py
 │   │   │   │   ├── utils
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── validators
-│   │   │   │   │   └── __init__.py
-│   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── receipt_builder.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── LOAN_BOOK_BACKEND_README.md
 │   │   │   ├── order_queue
 │   │   │   │   ├── algorithms
 │   │   │   │   │   └── __init__.py
@@ -156,9 +160,7 @@ backend
 │   │   │   │   └── __init__.py
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── __init__.py.bak
-│   │   │   │   ├── platform_scheduler.py
-│   │   │   │   └── platform_scheduler.py.bak
+│   │   │   │   └── platform_scheduler.py
 │   │   │   ├── schemas
 │   │   │   │   └── __init__.py
 │   │   │   ├── services
@@ -174,31 +176,20 @@ backend
 │   │   │   ├── audit
 │   │   │   │   ├── models
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── __init__.py.bak
-│   │   │   │   │   ├── audit_event.py
-│   │   │   │   │   └── audit_event.py.bak
+│   │   │   │   │   └── audit_event.py
 │   │   │   │   ├── repositories
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── __init__.py.bak
-│   │   │   │   │   ├── audit_repository.py
-│   │   │   │   │   └── audit_repository.py.bak
+│   │   │   │   │   └── audit_repository.py
 │   │   │   │   ├── rules
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── __init__.py.bak
-│   │   │   │   │   ├── event_config.py
-│   │   │   │   │   └── event_config.py.bak
+│   │   │   │   │   └── event_config.py
 │   │   │   │   ├── schemas
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── __init__.py.bak
-│   │   │   │   │   ├── audit_schemas.py
-│   │   │   │   │   └── audit_schemas.py.bak
+│   │   │   │   │   └── audit_schemas.py
 │   │   │   │   ├── services
 │   │   │   │   │   ├── __init__.py
-│   │   │   │   │   ├── __init__.py.bak
-│   │   │   │   │   ├── audit_service.py
-│   │   │   │   │   └── audit_service.py.bak
-│   │   │   │   ├── __init__.py
-│   │   │   │   └── __init__.py.bak
+│   │   │   │   │   └── audit_service.py
+│   │   │   │   └── __init__.py
 │   │   │   ├── detection
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── engine.py
@@ -215,8 +206,7 @@ backend
 │   │   │   │   └── thresholds.py
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── monitor.py
-│   │   │   │   └── monitor.py.bak
+│   │   │   │   └── monitor.py
 │   │   │   ├── schemas
 │   │   │   ├── services
 │   │   │   │   └── __init__.py
@@ -277,17 +267,11 @@ backend
 │   │       └── __init__.py
 │   ├── master_scheduler
 │   │   ├── __init__.py
-│   │   ├── __init__.py.bak
 │   │   ├── engine.py
-│   │   ├── engine.py.bak
 │   │   ├── interfaces.py
-│   │   ├── interfaces.py.bak
 │   │   ├── registry.py
-│   │   ├── registry.py.bak
 │   │   ├── runner.py
-│   │   ├── runner.py.bak
-│   │   ├── trigger.py
-│   │   └── trigger.py.bak
+│   │   └── trigger.py
 │   ├── shared
 │   │   ├── audit
 │   │   │   ├── event_types
@@ -340,48 +324,28 @@ backend
 │   │   ├── finance
 │   │   │   ├── core
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── __init__.py.bak
 │   │   │   │   ├── allocation.py
-│   │   │   │   ├── allocation.py.bak
 │   │   │   │   ├── calculations.py
-│   │   │   │   ├── calculations.py.bak
 │   │   │   │   ├── constants.py
-│   │   │   │   ├── constants.py.bak
 │   │   │   │   ├── currency.py
-│   │   │   │   ├── currency.py.bak
 │   │   │   │   ├── exceptions.py
-│   │   │   │   ├── exceptions.py.bak
 │   │   │   │   ├── formatter.py
-│   │   │   │   ├── formatter.py.bak
 │   │   │   │   ├── money.py
-│   │   │   │   ├── money.py.bak
 │   │   │   │   ├── parser.py
-│   │   │   │   ├── parser.py.bak
 │   │   │   │   ├── rounding.py
-│   │   │   │   ├── rounding.py.bak
-│   │   │   │   ├── validation.py
-│   │   │   │   └── validation.py.bak
+│   │   │   │   └── validation.py
 │   │   │   ├── future
-│   │   │   │   ├── __init__.py
-│   │   │   │   └── __init__.py.bak
+│   │   │   │   └── __init__.py
 │   │   │   ├── receipts
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── __init__.py.bak
 │   │   │   │   ├── qr.py
-│   │   │   │   ├── qr.py.bak
 │   │   │   │   ├── reference.py
-│   │   │   │   ├── reference.py.bak
 │   │   │   │   ├── signing.py
-│   │   │   │   ├── signing.py.bak
-│   │   │   │   ├── verification.py
-│   │   │   │   └── verification.py.bak
+│   │   │   │   └── verification.py
 │   │   │   ├── reconciliation
-│   │   │   │   ├── __init__.py
-│   │   │   │   └── __init__.py.bak
+│   │   │   │   └── __init__.py
 │   │   │   ├── __init__.py
-│   │   │   ├── __init__.py.bak
-│   │   │   ├── README.md
-│   │   │   └── README.md.bak
+│   │   │   └── README.md
 │   │   ├── helpers
 │   │   │   ├── __init__.py
 │   │   │   └── helpers.py
@@ -414,9 +378,7 @@ backend
 ├── tests
 │   ├── architecture
 │   │   ├── __init__.py
-│   │   ├── __init__.py.bak
-│   │   ├── test_finance_boundaries.py
-│   │   └── test_finance_boundaries.py.bak
+│   │   └── test_finance_boundaries.py
 │   ├── domains
 │   │   ├── auth
 │   │   │   ├── jobs
@@ -424,63 +386,45 @@ backend
 │   │   │   │   └── test_cleanup_unverified_emails.py
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── __init__.py.bak
-│   │   │   │   ├── test_auth_scheduler.py
-│   │   │   │   └── test_auth_scheduler.py.bak
+│   │   │   │   └── test_auth_scheduler.py
 │   │   │   └── __init__.py
+│   │   ├── business
+│   │   │   └── loan_book
+│   │   │       ├── conftest.py
+│   │   │       ├── test_api_ownership.py
+│   │   │       └── test_ownership.py
 │   │   ├── platform
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── test_engine.py
-│   │   │   │   ├── test_engine.py.bak
 │   │   │   │   ├── test_registry.py
-│   │   │   │   ├── test_registry.py.bak
-│   │   │   │   ├── test_registry.py.importfix.bak
 │   │   │   │   ├── test_runner.py
-│   │   │   │   ├── test_runner.py.importfix.bak
-│   │   │   │   ├── test_trigger.py
-│   │   │   │   └── test_trigger.py.bak
+│   │   │   │   └── test_trigger.py
 │   │   │   └── __init__.py
 │   │   ├── security
 │   │   │   ├── audit
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── conftest.py
 │   │   │   │   ├── test_append_only.py
-│   │   │   │   ├── test_append_only.py.bak
 │   │   │   │   ├── test_audit_context.py
-│   │   │   │   ├── test_audit_context.py.importfix.bak
 │   │   │   │   ├── test_audit_publisher.py
-│   │   │   │   ├── test_audit_publisher.py.importfix.bak
 │   │   │   │   ├── test_audit_repository.py
-│   │   │   │   ├── test_audit_repository.py.bak
 │   │   │   │   ├── test_audit_schemas.py
-│   │   │   │   ├── test_audit_schemas.py.bak
 │   │   │   │   ├── test_audit_service.py
-│   │   │   │   ├── test_audit_service.py.bak
 │   │   │   │   ├── test_detection_scaffolding.py
-│   │   │   │   ├── test_event_config.py
-│   │   │   │   ├── test_event_config.py.bak
-│   │   │   │   └── test_event_config.py.importfix.bak
+│   │   │   │   └── test_event_config.py
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── test_monitor.py
-│   │   │   │   └── test_monitor.py.importfix.bak
+│   │   │   │   └── test_monitor.py
 │   │   │   └── __init__.py
 │   │   └── __init__.py
 │   ├── shared
 │   │   ├── finance
 │   │   │   ├── __init__.py
-│   │   │   ├── __init__.py.bak
 │   │   │   ├── test_allocation.py
-│   │   │   ├── test_allocation.py.bak
 │   │   │   ├── test_calculations.py
-│   │   │   ├── test_calculations.py.bak
 │   │   │   ├── test_formatting_parsing.py
-│   │   │   ├── test_formatting_parsing.py.bak
-│   │   │   ├── test_money_core.py
-│   │   │   └── test_money_core.py.bak
-│   │   ├── __init__.py
-│   │   └── __init__.py.bak
+│   │   │   └── test_money_core.py
+│   │   └── __init__.py
 │   ├── conftest.py
 │   ├── test_auth.py
 │   ├── tests.md
@@ -489,11 +433,9 @@ backend
 ├── .gitignore
 ├── app.py
 ├── AUDIT_MIGRATION_NOTES.md
-├── AUDIT_MIGRATION_NOTES.md.bak
 ├── INTEGRATION.md
 ├── INTEGRATION_AUDIT.md
 ├── MASTER_SCHEDULER_MIGRATION_NOTES.md
-├── MASTER_SCHEDULER_MIGRATION_NOTES.md.bak
 ├── MIGRATION_NOTES.md
 ├── plan.md
 ├── README.md

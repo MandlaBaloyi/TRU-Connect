@@ -15,11 +15,9 @@
  * (see README: no persistence yet) — reopening the app always starts
  * visible again, even if it was hidden moments before closing.
  *
- * Uses theme.colors.primary/secondary rather than hardcoded
- * palette.truePointBlue/emeraldGreen, so this card follows dark mode.
- * The white overlay tint (rgba(255,255,255,...)) stays as-is since it
- * is opacity-based against whatever `primary` resolves to in either
- * theme, not a fixed light-mode assumption.
+ * COLOUR: light surface card (theme.colors.surface), matching the
+ * Order Book summary card style — recoloured on request, structure and
+ * every behaviour below (masking, actions, grammar) is unchanged.
  */
 
 import React, { useState } from "react";
@@ -56,13 +54,13 @@ export function OutstandingAmountCard({ summary, onRecordSale, onViewLoanBook }:
       : `${summary.customersOwingCount} customers owe you`;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.primary }]}>
-      <Text style={[styles.label, { color: theme.colors.onPrimary, opacity: 0.75 }]}>
+    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+      <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
         Money owed to you
       </Text>
       <View style={styles.amountRow}>
         <Text
-          style={[styles.amount, { color: theme.colors.onPrimary }]}
+          style={[styles.amount, { color: theme.colors.onSurface }]}
           accessibilityRole="text"
           accessibilityLabel={isHidden ? "Amount hidden" : formatCents(summary.totalOutstanding)}
         >
@@ -76,13 +74,13 @@ export function OutstandingAmountCard({ summary, onRecordSale, onViewLoanBook }:
           accessibilityLabel={isHidden ? "Show amount" : "Hide amount"}
         >
           {isHidden ? (
-            <EyeOff size={20} color={theme.colors.onPrimary} strokeWidth={2} />
+            <EyeOff size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
           ) : (
-            <Eye size={20} color={theme.colors.onPrimary} strokeWidth={2} />
+            <Eye size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
           )}
         </Pressable>
       </View>
-      <Text style={[styles.meta, { color: theme.colors.onPrimary, opacity: 0.75 }]}>
+      <Text style={[styles.meta, { color: theme.colors.onSurfaceVariant }]}>
         {customerLabel}
       </Text>
 
@@ -108,13 +106,13 @@ export function OutstandingAmountCard({ summary, onRecordSale, onViewLoanBook }:
             onPress={onViewLoanBook}
             style={({ pressed }) => [
               styles.secondaryAction,
-              { borderColor: theme.colors.onPrimary },
+              { borderColor: theme.colors.outline },
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
             accessibilityLabel="Open the loan book"
           >
-            <Text style={[styles.secondaryActionText, { color: theme.colors.onPrimary }]}>
+            <Text style={[styles.secondaryActionText, { color: theme.colors.primary }]}>
               View loan book
             </Text>
           </Pressable>

@@ -7,12 +7,15 @@ import { useQuery } from "@tanstack/react-query";
 import type { CustomerView, LoanEntryView } from "../types";
 import { getCustomerView, getLoanEntry } from "../api/loanBookApi";
 import { loanBookKeys } from "./loanBookKeys";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export function useLoan(entryId: string) {
+  const userId = useCurrentUserId();
+
   const query = useQuery<LoanEntryView | null>({
-    queryKey: loanBookKeys.entry(entryId),
+    queryKey: loanBookKeys.entry(userId, entryId),
     queryFn: () => getLoanEntry(entryId),
-    enabled: Boolean(entryId),
+    enabled: Boolean(entryId) && Boolean(userId),
   });
 
   return {
@@ -28,10 +31,12 @@ export function useLoan(entryId: string) {
 }
 
 export function useCustomer(customerId: string) {
+  const userId = useCurrentUserId();
+
   const query = useQuery<CustomerView | null>({
-    queryKey: loanBookKeys.customer(customerId),
+    queryKey: loanBookKeys.customer(userId, customerId),
     queryFn: () => getCustomerView(customerId),
-    enabled: Boolean(customerId),
+    enabled: Boolean(customerId) && Boolean(userId),
   });
 
   return {

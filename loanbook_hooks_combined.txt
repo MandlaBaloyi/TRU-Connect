@@ -1,0 +1,303 @@
+﻿
+
+===== frontend\mobile\src\features\dashboard\business\loan-book\hooks\useCustomerActions.ts =====
+
+/**
+ * useCustomerActions â€” customer-level delete/restore mutations.
+ * Separate from useLoanPayments (entry/payment mutations) since these
+ * operate at a different scope (a whole customer account, not one
+ * purchase).
+ */
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { deleteCustomer } from "../api/loanBookApi";
+import { loanBookKeys } from "./loanBookKeys";
+import { trashKeys } from "./useTrash";
+
+export function useCustomerActions() {
+  const queryClient = useQueryClient();
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: loanBookKeys.all });
+    queryClient.invalidateQueries({ queryKey: trashKeys.all });
+  };
+
+  const deleteCustomerMutation = useMutation({
+    mutationFn: ({ customerId, reason }: { customerId: string; reason?: string }) =>
+      deleteCustomer(customerId, reason),
+    onSuccess: invalidateAll,
+  });
+
+  return {
+    deleteCustomer: deleteCustomerMutation.mutateAsync,
+    isDeletingCustomer: deleteCustomerMutation.isPending,
+  };
+}
+
+
+===== frontend\mobile\src\features\dashboard\business\loan-book\hooks\useLoan.ts =====
+
+/**
+ * useLoan â€” a single credit-sale entry with its full payment history.
+ */
+
+import { useQuery } from "@tanstack/react-query";
+
+import type { CustomerView, LoanEntryView } from "../types";
+import { getCustomerView, getLoanEntry } from "../api/loanBookApi";
+import { loanBookKeys } from "./loanBookKeys";
+
+export function useLoan(entryId: string) {
+  const query = useQuery<LoanEntryView | null>({
+    queryKey: loanBookKeys.entry(entryId),
+    queryFn: () => getLoanEntry(entryId),
+    enabled: Boolean(entryId),
+  });
+
+  return {
+    loan: query.data ?? undefined,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    /** Distinguishes "deleted / bad link" from "still loading" â€” a
+     *  missing entry should say so, not spin forever. */
+    notFound: !query.isLoading && query.data === null,
+    refetch: query.refetch,
+  };
+}
+
+export function useCustomer(customerId: string) {
+  const query = useQuery<CustomerView | null>({
+    queryKey: loanBookKeys.customer(customerId),
+    queryFn: () => getCustomerView(customerId),
+    enabled: Boolean(customerId),
+  });
+
+  return {
+    customer: query.data ?? undefined,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    notFound: !query.isLoading && query.data === null,
+    refetch: query.refetch,
+  };
+}
+
+
+===== frontend\mobile\src\features\dashboard\business\loan-book\hooks\useLoanPayments.ts =====
+
+/**
+ * useLoanPayments â€” every Loan Book write.
+ *
+ * OPTIMISTIC UPDATES on payment recording are not polish, they are the
+ * requirement: "Record Payment â‰¤ 15 seconds". A shop owner standing at a
+ * counter cannot wait for I/O before the screen acknowledges them. The
+ * balance updates immediately and rolls back if the write fails â€”
+ * because the owner must never be left believing a payment was recorded
+ * when it was not (Doc 02 Â§12.3 applies the same principle to orders).
+ */
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import type { LoanEntryView, RecordCreditSaleInput, RecordPaymentInput } from "../types";
+import {
+  deleteLoanEntry,
+  restoreLoanEntry,
+  deletePayment,
+  recordCreditSale,
+  recordPayment,
+} from "../api/loanBookApi";
+import { loanBookKeys } from "./loanBookKeys";
+
+export function useLoanPayments() {
+  const queryClient = useQueryClient();
+
+  // Invalidate the whole feature after any write. Narrower invalidation
+  // would be marginally faster and would eventually leave one screen
+  // showing a balance that contradicts another â€” precisely the
+  // inconsistency the derived-balance rule exists to prevent.
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: loanBookKeys.all });
+  };
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: (input: RecordPaymentInput) => recordPayment(input),
+
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: loanBookKeys.entry(input.loanEntryId) });
+      const previous = queryClient.getQueryData<LoanEntryView | null>(
+        loanBookKeys.entry(input.loanEntryId)
+      );
+
+      if (previous) {
+        const optimisticOutstanding = Math.max(0, previous.outstandingAmount - input.amount);
+        queryClient.setQueryData<LoanEntryView>(loanBookKeys.entry(input.loanEntryId), {
+          ...previous,
+          outstandingAmount: optimisticOutstanding,
+          amountPaid: previous.amountPaid + input.amount,
+          status: optimisticOutstanding === 0 ? "PAID" : previous.status,
+        });
+      }
+
+      return { previous };
+    },
+
+    onError: (_error, input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(loanBookKeys.entry(input.loanEntryId), context.previous);
+      }
+    },
+
+    onSettled: invalidateAll,
+  });
+
+  const recordSaleMutation = useMutation({
+    mutationFn: (input: RecordCreditSaleInput) => recordCreditSale(input),
+    onSuccess: invalidateAll,
+  });
+
+  const deleteEntryMutation = useMutation({
+    mutationFn: ({ entryId, reason }: { entryId: string; reason?: string }) =>
+      deleteLoanEntry(entryId, reason),
+    onSuccess: invalidateAll,
+  });
+
+  const restoreEntryMutation = useMutation({
+    mutationFn: (entryId: string) => restoreLoanEntry(entryId),
+    onSuccess: invalidateAll,
+  });
+
+  const deletePaymentMutation = useMutation({
+    mutationFn: ({ paymentId, entryId }: { paymentId: string; entryId: string }) =>
+      deletePayment(paymentId, entryId),
+    onSuccess: invalidateAll,
+  });
+
+  return {
+    recordPayment: recordPaymentMutation.mutateAsync,
+    isRecordingPayment: recordPaymentMutation.isPending,
+    recordPaymentError: recordPaymentMutation.error,
+
+    recordSale: recordSaleMutation.mutateAsync,
+    isRecordingSale: recordSaleMutation.isPending,
+    recordSaleError: recordSaleMutation.error,
+
+    deleteEntry: deleteEntryMutation.mutateAsync,
+    isDeletingEntry: deleteEntryMutation.isPending,
+
+    restoreEntry: restoreEntryMutation.mutateAsync,
+    isRestoringEntry: restoreEntryMutation.isPending,
+
+    deletePayment: deletePaymentMutation.mutateAsync,
+    isDeletingPayment: deletePaymentMutation.isPending,
+  };
+}
+
+
+===== frontend\mobile\src\features\dashboard\business\loan-book\hooks\useLoanSearch.ts =====
+
+/**
+ * useLoanSearch â€” customer search for the picker and the list header.
+ *
+ * Debounced INSIDE the hook, not in the screen, so every consumer gets
+ * identical behaviour and no screen can accidentally fire a query per
+ * keystroke on a low-end device (Doc 02 Â§2.1: design against the
+ * realistic low end).
+ */
+
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+import { searchCustomers } from "../api/loanBookApi";
+import { loanBookKeys } from "./loanBookKeys";
+
+const SEARCH_DEBOUNCE_MS = 250;
+
+export function useLoanSearch(initialTerm = "") {
+  const [term, setTerm] = useState(initialTerm);
+  const [debouncedTerm, setDebouncedTerm] = useState(initialTerm);
+
+  // MUST be useEffect, not useMemo: useMemo does not run the cleanup
+  // function it returns, so a useMemo version would leave every
+  // keystroke's timer running and fire them all â€” the exact opposite of
+  // debouncing, and invisible until you watch a search field on a slow
+  // phone.
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedTerm(term), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [term]);
+
+  const query = useQuery({
+    queryKey: loanBookKeys.customerSearch(debouncedTerm),
+    queryFn: () => searchCustomers(debouncedTerm),
+  });
+
+  return {
+    term,
+    setTerm,
+    clear: () => setTerm(""),
+    results: query.data ?? [],
+    isSearching: query.isLoading,
+    hasResults: (query.data?.length ?? 0) > 0,
+    isEmpty: !query.isLoading && (query.data?.length ?? 0) === 0 && debouncedTerm.trim().length > 0,
+  };
+}
+
+
+===== frontend\mobile\src\features\dashboard\business\loan-book\hooks\useTrash.ts =====
+
+/**
+ * useTrash â€” deleted customers and entries still within the recovery
+ * window, plus restore mutations.
+ */
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { getTrash, restoreCustomer, restoreLoanEntry } from "../api/loanBookApi";
+import { loanBookKeys } from "./loanBookKeys";
+
+export const trashKeys = {
+  all: ["loanBookTrash"] as const,
+};
+
+export function useTrash() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: trashKeys.all,
+    queryFn: getTrash,
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: trashKeys.all });
+    queryClient.invalidateQueries({ queryKey: loanBookKeys.all });
+  };
+
+  const restoreEntryMutation = useMutation({
+    mutationFn: (entryId: string) => restoreLoanEntry(entryId),
+    onSuccess: invalidateAll,
+  });
+
+  const restoreCustomerMutation = useMutation({
+    mutationFn: (customerId: string) => restoreCustomer(customerId),
+    onSuccess: invalidateAll,
+  });
+
+  return {
+    deletedCustomers: query.data?.customers ?? [],
+    deletedEntries: query.data?.entries ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isEmpty:
+      !query.isLoading &&
+      (query.data?.customers.length ?? 0) === 0 &&
+      (query.data?.entries.length ?? 0) === 0,
+    refetch: query.refetch,
+    restoreEntry: restoreEntryMutation.mutateAsync,
+    isRestoringEntry: restoreEntryMutation.isPending,
+    restoreCustomer: restoreCustomerMutation.mutateAsync,
+    isRestoringCustomer: restoreCustomerMutation.isPending,
+  };
+}
+

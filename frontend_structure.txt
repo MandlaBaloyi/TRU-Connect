@@ -132,7 +132,9 @@ frontend
 │   │   │   │   │   │   │   ├── repository
 │   │   │   │   │   │   │   │   ├── LoanRepository.ts
 │   │   │   │   │   │   │   │   └── MockDataRepository.ts
-│   │   │   │   │   │   │   └── loanBookApi.ts
+│   │   │   │   │   │   │   ├── httpLoanBookApi.ts
+│   │   │   │   │   │   │   ├── loanBookApi.ts
+│   │   │   │   │   │   │   └── mockLoanBookApi.ts
 │   │   │   │   │   │   ├── components
 │   │   │   │   │   │   │   ├── ContactActionsRow.tsx
 │   │   │   │   │   │   │   ├── CustomerAvatar.tsx
@@ -159,6 +161,7 @@ frontend
 │   │   │   │   │   │   ├── hooks
 │   │   │   │   │   │   │   ├── index.ts
 │   │   │   │   │   │   │   ├── loanBookKeys.ts
+│   │   │   │   │   │   │   ├── useCurrentUserId.ts
 │   │   │   │   │   │   │   ├── useCustomerActions.ts
 │   │   │   │   │   │   │   ├── useCustomerFilters.ts
 │   │   │   │   │   │   │   ├── useLoan.ts
@@ -337,6 +340,7 @@ frontend
 │   │   │   ├── typography.ts
 │   │   │   └── wordmark.ts
 │   │   ├── types
+│   │   │   ├── env.d.ts
 │   │   │   └── index.ts
 │   │   └── utils
 │   │       └── validators.ts

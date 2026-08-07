@@ -26,7 +26,7 @@ import { spacing } from "@/theme/spacing";
  * Create Account screen.
  * Ref: docs/01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt (Screen 5)
  *
- * Three fixes here that were previously silent:
+ * Five fixes here that were previously silent:
  *  1. register.isError was never read -- a duplicate-email 409 produced
  *     no feedback at all; the user just saw nothing happen.
  *  2. The Privacy Policy / Terms checkbox is validated by the Zod schema
@@ -39,15 +39,48 @@ import { spacing } from "@/theme/spacing";
  *     that check was too narrow to catch it, so the screen showed
  *     nothing even though the mutation had failed. getErrorMessage()
  *     always returns something displayable, for any error shape.
+ *  4. `role` used to default to "business" synchronously while the real
+ *     stored role loaded asynchronously in the background -- meaning
+ *     the Business form always rendered first and confidently, then got
+ *     silently swapped for Supplier a moment later if that's what was
+ *     actually picked. Now `role` starts as null ("not yet known") and
+ *     nothing renders until the real answer has loaded, so the wrong
+ *     form is never painted even briefly.
+ *
+ *     A SECOND, related flash was found after fixing #4: because the
+ *     form only mounts for the very first time once role resolves
+ *     (rather than being present from frame one, like Sign In's form
+ *     is), react-native-paper's outlined TextInput labels visibly
+ *     settle into their final position on that first mount -- a normal
+ *     library behavior that's invisible when a form is already on
+ *     screen, but visible when 6 fields all mount together a moment
+ *     after the screen itself appeared. `revealed` below masks exactly
+ *     that one-time settling: the form mounts and lays out at
+ *     opacity 0, and only becomes visible one frame later, once
+ *     react-native-paper's labels have already finished settling
+ *     off-screen.
+ *  5. The role===null loading branch previously did `return null` --
+ *     rendering LITERALLY NOTHING, no View, no background. That let the
+ *     navigator's own default (unthemed, white) background show through
+ *     for that brief window -- invisible in light mode (white matches),
+ *     but a visible white flash in dark mode. Rendering an empty,
+ *     correctly-themed <ScreenContainer /> instead means the right
+ *     background paints immediately, even with nothing else on screen
+ *     yet.
  */
 export default function CreateAccountScreen() {
   const register = useRegister();
   const googleSignIn = useGoogleSignIn();
-  const [role, setRole] = useState<UserRole>("business");
+  // null = "not yet determined" -- deliberately NOT defaulted to
+  // "business". See docstring point 4.
+  const [role, setRole] = useState<UserRole | null>(null);
+  // Masks the label-settling flash on the form's first-ever mount --
+  // see docstring's second note. Reset per form-mount, not global.
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     secureStorage.getItem(STORAGE_KEYS.SELECTED_ROLE).then((stored) => {
-      if (stored === "supplier" || stored === "business") setRole(stored);
+      setRole(stored === "supplier" ? "supplier" : "business");
     });
   }, []);
 
@@ -56,24 +89,37 @@ export default function CreateAccountScreen() {
     : null;
   const isDuplicateEmail = register.error instanceof ApiError && register.error.status === 409;
 
-  return role === "business" ? (
-    <BusinessRegisterForm
-      onSubmit={(values) => register.mutate({ role: "business", ...values })}
-      isSubmitting={register.isPending}
-      errorMessage={registerErrorMessage}
-      isDuplicateEmail={isDuplicateEmail}
-      onGooglePress={() => googleSignIn.mutate("")}
-      isGoogleLoading={googleSignIn.isPending}
-    />
-  ) : (
-    <SupplierRegisterForm
-      onSubmit={(values) => register.mutate({ role: "supplier", ...values })}
-      isSubmitting={register.isPending}
-      errorMessage={registerErrorMessage}
-      isDuplicateEmail={isDuplicateEmail}
-      onGooglePress={() => googleSignIn.mutate("")}
-      isGoogleLoading={googleSignIn.isPending}
-    />
+  // Render a themed, empty background -- NEVER return null/nothing
+  // here. See docstring point 5 for why.
+  if (role === null) {
+    return <ScreenContainer />;
+  }
+
+  return (
+    <View
+      style={{ flex: 1, opacity: revealed ? 1 : 0 }}
+      onLayout={() => requestAnimationFrame(() => setRevealed(true))}
+    >
+      {role === "business" ? (
+        <BusinessRegisterForm
+          onSubmit={(values) => register.mutate({ role: "business", ...values })}
+          isSubmitting={register.isPending}
+          errorMessage={registerErrorMessage}
+          isDuplicateEmail={isDuplicateEmail}
+          onGooglePress={() => googleSignIn.mutate("")}
+          isGoogleLoading={googleSignIn.isPending}
+        />
+      ) : (
+        <SupplierRegisterForm
+          onSubmit={(values) => register.mutate({ role: "supplier", ...values })}
+          isSubmitting={register.isPending}
+          errorMessage={registerErrorMessage}
+          isDuplicateEmail={isDuplicateEmail}
+          onGooglePress={() => googleSignIn.mutate("")}
+          isGoogleLoading={googleSignIn.isPending}
+        />
+      )}
+    </View>
   );
 }
 

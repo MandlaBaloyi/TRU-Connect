@@ -23,6 +23,15 @@ import { useTheme } from "react-native-paper";
 import { Trash2, History } from "lucide-react-native";
 
 import { useLoanBook } from "../hooks";
+
+import * as loanBookApiModule from "../api/loanBookApi";
+
+console.log("=== LOAN BOOK DEBUG ===");
+console.log("EXPO_PUBLIC_USE_MOCK_API raw:", JSON.stringify(process.env.EXPO_PUBLIC_USE_MOCK_API));
+console.log("typeof:", typeof process.env.EXPO_PUBLIC_USE_MOCK_API);
+console.log("Loaded module keys:", Object.keys(loanBookApiModule));
+
+
 import { useCustomerFilters } from "../hooks/useCustomerFilters";
 import { applyCustomerFilters } from "../services/customerFilters";
 import type { CustomerView } from "../types";
@@ -38,6 +47,8 @@ import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
+
+
 
 export default function LoanBookScreen() {
   const router = useRouter();

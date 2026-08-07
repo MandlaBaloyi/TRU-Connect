@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { FeatureTile } from "@/components/cards/FeatureTile";
 import { LoanBookIcon } from "@/features/dashboard/business/loan-book/components/LoanBookIcon";
+import { OrderBookIcon } from "@/features/dashboard/business/order-book/components/OrderBookIcon";
 import { BRAND_TOP_BAR_HEIGHT } from "@/components/navigation/BrandTopBar";
 import { spacing } from "@/theme/spacing";
 
@@ -39,6 +40,14 @@ export default function BusinessAccount() {
             label="Loan Book"
             icon={<LoanBookIcon size={40} />}
             onPress={() => router.push("/business/loan-book")}
+          />
+        </View>
+
+        <View style={styles.tileWrapper}>
+          <FeatureTile
+            label="Order Book"
+            icon={<OrderBookIcon size={40} />}
+            onPress={() => router.push("/business/order-book")}
           />
         </View>
 

@@ -68,7 +68,7 @@ export default function LoanDetailsScreen() {
         <ErrorState
           message={
             notFound
-              ? "This purchase no longer exists. It may have been removed."
+              ? "This purchase no longer exists."
               : "Could not load this purchase. Check your connection and try again."
           }
           onRetry={notFound ? undefined : refetch}

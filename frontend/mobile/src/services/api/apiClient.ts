@@ -186,6 +186,17 @@ export async function apiPut<T>(url: string, body?: unknown, config?: AxiosReque
   }
 }
 
+export async function apiDelete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.delete<ApiEnvelope<T>>(url, config);
+    return (response.data?.data ?? {}) as T;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+
+
 /**
  * Safe error-message extraction for UI display. Falls back to a generic
  * message for anything that ISN'T an ApiError (e.g. a plain crash

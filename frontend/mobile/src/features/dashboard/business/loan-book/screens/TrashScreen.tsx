@@ -126,8 +126,7 @@ export default function TrashScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <Text style={[styles.notice, { color: theme.colors.onSurfaceVariant }]}>
-            Deleted items can be restored for 7 days, then they're gone for good. This countdown
-            resets if the app restarts.
+               Deleted items are kept for 7 days before they are permanently deleted.
           </Text>
         }
         ItemSeparatorComponent={() => (
@@ -168,7 +167,7 @@ export default function TrashScreen() {
                 Trash is empty
               </Text>
               <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
-                Deleted customers and entries appear here, and can be restored for 7 days.
+                Deleted customers and entries can be restored for 7 days before they are permanently deleted.
               </Text>
             </View>
           ) : null

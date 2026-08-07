@@ -305,3 +305,31 @@ export interface LoanHistoryFilters {
   customerId?: string;
   eventType?: LoanHistoryEventType;
 }
+
+
+/**
+ * A deleted customer's Trash summary — deliberately NOT a list of their
+ * individual entries. While a customer is in Trash, every one of their
+ * purchases (cascade-deleted alongside them, or independently deleted
+ * earlier and still gone) is already represented by this ONE row and
+ * its counts.
+ *
+ * Shared by both mockLoanBookApi.ts and httpLoanBookApi.ts so neither
+ * implementation depends on the other's internals.
+ */
+export interface DeletedCustomerSummary {
+  customer: Customer;
+  /** Purchases still unpaid at the time of deletion. */
+  openEntryCount: number;
+  totalEntryCount: number;
+  totalOutstanding: Cents;
+}
+
+/** A deleted entry that earned its OWN Trash row — its customer is
+ *  still active, so this was deleted independently, not as part of a
+ *  customer-level cascade. Carries the customer's name for reference,
+ *  since the row has no customer context otherwise. */
+export interface DeletedEntrySummary {
+  view: LoanEntryView;
+  customerName: string;
+}

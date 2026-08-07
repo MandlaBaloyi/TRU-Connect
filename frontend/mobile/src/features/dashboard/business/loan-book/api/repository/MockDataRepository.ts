@@ -48,7 +48,7 @@ function daysAgo(days: number): string {
 const SEED_CUSTOMERS: Customer[] = [
   {
     id: "cust-0001",
-    name: "Thandi Mokoena",
+    name: "Mandla Baloyi",
     phone: "0821234567",
     firstRecordedAt: daysAgo(180),
     lastTransactionAt: daysAgo(3),
@@ -70,7 +70,7 @@ const SEED_CUSTOMERS: Customer[] = [
   },
   {
     id: "cust-0004",
-    name: "Johannes van Wyk",
+    name: "Gift Boss",
     phone: "0605551234",
     firstRecordedAt: daysAgo(75),
     lastTransactionAt: daysAgo(65),
@@ -85,7 +85,7 @@ const SEED_CUSTOMERS: Customer[] = [
   {
     // Long name — checks truncation/wrapping on a 360dp screen (Doc 02 §2.1).
     id: "cust-0006",
-    name: "Bongani Christopher Mahlangu",
+    name: "Mkateko Mahlangu",
     phone: "0823334455",
     firstRecordedAt: daysAgo(60),
     lastTransactionAt: daysAgo(22),
@@ -93,7 +93,7 @@ const SEED_CUSTOMERS: Customer[] = [
 ];
 
 const SEED_ENTRIES: LoanEntry[] = [
-  // Thandi — reliable settler, one small open balance.
+  // mandla — reliable settler, one small open balance.
   {
     id: "entry-0001",
     customerId: "cust-0001",
@@ -136,7 +136,7 @@ const SEED_ENTRIES: LoanEntry[] = [
     updatedAt: daysAgo(102),
   },
 
-  // Sipho — partially paid, now overdue.
+  //  — partially paid, now overdue.
   {
     id: "entry-0005",
     customerId: "cust-0002",
@@ -169,7 +169,7 @@ const SEED_ENTRIES: LoanEntry[] = [
     updatedAt: daysAgo(95),
   },
 
-  // Johannes — one very old unpaid debt.
+  //  — one very old unpaid debt.
   {
     id: "entry-0008",
     customerId: "cust-0004",
@@ -193,7 +193,7 @@ const SEED_ENTRIES: LoanEntry[] = [
     updatedAt: daysAgo(1),
   },
 
-  // Bongani — several small entries, mixed.
+  //  — several small entries, mixed.
   {
     id: "entry-0010",
     customerId: "cust-0006",
@@ -226,21 +226,21 @@ const SEED_ENTRIES: LoanEntry[] = [
 ];
 
 const SEED_PAYMENTS: Payment[] = [
-  // Thandi settles fully, promptly — round cash amounts.
+  // mandla settles fully, promptly — round cash amounts.
   { id: "pay-0001", loanEntryId: "entry-0002", amount: 10000, paidAt: daysAgo(32), createdAt: daysAgo(32) },
   { id: "pay-0002", loanEntryId: "entry-0002", amount: 8000, paidAt: daysAgo(28), createdAt: daysAgo(28) },
   { id: "pay-0003", loanEntryId: "entry-0003", amount: 20000, paidAt: daysAgo(68), createdAt: daysAgo(68) },
   { id: "pay-0004", loanEntryId: "entry-0003", amount: 12000, paidAt: daysAgo(64), createdAt: daysAgo(64) },
   { id: "pay-0005", loanEntryId: "entry-0004", amount: 15500, paidAt: daysAgo(102), createdAt: daysAgo(102) },
 
-  // Sipho pays in pieces, then stops.
+  //  pays in pieces, then stops.
   { id: "pay-0006", loanEntryId: "entry-0005", amount: 20000, paidAt: daysAgo(40), createdAt: daysAgo(40) },
   { id: "pay-0007", loanEntryId: "entry-0005", amount: 15000, paidAt: daysAgo(12), note: "Part payment", createdAt: daysAgo(12) },
 
-  // Johannes paid once, long ago, then nothing.
+  //  paid once, long ago, then nothing.
   { id: "pay-0008", loanEntryId: "entry-0008", amount: 25000, paidAt: daysAgo(65), createdAt: daysAgo(65) },
 
-  // Bongani — one settled, one partially paid.
+  //  — one settled, one partially paid.
   { id: "pay-0009", loanEntryId: "entry-0011", amount: 8000, paidAt: daysAgo(33), createdAt: daysAgo(33) },
   { id: "pay-0010", loanEntryId: "entry-0012", amount: 10000, paidAt: daysAgo(45), createdAt: daysAgo(45) },
 ];

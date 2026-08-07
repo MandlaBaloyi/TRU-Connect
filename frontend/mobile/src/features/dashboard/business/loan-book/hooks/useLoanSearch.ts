@@ -12,10 +12,12 @@ import { useQuery } from "@tanstack/react-query";
 
 import { searchCustomers } from "../api/loanBookApi";
 import { loanBookKeys } from "./loanBookKeys";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
 export function useLoanSearch(initialTerm = "") {
+  const userId = useCurrentUserId();
   const [term, setTerm] = useState(initialTerm);
   const [debouncedTerm, setDebouncedTerm] = useState(initialTerm);
 
@@ -30,8 +32,9 @@ export function useLoanSearch(initialTerm = "") {
   }, [term]);
 
   const query = useQuery({
-    queryKey: loanBookKeys.customerSearch(debouncedTerm),
+    queryKey: loanBookKeys.customerSearch(userId, debouncedTerm),
     queryFn: () => searchCustomers(debouncedTerm),
+    enabled: Boolean(userId),
   });
 
   return {

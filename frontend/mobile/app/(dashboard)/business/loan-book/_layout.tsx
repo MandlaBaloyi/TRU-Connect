@@ -9,6 +9,14 @@
  * a white header regardless of the device's colour scheme, unrelated to
  * whatever the screen body itself does.
  *
+ * SAME REASONING APPLIES TO contentStyle, added below: this is a
+ * SEPARATE nested navigator from the root Stack and the (auth) Stack --
+ * it does not inherit either of their screenOptions automatically.
+ * Without its own contentStyle, every Loan Book screen would show the
+ * same white-flash-on-swipe-back bug in dark mode that was just fixed
+ * at the root, specifically for every back-gesture inside this
+ * feature (e.g. swiping back from Purchase to the main Loan Book list).
+ *
  * Title text uses typography.h2 (18sp/Semibold) to match Doc 02 §4's
  * screen-title scale, rather than React Navigation's own default header
  * font.
@@ -35,6 +43,7 @@ export default function LoanBookLayout() {
           fontWeight: typography.h2.fontWeight,
           color: theme.colors.onSurface,
         },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="index" options={{ title: "Loan Book" }} />
