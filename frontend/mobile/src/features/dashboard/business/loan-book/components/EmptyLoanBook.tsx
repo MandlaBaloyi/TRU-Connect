@@ -22,7 +22,7 @@ export function EmptyLoanBook({ onRecordSale, variant = "FIRST_RUN", onClearFilt
     return (
       <View style={styles.wrapper}>
         <Text style={styles.icon}>🔍</Text>
-        <Text style={[styles.title, { color: theme.colors.onBackground }]}>Nothing matches</Text>
+        <Text style={[styles.title, { color: theme.colors.onBackground }]}> No customers found</Text>
         <Text style={[styles.body, { color: theme.colors.onSurfaceVariant }]}>
           Try a different name, or clear the filters.
         </Text>
@@ -43,10 +43,10 @@ export function EmptyLoanBook({ onRecordSale, variant = "FIRST_RUN", onClearFilt
     <View style={styles.wrapper}>
       <Text style={styles.icon}>📒</Text>
       <Text style={[styles.title, { color: theme.colors.onBackground }]}>Your loan book is empty</Text>
-      <Text style={[styles.body, { color: theme.colors.onSurfaceVariant }]}>
-        Record what customers owe you, instead of keeping it in a paper book. You will always know
-        who owes what, and how long it has been.
-      </Text>
+        <Text style={[styles.body, { color: theme.colors.onSurfaceVariant }]}>
+        Customers you sell to on credit will appear here. You can record sales, payments, and view
+      outstanding balances.
+       </Text>
       {onRecordSale && (
         <Pressable
           onPress={onRecordSale}

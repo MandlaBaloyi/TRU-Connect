@@ -1,21 +1,4 @@
-/******************************************************************************
-*
-* TRU CONNECT
-* AUTH DOMAIN QA TEST SUITE
-*
-* DOMAIN:
-* Authentication
-*
-* PURPOSE:
-* Validate that every authentication workflow correctly persists data
-* inside the database.
-*
-* ENVIRONMENT:
-* Development
-*
-* AUTHOR:
-* TruePoint Engineering
-*
+
 ******************************************************************************/
 
 --------------------------------------------------------------------------------

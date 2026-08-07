@@ -60,7 +60,7 @@ export default function AddPaymentScreen() {
   if (notFound || !loan) {
     return (
       <ScreenContainer>
-        <ErrorState message="This purchase no longer exists. It may have been removed." />
+        <ErrorState message="This purchase is no longer available." />
       </ScreenContainer>
     );
   }
@@ -85,7 +85,7 @@ export default function AddPaymentScreen() {
       router.back();
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "Could not record that payment. Try again."
+        error instanceof Error ? error.message : "Payment could not be recorded. Try again."
       );
     }
   };

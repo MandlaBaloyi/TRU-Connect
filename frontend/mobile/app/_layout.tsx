@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
+import { useTheme } from "react-native-paper";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { queryClient } from "@/services/api/queryClient";
 import { OfflineBanner } from "@/components/feedback/OfflineBanner";
@@ -21,6 +22,16 @@ import { OfflineBanner } from "@/components/feedback/OfflineBanner";
  * business now lives under (dashboard)/business, not its own top-level
  * group). Only add an explicit <Stack.Screen> here if a specific route
  * needs its own screenOptions (e.g. a modal presentation).
+ *
+ * ThemedStack (below) exists specifically to fix a real bug: this
+ * Stack's screenOptions never set `contentStyle`, so React Navigation's
+ * native stack defaulted to plain WHITE behind/around every screen
+ * transition -- invisible in light mode (white matches), but a clearly
+ * visible white flash on the edge during any swipe-back gesture in dark
+ * mode, app-wide. useTheme() must run INSIDE ThemeProvider's own
+ * context, so this reads the real theme in a small child component
+ * rather than in RootLayout itself, which renders before ThemeProvider
+ * is established.
  */
 export default function RootLayout() {
   return (
@@ -29,9 +40,21 @@ export default function RootLayout() {
         <ThemeProvider>
           <StatusBar style="auto" />
           <OfflineBanner />
-          <Stack screenOptions={{ headerShown: false }} />
+          <ThemedStack />
         </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function ThemedStack() {
+  const theme = useTheme();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.background },
+      }}
+    />
   );
 }

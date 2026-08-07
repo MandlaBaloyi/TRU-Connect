@@ -20,8 +20,10 @@ import {
   recordPayment,
 } from "../api/loanBookApi";
 import { loanBookKeys } from "./loanBookKeys";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export function useLoanPayments() {
+  const userId = useCurrentUserId();
   const queryClient = useQueryClient();
 
   // Invalidate the whole feature after any write. Narrower invalidation
@@ -29,21 +31,21 @@ export function useLoanPayments() {
   // showing a balance that contradicts another — precisely the
   // inconsistency the derived-balance rule exists to prevent.
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: loanBookKeys.all });
+    queryClient.invalidateQueries({ queryKey: loanBookKeys.all(userId) });
   };
 
   const recordPaymentMutation = useMutation({
     mutationFn: (input: RecordPaymentInput) => recordPayment(input),
 
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: loanBookKeys.entry(input.loanEntryId) });
+      await queryClient.cancelQueries({ queryKey: loanBookKeys.entry(userId, input.loanEntryId) });
       const previous = queryClient.getQueryData<LoanEntryView | null>(
-        loanBookKeys.entry(input.loanEntryId)
+        loanBookKeys.entry(userId, input.loanEntryId)
       );
 
       if (previous) {
         const optimisticOutstanding = Math.max(0, previous.outstandingAmount - input.amount);
-        queryClient.setQueryData<LoanEntryView>(loanBookKeys.entry(input.loanEntryId), {
+        queryClient.setQueryData<LoanEntryView>(loanBookKeys.entry(userId, input.loanEntryId), {
           ...previous,
           outstandingAmount: optimisticOutstanding,
           amountPaid: previous.amountPaid + input.amount,
@@ -56,7 +58,7 @@ export function useLoanPayments() {
 
     onError: (_error, input, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(loanBookKeys.entry(input.loanEntryId), context.previous);
+        queryClient.setQueryData(loanBookKeys.entry(userId, input.loanEntryId), context.previous);
       }
     },
 

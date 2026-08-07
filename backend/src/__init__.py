@@ -3,9 +3,7 @@ Application Factory.
 App Factory".
 """
 from __future__ import annotations
-
 from flask import Flask
-
 from src.config import get_config
 from src.extensions import db, migrate, jwt, ma
 from src.shared.logging.logger import configure_logging
@@ -44,11 +42,16 @@ def _register_extensions(app: Flask) -> None:
 
 def _register_blueprints(app: Flask) -> None:
     from src.api import api_bp
-
     app.register_blueprint(api_bp, url_prefix="/api/v1")
 
     from src.domains.platform.api.reset_password_routes import reset_password_bp
     app.register_blueprint(reset_password_bp)
+
+    from src.domains.business.loan_book.api.loan_book_routes import loan_book_bp
+    app.register_blueprint(loan_book_bp)
+
+    from src.domains.business.order_book.api.order_book_routes import order_book_bp
+    app.register_blueprint(order_book_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:

@@ -10,7 +10,12 @@
     "splash": {
       "image": "./assets/images/tru-connect-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/images/tru-connect-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#111417"
+      }
     },
     "ios": {
       "supportsTablet": true
@@ -21,7 +26,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.mobile"
     },
     "web": {
       "favicon": "./assets/images/tru-connect-logo.png"

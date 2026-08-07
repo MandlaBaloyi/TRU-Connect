@@ -1,28 +1,37 @@
 /**
  * useTrash — deleted customers and entries still within the recovery
  * window, plus restore mutations.
+ *
+ * trashKeys IS ALSO SCOPED BY USER now, same reasoning and same bug as
+ * loanBookKeys.ts's own fix: it was previously a single shared
+ * ["loanBookTrash"] key across every account, so a deleted customer's
+ * name could flash from one business onto another's screen the exact
+ * same way active data could.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getTrash, restoreCustomer, restoreLoanEntry } from "../api/loanBookApi";
 import { loanBookKeys } from "./loanBookKeys";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export const trashKeys = {
-  all: ["loanBookTrash"] as const,
+  all: (userId: string | undefined) => ["loanBookTrash", userId ?? "anonymous"] as const,
 };
 
 export function useTrash() {
+  const userId = useCurrentUserId();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: trashKeys.all,
+    queryKey: trashKeys.all(userId),
     queryFn: getTrash,
+    enabled: Boolean(userId),
   });
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: trashKeys.all });
-    queryClient.invalidateQueries({ queryKey: loanBookKeys.all });
+    queryClient.invalidateQueries({ queryKey: trashKeys.all(userId) });
+    queryClient.invalidateQueries({ queryKey: loanBookKeys.all(userId) });
   };
 
   const restoreEntryMutation = useMutation({

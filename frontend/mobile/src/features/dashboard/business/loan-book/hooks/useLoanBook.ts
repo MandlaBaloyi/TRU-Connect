@@ -6,6 +6,11 @@
  * to define all three distinctly, and "empty because there is nothing"
  * needs a completely different screen from "empty because a filter
  * matched nothing".
+ *
+ * Every query is scoped by the CURRENT user's id (see loanBookKeys.ts
+ * and useCurrentUserId.ts) and gated with `enabled` until that id has
+ * actually loaded -- this prevents a query firing under the wrong
+ * account's cache key, or before there's any id to scope it by at all.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -13,21 +18,27 @@ import { useQuery } from "@tanstack/react-query";
 import type { CustomerView, LoanBookSummary, LoanEntryView, LoanFilters } from "../types";
 import { getCustomerViews, getLoanBookSummary, getLoanEntries } from "../api/loanBookApi";
 import { hasFilters, loanBookKeys } from "./loanBookKeys";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export function useLoanBook(filters?: LoanFilters) {
+  const userId = useCurrentUserId();
+
   const summaryQuery = useQuery<LoanBookSummary>({
-    queryKey: loanBookKeys.summary(),
+    queryKey: loanBookKeys.summary(userId),
     queryFn: getLoanBookSummary,
+    enabled: Boolean(userId),
   });
 
   const entriesQuery = useQuery<LoanEntryView[]>({
-    queryKey: loanBookKeys.entries(filters),
+    queryKey: loanBookKeys.entries(userId, filters),
     queryFn: () => getLoanEntries(filters),
+    enabled: Boolean(userId),
   });
 
   const customersQuery = useQuery<CustomerView[]>({
-    queryKey: loanBookKeys.customerViews(),
+    queryKey: loanBookKeys.customerViews(userId),
     queryFn: getCustomerViews,
+    enabled: Boolean(userId),
   });
 
   const entryCount = entriesQuery.data?.length ?? 0;

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Pressable } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
@@ -57,6 +57,10 @@ const ROLE_SLIDES: RoleSlide[] = [
   },
 ];
 
+function indexForRole(role: UserRole): number {
+  return ROLE_SLIDES.findIndex((slide) => slide.role === role);
+}
+
 /**
  * Role Selection -- swipeable pager between "For Small Business" and
  * "For Supplier Business". Each slide previews that role's core
@@ -67,6 +71,17 @@ const ROLE_SLIDES: RoleSlide[] = [
  * The centered slide IS the selection -- swiping chooses the role, there
  * is no separate tap-to-select step. Continue sits in a fixed footer
  * below the pager so it never moves while swiping.
+ *
+ * REMEMBERS the last role chosen (read from STORAGE_KEYS.SELECTED_ROLE)
+ * -- the PagerView is not mounted at all until that read resolves, and
+ * mounts DIRECTLY on the correct starting page via `initialPage`. A
+ * pager that mounted on Business by default and then imperatively
+ * jumped to Supplier once storage resolved would itself be visible: a
+ * page-swipe animation firing on load, uninvited. Waiting to mount with
+ * the right starting page already known avoids that entirely -- same
+ * reasoning as create-account.tsx's own fix for exactly this class of
+ * "start with a guess, correct it a moment later" flash.
+ *
  * Ref: docs/01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt (Screen 3) and
  * docs/06_BUSINESS_RULES_AND_WORKFLOWS.txt, Sections 1-2.
  */
@@ -74,7 +89,26 @@ export default function RoleSelectionScreen() {
   const router = useRouter();
   const theme = useTheme();
   const pagerRef = useRef<PagerView>(null);
+  // null = "not yet determined" -- see module docstring for why the
+  // pager doesn't mount at all until this resolves.
+  const [initialIndex, setInitialIndex] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    secureStorage.getItem(STORAGE_KEYS.SELECTED_ROLE).then((stored) => {
+      const index = stored === "supplier" || stored === "business" ? indexForRole(stored) : 0;
+      setInitialIndex(index);
+      setActiveIndex(index);
+    });
+  }, []);
+
+  if (initialIndex === null) {
+    // Rendering nothing, not a spinner -- see create-account.tsx's own
+    // fix for the same reasoning: secureStorage reads resolve in well
+    // under 100ms, and a spinner here would be its own visible flash on
+    // top of the shape-change between "spinner" and "real pager".
+    return null;
+  }
 
   const activeSlide = ROLE_SLIDES[activeIndex];
 
@@ -117,7 +151,7 @@ export default function RoleSelectionScreen() {
         <PagerView
           ref={pagerRef}
           style={styles.pager}
-          initialPage={0}
+          initialPage={initialIndex}
           onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
         >
           {ROLE_SLIDES.map((slide) => (
@@ -203,7 +237,7 @@ const styles = StyleSheet.create({
   arrow: {
     position: "absolute",
     top: "50%",
-    marginTop: -14,      // half of 28
+    marginTop: -14,
     zIndex: 10,
     width: 28,
     height: 28,

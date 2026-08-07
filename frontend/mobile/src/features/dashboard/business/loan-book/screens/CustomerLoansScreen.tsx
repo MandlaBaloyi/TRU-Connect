@@ -63,7 +63,7 @@ export default function CustomerLoansScreen() {
         <ErrorState
           message={
             notFound
-              ? "Customer not found. It may have been removed."
+              ? "Customer not found."
               : "Could not load this customer. Check your connection and try again."
           }
           onRetry={notFound ? undefined : refetch}
