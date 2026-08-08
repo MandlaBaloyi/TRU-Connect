@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 from src.domains.auth.schedulers.auth_scheduler import JOB_SPECS as AUTH_JOB_SPECS
+from src.domains.business.order_book.schedulers.order_book_scheduler import JOB_SPECS as ORDER_BOOK_JOB_SPECS
 from src.domains.platform.schedulers.platform_scheduler import JOB_SPECS as PLATFORM_JOB_SPECS
 from src.master_scheduler import runner
 from src.master_scheduler.interfaces import JobSpec, SchedulerEngine
@@ -31,8 +32,9 @@ from src.master_scheduler.interfaces import JobSpec, SchedulerEngine
 ALL_JOB_SPECS: list[JobSpec] = [
     *AUTH_JOB_SPECS,
     *PLATFORM_JOB_SPECS,
+    *ORDER_BOOK_JOB_SPECS,
     # Future domains' own JOB_SPECS get concatenated here the same way,
-    # e.g.: *BUSINESS_JOB_SPECS, *SUPPLIER_JOB_SPECS, *WALLET_JOB_SPECS,
+    # e.g.: *LOAN_BOOK_JOB_SPECS, *SUPPLIER_JOB_SPECS, *WALLET_JOB_SPECS,
     # each imported from that domain's own schedulers/<domain>_scheduler.py.
 ]
 

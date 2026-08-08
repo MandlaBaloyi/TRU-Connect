@@ -17,17 +17,44 @@ frontend
 │   │   │   │   │   ├── discovery.tsx
 │   │   │   │   │   ├── home.tsx
 │   │   │   │   │   └── more.tsx
-│   │   │   │   └── loan-book
-│   │   │   │       ├── customer
-│   │   │   │       │   └── [customerId].tsx
-│   │   │   │       ├── [loanId].tsx
+│   │   │   │   ├── loan-book
+│   │   │   │   │   ├── customer
+│   │   │   │   │   │   └── [customerId].tsx
+│   │   │   │   │   ├── [loanId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── add-payment.tsx
+│   │   │   │   │   ├── analytics.tsx
+│   │   │   │   │   ├── history.tsx
+│   │   │   │   │   ├── index.tsx
+│   │   │   │   │   ├── record-sale.tsx
+│   │   │   │   │   └── trash.tsx
+│   │   │   │   ├── my-account
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── my-business
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── business-details.tsx
+│   │   │   │   │   ├── contact-details.tsx
+│   │   │   │   │   ├── index.tsx
+│   │   │   │   │   ├── location.tsx
+│   │   │   │   │   ├── operating-history.tsx
+│   │   │   │   │   ├── suppliers.tsx
+│   │   │   │   │   └── trading-details.tsx
+│   │   │   │   ├── order-book
+│   │   │   │   │   ├── [orderId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── balances.tsx
+│   │   │   │   │   ├── create-order.tsx
+│   │   │   │   │   ├── history.tsx
+│   │   │   │   │   ├── index.tsx
+│   │   │   │   │   ├── performance.tsx
+│   │   │   │   │   └── trash.tsx
+│   │   │   │   ├── security
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
+│   │   │   │   └── settings
 │   │   │   │       ├── _layout.tsx
-│   │   │   │       ├── add-payment.tsx
-│   │   │   │       ├── analytics.tsx
-│   │   │   │       ├── history.tsx
-│   │   │   │       ├── index.tsx
-│   │   │   │       ├── record-sale.tsx
-│   │   │   │       └── trash.tsx
+│   │   │   │       └── index.tsx
 │   │   │   ├── supplier
 │   │   │   │   ├── (tabs)
 │   │   │   │   │   ├── _layout.tsx
@@ -94,229 +121,316 @@ frontend
 │   │   │   │   ├── utils
 │   │   │   │   │   └── persistSession.ts
 │   │   │   │   └── types.ts
-│   │   │   ├── business
-│   │   │   │   ├── api
-│   │   │   │   │   └── businessApi.ts
-│   │   │   │   ├── hooks
-│   │   │   │   │   └── useBusinessProfileWizard.ts
-│   │   │   │   ├── schemas
-│   │   │   │   │   └── businessSchemas.ts
-│   │   │   │   └── types.ts
-│   │   │   ├── dashboard
-│   │   │   │   ├── business
-│   │   │   │   │   ├── business-profile
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   ├── find-supplier
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   ├── loan-book
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   │   ├── agingCalculator.ts
-│   │   │   │   │   │   │   ├── balanceCalculator.ts
-│   │   │   │   │   │   │   ├── paymentAllocation.ts
-│   │   │   │   │   │   │   ├── repaymentPredictor.ts
-│   │   │   │   │   │   │   ├── riskIndicator.ts
-│   │   │   │   │   │   │   └── trashRetention.ts
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   │   ├── repository
-│   │   │   │   │   │   │   │   ├── LoanRepository.ts
-│   │   │   │   │   │   │   │   └── MockDataRepository.ts
-│   │   │   │   │   │   │   ├── httpLoanBookApi.ts
-│   │   │   │   │   │   │   ├── loanBookApi.ts
-│   │   │   │   │   │   │   └── mockLoanBookApi.ts
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   │   ├── ContactActionsRow.tsx
-│   │   │   │   │   │   │   ├── CustomerAvatar.tsx
-│   │   │   │   │   │   │   ├── CustomerCard.tsx
-│   │   │   │   │   │   │   ├── CustomerFilterBar.tsx
-│   │   │   │   │   │   │   ├── EmptyLoanBook.tsx
-│   │   │   │   │   │   │   ├── HistoryEventRow.tsx
-│   │   │   │   │   │   │   ├── index.ts
-│   │   │   │   │   │   │   ├── InsightList.tsx
-│   │   │   │   │   │   │   ├── LoanBookIcon.tsx
-│   │   │   │   │   │   │   ├── LoanCard.tsx
-│   │   │   │   │   │   │   ├── LoanFilterBar.tsx
-│   │   │   │   │   │   │   ├── LoanReceiptCard.tsx
-│   │   │   │   │   │   │   ├── LoanSearchBar.tsx
-│   │   │   │   │   │   │   ├── LoanStatusBadge.tsx
-│   │   │   │   │   │   │   ├── LoanSummaryCard.tsx
-│   │   │   │   │   │   │   ├── OutstandingAmountCard.tsx
-│   │   │   │   │   │   │   ├── PaymentCard.tsx
-│   │   │   │   │   │   │   ├── QuickAmountRow.tsx
-│   │   │   │   │   │   │   ├── ReasonPromptModal.tsx
-│   │   │   │   │   │   │   ├── ReceiptPreviewModal.tsx
-│   │   │   │   │   │   │   ├── RestoreRow.tsx
-│   │   │   │   │   │   │   └── TransactionRow.tsx
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   │   ├── index.ts
-│   │   │   │   │   │   │   ├── loanBookKeys.ts
-│   │   │   │   │   │   │   ├── useCurrentUserId.ts
-│   │   │   │   │   │   │   ├── useCustomerActions.ts
-│   │   │   │   │   │   │   ├── useCustomerFilters.ts
-│   │   │   │   │   │   │   ├── useLoan.ts
-│   │   │   │   │   │   │   ├── useLoanBook.ts
-│   │   │   │   │   │   │   ├── useLoanFilters.ts
-│   │   │   │   │   │   │   ├── useLoanHistory.ts
-│   │   │   │   │   │   │   ├── useLoanPayments.ts
-│   │   │   │   │   │   │   ├── useLoanSearch.ts
-│   │   │   │   │   │   │   ├── useShareReceipt.ts
-│   │   │   │   │   │   │   └── useTrash.ts
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   │   ├── AddPaymentScreen.tsx
-│   │   │   │   │   │   │   ├── CustomerLoansScreen.tsx
-│   │   │   │   │   │   │   ├── index.ts
-│   │   │   │   │   │   │   ├── LoanAnalyticsScreen.tsx
-│   │   │   │   │   │   │   ├── LoanBookScreen.tsx
-│   │   │   │   │   │   │   ├── LoanDetailsScreen.tsx
-│   │   │   │   │   │   │   ├── LoanHistoryScreen.tsx
-│   │   │   │   │   │   │   ├── RecordSaleScreen.tsx
-│   │   │   │   │   │   │   └── TrashScreen.tsx
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   │   ├── contactActions.ts
-│   │   │   │   │   │   │   ├── customerFilters.ts
-│   │   │   │   │   │   │   ├── loanFilters.ts
-│   │   │   │   │   │   │   ├── loanHistory.ts
-│   │   │   │   │   │   │   ├── loanMapper.ts
-│   │   │   │   │   │   │   ├── loanValidation.ts
-│   │   │   │   │   │   │   ├── localReminderService.ts
-│   │   │   │   │   │   │   └── receiptService.ts
-│   │   │   │   │   │   ├── README.md
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   ├── nearby-suppliers
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   ├── orders
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   ├── recommended-products
-│   │   │   │   │   │   ├── algorithms
-│   │   │   │   │   │   ├── api
-│   │   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── hooks
-│   │   │   │   │   │   ├── screens
-│   │   │   │   │   │   ├── services
-│   │   │   │   │   │   └── types.ts
-│   │   │   │   │   └── verify-business
-│   │   │   │   │       ├── algorithms
-│   │   │   │   │       ├── api
-│   │   │   │   │       ├── components
-│   │   │   │   │       ├── hooks
-│   │   │   │   │       ├── screens
-│   │   │   │   │       ├── services
-│   │   │   │   │       └── types.ts
-│   │   │   │   ├── hooks
-│   │   │   │   ├── shared
-│   │   │   │   │   ├── components
-│   │   │   │   │   │   ├── AnalyticsCard.tsx
-│   │   │   │   │   │   ├── HomeHeader.tsx
-│   │   │   │   │   │   ├── NotificationCard.tsx
-│   │   │   │   │   │   ├── ScoreCard.tsx
-│   │   │   │   │   │   ├── SectionHeader.tsx
-│   │   │   │   │   │   └── StatCard.tsx
-│   │   │   │   │   ├── hooks
-│   │   │   │   │   │   └── useDashboardNotifications.ts
-│   │   │   │   │   ├── types
-│   │   │   │   │   │   └── index.ts
-│   │   │   │   │   └── utils
-│   │   │   │   │       ├── barcodeIntegration.ts
-│   │   │   │   │       ├── mapsIntegration.ts
-│   │   │   │   │       ├── messagingIntegration.ts
-│   │   │   │   │       ├── searchIntegration.ts
-│   │   │   │   │       └── weatherIntegration.ts
-│   │   │   │   └── supplier
-│   │   │   │       ├── add-product
-│   │   │   │       │   ├── algorithms
-│   │   │   │       │   ├── api
-│   │   │   │       │   ├── components
-│   │   │   │       │   ├── hooks
-│   │   │   │       │   ├── screens
-│   │   │   │       │   ├── services
-│   │   │   │       │   └── types.ts
-│   │   │   │       ├── manage-deliveries
-│   │   │   │       │   ├── algorithms
-│   │   │   │       │   ├── api
-│   │   │   │       │   ├── components
-│   │   │   │       │   ├── hooks
-│   │   │   │       │   ├── screens
-│   │   │   │       │   ├── services
-│   │   │   │       │   └── types.ts
-│   │   │   │       ├── manage-orders
-│   │   │   │       │   ├── algorithms
-│   │   │   │       │   ├── api
-│   │   │   │       │   ├── components
-│   │   │   │       │   ├── hooks
-│   │   │   │       │   ├── screens
-│   │   │   │       │   ├── services
-│   │   │   │       │   └── types.ts
-│   │   │   │       ├── product-catalogue
-│   │   │   │       │   ├── algorithms
-│   │   │   │       │   │   └── README.md
-│   │   │   │       │   ├── api
-│   │   │   │       │   │   └── productCatalogueApi.ts
-│   │   │   │       │   ├── components
-│   │   │   │       │   │   ├── ProductCard.tsx
-│   │   │   │       │   │   ├── ProductCatalogueIcon.tsx
-│   │   │   │       │   │   ├── ProductCategorySelector.tsx
-│   │   │   │       │   │   ├── ProductFilterSheet.tsx
-│   │   │   │       │   │   ├── ProductForm.tsx
-│   │   │   │       │   │   ├── ProductImageUploader.tsx
-│   │   │   │       │   │   ├── ProductPriceCard.tsx
-│   │   │   │       │   │   ├── ProductSearchBar.tsx
-│   │   │   │       │   │   └── ProductStatusBadge.tsx
-│   │   │   │       │   ├── hooks
-│   │   │   │       │   │   ├── useCreateProduct.ts
-│   │   │   │       │   │   ├── useDeleteProduct.ts
-│   │   │   │       │   │   ├── useProducts.ts
-│   │   │   │       │   │   ├── useProductSearch.ts
-│   │   │   │       │   │   └── useUpdateProduct.ts
-│   │   │   │       │   ├── screens
-│   │   │   │       │   │   ├── AddProductScreen.tsx
-│   │   │   │       │   │   ├── DraftProductsScreen.tsx
-│   │   │   │       │   │   ├── EditProductScreen.tsx
-│   │   │   │       │   │   ├── ProductCatalogueScreen.tsx
-│   │   │   │       │   │   ├── ProductDetailsScreen.tsx
-│   │   │   │       │   │   └── ProductImagesScreen.tsx
-│   │   │   │       │   ├── services
-│   │   │   │       │   │   ├── pricingCalculator.ts
-│   │   │   │       │   │   ├── productMapper.ts
-│   │   │   │       │   │   ├── productValidation.ts
-│   │   │   │       │   │   └── stockManager.ts
-│   │   │   │       │   └── types.ts
-│   │   │   │       └── verify-business
-│   │   │   │           ├── algorithms
-│   │   │   │           ├── api
-│   │   │   │           ├── components
-│   │   │   │           ├── hooks
-│   │   │   │           ├── screens
-│   │   │   │           ├── services
-│   │   │   │           └── types.ts
-│   │   │   └── supplier
-│   │   │       ├── api
-│   │   │       │   └── supplierApi.ts
-│   │   │       ├── schemas
-│   │   │       │   └── supplierSchemas.ts
-│   │   │       └── types.ts
+│   │   │   └── dashboard
+│   │   │       ├── business
+│   │   │       │   ├── business-profile
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   │   └── completionCalculator.ts
+│   │   │       │   │   ├── api
+│   │   │       │   │   │   ├── businessProfileApi.ts
+│   │   │       │   │   │   ├── httpBusinessProfileApi.ts
+│   │   │       │   │   │   └── mockBusinessProfileApi.ts
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── sections
+│   │   │       │   │   │   │   ├── BusinessDetailsSection.tsx
+│   │   │       │   │   │   │   ├── ContactDetailsSection.tsx
+│   │   │       │   │   │   │   ├── index.ts
+│   │   │       │   │   │   │   ├── LocationSection.tsx
+│   │   │       │   │   │   │   ├── OperatingHistorySection.tsx
+│   │   │       │   │   │   │   ├── SupplierInfoSection.tsx
+│   │   │       │   │   │   │   └── TradingDetailsSection.tsx
+│   │   │       │   │   │   ├── ChipMultiSelect.tsx
+│   │   │       │   │   │   ├── ChipSingleSelect.tsx
+│   │   │       │   │   │   ├── CompletionBar.tsx
+│   │   │       │   │   │   ├── EditButton.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── ProfileCard.tsx
+│   │   │       │   │   │   ├── ProfileTabBar.tsx
+│   │   │       │   │   │   └── VerificationChecklist.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── businessProfileKeys.ts
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── useBusinessProfile.ts
+│   │   │       │   │   │   ├── useBusinessProfileMutations.ts
+│   │   │       │   │   │   └── useCurrentUserId.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── BusinessDetailsEditScreen.tsx
+│   │   │       │   │   │   ├── BusinessProfileScreen.tsx
+│   │   │       │   │   │   ├── ContactDetailsEditScreen.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── LocationEditScreen.tsx
+│   │   │       │   │   │   ├── OperatingHistoryEditScreen.tsx
+│   │   │       │   │   │   ├── SupplierInfoEditScreen.tsx
+│   │   │       │   │   │   └── TradingDetailsEditScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   ├── {algorithms,api,components,hooks,screens,services}
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── find-supplier
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   ├── api
+│   │   │       │   │   ├── components
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   ├── screens
+│   │   │       │   │   ├── services
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── loan-book
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   │   ├── agingCalculator.ts
+│   │   │       │   │   │   ├── balanceCalculator.ts
+│   │   │       │   │   │   ├── paymentAllocation.ts
+│   │   │       │   │   │   ├── repaymentPredictor.ts
+│   │   │       │   │   │   ├── riskIndicator.ts
+│   │   │       │   │   │   └── trashRetention.ts
+│   │   │       │   │   ├── api
+│   │   │       │   │   │   ├── repository
+│   │   │       │   │   │   │   ├── LoanRepository.ts
+│   │   │       │   │   │   │   └── MockDataRepository.ts
+│   │   │       │   │   │   ├── httpLoanBookApi.ts
+│   │   │       │   │   │   ├── loanBookApi.ts
+│   │   │       │   │   │   └── mockLoanBookApi.ts
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── ContactActionsRow.tsx
+│   │   │       │   │   │   ├── CustomerAvatar.tsx
+│   │   │       │   │   │   ├── CustomerCard.tsx
+│   │   │       │   │   │   ├── CustomerFilterBar.tsx
+│   │   │       │   │   │   ├── EmptyLoanBook.tsx
+│   │   │       │   │   │   ├── HistoryEventRow.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── InsightList.tsx
+│   │   │       │   │   │   ├── LoanBookIcon.tsx
+│   │   │       │   │   │   ├── LoanCard.tsx
+│   │   │       │   │   │   ├── LoanFilterBar.tsx
+│   │   │       │   │   │   ├── LoanReceiptCard.tsx
+│   │   │       │   │   │   ├── LoanSearchBar.tsx
+│   │   │       │   │   │   ├── LoanStatusBadge.tsx
+│   │   │       │   │   │   ├── LoanSummaryCard.tsx
+│   │   │       │   │   │   ├── OutstandingAmountCard.tsx
+│   │   │       │   │   │   ├── PaymentCard.tsx
+│   │   │       │   │   │   ├── QuickAmountRow.tsx
+│   │   │       │   │   │   ├── ReasonPromptModal.tsx
+│   │   │       │   │   │   ├── ReceiptPreviewModal.tsx
+│   │   │       │   │   │   ├── RestoreRow.tsx
+│   │   │       │   │   │   └── TransactionRow.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── loanBookKeys.ts
+│   │   │       │   │   │   ├── useCurrentUserId.ts
+│   │   │       │   │   │   ├── useCustomerActions.ts
+│   │   │       │   │   │   ├── useCustomerFilters.ts
+│   │   │       │   │   │   ├── useLoan.ts
+│   │   │       │   │   │   ├── useLoanBook.ts
+│   │   │       │   │   │   ├── useLoanFilters.ts
+│   │   │       │   │   │   ├── useLoanHistory.ts
+│   │   │       │   │   │   ├── useLoanPayments.ts
+│   │   │       │   │   │   ├── useLoanSearch.ts
+│   │   │       │   │   │   ├── useShareReceipt.ts
+│   │   │       │   │   │   └── useTrash.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── AddPaymentScreen.tsx
+│   │   │       │   │   │   ├── CustomerLoansScreen.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── LoanAnalyticsScreen.tsx
+│   │   │       │   │   │   ├── LoanBookScreen.tsx
+│   │   │       │   │   │   ├── LoanDetailsScreen.tsx
+│   │   │       │   │   │   ├── LoanHistoryScreen.tsx
+│   │   │       │   │   │   ├── RecordSaleScreen.tsx
+│   │   │       │   │   │   └── TrashScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── contactActions.ts
+│   │   │       │   │   │   ├── customerFilters.ts
+│   │   │       │   │   │   ├── loanFilters.ts
+│   │   │       │   │   │   ├── loanHistory.ts
+│   │   │       │   │   │   ├── loanMapper.ts
+│   │   │       │   │   │   ├── loanValidation.ts
+│   │   │       │   │   │   ├── localReminderService.ts
+│   │   │       │   │   │   └── receiptService.ts
+│   │   │       │   │   ├── README.md
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── my-account
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   └── MyAccountScreen.tsx
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── nearby-suppliers
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   ├── api
+│   │   │       │   │   ├── components
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   ├── screens
+│   │   │       │   │   ├── services
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── order-book
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   │   ├── autoClearSweep.ts
+│   │   │       │   │   │   ├── dailyRevenue.ts
+│   │   │       │   │   │   ├── performanceStats.ts
+│   │   │       │   │   │   └── trashRetention.ts
+│   │   │       │   │   ├── api
+│   │   │       │   │   │   ├── httpOrderBookApi.ts
+│   │   │       │   │   │   ├── mockOrderBookApi.ts
+│   │   │       │   │   │   └── orderBookApi.ts
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── AutoClearAccordion.tsx
+│   │   │       │   │   │   ├── CustomerAvatar.tsx
+│   │   │       │   │   │   ├── DailyRevenueList.tsx
+│   │   │       │   │   │   ├── EmptyOrderBook.tsx
+│   │   │       │   │   │   ├── HistoryEventRow.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── LineItemRow.tsx
+│   │   │       │   │   │   ├── OrderBookIcon.tsx
+│   │   │       │   │   │   ├── OrderCard.tsx
+│   │   │       │   │   │   ├── OrderSearchBar.tsx
+│   │   │       │   │   │   ├── OrderStatusBadge.tsx
+│   │   │       │   │   │   ├── OrderStatusFilterBar.tsx
+│   │   │       │   │   │   ├── PerformancePeriodSelector.tsx
+│   │   │       │   │   │   ├── PerformanceStatsCard.tsx
+│   │   │       │   │   │   ├── TodayBalanceCard.tsx
+│   │   │       │   │   │   └── TrashRow.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── orderBookKeys.ts
+│   │   │       │   │   │   ├── useAutoClearSettings.ts
+│   │   │       │   │   │   ├── useAutoClearSweepRunner.ts
+│   │   │       │   │   │   ├── useCurrentUserId.ts
+│   │   │       │   │   │   ├── useDailyRevenue.ts
+│   │   │       │   │   │   ├── useOrder.ts
+│   │   │       │   │   │   ├── useOrderBook.ts
+│   │   │       │   │   │   ├── useOrderCustomerSearch.ts
+│   │   │       │   │   │   ├── useOrderHistory.ts
+│   │   │       │   │   │   ├── useOrderMutations.ts
+│   │   │       │   │   │   ├── usePerformanceStats.ts
+│   │   │       │   │   │   └── useTrash.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── BalancesScreen.tsx
+│   │   │       │   │   │   ├── CreateOrderScreen.tsx
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── OrderBookScreen.tsx
+│   │   │       │   │   │   ├── OrderDetailScreen.tsx
+│   │   │       │   │   │   ├── OrderHistoryScreen.tsx
+│   │   │       │   │   │   ├── PerformanceScreen.tsx
+│   │   │       │   │   │   └── TrashScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── orderMapper.ts
+│   │   │       │   │   │   └── orderValidation.ts
+│   │   │       │   │   ├── {api,components,hooks,screens,services}
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── orders
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   ├── api
+│   │   │       │   │   ├── components
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   ├── screens
+│   │   │       │   │   ├── services
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── recommended-products
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   ├── api
+│   │   │       │   │   ├── components
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   ├── screens
+│   │   │       │   │   ├── services
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── security
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   └── SecurityScreen.tsx
+│   │   │       │   │   └── types.ts
+│   │   │       │   ├── settings
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   └── SettingsScreen.tsx
+│   │   │       │   │   └── types.ts
+│   │   │       │   └── verify-business
+│   │   │       │       ├── algorithms
+│   │   │       │       ├── api
+│   │   │       │       ├── components
+│   │   │       │       ├── hooks
+│   │   │       │       ├── screens
+│   │   │       │       ├── services
+│   │   │       │       └── types.ts
+│   │   │       ├── hooks
+│   │   │       ├── shared
+│   │   │       │   ├── components
+│   │   │       │   │   ├── AnalyticsCard.tsx
+│   │   │       │   │   ├── HomeHeader.tsx
+│   │   │       │   │   ├── NotificationCard.tsx
+│   │   │       │   │   ├── ScoreCard.tsx
+│   │   │       │   │   ├── SectionHeader.tsx
+│   │   │       │   │   └── StatCard.tsx
+│   │   │       │   ├── hooks
+│   │   │       │   │   └── useDashboardNotifications.ts
+│   │   │       │   ├── types
+│   │   │       │   │   └── index.ts
+│   │   │       │   └── utils
+│   │   │       │       ├── barcodeIntegration.ts
+│   │   │       │       ├── mapsIntegration.ts
+│   │   │       │       ├── messagingIntegration.ts
+│   │   │       │       ├── searchIntegration.ts
+│   │   │       │       └── weatherIntegration.ts
+│   │   │       └── supplier
+│   │   │           ├── add-product
+│   │   │           │   ├── algorithms
+│   │   │           │   ├── api
+│   │   │           │   ├── components
+│   │   │           │   ├── hooks
+│   │   │           │   ├── screens
+│   │   │           │   ├── services
+│   │   │           │   └── types.ts
+│   │   │           ├── manage-deliveries
+│   │   │           │   ├── algorithms
+│   │   │           │   ├── api
+│   │   │           │   ├── components
+│   │   │           │   ├── hooks
+│   │   │           │   ├── screens
+│   │   │           │   ├── services
+│   │   │           │   └── types.ts
+│   │   │           ├── manage-orders
+│   │   │           │   ├── algorithms
+│   │   │           │   ├── api
+│   │   │           │   ├── components
+│   │   │           │   ├── hooks
+│   │   │           │   ├── screens
+│   │   │           │   ├── services
+│   │   │           │   └── types.ts
+│   │   │           ├── product-catalogue
+│   │   │           │   ├── algorithms
+│   │   │           │   │   └── README.md
+│   │   │           │   ├── api
+│   │   │           │   │   └── productCatalogueApi.ts
+│   │   │           │   ├── components
+│   │   │           │   │   ├── ProductCard.tsx
+│   │   │           │   │   ├── ProductCatalogueIcon.tsx
+│   │   │           │   │   ├── ProductCategorySelector.tsx
+│   │   │           │   │   ├── ProductFilterSheet.tsx
+│   │   │           │   │   ├── ProductForm.tsx
+│   │   │           │   │   ├── ProductImageUploader.tsx
+│   │   │           │   │   ├── ProductPriceCard.tsx
+│   │   │           │   │   ├── ProductSearchBar.tsx
+│   │   │           │   │   └── ProductStatusBadge.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── useCreateProduct.ts
+│   │   │           │   │   ├── useDeleteProduct.ts
+│   │   │           │   │   ├── useProducts.ts
+│   │   │           │   │   ├── useProductSearch.ts
+│   │   │           │   │   └── useUpdateProduct.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── AddProductScreen.tsx
+│   │   │           │   │   ├── DraftProductsScreen.tsx
+│   │   │           │   │   ├── EditProductScreen.tsx
+│   │   │           │   │   ├── ProductCatalogueScreen.tsx
+│   │   │           │   │   ├── ProductDetailsScreen.tsx
+│   │   │           │   │   └── ProductImagesScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   ├── pricingCalculator.ts
+│   │   │           │   │   ├── productMapper.ts
+│   │   │           │   │   ├── productValidation.ts
+│   │   │           │   │   └── stockManager.ts
+│   │   │           │   └── types.ts
+│   │   │           └── verify-business
+│   │   │               ├── algorithms
+│   │   │               ├── api
+│   │   │               ├── components
+│   │   │               ├── hooks
+│   │   │               ├── screens
+│   │   │               ├── services
+│   │   │               └── types.ts
 │   │   ├── hooks
 │   │   │   ├── useColorScheme.ts
 │   │   │   ├── useCountdown.ts
@@ -345,7 +459,6 @@ frontend
 │   │   └── utils
 │   │       └── validators.ts
 │   ├── .env
-│   ├── .gitignore
 │   ├── .npmrc
 │   ├── app.json
 │   ├── babel.config.js

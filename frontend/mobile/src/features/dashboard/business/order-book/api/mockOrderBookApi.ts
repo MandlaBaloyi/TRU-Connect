@@ -288,7 +288,7 @@ export async function getOrder(orderId: string): Promise<OrderView | null> {
   return delay(order ? toOrderView(order) : null);
 }
 
-export async function searchCustomers(term: string): Promise<Customer[]> {
+export async function searchCustomers(term: string, _signal?: AbortSignal): Promise<Customer[]> {
   const trimmed = term.trim().toLowerCase();
   if (trimmed.length === 0) return delay([]);
   return delay(

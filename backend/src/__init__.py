@@ -39,6 +39,9 @@ def _register_extensions(app: Flask) -> None:
     jwt.init_app(app)
     ma.init_app(app)
 
+    from src.domains.security.rate_limit.limiter import limiter
+    limiter.init_app(app)
+
 
 def _register_blueprints(app: Flask) -> None:
     from src.api import api_bp
@@ -86,3 +89,6 @@ def _register_error_handlers(app: Flask) -> None:
     def handle_internal_error(error):
         app.logger.exception("Unhandled server error: %s", error)
         return error_response(message="Internal server error", status_code=500)
+
+    from src.domains.security.rate_limit import responses as rate_limit_responses
+    rate_limit_responses.register(app)

@@ -25,6 +25,7 @@ from src.domains.auth.schemas.password_reset_schemas import ForgotPasswordSchema
 from src.domains.auth.utils.otp import generate_numeric_otp, hash_otp, verify_otp_hash
 from src.shared.security.security import hash_password, passwords_match, validate_password_complexity, verify_password
 from src.shared.tickets.tickets import create_ticket, hash_ticket, is_ticket_expired, ticket_expiry, verify_ticket
+from src.domains.security.rate_limit.limiter import limiter
 
 
 # ----------------------------------------------------------------------------
@@ -351,11 +352,28 @@ class TestLoginLockoutIntegration:
         code = _extract_otp(caplog, "lockout@example.com")
         client.post("/api/v1/auth/phone/verify-otp", json={"destination": "lockout@example.com", "code": code})
 
-        last_response = None
-        for _ in range(6):  # LOGIN_MAX_FAILED_ATTEMPTS defaults to 5
-            last_response = client.post(
-                "/api/v1/auth/login", json={"email": "lockout@example.com", "password": "WrongPassword1!"}
-            )
+        # This test is specifically exercising the EXISTING account-lockout
+        # system (5 wrong attempts -> 423 ACCOUNT_LOCKED), which is a
+        # deliberately separate protection from the login rate limiter
+        # (5 requests/minute) added alongside it. The two policies are
+        # independent by design -- see rate_limit/policies.py -- and
+        # happen to share the same number (5) for unrelated reasons, so
+        # 6 rapid identical-endpoint calls in a tight loop would trip the
+        # rate limiter before ever reaching the lockout check this test
+        # is actually about. Exempting the limiter here tests lockout in
+        # isolation, exactly as it did before rate limiting existed,
+        # without loosening the real 5/min login policy to accommodate a
+        # test loop shape.
+        limiter.enabled = False
+        try:
+            last_response = None
+            for _ in range(6):  # LOGIN_MAX_FAILED_ATTEMPTS defaults to 5
+                last_response = client.post(
+                    "/api/v1/auth/login", json={"email": "lockout@example.com", "password": "WrongPassword1!"}
+                )
+        finally:
+            limiter.enabled = True
+
         assert last_response.status_code == 423
         assert last_response.get_json()["code"] == "ACCOUNT_LOCKED"
 
@@ -369,23 +387,31 @@ class TestLoginLockoutIntegration:
             "/api/v1/auth/phone/verify-otp", json={"destination": "reset-counter@example.com", "code": code}
         )
 
-        for _ in range(3):
-            client.post(
-                "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
-            )
+        # Same reasoning as test_lockout_after_max_failed_attempts above:
+        # this test makes 7 rapid /login calls against one email to
+        # exercise the failed-attempt counter specifically, independent
+        # of the separate 5/min rate limiter.
+        limiter.enabled = False
+        try:
+            for _ in range(3):
+                client.post(
+                    "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
+                )
 
-        success = client.post(
-            "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "Correct123!"}
-        )
-        assert success.status_code == 200
-
-        # Counter should be back to zero, so more wrong attempts are
-        # possible before locking out again.
-        for _ in range(3):
-            fail = client.post(
-                "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
+            success = client.post(
+                "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "Correct123!"}
             )
-            assert fail.status_code == 401  # not yet 423
+            assert success.status_code == 200
+
+            # Counter should be back to zero, so more wrong attempts are
+            # possible before locking out again.
+            for _ in range(3):
+                fail = client.post(
+                    "/api/v1/auth/login", json={"email": "reset-counter@example.com", "password": "wrong"}
+                )
+                assert fail.status_code == 401  # not yet 423
+        finally:
+            limiter.enabled = True
 
 
 class TestPasswordResetTicketIntegration:

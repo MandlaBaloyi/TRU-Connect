@@ -7,7 +7,7 @@ import type { VerifyOtpPayload } from "../types";
 /**
  * OTP verification hooks.
  * Ref: docs/06_BUSINESS_RULES_AND_WORKFLOWS.txt §2; Auth Hardening
- * master prompt, Objective 1.
+ * 
  *
  * Verifying OTP is now the first authenticated moment for a brand-new
  * account -- it's the only place a token pair for that account has ever

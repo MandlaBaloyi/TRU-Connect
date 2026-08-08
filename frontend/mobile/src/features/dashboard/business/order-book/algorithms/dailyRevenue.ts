@@ -22,13 +22,16 @@ export function toDateKey(iso: string): string {
 }
 
 /** Builds the day-by-day revenue list, newest day first. Orders sitting
- *  in Trash are excluded — cleared money still happened, but Trash is
- *  reserved for its own screen, not folded into this history. */
+ *  in Trash still count — Trash exists to keep the active queue
+ *  focused on what needs attention, not to make money already earned
+ *  disappear from what the business made. A completed order's revenue
+ *  is a historical fact the moment it's marked complete; moving it out
+ *  of the queue afterwards doesn't undo the sale. */
 export function calculateDailyRevenue(orders: Order[]): DailyRevenueEntry[] {
   const totals = new Map<string, DailyRevenueEntry>();
 
   orders
-    .filter((order) => order.status === "COMPLETED" && order.completedAt && !order.deletedAt)
+    .filter((order) => order.status === "COMPLETED" && order.completedAt)
     .forEach((order) => {
       const key = toDateKey(order.completedAt as string);
       const existing = totals.get(key);

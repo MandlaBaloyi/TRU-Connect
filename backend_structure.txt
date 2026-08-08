@@ -4,7 +4,9 @@ backend
 │   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
 │   │   ├── b1a2c3d4e5f6_security_audit_events.py
 │   │   ├── c2d3e4f5a6b7_loan_book_tables.py
-│   │   └── d3e4f5a6b7c8_loan_book_table_prefix.py
+│   │   ├── d3e4f5a6b7c8_loan_book_table_prefix.py
+│   │   ├── e4f5a6b7c8d9_order_book_tables.py
+│   │   └── f5a6b7c8d9e0_loan_book_customers_prefix.py
 │   ├── alembic.ini
 │   ├── env.py
 │   ├── README
@@ -108,6 +110,44 @@ backend
 │   │   │   │   │   └── receipt_builder.py
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── LOAN_BOOK_BACKEND_README.md
+│   │   │   ├── order_book
+│   │   │   │   ├── api
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── order_book_routes.py
+│   │   │   │   ├── jobs
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── auto_clear_sweep_job.py
+│   │   │   │   ├── models
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auto_clear_settings.py
+│   │   │   │   │   ├── customer.py
+│   │   │   │   │   ├── order.py
+│   │   │   │   │   ├── order_history_event.py
+│   │   │   │   │   └── order_line_item.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auto_clear_settings_repository.py
+│   │   │   │   │   ├── customer_repository.py
+│   │   │   │   │   ├── history_repository.py
+│   │   │   │   │   ├── line_item_repository.py
+│   │   │   │   │   └── order_repository.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── order_book_scheduler.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── order_book_schemas.py
+│   │   │   │   ├── services
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auto_clear_service.py
+│   │   │   │   │   ├── errors.py
+│   │   │   │   │   └── order_book_service.py
+│   │   │   │   ├── utils
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auto_clear_window.py
+│   │   │   │   │   └── trash_retention.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── ORDER_BOOK_BACKEND_README.md
 │   │   │   ├── order_queue
 │   │   │   │   ├── algorithms
 │   │   │   │   │   └── __init__.py
@@ -298,7 +338,6 @@ backend
 │   │   ├── email
 │   │   │   ├── templates
 │   │   │   │   ├── admin
-│   │   │   │   │   └── .gitkeep
 │   │   │   │   ├── auth
 │   │   │   │   │   ├── otp.html
 │   │   │   │   │   ├── password_reset.html
@@ -310,9 +349,7 @@ backend
 │   │   │   │   ├── business
 │   │   │   │   │   └── welcome_business.html
 │   │   │   │   ├── platform
-│   │   │   │   │   └── .gitkeep
 │   │   │   │   ├── security
-│   │   │   │   │   └── .gitkeep
 │   │   │   │   └── supplier
 │   │   │   │       ├── order_delivered.html
 │   │   │   │       ├── order_received.html
@@ -389,7 +426,11 @@ backend
 │   │   │   │   └── test_auth_scheduler.py
 │   │   │   └── __init__.py
 │   │   ├── business
-│   │   │   └── loan_book
+│   │   │   ├── loan_book
+│   │   │   │   ├── conftest.py
+│   │   │   │   ├── test_api_ownership.py
+│   │   │   │   └── test_ownership.py
+│   │   │   └── order_book
 │   │   │       ├── conftest.py
 │   │   │       ├── test_api_ownership.py
 │   │   │       └── test_ownership.py
@@ -430,7 +471,6 @@ backend
 │   ├── tests.md
 │   └── tests.txt
 ├── .env
-├── .gitignore
 ├── app.py
 ├── AUDIT_MIGRATION_NOTES.md
 ├── INTEGRATION.md

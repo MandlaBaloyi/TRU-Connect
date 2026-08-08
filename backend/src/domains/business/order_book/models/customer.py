@@ -1,6 +1,6 @@
 """
 OrderBookCustomer -- Order Book's OWN customer record, independent of
-Loan Book's `business.customers` table.
+Loan Book's `business.loan_book_customers` table.
 
 THIS REPLACES THE EARLIER "reuse Loan Book's Customer" decision. That
 was flagged explicitly for review; the answer was "no, keep them

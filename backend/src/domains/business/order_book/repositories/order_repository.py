@@ -57,6 +57,21 @@ class OrderRepository:
         return result or 0
 
     @staticmethod
+    def list_completed_including_deleted(business_id: uuid.UUID) -> List[Order]:
+        """For revenue reporting ONLY. Deliberately does NOT filter by
+        is_deleted -- a completed order's money is a historical fact
+        the moment it's marked complete. Moving it to Trash afterwards
+        (manually or via auto-clear) is a QUEUE decluttering action,
+        not an undo of the sale. Unlike Loan Book's outstanding balance
+        (money still owed, genuinely tied to whether the debt record is
+        still active/recoverable), completed-order revenue has nothing
+        left that could still change -- it should count in daily
+        revenue and Performance stats forever, trashed or not."""
+        return Order.query.filter_by(
+            business_id=business_id, status=OrderStatus.COMPLETED
+        ).all()
+
+    @staticmethod
     def list_due_for_auto_clear(business_id: uuid.UUID, status: OrderStatus) -> List[Order]:
         """All active (non-deleted) orders of the given status -- the
         actual time-window filtering happens in the service layer
