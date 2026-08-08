@@ -224,9 +224,9 @@ export async function getOrder(orderId: string): Promise<OrderView | null> {
   }
 }
 
-export async function searchCustomers(term: string): Promise<Customer[]> {
+export async function searchCustomers(term: string, signal?: AbortSignal): Promise<Customer[]> {
   if (!term.trim()) return [];
-  const dtos = await apiGet<CustomerDto[]>(`/order-book/customers/search?term=${encodeURIComponent(term)}`);
+  const dtos = await apiGet<CustomerDto[]>(`/order-book/customers/search?term=${encodeURIComponent(term)}`, { signal });
   return dtos.map(mapCustomer);
 }
 

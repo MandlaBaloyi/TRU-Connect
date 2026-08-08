@@ -41,7 +41,7 @@ python -m pytest tests/domains/business/order_book/ -v
 ## Customer independence — resolved
 
 **Order Book now has its own `order_book_customers` table**, fully
-independent of Loan Book's `business.customers`. This replaces the
+independent of Loan Book's `business.loan_book_customers`. This replaces the
 earlier "reuse Loan Book's Customer" decision flagged in the previous
 round — after review, the answer was to keep the two features
 independent. Deleting or restoring a customer in Order Book has zero
@@ -51,12 +51,15 @@ original upload.
 
 ## Deliberately NOT wired yet (flagged, not silently skipped)
 
-**Auto-clear sweep has no real scheduler.** `AutoClearService.run_sweep()`
-exists and does the right thing when called, and there's a manual
-`POST /api/v1/order-book/balances/auto-clear-sweep` route to trigger it
-by hand — but nothing calls it on a timer. Wiring it into
-`master_scheduler/` (the same pattern every other domain's scheduled
-job already uses) is real, separate follow-up work.
+**Auto-clear sweep now has a real scheduler.** `jobs/auto_clear_sweep_job.py`
+runs every 60 seconds via `master_scheduler`, processing every business
+with auto-clear enabled in a single run (not one job per business —
+see that file's docstring). The HTTP route
+(`POST /api/v1/order-book/balances/auto-clear-sweep`) still exists as a
+manual/testing supplement, not the only path. Both call the same
+shared `utils/auto_clear_window.apply_sweep_for_scope()`, so there's
+one implementation of "which orders are due," not two that could drift
+apart.
 
 **"Today" is UTC, not the business's local day.** `_today()` in
 `order_book_service.py` uses the server's UTC date for per-day order

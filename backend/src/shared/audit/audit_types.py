@@ -118,6 +118,19 @@ class AuditEventName(str, enum.Enum):
     LOGIN_RATE_LIMITED = "auth.login_rate_limited"
     LOGIN_UNVERIFIED = "auth.login_unverified"
 
+    # --- Rate limiting (added alongside LOGIN_RATE_LIMITED, which
+    # already existed pre-declared with no publisher — see this class's
+    # own docstring on that pattern. Same naming convention, one per
+    # rate-limited route rather than one generic catch-all, matching
+    # how LOGIN_FAILED/LOGIN_LOCKED/LOGIN_UNVERIFIED are already split
+    # by specific cause rather than collapsed into one event.) ---
+    REGISTER_RATE_LIMITED = "auth.register_rate_limited"
+    REFRESH_RATE_LIMITED = "auth.refresh_rate_limited"
+    PASSWORD_RESET_REQUEST_RATE_LIMITED = "auth.password_reset_request_rate_limited"
+    PASSWORD_RESET_RATE_LIMITED = "auth.password_reset_rate_limited"
+    OTP_REQUEST_RATE_LIMITED = "auth.otp_request_rate_limited"
+    OTP_VERIFY_RATE_LIMITED = "auth.otp_verify_rate_limited"
+
     # --- Password reset ---
     PASSWORD_RESET_REQUESTED = "auth.password_reset_requested"
     PASSWORD_RESET_TOKEN_CREATED = "auth.password_reset_token_created"

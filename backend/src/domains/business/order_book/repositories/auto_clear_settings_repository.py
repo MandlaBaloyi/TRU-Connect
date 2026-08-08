@@ -5,9 +5,12 @@ scattered through the service layer."""
 from __future__ import annotations
 
 import uuid
-from typing import Optional
+from typing import List, Optional
 
-from src.domains.business.order_book.models.auto_clear_settings import OrderBookAutoClearSettings
+from src.domains.business.order_book.models.auto_clear_settings import (
+    AutoClearDuration,
+    OrderBookAutoClearSettings,
+)
 from src.extensions import db
 
 
@@ -24,3 +27,19 @@ class AutoClearSettingsRepository:
             db.session.add(settings)
             db.session.flush()
         return settings
+
+    @staticmethod
+    def list_enabled() -> List[OrderBookAutoClearSettings]:
+        """Every business with at least one scope (completed or
+        cancelled) actually turned on -- i.e. NOT both set to OFF. This
+        is what the scheduled sweep job iterates over instead of every
+        business that has ever touched Order Book: a business that's
+        never enabled auto-clear at all costs the job nothing to skip,
+        rather than being fetched and immediately discarded on every
+        run."""
+        return OrderBookAutoClearSettings.query.filter(
+            db.or_(
+                OrderBookAutoClearSettings.completed_duration != AutoClearDuration.OFF,
+                OrderBookAutoClearSettings.cancelled_duration != AutoClearDuration.OFF,
+            )
+        ).all()

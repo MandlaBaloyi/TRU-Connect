@@ -9,6 +9,7 @@ import { useTheme } from "react-native-paper";
 
 import { useTrash } from "../hooks";
 import { formatItemSummary } from "../services/orderMapper";
+import { isExpiredFromTrash } from "../algorithms/trashRetention";
 import { TrashRow } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -48,23 +49,27 @@ export default function TrashScreen() {
     );
   }
 
-  const isEmpty = trashedOrders.length === 0 && trashedCustomers.length === 0;
+  // Past 7 days: hidden from the user's Trash view. Nothing here is
+  // deleted from the database — this only changes what gets rendered.
+  const visibleOrders = trashedOrders.filter((o) => !isExpiredFromTrash(o.order.deletedAt as string));
+  const visibleCustomers = trashedCustomers.filter((c) => !isExpiredFromTrash(c.customer.deletedAt as string));
+  const isEmpty = visibleOrders.length === 0 && visibleCustomers.length === 0;
 
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.note, { color: theme.colors.onSurfaceVariant }]}>
-          Items here are permanently deleted after 7 days.
+          Items disappear from here after 7 days. They aren't deleted from your records.
         </Text>
 
         {isEmpty && (
           <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>Trash is empty.</Text>
         )}
 
-        {trashedOrders.length > 0 && (
+        {visibleOrders.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Orders</Text>
-            {trashedOrders.map(({ order, customer }) => (
+            {visibleOrders.map(({ order, customer }) => (
               <TrashRow
                 key={order.id}
                 title={`${formatItemSummary(order.lineItems)} · ${customer.name} · #${order.orderNumber}`}
@@ -77,10 +82,10 @@ export default function TrashScreen() {
           </View>
         )}
 
-        {trashedCustomers.length > 0 && (
+        {visibleCustomers.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Customers</Text>
-            {trashedCustomers.map(({ customer }) => (
+            {visibleCustomers.map(({ customer }) => (
               <TrashRow
                 key={customer.id}
                 title={customer.name}

@@ -101,16 +101,6 @@ export default function OrderBookScreen() {
               )}
               <View style={styles.utilityLinks}>
                 <Pressable
-                  onPress={() => router.push("/business/order-book/trash")}
-                  style={styles.utilityLink}
-                  accessibilityRole="button"
-                  accessibilityLabel="View trash"
-                  hitSlop={8}
-                >
-                  <Trash2 size={14} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-                  <Text style={[styles.utilityLinkText, { color: theme.colors.onSurfaceVariant }]}>Trash</Text>
-                </Pressable>
-                <Pressable
                   onPress={() => router.push("/business/order-book/history")}
                   style={styles.utilityLink}
                   accessibilityRole="button"
@@ -119,6 +109,16 @@ export default function OrderBookScreen() {
                 >
                   <History size={14} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
                   <Text style={[styles.utilityLinkText, { color: theme.colors.onSurfaceVariant }]}>History</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push("/business/order-book/trash")}
+                  style={styles.utilityLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="View trash"
+                  hitSlop={8}
+                >
+                  <Trash2 size={14} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+                  <Text style={[styles.utilityLinkText, { color: theme.colors.onSurfaceVariant }]}>Trash</Text>
                 </Pressable>
               </View>
             </View>

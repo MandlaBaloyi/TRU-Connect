@@ -12,7 +12,7 @@ tests/domains/business/order_book/test_ownership.py.
 
 CUSTOMERS ARE ORDER BOOK'S OWN, NOT SHARED WITH LOAN BOOK. Customer
 lives in `business.order_book_customers`, a table independent of Loan
-Book's `business.customers` (see models/customer.py's docstring for the
+Book's `business.loan_book_customers` (see models/customer.py's docstring for the
 full reasoning). Deleting or restoring a customer here has zero effect
 on Loan Book, and vice versa -- the two features happen to model "a
 customer" the same way, which is not the same thing as sharing one.
@@ -455,14 +455,18 @@ class OrderBookService:
 
     @staticmethod
     def get_daily_revenue(business_id: uuid.UUID) -> List[dict]:
-        """Groups COMPLETED, non-deleted orders by the calendar date
-        they were completed on. Mirrors the frontend's
-        algorithms/dailyRevenue.ts calculateDailyRevenue exactly --
-        cancelled/pending orders never contribute, and a cleared
-        (trashed) completed order's money still happened but is
-        excluded here just like the frontend excludes it, since Trash
-        is reserved for its own screen."""
-        completed = OrderRepository.list_for_business(business_id, status=OrderStatus.COMPLETED)
+        """Groups COMPLETED orders by the calendar date they were
+        completed on -- REGARDLESS of Trash status. Cancelled/pending
+        orders never contribute, but a completed order moved to Trash
+        (manually or via auto-clear) still counts: Trash exists to keep
+        the active QUEUE focused on what needs attention, not to make
+        money already earned disappear from what the business made.
+        See OrderRepository.list_completed_including_deleted's
+        docstring for the full reasoning, and the contrast with Loan
+        Book's outstanding-balance handling, which correctly DOES
+        depend on Trash/expiry state because that money is still owed,
+        not already resolved."""
+        completed = OrderRepository.list_completed_including_deleted(business_id)
         by_date: Dict[date, dict] = {}
         for order in completed:
             if order.completed_at is None:

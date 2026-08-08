@@ -7,11 +7,22 @@
  * DEBOUNCED, 300ms, with a 2-character minimum before searching at
  * all. Without this, every keystroke fired its own request — typing
  * "Mandla" sent 6 separate GETs, one per letter, most of them for a
- * prefix the user was never going to stop on. Confirmed in production
- * logs: a single name being typed produced a request per keystroke,
- * arriving faster than the previous one could even return. The
- * 2-character floor also skips the least useful searches outright —
- * a single letter matches too broadly to be worth a round trip.
+ * prefix the user was never going to stop on. The 2-character floor
+ * also skips the least useful searches outright — a single letter
+ * matches too broadly to be worth a round trip.
+ *
+ * REQUESTS ARE ACTUALLY CANCELLED, not just ignored. React Query
+ * passes an AbortSignal into every queryFn call automatically, and
+ * fires it the instant a query is superseded (query key changes
+ * before the old one resolves — exactly what happens here every time
+ * the debounced term changes). Wiring that signal through to
+ * searchCustomers()'s existing signal param means a stale in-flight
+ * request is genuinely aborted at the network layer, not left to run
+ * to completion server-side and discarded client-side. Under real
+ * traffic (many users typing quickly), that's the difference between
+ * a superseded search still doing full backend/DB work for nothing
+ * and it not — same debounce as before, this just makes the
+ * cancellation real rather than cosmetic.
  */
 
 import { useEffect, useState } from "react";
@@ -40,7 +51,7 @@ export function useOrderCustomerSearch() {
 
   const query = useQuery<Customer[]>({
     queryKey: orderBookKeys.customerSearch(userId, trimmed),
-    queryFn: () => searchCustomers(trimmed),
+    queryFn: ({ signal }) => searchCustomers(trimmed, signal),
     enabled: shouldSearch,
   });
 

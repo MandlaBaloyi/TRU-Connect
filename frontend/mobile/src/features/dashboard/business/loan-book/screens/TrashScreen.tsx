@@ -20,7 +20,7 @@ import { useTheme } from "react-native-paper";
 
 import { useTrash } from "../hooks";
 import { formatCents } from "../services/loanMapper";
-import { formatTrashCountdown } from "../algorithms/trashRetention";
+import { formatTrashCountdown, isExpiredFromTrash } from "../algorithms/trashRetention";
 import { CustomerAvatar } from "../components";
 import { RestoreRow } from "../components/RestoreRow";
 import { spacing } from "@/theme/spacing";
@@ -66,7 +66,6 @@ export default function TrashScreen() {
     deletedEntries,
     isLoading,
     isError,
-    isEmpty,
     refetch,
     restoreCustomer,
     isRestoringCustomer,
@@ -116,7 +115,18 @@ export default function TrashScreen() {
         reason: view.entry.deletionReason,
       })
     ),
-  ].sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+  ]
+    // Past 7 days: hidden from the user's Trash view. The row is NOT
+    // deleted from the database — nothing here calls delete/restore,
+    // this only changes what gets rendered. Same rule the countdown
+    // text already used to LABEL something "Expired"; now it actually
+    // acts on that label instead of just displaying it while still
+    // listing (and letting you restore) something the UI itself calls
+    // expired.
+    .filter((row) => !isExpiredFromTrash(row.deletedAt))
+    .sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+
+  const isEmpty = rows.length === 0;
 
   return (
     <ScreenContainer>
@@ -126,7 +136,7 @@ export default function TrashScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <Text style={[styles.notice, { color: theme.colors.onSurfaceVariant }]}>
-               Deleted items are kept for 7 days before they are permanently deleted.
+               Deleted items disappear from here after 7 days. They aren't deleted from your records.
           </Text>
         }
         ItemSeparatorComponent={() => (
@@ -167,7 +177,7 @@ export default function TrashScreen() {
                 Trash is empty
               </Text>
               <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
-                Deleted customers and entries can be restored for 7 days before they are permanently deleted.
+                Deleted customers and entries can be restored here for 7 days.
               </Text>
             </View>
           ) : null

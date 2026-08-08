@@ -4,9 +4,9 @@ import { PASSWORD_REGEX } from "@/constants/regex";
 /**
  * Zod validation schemas for authentication forms.
  * Registration is intentionally minimal -- SA ID number, mobile/phone
- * number, and registration number are collected later in the Business
- * Profile Setup wizard, not at sign-up. See src/features/business/schemas
- * for those fields.
+ * number, and registration number are collected later, during Business
+ * Profile Setup (src/features/dashboard/business/business-profile/),
+ * not at sign-up.
  */
 
 export const signInSchema = z.object({

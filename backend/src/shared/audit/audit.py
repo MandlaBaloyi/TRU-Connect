@@ -351,10 +351,48 @@ def log_logout(user_id: str) -> None:
     )
 
 
-def log_logout_all_devices(user_id: str, revoked_count: int) -> None:
-    logger.info("logout_all_devices user_id=%s revoked=%d", user_id, revoked_count)
-    _emit(
-        AuditEventName.LOGOUT_ALL_DEVICES, AuditStatus.SUCCESS,
-        module="auth_service", user_id=user_id,
-        metadata={"revoked_count": revoked_count},
+def log_rate_limit_exceeded(
+    event_name: AuditEventName,
+    ip_address: Optional[str],
+    email: Optional[str] = None,
+    user_id: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    http_method: Optional[str] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    """
+    ONE function for every rate-limited route, not one per route —
+    unlike the LOGIN_*/REGISTER_*/etc. functions above (which each
+    correspond to one specific business outcome), "a rate limit was
+    exceeded" is the same kind of event everywhere it happens; only
+    event_name changes per call site (rate_limit/policies.py's
+    RATE_LIMIT_AUDIT_EVENTS maps each route to its own specific
+    AuditEventName, e.g. LOGIN_RATE_LIMITED vs REGISTER_RATE_LIMITED).
+
+    user_id is almost always None here BY DESIGN, not by omission: the
+    rate limiter runs BEFORE authentication on every route it guards
+    (see the decorator ordering in auth/api/routes.py), specifically so
+    a flood of requests is rejected before any auth work happens at
+    all. That means there is usually no verified identity yet at the
+    moment a limit trips — ip_address and, where the route has one,
+    email are what's actually available, which is why AuditEvent makes
+    almost every field Optional in the first place.
+    """
+    logger.warning(
+        "rate_limit_exceeded event=%s ip=%s endpoint=%s",
+        event_name.value, ip_address or "unknown", endpoint or "unknown",
     )
+    publish(AuditEvent(
+        event_name=event_name,
+        domain=AuditDomain.AUTH,
+        status=AuditStatus.FAILURE,
+        module="rate_limit",
+        actor_type=ActorType.ANONYMOUS if user_id is None else ActorType.USER,
+        user_id=user_id,
+        email=email,
+        ip_address=ip_address,
+        endpoint=endpoint,
+        http_method=http_method,
+        failure_reason="rate_limit_exceeded",
+        metadata=metadata or {},
+    ))

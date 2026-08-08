@@ -27,6 +27,8 @@ from src.domains.auth.schemas.password_reset_schemas import (
 from src.domains.auth.services.auth_service import AuthService
 from src.domains.auth.services.otp_service import OTPService
 from src.domains.auth.services.password_reset_service import PasswordResetService
+from src.domains.security.rate_limit import policies as rate_limit_policies
+from src.domains.security.rate_limit.limiter import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -55,6 +57,7 @@ def _flatten_errors(messages) -> list:
 
 
 @auth_bp.post("/register")
+@limiter.limit(rate_limit_policies.REGISTER)
 def register():
     """Creates the account and sends the verification OTP ONLY. No
     tokens are returned -- there is no valid session for an unverified
@@ -87,6 +90,7 @@ def register():
 
 
 @auth_bp.post("/login")
+@limiter.limit(rate_limit_policies.LOGIN, key_func=rate_limit_policies.login_key_func)
 def login():
     payload = request.get_json(silent=True) or {}
     try:
@@ -99,6 +103,7 @@ def login():
 
 
 @auth_bp.post("/refresh")
+@limiter.limit(rate_limit_policies.REFRESH)
 @jwt_required(refresh=True)
 def refresh():
     identity = get_jwt_identity()
@@ -139,6 +144,7 @@ def logout():
 
 
 @auth_bp.post("/phone/request-otp")
+@limiter.limit(rate_limit_policies.OTP_REQUEST)
 def request_otp():
     payload = request.get_json(silent=True) or {}
     try:
@@ -151,6 +157,7 @@ def request_otp():
 
 
 @auth_bp.post("/phone/verify-otp")
+@limiter.limit(rate_limit_policies.OTP_VERIFY)
 def verify_otp():
     """Returns {user, tokens} on success -- this is the first
     authenticated moment for a brand-new account (Auth Hardening master
@@ -168,6 +175,7 @@ def verify_otp():
 
 
 @auth_bp.post("/forgot-password")
+@limiter.limit(rate_limit_policies.FORGOT_PASSWORD)
 def forgot_password():
     payload = request.get_json(silent=True) or {}
     try:
@@ -197,6 +205,7 @@ def validate_reset_ticket():
 
 
 @auth_bp.post("/reset-password")
+@limiter.limit(rate_limit_policies.RESET_PASSWORD)
 def reset_password():
     payload = request.get_json(silent=True) or {}
     try:

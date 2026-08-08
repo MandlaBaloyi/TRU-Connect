@@ -348,9 +348,11 @@ def set_auto_clear_setting():
 @order_book_bp.route("/api/v1/order-book/balances/auto-clear-sweep", methods=["POST"])
 @fully_authenticated
 def run_auto_clear_sweep():
-    """MANUAL TRIGGER ONLY -- not called by any scheduler yet. See
-    services/auto_clear_service.py's docstring. Exists so the frontend
-    (and manual testing) can invoke the same sweep logic the real
-    scheduled job will eventually call automatically."""
+    """Manual trigger, scoped to the caller's own business only. A real
+    scheduled job also exists now (jobs/auto_clear_sweep_job.py, every
+    60s, all eligible businesses) — this route is a supplement to that,
+    not a replacement: useful for "I don't want to wait up to a
+    minute" testing/manual use, not the only thing keeping Trash
+    current."""
     cleared_count = AutoClearService.run_sweep(_business_id())
     return jsonify(success=True, data={"clearedCount": cleared_count})

@@ -24,6 +24,8 @@ SQLAlchemy==2.0.51
 typing_extensions==4.16.0
 Werkzeug==3.1.8
 pytest==9.1.1
+Flask-Limiter==4.1.1
+limits==5.8.0
 
 # --- TRU Connect Auth Foundation ---
 Flask-Marshmallow==1.4.0
