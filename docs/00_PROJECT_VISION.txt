@@ -263,3 +263,7 @@ never in transaction volume alone.
 
 Revenue metrics belong to Supplier Pro/Enterprise adoption, never to
 monetising trust itself (TP-047).
+
+
+
+

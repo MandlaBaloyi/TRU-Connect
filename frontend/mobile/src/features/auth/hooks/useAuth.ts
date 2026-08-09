@@ -10,7 +10,7 @@ import type { RegisterPayload, SignInPayload } from "../types";
  * React Query mutations composing the auth service with app-level side
  * effects (secure token storage, navigation).
  * Ref: docs/06_BUSINESS_RULES_AND_WORKFLOWS.txt §1-3; Auth Hardening
-.
+ * master prompt, Objective 1.
  */
 
 export function useSignIn() {

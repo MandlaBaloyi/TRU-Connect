@@ -27,7 +27,7 @@ from src.domains.auth.schemas.password_reset_schemas import (
 from src.domains.auth.services.auth_service import AuthService
 from src.domains.auth.services.otp_service import OTPService
 from src.domains.auth.services.password_reset_service import PasswordResetService
-from src.domains.security.rate_limit import policies as rate_limit_policies
+from src.domains.auth.rate_limit import policies as rate_limit_policies
 from src.domains.security.rate_limit.limiter import limiter
 
 auth_bp = Blueprint("auth", __name__)

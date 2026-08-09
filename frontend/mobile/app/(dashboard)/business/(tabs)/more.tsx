@@ -104,7 +104,7 @@ export default function BusinessMore() {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.lg },
+  content: { gap: spacing.lg, paddingTop: spacing.none, paddingBottom: spacing.lg },
   list: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 64, paddingVertical: spacing.sm },
   iconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },

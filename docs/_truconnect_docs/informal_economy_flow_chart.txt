@@ -1,0 +1,430 @@
+                   SPAZA
+                     │
+                     │ Order
+                     ▼
+                TRU CONNECT
+                     │
+                     │ Order received
+                     ▼
+             ABC DISTRIBUTORS
+                     │
+              Existing system
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+       Warehouse   Dispatch   Accounts
+                     │
+                     ▼
+                  Driver
+                     │
+                     ▼
+                   SPAZA
+
+
+                                       INFORMAL BUSINESS
+                           │
+                           │ Place Order
+                           ▼
+                     TRU CONNECT
+                           │
+                           │ Order
+                           ▼
+                  SUPPLIER / ABC
+                           │
+                    Existing System
+                           │
+             ┌─────────────┼─────────────┐
+             ▼             ▼             ▼
+         Warehouse      Dispatch      Accounts
+             │             │
+             │             ▼
+             │        TRU CONNECT
+             │        Delivery App
+             │             │
+             │             ▼
+             │          DRIVER
+             │             │
+             │             ▼
+             └──────────► SPAZA
+                         Delivered ✓
+
+
+                                             TRU CONNECT
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+     SMALL SUPPLIERS              ENTERPRISE SUPPLIERS
+          │                             │
+   Supplier App                   Supplier Web
+          │                             │
+   ┌──────┼──────┐             ┌────────┼────────┐
+   │      │      │             │        │        │
+ Free    Pro    Max          Small    Medium    Large
+
+
+ Supplier Enterprise
+        │
+        ▼
+   Web Control
+        │
+ ┌──────┼─────────┐
+ ▼      ▼         ▼
+Admin  Manager   Operations
+                  │
+                  ▼
+             Delivery Team
+                  │
+                  ▼
+             TRU Connect App
+
+                    TRU CONNECT
+                         │
+       ┌─────────────────┼──────────────────┐
+       │                 │                  │
+    BUSINESS          SUPPLIER           DELIVERY
+       │                 │                  │
+    Mobile            Mobile             Mobile
+       │                 │                  │
+       │          Free/Pro/Max             │
+       │                 │                  │
+       │          Enterprise Web           │
+       │                 │                  │
+       └─────────────────┼──────────────────┘
+                         │
+                  Shared Network
+                         │
+                    Future Lenders
+
+                    That's a platform, not just an app with a bunch of features.
+
+And importantly, Free/Pro/Max shouldn't be treated as "different apps." They can be different capability levels of the same supplier product.
+
+
+                 TRU CONNECT
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+      Buyer App             Supplier Web
+          │                     │
+          │                     │
+          ▼                     ▼
+       ORDER ─────────────► Existing System
+                                  │
+                            Warehouse / Dispatch
+                                  │
+                                  ▼
+                              DELIVERY
+                                  │
+                                  ▼
+                         TRU Connect App
+                                  │
+                                  ▼
+                            Driver clicks
+                          [ DELIVERED ✓ ]
+                                  │
+                                  ▼
+                       Existing system updated
+
+
+
+
+                                           TRU CONNECT
+                         │
+                    Order API
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │  INTEGRATION LAYER  │
+              │                     │
+              │  Adapter / Mapping  │
+              └──────────┬──────────┘
+                         │
+                  API / Webhook
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │   ABC SUPPLIER      │
+              │   DEMO SYSTEM       │
+              │                     │
+              │ Customers           │
+              │ Products            │
+              │ Inventory           │
+              │ Orders              │
+              │ Dispatch            │
+              │ Deliveries          │
+              └──────────┬──────────┘
+                         │
+                         │ Delivery assigned
+                         ▼
+                 TRU CONNECT APP
+                         │
+                         │ Driver
+                         ▼
+                    Delivered ✓
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │   ABC SYSTEM        │
+              │                     │
+              │ Order = Delivered   │
+              └─────────────────────┘
+
+More users + more operations + more integrations + more infrastructure = higher tier. 
+
+For example:
+
+Enterprise level	Typical need
+Small	Small team, basic order management, limited users
+Medium	Multiple teams, more customers, delivery management, reporting
+Large	Large teams, multiple locations, integrations, APIs, advanced permissions, high-volume operations
+
+The exact pricing can come later, once you have actual usage data.
+
+
+
+PROBLEM
+   ↓
+Understand how the economy actually works
+   ↓
+Identify friction
+   ↓
+Design the infrastructure
+   ↓
+Build the systems
+   ↓
+Connect the actors
+   ↓
+Capture structured economic activity
+   ↓
+Create trust
+   ↓
+Enable financial infrastructure
+
+MANUFACTURER / BRAND
+        │
+        ▼
+   DISTRIBUTOR
+        │
+        ▼
+    WHOLESALER
+        │
+        ▼
+   LOCAL SUPPLIER
+        │
+        ▼
+     SPAZA SHOP
+        │
+        ▼
+     CUSTOMER
+
+
+
+                    TRU CONNECT
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+      BUSINESS                       SUPPLIER
+          │                             │
+   "I need stock"                "I need to fulfil
+          │                       my customers' orders"
+          │                             │
+          └──────────────┬──────────────┘
+                         │
+                      ORDER
+                         │
+                     DELIVERY
+                         │
+                    RELATIONSHIP
+                         │
+                         ▼
+                   STRONGER TRADE
+
+
+
+                 TRU CONNECT
+                      │
+     ┌────────────────┼────────────────┐
+     │                │                │
+ BUSINESS          SUPPLIER          LENDER
+     │                │                │
+ Orders          Fulfilment        Financing
+     │                │                │
+     └────────────────┼────────────────┘
+                      │
+                ECONOMIC DATA
+                      │
+                      ▼
+                 TRUEPOINT
+
+
+                    TRU CONNECT
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+          BUSINESS               SUPPLIER
+              │                     │
+        Daily utility          Customer orders
+              │                     │
+        Loan Book             Order management
+        Order Book            Delivery management
+        Business Profile      Team management
+              │                     │
+              └──────────┬──────────┘
+                         │
+                  EXISTING TRADE
+                   RELATIONSHIPS
+                         │
+                         ▼
+                  STRUCTURED DATA
+                         │
+                         ▼
+                    TRUST LAYER
+                         │
+                         ▼
+                       LENDING
+
+BUSINESS
+   │
+   │ "I want to order from my supplier
+   │  through TRU Connect."
+   ▼
+TRU CONNECT
+   │
+   │ simple + structured order
+   ▼
+SUPPLIER
+   │
+   │ receives actual customer orders
+   ▼
+SUPPLIER ADOPTS TRU CONNECT
+   │
+   ▼
+BUSINESS ORDERS MORE
+   │
+   ▼
+MORE SUPPLIERS JOIN
+   │
+   ▼
+MORE BUSINESSES BENEFIT
+
+
+                    ABC DISTRIBUTORS
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+       Manager           Warehouse        Drivers
+          │                │                │
+          │                │                │
+          └────────────────┼────────────────┘
+                           │
+                        ORDERS
+                           ▲
+                           │
+                           │
+                    TRU CONNECT
+                           ▲
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+          Spaza A       Spaza B       Spaza C
+
+
+That means you can afford to ask questions like:
+
+How does a spaza actually place an order?
+Who receives the order?
+Who confirms it?
+How is stock availability handled?
+Who prepares the order?
+Who dispatches it?
+How are drivers assigned?
+How does the driver know the route?
+How does the business know the order is coming?
+What happens when something is missing?
+How are returns handled?
+How does the supplier reconcile orders?
+How does the supplier handle different branches?
+How do employees access the system?
+What does the owner need to see?
+What should the driver see?
+What information should never be exposed?
+What should integrate with an existing ERP/POS/accounting system?          
+
+You're not selling the supplier a marketplace.
+
+You're selling them:
+
+"Your customers are already using TRU Connect to place orders. Here's how you can receive and manage those orders.
+
+
+
+
+
+
+
+                    TRU CONNECT
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+      BUSINESS                       SUPPLIER
+          │                             │
+          │                             │
+      Business Profile              Supplier Profile
+          │                             │
+      Customers                     Products
+          │                             │
+      Order Book                    Orders
+          │                             │
+      Loan Book                     Fulfilment
+          │                             │
+      Trading Data                  Deliveries
+          │                             │
+          └──────────────┬──────────────┘
+                         │
+                   TRUST / DATA
+                         │
+                         ▼
+                  RISK INTELLIGENCE
+                         │
+                         ▼
+                      LENDERS
+
+
+                                               TRU CONNECT
+                              │
+              ┌───────────────┴────────────────┐
+              │                                │
+        SUPPLIER APP                    SUPPLIER WEB
+              │                                │
+       Small suppliers              Established suppliers
+       Solo / 1–5 people            Small / Medium / Large
+              │                                │
+       Free → Pro                    Enterprise infrastructure
+              │                                │
+              └──────────────┬─────────────────┘
+                             │
+                    SAME SUPPLIER NETWORK
+
+     FUTURE PLAN ON BUSINESSSIDE()
+                    TRU CONNECT
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+       BUSINESS                       SUPPLIER
+          │                             │
+     FREE FOUNDATION              COMMERCIAL PRODUCT
+          │                             │
+   ┌──────┼──────┐              ┌───────┼────────┐
+   │      │      │              │       │        │
+ Loan   Order  Business       Free     Pro   Enterprise
+ Book   Book   Profile
+   │      │
+   └──────┴───────┐
+                  │
+             Usage data
+                  │
+              Analytics
+                  │
+          ┌───────┴────────┐
+          │                │
+       Pro/Max         Better pricing

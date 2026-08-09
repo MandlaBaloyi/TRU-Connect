@@ -1,6 +1,18 @@
 """
 The rate-limit-exceeded response handler.
 
+DOMAIN-AGNOSTIC BY DESIGN: this module never imports a specific
+domain's rate_limit/policies.py (previously it imported auth's
+directly -- that coupling is exactly what this refactor removes).
+Instead, each domain registers its own endpoint -> AuditEventName
+mapping into _AUDIT_EVENT_REGISTRY via register_audit_events(), called
+explicitly at app-boot time (see src/__init__.py's
+_register_error_handlers). security/ owns the ENGINE; each domain owns
+its own POLICY and registers into the shared engine -- the same
+"registry a fresh app boot populates explicitly" idiom already used by
+master_scheduler/registry.py and security/detection/registry.py, not a
+new pattern invented for this file.
+
 RESPONSE SHAPE IS A DELIBERATE, APPROVED EXCEPTION to this project's
 general {"success": false, "message": ..., "errors": [], "code": ...}
 envelope (see src/core/responses.py). The shape below --
@@ -12,16 +24,33 @@ knowing that was a deliberate choice, not a miss.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from flask import Flask, jsonify, request
 from flask_jwt_extended import get_jwt_identity
 from flask_limiter.errors import RateLimitExceeded
 
-from src.domains.security.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS
 from src.shared.audit import audit as shared_audit
+from src.shared.audit.audit_types import AuditEventName
 
 logger = logging.getLogger(__name__)
+
+# Populated by each domain's rate_limit/policies.py via
+# register_audit_events(), called explicitly during app boot -- see
+# src/__init__.py. Never populated by this module itself.
+_AUDIT_EVENT_REGISTRY: dict[str, AuditEventName] = {}
+
+
+def register_audit_events(mapping: dict[str, AuditEventName]) -> None:
+    """Called once per domain at app-boot time, e.g.:
+
+        from src.domains.auth.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS
+        rate_limit_responses.register_audit_events(RATE_LIMIT_AUDIT_EVENTS)
+
+    Merges rather than replaces, so multiple domains can each register
+    their own mapping independently without needing to know about each
+    other or coordinate a single combined dict themselves."""
+    _AUDIT_EVENT_REGISTRY.update(mapping)
 
 
 def _current_email() -> Optional[str]:
@@ -62,9 +91,11 @@ def _retry_after_seconds(error: RateLimitExceeded) -> int:
 def handle_rate_limit_exceeded(error: RateLimitExceeded):
     """
     Registered as the Flask error handler for RateLimitExceeded (see
-    register() below). Runs for EVERY route the limiter guards, Auth or
-    otherwise -- Phase 2/3 adding Loan Book/Order Book limits gets this
-    same handler for free.
+    register() below). Runs for EVERY route ANY domain's limiter guards
+    -- Loan Book/Order Book/Business/Supplier adding their own limits
+    later gets this same handler for free, with zero changes needed
+    here, as long as they call register_audit_events() with their own
+    mapping at boot time.
 
     Records the violation through the EXISTING shared.audit system --
     no new table, no duplicate audit infrastructure. Rate limiting
@@ -75,7 +106,7 @@ def handle_rate_limit_exceeded(error: RateLimitExceeded):
     specifically for this handler).
     """
     retry_after = _retry_after_seconds(error)
-    event_name = RATE_LIMIT_AUDIT_EVENTS.get(request.endpoint)
+    event_name = _AUDIT_EVENT_REGISTRY.get(request.endpoint)
 
     if event_name is not None:
         try:

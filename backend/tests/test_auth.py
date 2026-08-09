@@ -356,7 +356,7 @@ class TestLoginLockoutIntegration:
         # system (5 wrong attempts -> 423 ACCOUNT_LOCKED), which is a
         # deliberately separate protection from the login rate limiter
         # (5 requests/minute) added alongside it. The two policies are
-        # independent by design -- see rate_limit/policies.py -- and
+        # independent by design -- see auth/rate_limit/policies.py -- and
         # happen to share the same number (5) for unrelated reasons, so
         # 6 rapid identical-endpoint calls in a tight loop would trip the
         # rate limiter before ever reaching the lockout check this test
