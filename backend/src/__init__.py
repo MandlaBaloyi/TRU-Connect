@@ -56,6 +56,9 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.business.order_book.api.order_book_routes import order_book_bp
     app.register_blueprint(order_book_bp)
 
+    from src.domains.business.business_profile.api.business_profile_routes import business_profile_bp
+    app.register_blueprint(business_profile_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """
@@ -91,4 +94,10 @@ def _register_error_handlers(app: Flask) -> None:
         return error_response(message="Internal server error", status_code=500)
 
     from src.domains.security.rate_limit import responses as rate_limit_responses
+    from src.domains.auth.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS as AUTH_RATE_LIMIT_AUDIT_EVENTS
+    rate_limit_responses.register_audit_events(AUTH_RATE_LIMIT_AUDIT_EVENTS)
+    # Future domains' own rate_limit/policies.py RATE_LIMIT_AUDIT_EVENTS
+    # get registered here the same way, e.g.:
+    #   from src.domains.business.order_book.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS as ORDER_BOOK_...
+    #   rate_limit_responses.register_audit_events(ORDER_BOOK_...)
     rate_limit_responses.register(app)

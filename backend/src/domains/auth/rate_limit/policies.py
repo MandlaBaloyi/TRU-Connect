@@ -1,13 +1,16 @@
 """
-Named rate-limit policies — the ONE place that defines "how many
-requests, how often" per route. Routes import a named constant from
-here rather than hardcoding a limit string inline, so every policy is
-visible in one place, and Phase 2/3 (Loan Book, Order Book) can follow
-the exact same pattern: add constants here, decorate the route, done.
+Auth's own rate-limit policies — "how many requests, how often" per
+Auth route. Lives HERE, in the auth domain, not in
+security/rate_limit/: security owns the shared ENGINE (limiter.py,
+responses.py), each domain owns its own POLICY. Loan Book, Order Book,
+Business, and Supplier each get their own sibling rate_limit/policies.py
+following this exact same shape when their limits are built (Phase
+2/3+) — see the stub files in those domains' own rate_limit/ folders.
 
 Numbers below are Phase 1 starting points, approved for Auth —
 explicitly NOT "final production numbers". Tune based on real usage
-once real traffic exists, same spirit as limiter.py's storage note.
+once real traffic exists, same spirit as security/rate_limit/limiter.py's
+storage note.
 """
 from __future__ import annotations
 
@@ -65,7 +68,11 @@ def login_key_func() -> str:
 
 
 # --- Endpoint -> audit event mapping ------------------------------------
-# Read by responses.py's error handler to record WHICH policy tripped.
+# Registered into security/rate_limit/responses.py's shared registry at
+# app-boot time (see src/__init__.py) — responses.py never imports this
+# module directly, so it stays domain-agnostic and every future domain's
+# rate_limit/policies.py can register its own mapping the same way,
+# without security/ needing to know any domain's routes exist.
 #
 # KEYED BY "api.auth.<function name>", NOT "auth.<function name>" --
 # auth_bp is registered as a NESTED blueprint inside api_bp (see

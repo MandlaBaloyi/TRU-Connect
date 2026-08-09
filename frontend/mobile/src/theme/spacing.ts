@@ -3,6 +3,7 @@
  * Ref: docs/02_SYSTEM_UI_UX_SPECIFICATION.txt, Section 11 (Layout & Spacing)
  */
 export const spacing = {
+  none: 0,
   xs: 4,
   sm: 8,
   md: 16,

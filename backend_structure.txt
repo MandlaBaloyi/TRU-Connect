@@ -1,6 +1,7 @@
 backend
 ├── migrations
 │   ├── versions
+│   │   ├── a1b2c3d4e5f6_business_profile_table.py
 │   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
 │   │   ├── b1a2c3d4e5f6_security_audit_events.py
 │   │   ├── c2d3e4f5a6b7_loan_book_tables.py
@@ -34,6 +35,9 @@ backend
 │   │   │   │   ├── password_reset_token.py
 │   │   │   │   ├── refresh_token.py
 │   │   │   │   └── user.py
+│   │   │   ├── rate_limit
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── policies.py
 │   │   │   ├── repositories
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── otp_repository.py
@@ -62,25 +66,32 @@ backend
 │   │   │   │   ├── algorithms
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── api
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── business_profile_routes.py
 │   │   │   │   ├── commands
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── events
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── models
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── business_profile.py
 │   │   │   │   ├── queries
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── business_profile_repository.py
 │   │   │   │   ├── schemas
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── business_profile_schemas.py
 │   │   │   │   ├── services
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── business_profile_service.py
+│   │   │   │   │   └── errors.py
 │   │   │   │   ├── utils
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── validators
 │   │   │   │   │   └── __init__.py
+│   │   │   │   ├── {models,repositories,services,schemas,api}
 │   │   │   │   └── __init__.py
 │   │   │   ├── loan_book
 │   │   │   │   ├── api
@@ -92,6 +103,9 @@ backend
 │   │   │   │   │   ├── loan_entry.py
 │   │   │   │   │   ├── loan_history_event.py
 │   │   │   │   │   └── payment.py
+│   │   │   │   ├── rate_limit
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── policies.py
 │   │   │   │   ├── repositories
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── customer_repository.py
@@ -124,6 +138,9 @@ backend
 │   │   │   │   │   ├── order.py
 │   │   │   │   │   ├── order_history_event.py
 │   │   │   │   │   └── order_line_item.py
+│   │   │   │   ├── rate_limit
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── policies.py
 │   │   │   │   ├── repositories
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   ├── auto_clear_settings_repository.py
@@ -172,6 +189,9 @@ backend
 │   │   │   │   ├── validators
 │   │   │   │   │   └── __init__.py
 │   │   │   │   └── __init__.py
+│   │   │   ├── rate_limit
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── policies.py
 │   │   │   └── __init__.py
 │   │   ├── marketplace
 │   │   │   ├── api
@@ -239,6 +259,10 @@ backend
 │   │   │   │   └── __init__.py
 │   │   │   ├── monitoring
 │   │   │   │   └── __init__.py
+│   │   │   ├── rate_limit
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── limiter.py
+│   │   │   │   └── responses.py
 │   │   │   ├── repositories
 │   │   │   │   └── __init__.py
 │   │   │   ├── rules
@@ -252,6 +276,9 @@ backend
 │   │   │   │   └── __init__.py
 │   │   │   └── __init__.py
 │   │   ├── supplier
+│   │   │   ├── rate_limit
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── policies.py
 │   │   │   ├── supplier_profile
 │   │   │   │   ├── algorithms
 │   │   │   │   │   └── __init__.py
@@ -426,6 +453,10 @@ backend
 │   │   │   │   └── test_auth_scheduler.py
 │   │   │   └── __init__.py
 │   │   ├── business
+│   │   │   ├── business_profile
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── conftest.py
+│   │   │   │   └── test_ownership.py
 │   │   │   ├── loan_book
 │   │   │   │   ├── conftest.py
 │   │   │   │   ├── test_api_ownership.py

@@ -143,7 +143,6 @@ frontend
 │   │   │       │   │   │   ├── ChipSingleSelect.tsx
 │   │   │       │   │   │   ├── CompletionBar.tsx
 │   │   │       │   │   │   ├── EditButton.tsx
-│   │   │       │   │   │   ├── index.ts
 │   │   │       │   │   │   ├── ProfileCard.tsx
 │   │   │       │   │   │   ├── ProfileTabBar.tsx
 │   │   │       │   │   │   └── VerificationChecklist.tsx
