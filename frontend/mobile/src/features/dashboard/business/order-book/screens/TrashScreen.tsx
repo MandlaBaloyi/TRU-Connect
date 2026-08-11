@@ -33,7 +33,7 @@ export default function TrashScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -43,7 +43,7 @@ export default function TrashScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load Trash." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -56,7 +56,7 @@ export default function TrashScreen() {
   const isEmpty = visibleOrders.length === 0 && visibleCustomers.length === 0;
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.note, { color: theme.colors.onSurfaceVariant }]}>
           Items disappear from here after 7 days. They aren't deleted from your records.

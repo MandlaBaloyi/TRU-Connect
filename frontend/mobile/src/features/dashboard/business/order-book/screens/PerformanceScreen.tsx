@@ -21,7 +21,7 @@ export default function PerformanceScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -31,14 +31,14 @@ export default function PerformanceScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load performance." onRetry={refetch} />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <PerformancePeriodSelector period={period} onChange={setPeriod} />
         <PerformanceStatsCard stats={stats} periodLabel={PERFORMANCE_PERIOD_LABELS[period]} />

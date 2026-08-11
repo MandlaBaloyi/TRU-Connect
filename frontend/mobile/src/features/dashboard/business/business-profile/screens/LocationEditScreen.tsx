@@ -38,7 +38,7 @@ export default function LocationEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -48,7 +48,7 @@ export default function LocationEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your location." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -64,7 +64,7 @@ export default function LocationEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ChipSingleSelect label="Province" options={PROVINCE_OPTIONS} value={location.province} onChange={(province) => setLocation({ ...location, province })} />
 

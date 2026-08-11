@@ -12,7 +12,7 @@ import { typography } from "@/theme/typography";
 export default function MyAccountScreen() {
   const theme = useTheme();
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <View style={styles.centre}>
         <User size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />
         <Text style={[styles.title, { color: theme.colors.onSurface }]}>My Account</Text>

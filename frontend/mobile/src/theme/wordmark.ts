@@ -1,7 +1,7 @@
 /**
- * TRU Connect wordmark styling tokens.
+ * TruConnect wordmark styling tokens.
  *
- * Used only by BrandTopBar -- the persistent, logo-free brand mark shown
+ * Used by AppHeader's "brand" variant -- the persistent, logo-free brand mark shown
  * across the 5 primary dashboard tabs (Home / Account / Community /
  * Discovery / More). Kept separate from typography.ts so this one-off
  * treatment doesn't leak into the general type scale.

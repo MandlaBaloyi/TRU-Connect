@@ -1,6 +1,6 @@
 /**
  * Order Book — domain types.
- * Ref: order_book_handoff.md (architecture) + TRU Connect master prompt
+ * Ref: order_book_handoff.md (architecture) + TruConnect master prompt
  *      (product scope: business-side customer order management).
  *
  * SCOPE BOUNDARY: this is record-keeping only, same discipline as Loan

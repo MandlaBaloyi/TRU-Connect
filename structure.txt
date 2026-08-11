@@ -519,6 +519,7 @@ TRU_Connect
 │   ├── _truconnect_docs
 │   │   ├── AUDIT_ DB_ SCALLING_PLAN(ADMIN PORTAL).txt
 │   │   ├── IdentityProviders(google.txt
+│   │   ├── informal_economy_flow_chart.txt
 │   │   ├── money_module_plan.txt
 │   │   └── trueconnect_audit.txt
 │   ├── enginnering_docs
@@ -592,9 +593,31 @@ TRU_Connect
 │   │   │   │   │   ├── security
 │   │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   │   └── index.tsx
-│   │   │   │   │   └── settings
-│   │   │   │   │       ├── _layout.tsx
-│   │   │   │   │       └── index.tsx
+│   │   │   │   │   ├── settings
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── about.tsx
+│   │   │   │   │   │   ├── business-visibility.tsx
+│   │   │   │   │   │   ├── data-usage.tsx
+│   │   │   │   │   │   ├── help.tsx
+│   │   │   │   │   │   ├── index.tsx
+│   │   │   │   │   │   ├── language.tsx
+│   │   │   │   │   │   ├── mobile-data.tsx
+│   │   │   │   │   │   ├── notifications-announcements.tsx
+│   │   │   │   │   │   ├── notifications-community.tsx
+│   │   │   │   │   │   ├── notifications-discovery.tsx
+│   │   │   │   │   │   ├── notifications-orders.tsx
+│   │   │   │   │   │   ├── offline-mode.tsx
+│   │   │   │   │   │   ├── order-preferences.tsx
+│   │   │   │   │   │   ├── personalisation.tsx
+│   │   │   │   │   │   ├── privacy-community.tsx
+│   │   │   │   │   │   ├── privacy-policy.tsx
+│   │   │   │   │   │   ├── report-problem.tsx
+│   │   │   │   │   │   ├── start-screen.tsx
+│   │   │   │   │   │   ├── storage.tsx
+│   │   │   │   │   │   ├── sync.tsx
+│   │   │   │   │   │   ├── terms.tsx
+│   │   │   │   │   │   └── theme.tsx
+│   │   │   │   │   └── _layout.tsx
 │   │   │   │   ├── supplier
 │   │   │   │   │   ├── (tabs)
 │   │   │   │   │   │   ├── _layout.tsx
@@ -603,16 +626,22 @@ TRU_Connect
 │   │   │   │   │   │   ├── discovery.tsx
 │   │   │   │   │   │   ├── home.tsx
 │   │   │   │   │   │   └── more.tsx
-│   │   │   │   │   └── product-catalogue
-│   │   │   │   │       ├── [id]
-│   │   │   │   │       │   ├── edit.tsx
-│   │   │   │   │       │   ├── images.tsx
-│   │   │   │   │       │   └── index.tsx
-│   │   │   │   │       ├── _layout.tsx
-│   │   │   │   │       ├── add.tsx
-│   │   │   │   │       ├── drafts.tsx
-│   │   │   │   │       └── index.tsx
+│   │   │   │   │   ├── product-catalogue
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   ├── edit.tsx
+│   │   │   │   │   │   │   ├── images.tsx
+│   │   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── add.tsx
+│   │   │   │   │   │   ├── drafts.tsx
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   └── _layout.tsx
+│   │   │   │   ├── _layout.tsx
 │   │   │   │   └── index.tsx
+│   │   │   ├── (legal)
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   ├── privacy-policy.tsx
+│   │   │   │   └── terms.tsx
 │   │   │   ├── (onboarding)
 │   │   │   │   ├── _layout.tsx
 │   │   │   │   ├── role-selection.tsx
@@ -638,8 +667,10 @@ TRU_Connect
 │   │   │   │   │   ├── FormTextField.tsx
 │   │   │   │   │   ├── OtpInput.tsx
 │   │   │   │   │   └── PasswordField.tsx
+│   │   │   │   ├── legal
+│   │   │   │   │   └── PolicyLinksText.tsx
 │   │   │   │   ├── navigation
-│   │   │   │   │   ├── BrandTopBar.tsx
+│   │   │   │   │   ├── AppHeader.tsx
 │   │   │   │   │   ├── DashboardTabBar.tsx
 │   │   │   │   │   └── ScreenHeader.tsx
 │   │   │   │   └── ui
@@ -651,6 +682,10 @@ TRU_Connect
 │   │   │   ├── constants
 │   │   │   │   ├── config.ts
 │   │   │   │   └── regex.ts
+│   │   │   ├── content
+│   │   │   │   └── legal
+│   │   │   │       ├── privacyPolicyContent.tsx
+│   │   │   │       └── termsContent.tsx
 │   │   │   ├── features
 │   │   │   │   ├── auth
 │   │   │   │   │   ├── hooks
@@ -683,6 +718,7 @@ TRU_Connect
 │   │   │   │       │   │   │   ├── ChipSingleSelect.tsx
 │   │   │   │       │   │   │   ├── CompletionBar.tsx
 │   │   │   │       │   │   │   ├── EditButton.tsx
+│   │   │   │       │   │   │   ├── index.ts
 │   │   │   │       │   │   │   ├── ProfileCard.tsx
 │   │   │   │       │   │   │   ├── ProfileTabBar.tsx
 │   │   │   │       │   │   │   └── VerificationChecklist.tsx
@@ -873,8 +909,40 @@ TRU_Connect
 │   │   │   │       │   │   │   └── SecurityScreen.tsx
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── settings
+│   │   │   │       │   │   ├── components
+│   │   │   │       │   │   │   ├── ComingSoonScreen.tsx
+│   │   │   │       │   │   │   ├── InfoScreen.tsx
+│   │   │   │       │   │   │   ├── OptionPickerScreen.tsx
+│   │   │   │       │   │   │   ├── SettingsRow.tsx
+│   │   │   │       │   │   │   └── SettingsSection.tsx
+│   │   │   │       │   │   ├── hooks
+│   │   │   │       │   │   │   └── SettingsProvider.tsx
 │   │   │   │       │   │   ├── screens
-│   │   │   │       │   │   │   └── SettingsScreen.tsx
+│   │   │   │       │   │   │   ├── AboutScreen.tsx
+│   │   │   │       │   │   │   ├── BusinessVisibilityScreen.tsx
+│   │   │   │       │   │   │   ├── DataUsageScreen.tsx
+│   │   │   │       │   │   │   ├── HelpScreen.tsx
+│   │   │   │       │   │   │   ├── index.ts
+│   │   │   │       │   │   │   ├── LanguageSettingScreen.tsx
+│   │   │   │       │   │   │   ├── MobileDataScreen.tsx
+│   │   │   │       │   │   │   ├── NotificationsAnnouncementsScreen.tsx
+│   │   │   │       │   │   │   ├── NotificationsCommunityScreen.tsx
+│   │   │   │       │   │   │   ├── NotificationsDiscoveryScreen.tsx
+│   │   │   │       │   │   │   ├── NotificationsOrdersScreen.tsx
+│   │   │   │       │   │   │   ├── OfflineModeScreen.tsx
+│   │   │   │       │   │   │   ├── OrderPreferencesScreen.tsx
+│   │   │   │       │   │   │   ├── PersonalisationScreen.tsx
+│   │   │   │       │   │   │   ├── PrivacyCommunityScreen.tsx
+│   │   │   │       │   │   │   ├── PrivacyPolicyScreen.tsx
+│   │   │   │       │   │   │   ├── ReportProblemScreen.tsx
+│   │   │   │       │   │   │   ├── SettingsScreen.tsx
+│   │   │   │       │   │   │   ├── StartScreenSettingScreen.tsx
+│   │   │   │       │   │   │   ├── StorageScreen.tsx
+│   │   │   │       │   │   │   ├── SyncScreen.tsx
+│   │   │   │       │   │   │   ├── TermsScreen.tsx
+│   │   │   │       │   │   │   └── ThemeSettingScreen.tsx
+│   │   │   │       │   │   ├── services
+│   │   │   │       │   │   │   └── settingsStorage.ts
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   └── verify-business
 │   │   │   │       │       ├── algorithms

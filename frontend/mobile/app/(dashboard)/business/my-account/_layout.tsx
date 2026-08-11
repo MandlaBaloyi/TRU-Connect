@@ -1,8 +1,7 @@
 import React from "react";
 import { Stack } from "expo-router";
 import { useTheme } from "react-native-paper";
-
-import { typography } from "@/theme/typography";
+import { featureHeader } from "@/components/navigation/FeatureHeader";
 
 export default function MyAccountLayout() {
   const theme = useTheme();
@@ -11,14 +10,12 @@ export default function MyAccountLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
-        headerBackTitle: "Back",
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTintColor: theme.colors.onSurface,
-        headerTitleStyle: {
-          fontSize: typography.h2.fontSize,
-          fontWeight: typography.h2.fontWeight,
-          color: theme.colors.onSurface,
-        },
+        // CUSTOM JS HEADER instead of the native one -- this is the
+        // fix for the first-render header-height bug. See
+        // src/components/navigation/FeatureHeader.tsx for the full
+        // root-cause analysis. Titles below are UNCHANGED; the custom
+        // header reads them from each screen's own options.
+        header: featureHeader,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >

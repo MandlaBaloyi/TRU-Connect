@@ -49,7 +49,7 @@ export default function AddPaymentScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -59,7 +59,7 @@ export default function AddPaymentScreen() {
 
   if (notFound || !loan) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="This purchase is no longer available." />
       </ScreenContainer>
     );
@@ -91,7 +91,7 @@ export default function AddPaymentScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.summary}>
           <Text style={[styles.summaryLabel, { color: theme.colors.onSurfaceVariant }]}>

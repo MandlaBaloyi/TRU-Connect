@@ -35,7 +35,7 @@ export default function OperatingHistoryEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -45,7 +45,7 @@ export default function OperatingHistoryEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your operating history." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -61,7 +61,7 @@ export default function OperatingHistoryEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <ChipSingleSelect label="How long have you been operating?" options={OPTIONS} value={value} onChange={setValue} />
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}

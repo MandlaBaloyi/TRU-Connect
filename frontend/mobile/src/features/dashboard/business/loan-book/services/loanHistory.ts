@@ -134,7 +134,7 @@ export function filterTransactionEvents(events: LoanHistoryEvent[]): LoanHistory
  * owner's own internal ledger/statement, never shown to the customer, so
  * it's the right place for the plain word they actually think in — the
  * "Purchase" wording elsewhere in this feature exists specifically to
- * avoid implying TRU Connect lends money on documents that could reach
+ * avoid implying TruConnect lends money on documents that could reach
  * the customer (the receipt); a private transaction-type label in the
  * owner's own statement carries no such risk.
  */

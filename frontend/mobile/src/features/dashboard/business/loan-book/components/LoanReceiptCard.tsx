@@ -86,7 +86,7 @@ export const LoanReceiptCard = forwardRef<View, Props>(function LoanReceiptCard(
       <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />
 
       <Text style={[styles.disclaimer, { color: theme.colors.onSurfaceVariant }]}>
-        This is a personal record between the parties. TRU Connect does not lend money or collect
+        This is a personal record between the parties. TruConnect does not lend money or collect
         payments.
       </Text>
 

@@ -7,7 +7,7 @@
  * ============================================================
  *
  * This computes a numeric risk signal about a PRIVATE INDIVIDUAL who
- * never signed up for TRU Connect — a shop's neighbour, recorded in
+ * never signed up for TruConnect — a shop's neighbour, recorded in
  * someone else's credit book. That is a materially different thing from
  * scoring a consenting platform user.
  *

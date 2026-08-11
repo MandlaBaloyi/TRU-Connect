@@ -130,6 +130,7 @@ native packages is safe for SDK 54.
 
      expo-sharing
      react-native-view-shot
+     expo-system-ui
                                 
     react-native-safe-area-context  Safe-area-aware layout (notches, status
                                     bars). Required by expo-router itself

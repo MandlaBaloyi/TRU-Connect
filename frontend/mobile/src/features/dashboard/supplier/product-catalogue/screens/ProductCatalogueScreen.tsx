@@ -48,7 +48,7 @@ export function ProductCatalogueScreen() {
       {!isLoading && data?.products.length === 0 && (
         <View style={styles.empty}>
           <Text variant="titleMedium">No products yet</Text>
-          <Text variant="bodyMedium">Add your first product to start selling on TRU Connect.</Text>
+          <Text variant="bodyMedium">Add your first product to start selling on TruConnect.</Text>
         </View>
       )}
 

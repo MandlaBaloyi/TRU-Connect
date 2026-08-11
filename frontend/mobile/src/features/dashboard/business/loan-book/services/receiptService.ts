@@ -59,7 +59,7 @@ export function generateReferenceCode(entryId: string): string {
  */
 export function buildFromLabel(ownerFirstName?: string): string {
   const trimmed = ownerFirstName?.trim();
-  if (!trimmed) return "Sent via TRU Connect";
+  if (!trimmed) return "Sent via TruConnect";
   return `${trimmed}'s shop`;
 }
 

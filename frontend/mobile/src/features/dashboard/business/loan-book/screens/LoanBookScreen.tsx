@@ -66,7 +66,7 @@ export default function LoanBookScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState
           message="Could not load your loan book. Check your connection and try again."
           onRetry={refetch}
@@ -76,7 +76,7 @@ export default function LoanBookScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <FlatList<CustomerView>
         data={filteredCustomers}
         keyExtractor={(item) => item.customer.id}

@@ -84,14 +84,14 @@ export default function OrderHistoryScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load order history." onRetry={refetch} />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <FlatList<Row>
         data={rows}
         keyExtractor={(row) => row.key}

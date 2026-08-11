@@ -35,7 +35,7 @@ export default function SupplierInfoEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -45,7 +45,7 @@ export default function SupplierInfoEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your supplier sourcing." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -61,7 +61,7 @@ export default function SupplierInfoEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <ChipMultiSelect label="Where do you usually get stock or supplies?" options={OPTIONS} value={sources} onChange={setSources} />
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
