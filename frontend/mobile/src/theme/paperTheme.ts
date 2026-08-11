@@ -3,7 +3,7 @@ import { lightColors, darkColors } from "./colors";
 import { radius } from "./spacing";
 
 /**
- * React Native Paper theme configuration, extended with TRU Connect's
+ * React Native Paper theme configuration, extended with TruConnect's
  * design tokens. Ref: docs/02_SYSTEM_UI_UX_SPECIFICATION.txt
  */
 export const truConnectLightTheme = {

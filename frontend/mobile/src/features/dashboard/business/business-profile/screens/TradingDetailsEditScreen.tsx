@@ -48,7 +48,7 @@ export default function TradingDetailsEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -58,7 +58,7 @@ export default function TradingDetailsEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your trading details." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -74,7 +74,7 @@ export default function TradingDetailsEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ChipMultiSelect label="Who do you mainly sell to?" options={CUSTOMER_TYPE_OPTIONS} value={draft.customerTypes} onChange={(customerTypes) => setDraft({ ...draft, customerTypes })} />
         <ChipMultiSelect label="How do customers usually place orders?" options={ORDER_CHANNEL_OPTIONS} value={draft.orderChannels} onChange={(orderChannels) => setDraft({ ...draft, orderChannels })} />

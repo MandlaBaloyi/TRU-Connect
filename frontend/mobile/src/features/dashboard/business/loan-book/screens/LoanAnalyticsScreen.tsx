@@ -59,7 +59,7 @@ export default function LoanAnalyticsScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -69,14 +69,14 @@ export default function LoanAnalyticsScreen() {
 
   if (isError || !summary) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your figures. Check your connection and try again." onRetry={refetch} />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.statsGrid}>
           <LoanSummaryCard

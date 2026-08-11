@@ -75,7 +75,7 @@ export default function TrashScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -85,7 +85,7 @@ export default function TrashScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load Trash. Check your connection and try again." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -129,7 +129,7 @@ export default function TrashScreen() {
   const isEmpty = rows.length === 0;
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <FlatList
         data={rows}
         keyExtractor={(row) => `${row.kind}-${row.id}`}

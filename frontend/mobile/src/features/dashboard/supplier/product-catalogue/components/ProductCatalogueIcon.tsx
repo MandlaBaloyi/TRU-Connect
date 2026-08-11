@@ -15,7 +15,7 @@ interface Props {
  * - Stock Management
  * - Supplier Products
  *
- * Consistent with the TRU Connect design system.
+ * Consistent with the TruConnect design system.
  */
 export function ProductCatalogueIcon({ size = 40 }: Props) {
   return (

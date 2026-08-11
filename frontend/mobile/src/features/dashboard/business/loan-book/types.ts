@@ -31,7 +31,7 @@ export type IsoDateString = string;
 /**
  * A customer of THIS business who buys on credit.
  *
- * NOT a TRU Connect user — these are the shop's neighbours and
+ * NOT a TruConnect user — these are the shop's neighbours and
  * walk-ins, people who have never heard of the platform. Doc 04 §3.4 is
  * explicit that this is "deliberately minimal -- this is not a CRM".
  * Resist adding fields here; every extra field is typing the shop owner

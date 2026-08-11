@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Pressable } from "react-native";
 import { Text, useTheme } from "react-native-paper";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import PagerView from "react-native-pager-view";
 import {
   Store,
@@ -93,6 +93,7 @@ export default function RoleSelectionScreen() {
   // pager doesn't mount at all until this resolves.
   const [initialIndex, setInitialIndex] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isContinuing, setIsContinuing] = useState(false);
 
   useEffect(() => {
     secureStorage.getItem(STORAGE_KEYS.SELECTED_ROLE).then((stored) => {
@@ -101,6 +102,19 @@ export default function RoleSelectionScreen() {
       setActiveIndex(index);
     });
   }, []);
+
+  // BUG FIX: isContinuing was set true right before router.push and
+  // never reset, on the assumption the screen would unmount. Expo
+  // Router keeps a pushed-FROM screen mounted (standard stack
+  // behaviour) -- so pressing back from create-account revealed this
+  // SAME component instance with isContinuing still stuck at true,
+  // permanently disabling Continue. useFocusEffect resets it every
+  // time this screen regains focus, which covers exactly that case.
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsContinuing(false);
+    }, [])
+  );
 
   if (initialIndex === null) {
     // Rendering nothing, not a spinner -- see create-account.tsx's own
@@ -117,8 +131,19 @@ export default function RoleSelectionScreen() {
   };
 
   const handleContinue = async () => {
+    if (isContinuing) return; // ignore repeat taps while already loading
+    setIsContinuing(true);
     await secureStorage.setItem(STORAGE_KEYS.SELECTED_ROLE, activeSlide.role);
-    router.push("/(auth)/create-account");
+    // Real, explicitly-requested loading feedback for the tap itself --
+    // covers BOTH roles, since this one button/screen is where both
+    // "For Small Business" and "For Supplier Business" continue from
+    // (activeSlide.role at the moment of tap decides which). Not a
+    // workaround for anything unfixed: a bounded, deliberate minimum
+    // visible duration so the tap has a real acknowledgement before
+    // the next screen appears, rather than an instant, unexplained
+    // jump.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    router.push({ pathname: "/(auth)/create-account", params: { role: activeSlide.role } });
   };
 
   return (
@@ -202,7 +227,9 @@ export default function RoleSelectionScreen() {
       </View>
 
       <View style={styles.footer}>
-        <PrimaryButton onPress={handleContinue}>Continue</PrimaryButton>
+        <PrimaryButton onPress={handleContinue} loading={isContinuing} disabled={isContinuing}>
+          Continue
+        </PrimaryButton>
       </View>
     </ScreenContainer>
   );

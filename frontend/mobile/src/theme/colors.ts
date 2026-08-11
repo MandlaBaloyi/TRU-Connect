@@ -1,5 +1,5 @@
 /**
- * TRU Connect design tokens - colour palette.
+ * TruConnect design tokens - colour palette.
  * Ref: docs/02_SYSTEM_UI_UX_SPECIFICATION.txt, Section 5 (Color Palette)
  *
  * Functional colour roles rather than raw hex usage across the app, so

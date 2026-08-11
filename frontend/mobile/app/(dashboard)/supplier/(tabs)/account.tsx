@@ -1,20 +1,22 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { AppHeader } from "@/components/navigation/AppHeader";
 import { FeatureTile } from "@/components/cards/FeatureTile";
 import { ProductCatalogueIcon } from "@/features/dashboard/supplier/product-catalogue/components/ProductCatalogueIcon";
-import { BRAND_TOP_BAR_HEIGHT } from "@/components/navigation/BrandTopBar";
 import { spacing } from "@/theme/spacing";
 
+/** Supplier Account tab — same architecture as Business's Account
+ *  (contextual header + tile grid), existing Product Catalogue tile
+ *  kept as-is. */
 export default function SupplierAccount() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   return (
-    <ScreenContainer>
-      <View style={[styles.grid, { paddingTop: insets.top + BRAND_TOP_BAR_HEIGHT + spacing.md }]}>
+    <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+      <AppHeader variant="title" title="Account" subtitle="Your business tools" />
+      <View style={styles.grid}>
         <View style={styles.tileWrapper}>
           <FeatureTile
             label="Product Catalogue"

@@ -16,7 +16,7 @@
  * The file is named `localReminderService` rather than `reminderService`
  * precisely so this constraint is impossible to misread. A generic name
  * invites someone to add "and also SMS the customer" as an obvious
- * improvement — which would mean TRU Connect messaging private
+ * improvement — which would mean TruConnect messaging private
  * individuals about their debts, on a business's behalf, without their
  * consent. That is a POPIA problem and a trust problem, not a feature.
  *

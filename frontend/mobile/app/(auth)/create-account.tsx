@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
-import { Text, Checkbox, Divider } from "react-native-paper";
+import { Text, Checkbox, Divider, useTheme } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { FormTextField } from "@/components/forms/FormTextField";
 import { PasswordField } from "@/components/forms/PasswordField";
@@ -21,6 +21,7 @@ import { STORAGE_KEYS } from "@/constants/config";
 import { ApiError, getErrorMessage } from "@/services/api/apiClient";
 import type { UserRole } from "@/features/auth/types";
 import { spacing } from "@/theme/spacing";
+import { PolicyLinksText } from "@/components/legal/PolicyLinksText";
 
 /**
  * Create Account screen.
@@ -67,22 +68,45 @@ import { spacing } from "@/theme/spacing";
  *     correctly-themed <ScreenContainer /> instead means the right
  *     background paints immediately, even with nothing else on screen
  *     yet.
+ *  6. role was ALWAYS resolved via an async secureStorage read, even
+ *     when arriving straight from role-selection.tsx -- which already
+ *     knew the role (the user had just picked it) and had already
+ *     written it to storage a moment earlier. Re-reading it here was a
+ *     redundant round-trip that produced a visible blank-screen gap
+ *     between tapping Continue and the form actually appearing -- the
+ *     real cause of the reported "delay". role-selection.tsx now passes
+ *     the role directly as a route param, read synchronously below; the
+ *     async read is now only a fallback for arriving without one.
  */
 export default function CreateAccountScreen() {
   const register = useRegister();
   const googleSignIn = useGoogleSignIn();
+  const params = useLocalSearchParams<{ role?: string }>();
+  // If role-selection navigated here, the role is already known --
+  // read directly from the route param (synchronous, no delay) rather
+  // than the async secureStorage read below, which used to be the ONLY
+  // source and was the real cause of a visible blank-screen gap
+  // between "tap Continue" and the form actually appearing (that read
+  // was re-fetching a value role-selection already had in hand and had
+  // already written to storage a moment earlier -- a redundant
+  // round-trip, not a necessary one). Falls back to secureStorage only
+  // when arriving without a param (e.g. a direct deep link, or
+  // returning here by some path other than role-selection's Continue).
+  const paramRole: UserRole | null =
+    params.role === "supplier" ? "supplier" : params.role === "business" ? "business" : null;
   // null = "not yet determined" -- deliberately NOT defaulted to
   // "business". See docstring point 4.
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [role, setRole] = useState<UserRole | null>(paramRole);
   // Masks the label-settling flash on the form's first-ever mount --
   // see docstring's second note. Reset per form-mount, not global.
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
+    if (paramRole) return; // already known synchronously -- no read needed
     secureStorage.getItem(STORAGE_KEYS.SELECTED_ROLE).then((stored) => {
       setRole(stored === "supplier" ? "supplier" : "business");
     });
-  }, []);
+  }, [paramRole]);
 
   const registerErrorMessage = register.isError
     ? getErrorMessage(register.error, "We couldn't create your account. Please try again.")
@@ -155,6 +179,8 @@ function BusinessRegisterForm({
   onSubmit: (values: BusinessRegisterFormValues) => void;
   isSubmitting: boolean;
 } & CommonProps) {
+  const router = useRouter();
+  const theme = useTheme();
   const {
     control,
     handleSubmit,
@@ -174,6 +200,7 @@ function BusinessRegisterForm({
     },
   });
   const accepted = watch("acceptPrivacyPolicy");
+  const toggleAccepted = () => setValue("acceptPrivacyPolicy", !accepted as unknown as true, { shouldValidate: true });
 
   return (
     <ScreenContainer>
@@ -191,13 +218,37 @@ function BusinessRegisterForm({
         <PasswordField control={control} name="password" label="Password" />
         <PasswordField control={control} name="confirmPassword" label="Confirm Password" />
 
+        {/*
+          Combined agreement, per direct feedback: the Terms of Service
+          and Privacy Policy are two different documents doing two
+          different jobs (rules of use vs. data handling), so accepting
+          only one was never really sufficient — both are now covered
+          by a single checkbox, and both document names are real
+          tappable links to the public (legal) screens, not just plain
+          text. The checkbox itself still toggles on tapping anywhere
+          in the sentence EXCEPT the two links — those navigate
+          instead, which is why they're nested Text elements with their
+          own onPress rather than part of the same pressable block.
+        */}
         <View style={styles.row}>
-          <Checkbox
-            status={accepted ? "checked" : "unchecked"}
-            onPress={() => setValue("acceptPrivacyPolicy", !accepted as unknown as true, { shouldValidate: true })}
-          />
-          <Text onPress={() => setValue("acceptPrivacyPolicy", !accepted as unknown as true, { shouldValidate: true })}>
-            I accept the Privacy Policy
+          <Checkbox status={accepted ? "checked" : "unchecked"} onPress={toggleAccepted} />
+          <Text onPress={toggleAccepted} style={styles.agreementText}>
+            I agree to TruConnect's{" "}
+            <Text
+              style={{ color: theme.colors.primary, fontWeight: "700" }}
+              onPress={() => router.push("/(legal)/terms")}
+              accessibilityRole="link"
+            >
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={{ color: theme.colors.primary, fontWeight: "700" }}
+              onPress={() => router.push("/(legal)/privacy-policy")}
+              accessibilityRole="link"
+            >
+              Privacy Policy
+            </Text>
           </Text>
         </View>
         {errors.acceptPrivacyPolicy && (
@@ -230,6 +281,8 @@ function SupplierRegisterForm({
   onSubmit: (values: SupplierRegisterFormValues) => void;
   isSubmitting: boolean;
 } & CommonProps) {
+  const router = useRouter();
+  const theme = useTheme();
   const {
     control,
     handleSubmit,
@@ -248,6 +301,7 @@ function SupplierRegisterForm({
     },
   });
   const accepted = watch("acceptTerms");
+  const toggleAccepted = () => setValue("acceptTerms", !accepted as unknown as true, { shouldValidate: true });
 
   return (
     <ScreenContainer>
@@ -264,13 +318,27 @@ function SupplierRegisterForm({
         <PasswordField control={control} name="password" label="Password" />
         <PasswordField control={control} name="confirmPassword" label="Confirm Password" />
 
+        {/* Same combined, clickable agreement as the business form —
+            see its own comment for the full reasoning. */}
         <View style={styles.row}>
-          <Checkbox
-            status={accepted ? "checked" : "unchecked"}
-            onPress={() => setValue("acceptTerms", !accepted as unknown as true, { shouldValidate: true })}
-          />
-          <Text onPress={() => setValue("acceptTerms", !accepted as unknown as true, { shouldValidate: true })}>
-            I accept the Terms
+          <Checkbox status={accepted ? "checked" : "unchecked"} onPress={toggleAccepted} />
+          <Text onPress={toggleAccepted} style={styles.agreementText}>
+            I agree to TruConnect's{" "}
+            <Text
+              style={{ color: theme.colors.primary, fontWeight: "700" }}
+              onPress={() => router.push("/(legal)/terms")}
+              accessibilityRole="link"
+            >
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={{ color: theme.colors.primary, fontWeight: "700" }}
+              onPress={() => router.push("/(legal)/privacy-policy")}
+              accessibilityRole="link"
+            >
+              Privacy Policy
+            </Text>
           </Text>
         </View>
         {errors.acceptTerms && <Text style={styles.fieldError}>{errors.acceptTerms.message}</Text>}
@@ -294,6 +362,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: spacing.xl },
   title: { fontWeight: "700", marginTop: spacing.lg, marginBottom: spacing.lg },
   row: { flexDirection: "row", alignItems: "center", marginBottom: spacing.xs },
+  agreementText: { flex: 1, flexShrink: 1 },
   fieldError: { color: "#D64545", fontSize: 12, marginBottom: spacing.md, marginLeft: spacing.xl },
   errorText: { color: "#D64545", marginBottom: spacing.xs },
   link: { fontWeight: "600", color: "#0B2447" },

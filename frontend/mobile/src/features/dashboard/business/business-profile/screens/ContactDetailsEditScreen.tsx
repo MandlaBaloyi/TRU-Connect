@@ -38,7 +38,7 @@ export default function ContactDetailsEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -48,7 +48,7 @@ export default function ContactDetailsEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your contact details." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -64,7 +64,7 @@ export default function ContactDetailsEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.toggleRow}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Use my personal number</Text>

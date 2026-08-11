@@ -36,7 +36,7 @@ export default function OrderDetailScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -46,7 +46,7 @@ export default function OrderDetailScreen() {
 
   if (isError || !view) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load this order." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -99,7 +99,7 @@ export default function OrderDetailScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
           <CustomerAvatar name={customer.name} seed={customer.id} size={52} />

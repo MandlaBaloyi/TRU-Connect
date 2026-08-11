@@ -1,53 +1,55 @@
-import React, { Fragment } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { ChevronRight, LogOut, User, Store, ShieldCheck, Settings as SettingsIcon } from "lucide-react-native";
+import { LogOut, MoreVertical, User, Store, ShieldCheck, Settings as SettingsIcon } from "lucide-react-native";
 import Constants from "expo-constants";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { AppHeader } from "@/components/navigation/AppHeader";
+import { CardSection, Card } from "@/components/lists/CardListUI";
 import { useLogout } from "@/features/auth/hooks/useAuth";
-import { palette } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 /**
- * More tab — flat divider-separated rows (no card container), each
- * with an icon, bold title, subtitle, and chevron. Home stays
- * untouched; this screen only.
+ * More tab — moved onto the shared card system (see
+ * src/components/lists/CardListUI.tsx), the same visual language as
+ * Account Security and Settings, per direct feedback asking for the
+ * same clean, elegant treatment here too.
  *
  * My Account, My Business, Account Security, and Settings each have
  * their own isolated feature folder + route (same separation as Order
  * Book/Loan Book) — all four navigate for real.
  */
-const ROWS: { key: string; label: string; subtitle: string; route: string; icon: React.ReactNode }[] = [
+const ROWS: { key: string; label: string; subtitle: string; route: string; icon: (color: string) => React.ReactNode }[] = [
   {
     key: "my-account",
     label: "My Account",
     subtitle: "Manage your personal information",
     route: "/business/my-account",
-    icon: <User size={22} color={palette.truePointBlue} strokeWidth={2.2} />,
+    icon: (c) => <User size={20} color={c} strokeWidth={2} />,
   },
   {
     key: "my-business",
     label: "My Business",
     subtitle: "Manage your business information",
     route: "/business/my-business",
-    icon: <Store size={22} color={palette.emeraldGreen} strokeWidth={2.2} />,
+    icon: (c) => <Store size={20} color={c} strokeWidth={2} />,
   },
   {
     key: "security",
-    label: "Account security",
+    label: "Account Security",
     subtitle: "Protect your account and security",
     route: "/business/security",
-    icon: <ShieldCheck size={22} color={palette.truePointBlue} strokeWidth={2.2} />,
+    icon: (c) => <ShieldCheck size={20} color={c} strokeWidth={2} />,
   },
   {
     key: "settings",
     label: "Settings",
     subtitle: "Manage your app preferences",
     route: "/business/settings",
-    icon: <SettingsIcon size={22} color={palette.truePointBlue} strokeWidth={2.2} />,
+    icon: (c) => <SettingsIcon size={20} color={c} strokeWidth={2} />,
   },
 ];
 
@@ -57,34 +59,24 @@ export default function BusinessMore() {
   const logout = useLogout();
 
   return (
-    <ScreenContainer offsetForBrandTopBar>
+    <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+      <AppHeader variant="title" title="More" rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} />} />
       <View style={styles.content}>
-        <View style={[styles.list, { borderColor: theme.colors.outline }]}>
-          {ROWS.map((row, index) => (
-            <Fragment key={row.key}>
-              <Pressable
-                onPress={() => router.push(row.route as any)}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel={row.label}
-              >
-                <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>{row.icon}</View>
-                <View style={styles.textWrap}>
-                  <Text style={[styles.label, { color: theme.colors.onSurface }]}>{row.label}</Text>
-                  <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>{row.subtitle}</Text>
-                </View>
-                <ChevronRight size={20} color={theme.colors.onSurfaceVariant} />
-              </Pressable>
-              {index < ROWS.length - 1 && <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />}
-            </Fragment>
+        <CardSection>
+          {ROWS.map((row) => (
+            <Card
+              key={row.key}
+              icon={row.icon}
+              label={row.label}
+              description={row.subtitle}
+              onPress={() => router.push(row.route as any)}
+            />
           ))}
-        </View>
+        </CardSection>
 
         <Text style={[styles.version, { color: theme.colors.onSurfaceVariant }]}>
           Version {Constants.expoConfig?.version ?? "1.0.0"}
         </Text>
-
-        <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />
 
         <Pressable
           onPress={() => logout.mutate()}
@@ -104,14 +96,7 @@ export default function BusinessMore() {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.lg, paddingTop: spacing.none, paddingBottom: spacing.lg },
-  list: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 64, paddingVertical: spacing.sm },
-  iconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  textWrap: { flex: 1, gap: 2 },
-  label: { ...typography.body, fontWeight: "700" },
-  subtitle: { ...typography.bodySmall },
-  divider: { height: StyleSheet.hairlineWidth },
+  content: { gap: spacing.lg, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg },
   version: { ...typography.bodySmall, fontWeight: "600", textAlign: "center" },
   signOutRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, minHeight: 44 },
   signOutText: { ...typography.body, fontWeight: "700" },

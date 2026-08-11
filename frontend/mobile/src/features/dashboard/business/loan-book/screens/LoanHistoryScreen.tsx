@@ -47,7 +47,7 @@ export default function LoanHistoryScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -57,7 +57,7 @@ export default function LoanHistoryScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState
           message="Could not load the transaction history. Check your connection and try again."
           onRetry={refetch}
@@ -67,7 +67,7 @@ export default function LoanHistoryScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <FlatList<HistoryDayGroup>
         data={groups}
         keyExtractor={(group, index) => `${group.label}-${index}`}

@@ -82,7 +82,7 @@ export default function RecordSaleScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {selectedCustomer ? (
           <Pressable

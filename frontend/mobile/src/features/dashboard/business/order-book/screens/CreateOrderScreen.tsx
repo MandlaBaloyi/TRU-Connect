@@ -124,7 +124,7 @@ export default function CreateOrderScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Customer */}
         {selectedCustomer ? (

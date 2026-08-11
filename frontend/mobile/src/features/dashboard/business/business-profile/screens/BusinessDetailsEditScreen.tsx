@@ -58,7 +58,7 @@ export default function BusinessDetailsEditScreen() {
 
   if (isLoading || !profile) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -68,7 +68,7 @@ export default function BusinessDetailsEditScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your business details." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -88,7 +88,7 @@ export default function BusinessDetailsEditScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Business name</Text>

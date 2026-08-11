@@ -49,7 +49,7 @@ export default function CustomerLoansScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -59,7 +59,7 @@ export default function CustomerLoansScreen() {
 
   if (notFound || isError || !customer) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState
           message={
             notFound
@@ -90,7 +90,7 @@ export default function CustomerLoansScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <CustomerAvatar name={customer.customer.name} seed={customer.customer.id} size={64} />

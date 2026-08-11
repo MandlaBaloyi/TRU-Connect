@@ -41,7 +41,7 @@ export default function BusinessProfileScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -51,14 +51,14 @@ export default function BusinessProfileScreen() {
 
   if (isError || !profile || !completion) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your business profile." onRetry={refetch} />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <View style={styles.fixedHeader}>
         <CompletionBar percent={completion.overallPercent} />
       </View>

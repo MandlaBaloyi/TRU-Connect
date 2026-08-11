@@ -5,11 +5,12 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
+import { PolicyLinksText } from "@/components/legal/PolicyLinksText";
 import { spacing } from "@/theme/spacing";
 
 /**
  * Welcome Screen.
- * Logo only -- no repeated "TRU Connect" wordmark, since the logo
+ * Logo only -- no repeated "TruConnect" wordmark, since the logo
  * artwork already carries the name. "Build Trust. Unlock Opportunity."
  * now carries the full weight of the supporting copy. Terms/Privacy
  * notice sits at the very bottom, below "I already have an account",
@@ -49,10 +50,7 @@ export default function WelcomeScreen() {
 
         <Divider style={styles.divider} />
 
-        <Text variant="bodySmall" style={styles.privacyNotice}>
-          By continuing, you agree to TRU Connect's{"\n"}
-          Terms and Privacy Policy.
-        </Text>
+        <PolicyLinksText lead="By continuing, you agree to TruConnect's" style={styles.privacyNotice} />
 
         <Text variant="labelSmall" style={styles.poweredBy}>
           Powered by <Text style={styles.truePoint}>TruePoint</Text>

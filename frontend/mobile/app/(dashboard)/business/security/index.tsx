@@ -1,4 +1,4 @@
 /** Route only. Implementation lives in the feature folder. */
-import SecurityScreen from "@/features/dashboard/business/security/screens/SecurityScreen";
+import AccountSecurityScreen from "@/features/dashboard/business/security/screens/AccountSecurityScreen";
 
-export default SecurityScreen;
+export default AccountSecurityScreen;

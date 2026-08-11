@@ -34,7 +34,7 @@ export default function BalancesScreen() {
 
   if (isLoading || isSettingLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -44,7 +44,7 @@ export default function BalancesScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load balances." onRetry={refetch} />
       </ScreenContainer>
     );
@@ -53,7 +53,7 @@ export default function BalancesScreen() {
   const today = getTodayEntry(entries);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         <TodayBalanceCard totalCents={today.totalCents} completedCount={today.orderCount} />
 

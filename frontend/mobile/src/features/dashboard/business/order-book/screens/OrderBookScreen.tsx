@@ -51,14 +51,14 @@ export default function OrderBookScreen() {
 
   if (isError) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState message="Could not load your order book. Check your connection and try again." onRetry={refetch} />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <FlatList<OrderView>
         data={orders}
         keyExtractor={(item) => item.order.id}

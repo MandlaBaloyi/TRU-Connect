@@ -37,7 +37,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 // useAuth() (or equivalent) is confirmed — see
 // services/receiptService.ts's buildFromLabel() docstring for why this
 // is passed in rather than looked up inside the receipt logic itself.
-// Falls back to "Sent via TRU Connect" (buildFromLabel's own default)
+// Falls back to "Sent via TruConnect" (buildFromLabel's own default)
 // until this is wired to the real session.
 const OWNER_FIRST_NAME: string | undefined = undefined;
 
@@ -54,7 +54,7 @@ export default function LoanDetailsScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -64,7 +64,7 @@ export default function LoanDetailsScreen() {
 
   if (notFound || isError || !loan) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasNativeHeader>
         <ErrorState
           message={
             notFound
@@ -99,7 +99,7 @@ export default function LoanDetailsScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
         {/* RAW, not tappable — this screen already IS the customer's
             purchase detail; there's nowhere further for a tap here to
