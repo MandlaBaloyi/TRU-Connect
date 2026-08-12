@@ -20,6 +20,17 @@ export default function MyAccountLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "My Account" }} />
+      <Stack.Screen name="edit-phone" options={{ title: "Phone number" }} />
+      <Stack.Screen name="edit-email" options={{ title: "Email address" }} />
+      <Stack.Screen name="bio" options={{ title: "About you" }} />
+      <Stack.Screen name="verification" options={{ title: "Verification" }} />
+      <Stack.Screen name="payment-methods" options={{ title: "Payment methods" }} />
+      <Stack.Screen name="card-payments" options={{ title: "Card & gateway payments" }} />
+      <Stack.Screen name="add-payment-method" options={{ title: "Add payment method" }} />
+      <Stack.Screen name="profile-image" options={{ title: "Profile photo" }} />
+      <Stack.Screen name="account-status" options={{ title: "Account status" }} />
+      <Stack.Screen name="deactivate-account" options={{ title: "Deactivate account" }} />
+      <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
     </Stack>
   );
 }

@@ -571,7 +571,18 @@ TRU_Connect
 │   │   │   │   │   │   └── trash.tsx
 │   │   │   │   │   ├── my-account
 │   │   │   │   │   │   ├── _layout.tsx
-│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   │   ├── account-status.tsx
+│   │   │   │   │   │   ├── add-payment-method.tsx
+│   │   │   │   │   │   ├── bio.tsx
+│   │   │   │   │   │   ├── card-payments.tsx
+│   │   │   │   │   │   ├── deactivate-account.tsx
+│   │   │   │   │   │   ├── delete-account.tsx
+│   │   │   │   │   │   ├── edit-email.tsx
+│   │   │   │   │   │   ├── edit-phone.tsx
+│   │   │   │   │   │   ├── index.tsx
+│   │   │   │   │   │   ├── payment-methods.tsx
+│   │   │   │   │   │   ├── profile-image.tsx
+│   │   │   │   │   │   └── verification.tsx
 │   │   │   │   │   ├── my-business
 │   │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   │   ├── business-details.tsx
@@ -592,7 +603,17 @@ TRU_Connect
 │   │   │   │   │   │   └── trash.tsx
 │   │   │   │   │   ├── security
 │   │   │   │   │   │   ├── _layout.tsx
-│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   │   ├── active-sessions.tsx
+│   │   │   │   │   │   ├── biometrics.tsx
+│   │   │   │   │   │   ├── change-password.tsx
+│   │   │   │   │   │   ├── index.tsx
+│   │   │   │   │   │   ├── login-activity.tsx
+│   │   │   │   │   │   ├── password.tsx
+│   │   │   │   │   │   ├── security-alerts.tsx
+│   │   │   │   │   │   ├── trusted-devices.tsx
+│   │   │   │   │   │   ├── two-factor-authenticator.tsx
+│   │   │   │   │   │   ├── two-factor-email.tsx
+│   │   │   │   │   │   └── two-factor.tsx
 │   │   │   │   │   ├── settings
 │   │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   │   ├── about.tsx
@@ -669,9 +690,12 @@ TRU_Connect
 │   │   │   │   │   └── PasswordField.tsx
 │   │   │   │   ├── legal
 │   │   │   │   │   └── PolicyLinksText.tsx
+│   │   │   │   ├── lists
+│   │   │   │   │   └── CardListUI.tsx
 │   │   │   │   ├── navigation
 │   │   │   │   │   ├── AppHeader.tsx
 │   │   │   │   │   ├── DashboardTabBar.tsx
+│   │   │   │   │   ├── FeatureHeader.tsx
 │   │   │   │   │   └── ScreenHeader.tsx
 │   │   │   │   └── ui
 │   │   │   │       ├── PrimaryButton.tsx
@@ -690,6 +714,7 @@ TRU_Connect
 │   │   │   │   ├── auth
 │   │   │   │   │   ├── hooks
 │   │   │   │   │   │   ├── useAuth.ts
+│   │   │   │   │   │   ├── useCurrentUser.ts
 │   │   │   │   │   │   └── useOtp.ts
 │   │   │   │   │   ├── schemas
 │   │   │   │   │   │   └── authSchemas.ts
@@ -738,7 +763,6 @@ TRU_Connect
 │   │   │   │       │   │   │   ├── SupplierInfoEditScreen.tsx
 │   │   │   │       │   │   │   └── TradingDetailsEditScreen.tsx
 │   │   │   │       │   │   ├── services
-│   │   │   │       │   │   ├── {algorithms,api,components,hooks,screens,services}
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── find-supplier
 │   │   │   │       │   │   ├── algorithms
@@ -822,8 +846,36 @@ TRU_Connect
 │   │   │   │       │   │   ├── README.md
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── my-account
+│   │   │   │       │   │   ├── components
+│   │   │   │       │   │   │   ├── ContactFieldForm.tsx
+│   │   │   │       │   │   │   ├── FileUploadStateView.tsx
+│   │   │   │       │   │   │   ├── ProfileAvatar.tsx
+│   │   │   │       │   │   │   └── VerificationBadge.tsx
+│   │   │   │       │   │   ├── hooks
+│   │   │   │       │   │   │   ├── useAccountLifecycle.ts
+│   │   │   │       │   │   │   ├── useAccountProfile.ts
+│   │   │   │       │   │   │   ├── useBio.ts
+│   │   │   │       │   │   │   ├── useContactDetails.ts
+│   │   │   │       │   │   │   ├── useFileUpload.ts
+│   │   │   │       │   │   │   ├── usePaymentMethods.ts
+│   │   │   │       │   │   │   └── useProfileImage.ts
 │   │   │   │       │   │   ├── screens
-│   │   │   │       │   │   │   └── MyAccountScreen.tsx
+│   │   │   │       │   │   │   ├── AccountStatusScreen.tsx
+│   │   │   │       │   │   │   ├── AddPaymentMethodScreen.tsx
+│   │   │   │       │   │   │   ├── BioScreen.tsx
+│   │   │   │       │   │   │   ├── CardPaymentsScreen.tsx
+│   │   │   │       │   │   │   ├── DeactivateAccountScreen.tsx
+│   │   │   │       │   │   │   ├── DeleteAccountScreen.tsx
+│   │   │   │       │   │   │   ├── EditEmailScreen.tsx
+│   │   │   │       │   │   │   ├── EditPhoneScreen.tsx
+│   │   │   │       │   │   │   ├── index.ts
+│   │   │   │       │   │   │   ├── MyAccountScreen.tsx
+│   │   │   │       │   │   │   ├── PaymentMethodsScreen.tsx
+│   │   │   │       │   │   │   ├── ProfileImageScreen.tsx
+│   │   │   │       │   │   │   └── VerificationScreen.tsx
+│   │   │   │       │   │   ├── services
+│   │   │   │       │   │   │   ├── accountService.ts
+│   │   │   │       │   │   │   └── fileRepository.ts
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── nearby-suppliers
 │   │   │   │       │   │   ├── algorithms
@@ -886,7 +938,6 @@ TRU_Connect
 │   │   │   │       │   │   ├── services
 │   │   │   │       │   │   │   ├── orderMapper.ts
 │   │   │   │       │   │   │   └── orderValidation.ts
-│   │   │   │       │   │   ├── {api,components,hooks,screens,services}
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── orders
 │   │   │   │       │   │   ├── algorithms
@@ -905,16 +956,32 @@ TRU_Connect
 │   │   │   │       │   │   ├── services
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── security
+│   │   │   │       │   │   ├── components
+│   │   │   │       │   │   │   └── SecurityUI.tsx
+│   │   │   │       │   │   ├── hooks
+│   │   │   │       │   │   │   ├── useBiometrics.ts
+│   │   │   │       │   │   │   └── useSecurityAlertPreference.ts
 │   │   │   │       │   │   ├── screens
-│   │   │   │       │   │   │   └── SecurityScreen.tsx
+│   │   │   │       │   │   │   ├── AccountSecurityScreen.tsx
+│   │   │   │       │   │   │   ├── ActiveSessionsScreen.tsx
+│   │   │   │       │   │   │   ├── BiometricsScreen.tsx
+│   │   │   │       │   │   │   ├── ChangePasswordScreen.tsx
+│   │   │   │       │   │   │   ├── index.ts
+│   │   │   │       │   │   │   ├── LoginActivityScreen.tsx
+│   │   │   │       │   │   │   ├── PasswordScreen.tsx
+│   │   │   │       │   │   │   ├── SecurityAlertsScreen.tsx
+│   │   │   │       │   │   │   ├── TrustedDevicesScreen.tsx
+│   │   │   │       │   │   │   ├── TwoFactorAuthenticatorScreen.tsx
+│   │   │   │       │   │   │   ├── TwoFactorEmailScreen.tsx
+│   │   │   │       │   │   │   └── TwoFactorScreen.tsx
+│   │   │   │       │   │   ├── services
+│   │   │   │       │   │   │   └── securityService.ts
 │   │   │   │       │   │   └── types.ts
 │   │   │   │       │   ├── settings
 │   │   │   │       │   │   ├── components
 │   │   │   │       │   │   │   ├── ComingSoonScreen.tsx
 │   │   │   │       │   │   │   ├── InfoScreen.tsx
-│   │   │   │       │   │   │   ├── OptionPickerScreen.tsx
-│   │   │   │       │   │   │   ├── SettingsRow.tsx
-│   │   │   │       │   │   │   └── SettingsSection.tsx
+│   │   │   │       │   │   │   └── OptionPickerScreen.tsx
 │   │   │   │       │   │   ├── hooks
 │   │   │   │       │   │   │   └── SettingsProvider.tsx
 │   │   │   │       │   │   ├── screens
