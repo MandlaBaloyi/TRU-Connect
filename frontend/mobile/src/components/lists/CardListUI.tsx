@@ -54,7 +54,17 @@ export function CardSection({ title, children }: { title?: string; children: Rea
   );
 }
 
-/** A single tappable card. */
+/** A single tappable card.
+ *
+ * `tone="danger"` — added for My Account's Danger Zone (deactivate/
+ * delete), which file.txt requires to be "visually separated from
+ * ordinary settings". Purely a colour variant on the same component
+ * rather than a parallel one, so destructive rows still get every
+ * other feature of Card (disabled state, status slot, a11y label) for
+ * free, and any other feature with a destructive action later (e.g. a
+ * future "delete" row elsewhere) has this to reach for instead of
+ * inventing its own. Omitting `tone` is identical to before this was
+ * added. */
 export function Card({
   icon,
   label,
@@ -62,6 +72,7 @@ export function Card({
   status,
   onPress,
   disabled,
+  tone = "default",
 }: {
   icon?: (color: string) => React.ReactNode;
   label: string;
@@ -69,8 +80,13 @@ export function Card({
   status?: React.ReactNode;
   onPress: () => void;
   disabled?: boolean;
+  tone?: "default" | "danger";
 }) {
   const theme = useTheme();
+  const isDanger = tone === "danger";
+  const iconColor = isDanger ? theme.colors.error : theme.colors.onSurfaceVariant;
+  const labelColor = isDanger ? theme.colors.error : theme.colors.onSurface;
+
   return (
     <Pressable
       onPress={onPress}
@@ -79,7 +95,7 @@ export function Card({
         styles.card,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outlineVariant,
+          borderColor: isDanger ? theme.colors.error : theme.colors.outlineVariant,
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
         },
       ]}
@@ -87,18 +103,23 @@ export function Card({
       accessibilityLabel={label}
     >
       {icon && (
-        <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
-          {icon(theme.colors.onSurfaceVariant)}
+        <View
+          style={[
+            styles.iconWrap,
+            { backgroundColor: isDanger ? theme.colors.errorContainer : theme.colors.surfaceVariant },
+          ]}
+        >
+          {icon(iconColor)}
         </View>
       )}
       <View style={styles.cardText}>
-        <Text style={[styles.cardLabel, { color: theme.colors.onSurface }]}>{label}</Text>
+        <Text style={[styles.cardLabel, { color: labelColor }]}>{label}</Text>
         {description && (
           <Text style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}>{description}</Text>
         )}
       </View>
       {status}
-      <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
+      <ChevronRight size={18} color={iconColor} />
     </Pressable>
   );
 }
@@ -140,13 +161,19 @@ export function SwitchCard({
 }
 
 /** A non-navigating card for entries that just display information. */
+/** A non-navigating display card (a device, a session, a login record
+ *  — or a configured payment method). `icon` is optional, added for
+ *  My Account's payment methods list — existing callers (Security's
+ *  device/session lists) don't pass one and are unaffected. */
 export function ListCard({
+  icon,
   title,
   subtitle,
   meta,
   badge,
   action,
 }: {
+  icon?: (color: string) => React.ReactNode;
   title: string;
   subtitle?: string | null;
   meta?: string;
@@ -156,6 +183,11 @@ export function ListCard({
   const theme = useTheme();
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+      {icon && (
+        <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
+          {icon(theme.colors.onSurfaceVariant)}
+        </View>
+      )}
       <View style={styles.cardText}>
         <View style={styles.itemTitleRow}>
           <Text style={[styles.cardLabel, { color: theme.colors.onSurface }]}>{title}</Text>
