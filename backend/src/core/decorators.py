@@ -1,7 +1,7 @@
 """
 Authorization decorators.
  (role_required,
-permission_required -- UNCHANGED below),
+permission_required ),
 Objective 3 (login_required, verified_required, active_account_required,
 fully_authenticated -- NEW).
 

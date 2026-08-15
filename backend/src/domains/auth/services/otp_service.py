@@ -1,8 +1,7 @@
 """
 OTP Verification Service.
-Ref: continuation master prompt (Phase 3), Step 13; "Shared Notification
-Infrastructure" master prompt (welcome email); Auth Hardening master
-prompt, Objective 1 (verify_otp now issues the first token pair).
+"Shared Notification
+ Objective 1 (verify_otp now issues the first token pair).
 
 Verifies by EMAIL, not phone -- frontend/mobile's registration does not
 collect a phone number, so email is the only destination available at
@@ -11,7 +10,7 @@ this point in the flow.
 WELCOME EMAIL: sent from here, only on the transition from unverified to
 verified (never on a later re-verification).
 
-TOKENS: register() no longer issues tokens (Auth Hardening, Objective 1)
+TOKENS: register() no longer issues tokens (Auth Hardening, )
 -- there is no valid session for an unverified account. verify_otp() now
 issues the first access/refresh pair on success, since proving control
 of the email address is the first genuinely authenticated moment for a

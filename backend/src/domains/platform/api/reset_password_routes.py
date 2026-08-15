@@ -1,6 +1,6 @@
 """
 Password Reset -- Browser Fallback Page.
-Ref: Auth Hardening master prompt, Objective 7.
+
 
 Deliberately NOT under /api/v1 -- this must match the exact URL emailed
 to the user: {APP_BASE_URL}/reset-password?ticket=...

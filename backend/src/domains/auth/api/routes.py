@@ -1,7 +1,6 @@
 """
 Authentication Routes.
-Ref: docs/05_BACKEND_API_SPECIFICATION.txt §5.1; Auth Hardening master
-prompt, Objectives 1, 3, 6, 7, 9.
+
 
 Routes ONLY: validate the request, call the service layer, return the
 standard response envelope. Structured AppError subclasses raised by

@@ -1,6 +1,6 @@
 """
 User Model -- the root authentication entity for TRU Connect.
-Ref: docs/04_DATABASE_DESIGN.txt, Section 4.1 (Authentication Domain);
+
 
 
 DESIGN
@@ -9,17 +9,17 @@ A User represents AUTHENTICATION ONLY. Business/Supplier profile data
 (business name, category, trading info, SA ID number, etc.) is
 deliberately NOT stored here -- it belongs on future BusinessProfile /
 SupplierProfile models, connected to this User by a relationship once
-those tables exist (docs/04, Sections 4.2-4.3). This is a hard rule 
+those tables exist . This is a hard rule 
 , not an oversight: keeping authentication identity separate from
 business-profile data means a single login identity can, in future,
 support more than one "hat" (e.g. an admin/financial-partner role --
-docs/01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt, Section 9.3) without
+ without
 requiring a redesign of this table.
 
 WHY IT EXISTS
 -------------
 Every other domain in this backend (Business, Supplier, Trust, Verification
--- docs/04, Sections 4.2-4.6) ultimately traces back to a User for "who is
+ultimately traces back to a User for "who is
 allowed to do this." Nothing else can be built correctly until this
 identity root exists.
 
@@ -48,7 +48,7 @@ class UserRole(str, enum.Enum):
     BUSINESS = "business"
     SUPPLIER = "supplier"
     # Reserved for a future admin/financial-partner role
-    # (docs/01_TRU_CONNECT_PRODUCT_SPECIFICATION.txt, Section 9.3) --
+    # --
     # not used by any current registration path.
     ADMIN = "admin"
 

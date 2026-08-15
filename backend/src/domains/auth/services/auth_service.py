@@ -1,8 +1,8 @@
 """
 Authentication Service.
-Ref: continuation master prompt, Steps 7-12; "Shared Notification
-Infrastructure" master prompt (welcome email -- now sent from
-OTPService, not here); Auth Hardening master prompt, Objectives 1-2-9.
+ "Shared Notification
+Infrastructure"(welcome email -- now sent from
+OTPService, not here); 
 
 REGISTRATION NO LONGER ISSUES TOKENS
 -------------------------------------

@@ -1,10 +1,9 @@
 """
 OTP generation and hashing helpers.
-Ref: continuation master prompt (Phase 3), Step 13.
+
 
 Reset-ticket generation/hashing (generate_reset_token / hash_reset_token)
-moved to src/shared/tickets.py (Auth Hardening master prompt,
-Objectives 5/8) -- this file is OTP-specific only, avoiding two parallel
+moved to src/shared/tickets.py  -- this file is OTP-specific only, avoiding two parallel
 implementations of "generate a random secret and hash it".
 """
 from __future__ import annotations

@@ -16,7 +16,7 @@ WHY IT EXISTS
 flask_jwt_extended's tokens are stateless by default -- once issued, an
 access or refresh token is valid until it expires, with no way to
 invalidate it early. That's fine for short-lived access tokens, but
-refresh tokens live much longer (docs/10, JWT_REFRESH_TOKEN_EXPIRES_DAYS)
+refresh tokens live much longer 
 and MUST be revocable (logout, password reset, suspected compromise).
 This table is what makes that possible.
 
@@ -24,7 +24,7 @@ INTEGRATION WITH PREVIOUS STEPS
 --------------------------------
 Every refresh token issued by AuthService._issue_tokens  now
 also creates a row here  addition to that method. user_id
-references the User model (Step 5) directly.
+references the User model  directly.
 """
 from __future__ import annotations
 

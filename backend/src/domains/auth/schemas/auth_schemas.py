@@ -1,6 +1,6 @@
 """
 Authentication request schemas.
- (Registration); docs/06_BUSINESS_
+ (Registration);
 RULES_AND_WORKFLOWS.txt, Sections 1-2.
 
 Field names use data_key to match the mobile app's camelCase wire format

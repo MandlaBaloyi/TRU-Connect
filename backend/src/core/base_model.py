@@ -3,13 +3,9 @@ Base Model Mixin.
  "DATABASE" -- UUID primary keys, timezone-
 aware timestamps, soft-delete + future audit support on every table.
 
-Every SQLAlchemy model in src/models should inherit from BaseModel rather
+Every SQLAlchemy model in  should inherit from BaseModel rather
 than redeclaring id/timestamps/soft-delete columns individually -- this
-is what "no duplicated code" means at the schema level. See
-docs/04_DATABASE_DESIGN.txt, Section 19 (Relational Design Notes) --
-soft-deletes are used in place of hard deletes for Businesses, Suppliers,
-Orders, and Verification Records specifically to preserve the Trust
-Domain's historical data integrity.
+is what "no duplicated code" means at the schema level.
 """
 from __future__ import annotations
 

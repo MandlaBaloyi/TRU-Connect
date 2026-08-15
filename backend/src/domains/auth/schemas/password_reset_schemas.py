@@ -1,7 +1,6 @@
 """
 Forgot/Reset password schemas.
-Ref: continuation master prompt (Phase 3), Step 14; Auth Hardening master
-prompt, Objective 7 (field renamed "token" -> "ticket", matching the
+ Auth Hardening  Objective 7 (field renamed "token" -> "ticket", matching the
 external URL/API naming; no change to the underlying database column).
 """
 from __future__ import annotations

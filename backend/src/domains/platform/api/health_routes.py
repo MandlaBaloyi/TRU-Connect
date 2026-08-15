@@ -1,6 +1,6 @@
 """
 Email infrastructure health check.
-Ref: "Shared Notification Infrastructure" master prompt, "HEALTH CHECK" --
+ "HEALTH CHECK" --
 GET /health/email returning Healthy/Unavailable without exposing
 credentials.
 """

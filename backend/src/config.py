@@ -1,6 +1,6 @@
 """
 Configuration Layer.
-Ref: docs/04_DATABASE_DESIGN.txt, docs/05_BACKEND_API_SPECIFICATION.txt
+
 
 Defines environment-specific configuration classes consumed by the Flask
 application factory (src/__init__.py). All secrets and environment-
@@ -19,13 +19,13 @@ from urllib.parse import quote  # URL‑encode special characters in the databas
 class BaseConfig:
     """Shared configuration across all environments."""
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-in-production")
+    SECRET_KEY = os.environ.get("SECRET_KEY", "")
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # --- Shared Notification Infrastructure (email) ---
-    # Ref: "Shared Notification Infrastructure,
+    #
     # "CONFIGURATION". MAIL_PROVIDER defaults to "smtp" (Gmail today);
     # TestingConfig overrides this to "fake" so tests never send real
     # email.
