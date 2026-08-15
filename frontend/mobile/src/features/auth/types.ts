@@ -87,6 +87,11 @@ export interface SupplierRegisterPayload {
   password: string;
   confirmPassword: string;
   acceptTerms: true;
+  // Supplier Invitation (file.txt Phase 2) — present only when this
+  // registration was reached via an invitation link. Optional: a
+  // missing/expired ticket never blocks registration itself, see the
+  // backend's own link_invitation_at_registration docstring.
+  invitationTicket?: string;
 }
 
 export type RegisterPayload = BusinessRegisterPayload | SupplierRegisterPayload;

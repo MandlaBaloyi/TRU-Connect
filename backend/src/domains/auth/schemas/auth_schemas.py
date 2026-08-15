@@ -28,6 +28,11 @@ class BusinessRegisterSchema(Schema):
     password = fields.String(required=True, load_only=True)
     confirm_password = fields.String(required=True, load_only=True, data_key="confirmPassword")
     accept_privacy_policy = fields.Boolean(required=True, data_key="acceptPrivacyPolicy")
+    # Supplier Invitation, reverse direction (file.txt Phase 2) --
+    # present only when this registration was reached via a supplier's
+    # invitation link. Same optional, never-blocks-registration
+    # reasoning as SupplierRegisterSchema's own invitation_ticket.
+    invitation_ticket = fields.String(required=False, allow_none=True, data_key="invitationTicket")
 
     @validates("password")
     def validate_password_strength(self, value, **kwargs):
@@ -54,6 +59,13 @@ class SupplierRegisterSchema(Schema):
     password = fields.String(required=True, load_only=True)
     confirm_password = fields.String(required=True, load_only=True, data_key="confirmPassword")
     accept_terms = fields.Boolean(required=True, data_key="acceptTerms")
+    # Supplier Invitation (file.txt Phase 2) -- present only when this
+    # registration was reached via an invitation link/deep link.
+    # Optional and load_only-adjacent (never echoed back): a missing or
+    # invalid ticket never blocks registration itself, see
+    # connections_service.link_invitation_at_registration's own
+    # docstring for why that's a silent no-op, not a validation error.
+    invitation_ticket = fields.String(required=False, allow_none=True, data_key="invitationTicket")
 
     @validates("password")
     def validate_password_strength(self, value, **kwargs):

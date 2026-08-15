@@ -30,6 +30,7 @@ limits==5.8.0
 # --- TRU Connect Auth Foundation ---
 Flask-Marshmallow==1.4.0
 marshmallow-sqlalchemy==1.0.0
+phonenumbers==8.13.55
 
 # --- TRU Connect Security Domain: job scheduler  ---
 APScheduler==3.11.3

@@ -2,6 +2,7 @@ import React from "react";
 import { Stack } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { featureHeader } from "@/components/navigation/FeatureHeader";
+import { MyAccountHeaderActions } from "@/features/dashboard/business/my-account/components/MyAccountHeaderActions";
 
 export default function MyAccountLayout() {
   const theme = useTheme();
@@ -19,11 +20,22 @@ export default function MyAccountLayout() {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <Stack.Screen name="index" options={{ title: "My Account" }} />
-      <Stack.Screen name="edit-phone" options={{ title: "Phone number" }} />
-      <Stack.Screen name="edit-email" options={{ title: "Email address" }} />
-      <Stack.Screen name="bio" options={{ title: "About you" }} />
-      <Stack.Screen name="verification" options={{ title: "Verification" }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          title: "My Account",
+          // Pencil (Profile) + QR code, tight-grouped -- FeatureHeader
+          // already reads this per-screen, see its own docstring.
+          headerRight: () => (
+            <MyAccountHeaderActions
+              profileRoute="/business/my-account/profile"
+              qrCodeRoute="/business/my-account/qr-code"
+            />
+          ),
+        }}
+      />
+      <Stack.Screen name="profile" options={{ title: "Profile" }} />
+      <Stack.Screen name="qr-code" options={{ title: "My QR code" }} />
       <Stack.Screen name="payment-methods" options={{ title: "Payment methods" }} />
       <Stack.Screen name="card-payments" options={{ title: "Card & gateway payments" }} />
       <Stack.Screen name="add-payment-method" options={{ title: "Add payment method" }} />

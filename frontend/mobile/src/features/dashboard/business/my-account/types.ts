@@ -44,37 +44,31 @@
  *     actual file security scanning, actual payment-provider tokenisation.
  */
 
-import type { AccountStatus, VerificationStatus as AuthVerificationStatus } from "@/features/auth/types";
+import type { AccountStatus } from "@/features/auth/types";
 
 export type { AccountStatus };
 
 // ---------------------------------------------------------------------------
-// Verification — a trust indicator, not a score. See file.txt §18: do not
-// invent a verification score. "REQUIRED" and "FAILED" are FRONTEND-ONLY
-// UI states layered on top of the two real backend states ("pending",
-// "verified") plus the real "unverified" — the backend doesn't send these
-// two yet, so they are derived defensively (see toVerificationBadgeStatus
-// below) and never presented as though the backend already distinguishes
-// them.
+// Trust Verification — DELIBERATELY SEPARATE from AuthUser.verificationStatus.
+// That field only ever means "this person's email was confirmed via OTP"
+// (see auth/services/otp_service.py) — real, but nowhere near sufficient
+// to tell a business "this supplier is verified," or a supplier "this
+// business is verified." TRU Connect's own real verification (identity +
+// business details, eventually gated behind a paid subscription tier per
+// the product roadmap) doesn't exist yet, and this type deliberately
+// doesn't pretend otherwise by borrowing the email-confirmation field for
+// it — a previous version of this screen did exactly that, and it was a
+// real bug, not just a naming issue: it would have told businesses at
+// scale that "verified" meant something it never actually checked.
+//
+// ALWAYS "NOT_VERIFIED" right now, hardcoded, not derived from anything —
+// see hooks/useAccountProfile.ts's own note. The one thing this type is
+// FOR is being the single place that changes once real verification
+// logic exists — nothing that reads TrustVerificationStatus needs to
+// change when that day comes, only what populates it.
 // ---------------------------------------------------------------------------
 
-export type VerificationBadgeStatus =
-  | "VERIFIED"
-  | "PENDING"
-  | "REQUIRED"
-  | "FAILED"
-  | "UNAVAILABLE";
-
-/** Maps the real AuthUser.verificationStatus onto the badge's states.
- *  Deliberately the ONLY place this mapping happens, so if the backend
- *  starts sending "required"/"failed" directly later, this is the one
- *  function that needs to change. */
-export function toVerificationBadgeStatus(status: AuthVerificationStatus | null): VerificationBadgeStatus {
-  if (status === "verified") return "VERIFIED";
-  if (status === "pending") return "PENDING";
-  if (status === "unverified") return "REQUIRED";
-  return "UNAVAILABLE";
-}
+export type TrustVerificationStatus = "NOT_VERIFIED" | "VERIFIED";
 
 // ---------------------------------------------------------------------------
 // File / upload architecture — provider-neutral (file.txt §3, §7, §9).
@@ -275,8 +269,52 @@ export interface AccountProfileSummary {
   phoneNumber: string | null;
   /** Read-only, from business-profile's own query — see file header. */
   businessName: string | null;
-  verification: VerificationBadgeStatus;
+  verification: TrustVerificationStatus;
   accountStatus: AccountStatus | null;
+}
+
+// ---------------------------------------------------------------------------
+// Connect Code (QR) — a durable, rotatable, opaque token identifying
+// THIS account for scanning, distinct from Find Supplier's invitation
+// tickets on purpose: invitations are one-time and addressed to a
+// specific person; a Connect Code sits on a business card and gets
+// scanned by many different people over months, so it can't expire
+// after first use the way a ticket does.
+//
+// OPAQUE BY DESIGN, not merely hidden: the code itself never encodes
+// user_id or role — nothing in the string is derivable at all. It only
+// means something because a future backend keeps a private
+// token_hash -> (user_id, role) lookup, the exact same trust model
+// already proven by src/shared/tickets/tickets.py (password reset,
+// supplier invitations). Scanning resolves the code SERVER-SIDE; the
+// scanning device never learns who it belongs to except through
+// whatever the backend chooses to return — including a clear rejection
+// when the relationship would be same-role (business-business or
+// supplier-supplier), enforced there, not on this screen.
+//
+// MOCK THIS ROUND: no backend endpoint issues real codes yet. The
+// mock generates a random-looking, SESSION-STABLE opaque string (same
+// discipline as every other mock in this feature — real UI, mock
+// data, resets on app restart) so the actual QR rendering, layout,
+// and "regenerate" flow are all genuinely real and reviewable now,
+// without pretending server-side issuance exists yet.
+// ---------------------------------------------------------------------------
+
+export interface ConnectCode {
+  /** Opaque — see this section's own note. Never parse or derive
+   *  anything from this value; only the future backend can. */
+  token: string;
+  createdAt: string;
+}
+
+/** Lightweight display name — see this file's own note on
+ *  businessName below: this is NOT business identity. It edits
+ *  AuthUser's own firstName/lastName, the same real fields Contact
+ *  Details already reads (just not, until now, ever written from
+ *  here). */
+export interface DisplayNameInput {
+  firstName: string;
+  lastName: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,8 +327,9 @@ export interface AccountProfileSummary {
 
 /**
  * GET    /auth/me                          — ALREADY REAL, reused as-is
- * PATCH  /account/profile                  — bio, and anything else
- *                                             My Account later owns that
+ * PATCH  /account/profile                  — firstName/lastName/bio,
+ *                                             and anything else My
+ *                                             Account later owns that
  *                                             AuthUser doesn't
  * POST   /account/profile/image            — returns FileAsset (pending)
  * GET    /files/{id}/status                — poll an UploadSession
@@ -302,6 +341,12 @@ export interface AccountProfileSummary {
  * POST   /account/deactivate
  * POST   /account/delete                   — requires re-auth
  * GET    /account/status                   — accountStatus + suspensionReason
+ * GET    /account/connect-code              — current ConnectCode
+ * POST   /account/connect-code/regenerate   — invalidates the old one
+ * POST   /connect-codes/{token}/resolve     — the scanning side; rejects
+ *                                             same-role scans with a
+ *                                             clear reason, never just
+ *                                             a generic failure
  *
  * NOT under /account/* — proof-of-payment belongs to a specific stock
  * order once the Stock Order feature exists (e.g.

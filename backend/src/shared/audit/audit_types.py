@@ -29,6 +29,11 @@ class AuditDomain(str, enum.Enum):
     VERIFICATION = "verification"
     PLATFORM = "platform"
     SECURITY = "security"
+    # Added for network/connections (file.txt Phase 1) -- a
+    # cross-cutting domain like SECURITY/PLATFORM, not owned by
+    # Business or Supplier alone since the relationship belongs to
+    # both sides equally.
+    NETWORK = "network"
 
 
 class ActorType(str, enum.Enum):
@@ -160,6 +165,10 @@ class AuditEventName(str, enum.Enum):
     UNVERIFIED_ACCOUNT_EXPIRED = "auth.unverified_account_expired"
     SCHEDULED_JOB_COMPLETED = "platform.scheduled_job_completed"
     SCHEDULED_JOB_FAILED = "platform.scheduled_job_failed"
+
+    # --- Network / Supplier Discovery (file.txt Phase 1) ---
+    SUPPLIER_SEARCH_RATE_LIMITED = "network.supplier_search_rate_limited"
+    CONNECTION_REQUEST_RATE_LIMITED = "network.connection_request_rate_limited"
 
 
 @dataclass

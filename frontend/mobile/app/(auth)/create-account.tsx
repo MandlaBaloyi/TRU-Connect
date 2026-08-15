@@ -81,7 +81,7 @@ import { PolicyLinksText } from "@/components/legal/PolicyLinksText";
 export default function CreateAccountScreen() {
   const register = useRegister();
   const googleSignIn = useGoogleSignIn();
-  const params = useLocalSearchParams<{ role?: string }>();
+  const params = useLocalSearchParams<{ role?: string; invitationTicket?: string }>();
   // If role-selection navigated here, the role is already known --
   // read directly from the route param (synchronous, no delay) rather
   // than the async secureStorage read below, which used to be the ONLY
@@ -94,6 +94,12 @@ export default function CreateAccountScreen() {
   // returning here by some path other than role-selection's Continue).
   const paramRole: UserRole | null =
     params.role === "supplier" ? "supplier" : params.role === "business" ? "business" : null;
+  // Supplier Invitation (file.txt Phase 2) -- present only when this
+  // screen was reached via an invitation link (a deep link or a future
+  // /join web page passing it through as a route param). Not a form
+  // field the person edits; passed straight to the register call
+  // untouched. See SupplierRegisterPayload's own docstring.
+  const invitationTicket = params.invitationTicket || undefined;
   // null = "not yet determined" -- deliberately NOT defaulted to
   // "business". See docstring point 4.
   const [role, setRole] = useState<UserRole | null>(paramRole);
@@ -135,12 +141,13 @@ export default function CreateAccountScreen() {
         />
       ) : (
         <SupplierRegisterForm
-          onSubmit={(values) => register.mutate({ role: "supplier", ...values })}
+          onSubmit={(values) => register.mutate({ role: "supplier", ...values, invitationTicket })}
           isSubmitting={register.isPending}
           errorMessage={registerErrorMessage}
           isDuplicateEmail={isDuplicateEmail}
           onGooglePress={() => googleSignIn.mutate("")}
           isGoogleLoading={googleSignIn.isPending}
+          invitationTicket={invitationTicket}
         />
       )}
     </View>
@@ -277,9 +284,11 @@ function SupplierRegisterForm({
   isDuplicateEmail,
   onGooglePress,
   isGoogleLoading,
+  invitationTicket,
 }: {
   onSubmit: (values: SupplierRegisterFormValues) => void;
   isSubmitting: boolean;
+  invitationTicket?: string;
 } & CommonProps) {
   const router = useRouter();
   const theme = useTheme();
@@ -309,6 +318,10 @@ function SupplierRegisterForm({
         <Text variant="headlineSmall" style={styles.title}>
           Create Your Supplier Account
         </Text>
+
+        {invitationTicket && (
+          <Text style={styles.invitedNote}>You're joining via an invitation — you'll be connected automatically.</Text>
+        )}
 
         <RegisterError errorMessage={errorMessage} isDuplicateEmail={isDuplicateEmail} />
 
@@ -367,4 +380,5 @@ const styles = StyleSheet.create({
   errorText: { color: "#D64545", marginBottom: spacing.xs },
   link: { fontWeight: "600", color: "#0B2447" },
   orText: { textAlign: "center", opacity: 0.6, marginTop: -spacing.lg },
+  invitedNote: { fontSize: 13, opacity: 0.75, marginBottom: spacing.md },
 });

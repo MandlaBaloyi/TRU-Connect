@@ -116,6 +116,17 @@ export function DashboardTabBar({ state, descriptors, navigation }: BottomTabBar
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
+  // A focused screen can hide this bar entirely by calling
+  // navigation.setOptions({ tabBarStyle: { display: "none" } }) --
+  // the standard React Navigation pattern for a screen-owned
+  // full-screen mode (e.g. Community's own search mode). Checked on
+  // the CURRENTLY FOCUSED route's own descriptor, not all of them --
+  // one tab hiding the bar for itself must never affect the others.
+  const focusedOptions = descriptors[state.routes[state.index].key]?.options;
+  if (focusedOptions?.tabBarStyle && (focusedOptions.tabBarStyle as { display?: string }).display === "none") {
+    return null;
+  }
+
   return (
     <View
       style={[

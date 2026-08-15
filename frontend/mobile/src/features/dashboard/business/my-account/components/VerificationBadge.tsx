@@ -1,41 +1,38 @@
 /**
  * Verification badge — a TRUST indicator, not a social-media blue
- * tick (file.txt §18). Deliberately: icon + text + colour together,
- * never colour alone (§19 accessibility), and no numeric score
- * anywhere near it.
+ * tick (file.txt §18). Icon + text + colour together, never colour
+ * alone (§19 accessibility).
+ *
+ * SIMPLIFIED to one state, not five — see types.ts's own
+ * TrustVerificationStatus docstring for the full reasoning. The
+ * previous version mapped five UI states off email-OTP confirmation,
+ * which was the actual bug: it let "Verified" mean "confirmed an
+ * inbox," not a real identity/business check. There is currently
+ * nothing behind this concept, so there's nothing honest to say about
+ * PENDING/REQUIRED/FAILED yet either — the caller only ever renders
+ * this component when trustVerification === "VERIFIED" (see
+ * MyAccountScreen.tsx), which right now is never. No status prop
+ * needed until there's a real state machine behind it.
  */
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { AlertCircle, BadgeCheck, Clock, ShieldQuestion, XCircle } from "lucide-react-native";
+import { BadgeCheck } from "lucide-react-native";
 
 import { spacing, radius } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
-import type { VerificationBadgeStatus } from "../types";
 
-const COPY: Record<VerificationBadgeStatus, string> = {
-  VERIFIED: "Verified",
-  PENDING: "Verification pending",
-  REQUIRED: "Verification required",
-  FAILED: "Verification failed",
-  UNAVAILABLE: "Verification unavailable",
-};
-
-export function VerificationBadge({ status }: { status: VerificationBadgeStatus }) {
+export function VerificationBadge() {
   const theme = useTheme();
 
-  const { bg, fg, Icon } = {
-    VERIFIED: { bg: theme.colors.secondaryContainer, fg: theme.colors.secondary, Icon: BadgeCheck },
-    PENDING: { bg: theme.colors.surfaceVariant, fg: theme.colors.onSurfaceVariant, Icon: Clock },
-    REQUIRED: { bg: theme.colors.errorContainer, fg: theme.colors.error, Icon: AlertCircle },
-    FAILED: { bg: theme.colors.errorContainer, fg: theme.colors.error, Icon: XCircle },
-    UNAVAILABLE: { bg: theme.colors.surfaceVariant, fg: theme.colors.onSurfaceVariant, Icon: ShieldQuestion },
-  }[status];
-
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text" accessibilityLabel={COPY[status]}>
-      <Icon size={14} color={fg} strokeWidth={2.2} />
-      <Text style={[styles.text, { color: fg }]}>{COPY[status]}</Text>
+    <View
+      style={[styles.pill, { backgroundColor: theme.colors.secondaryContainer }]}
+      accessibilityRole="text"
+      accessibilityLabel="Verified"
+    >
+      <BadgeCheck size={14} color={theme.colors.secondary} strokeWidth={2.2} />
+      <Text style={[styles.text, { color: theme.colors.secondary }]}>Verified</Text>
     </View>
   );
 }

@@ -1,0 +1,13 @@
+{% extends "base/base.html" %}
+{% block title %}You've been invited to TRU Connect{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px; color:#111417; font-size:20px;">{{ inviter_business_name }} invited you</h1>
+<p style="margin:0 0 24px; color:#3A3F44; font-size:15px; line-height:1.5;">
+  {{ inviter_business_name }} would like to connect with you as a customer on TRU Connect.
+</p>
+<div style="text-align:center; margin:0 0 24px;">
+  <a href="{{ invitation_url }}" style="display:inline-block; padding:14px 28px; background-color:#0FA968; color:#FFFFFF; border-radius:8px; font-size:15px; font-weight:600; text-decoration:none;">
+    Join TRU Connect
+  </a>
+</div>
+{% endblock %}

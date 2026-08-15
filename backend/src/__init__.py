@@ -21,7 +21,7 @@ def create_app(env_name: str | None = None) -> Flask:
 
     configure_logging(app)
     app.logger.info(
-        "TruConnect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
+        "TRU Connect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
     )
 
     from src.domains.security.audit.services import audit_service
@@ -58,6 +58,9 @@ def _register_blueprints(app: Flask) -> None:
 
     from src.domains.business.business_profile.api.business_profile_routes import business_profile_bp
     app.register_blueprint(business_profile_bp)
+
+    from src.domains.network.connections.api.connections_routes import connections_bp
+    app.register_blueprint(connections_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:
@@ -96,8 +99,10 @@ def _register_error_handlers(app: Flask) -> None:
     from src.domains.security.rate_limit import responses as rate_limit_responses
     from src.domains.auth.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS as AUTH_RATE_LIMIT_AUDIT_EVENTS
     rate_limit_responses.register_audit_events(AUTH_RATE_LIMIT_AUDIT_EVENTS)
+    from src.domains.network.connections.rate_limit.policies import (
+        RATE_LIMIT_AUDIT_EVENTS as CONNECTIONS_RATE_LIMIT_AUDIT_EVENTS,
+    )
+    rate_limit_responses.register_audit_events(CONNECTIONS_RATE_LIMIT_AUDIT_EVENTS)
     # Future domains' own rate_limit/policies.py RATE_LIMIT_AUDIT_EVENTS
-    # get registered here the same way, e.g.:
-    #   from src.domains.business.order_book.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS as ORDER_BOOK_...
-    #   rate_limit_responses.register_audit_events(ORDER_BOOK_...)
+    # get registered here the same way.
     rate_limit_responses.register(app)

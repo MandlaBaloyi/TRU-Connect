@@ -125,6 +125,21 @@ def me():
     return success_response(data=user.to_public_dict())
 
 
+@auth_bp.patch("/me/profile-image")
+@fully_authenticated
+def update_profile_image():
+    """The ONE personal photo, shared across roles -- see
+    AuthService.update_profile_image's own docstring on why this
+    accepts a URL directly rather than a file upload: real photo
+    storage (Cloudinary) is separate, still-pending work; this
+    endpoint and the field it writes are real now regardless."""
+    identity = get_jwt_identity()
+    payload = request.get_json(silent=True) or {}
+    image_url = payload.get("imageUrl")
+    user = AuthService.update_profile_image(identity, image_url)
+    return success_response(data=user.to_public_dict())
+
+
 @auth_bp.post("/logout")
 @jwt_required(verify_type=False)
 def logout():

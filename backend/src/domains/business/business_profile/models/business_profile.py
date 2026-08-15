@@ -97,6 +97,28 @@ class OperatingHistory(str, enum.Enum):
     FIVE_PLUS_YEARS = "FIVE_PLUS_YEARS"
 
 
+class PhotoVisibility(str, enum.Enum):
+    """Mirrors supplier.photo_visibility exactly, member-for-member,
+    so both roles serialize the same API shape ("everyone"/
+    "connections"/"nobody") -- see that file's own docstring for the
+    full reasoning (CONNECTIONS default, not EVERYONE)."""
+
+    EVERYONE = "everyone"
+    CONNECTIONS = "connections"
+    NOBODY = "nobody"
+
+
+class VisibleImageSource(str, enum.Enum):
+    """Mirrors supplier.visible_image_source exactly -- PERSONAL reads
+    live from auth.users.profile_image_url, BUSINESS reads
+    business_image_url on this same row, NONE (the default) shows
+    nothing until the person actively picks one."""
+
+    PERSONAL = "personal"
+    BUSINESS = "business"
+    NONE = "none"
+
+
 # CustomerType/OrderChannel/PaymentMethod/Weekday/SupplierSource are
 # stored as ARRAY(String), not ARRAY(Enum) -- Postgres arrays-of-enum
 # are real but add real migration/driver friction for no benefit here,
@@ -112,10 +134,44 @@ class BusinessProfile(BaseModel):
     __tablename__ = "business_profiles"
     __table_args__ = (
         db.UniqueConstraint("business_id", name="uq_business_profiles_business_id"),
+        # Added for Find Business (the supplier-side mirror of Find
+        # Supplier's own search) -- both search paths need their own
+        # index, same reasoning as ix_supplier_profiles_normalized_phone/
+        # email: phone and email are looked up independently, never
+        # together.
+        db.Index("ix_business_profiles_normalized_phone", "normalized_phone"),
+        db.Index("ix_business_profiles_normalized_email", "normalized_email"),
+        db.Index("ix_business_profiles_business_name", "business_name"),
         {"schema": "business"},
     )
 
     business_id = db.Column(UUID(as_uuid=True), db.ForeignKey("auth.users.id"), nullable=False)
+
+    # --- Search fields (Find Business) -----------------------------------
+    # NORMALIZED, INDEXED, SEARCH-ONLY -- mirrors supplier_profiles'
+    # own normalized_phone/normalized_email exactly (see
+    # supplier_profile.py's own module docstring for the full
+    # reasoning). Reflects the EFFECTIVE phone/email at the moment the
+    # profile was last touched (respecting uses_same_as_account_phone/
+    # Email below) -- see business_profile_service.py's own
+    # _refresh_normalized_contact for where these actually get kept in
+    # sync, and its own docstring for the one known limitation.
+    normalized_phone = db.Column(db.String(20), nullable=True)
+    normalized_email = db.Column(db.String(255), nullable=True)
+
+    # Mirrors SupplierProfile's own three columns exactly -- see that
+    # model's own docstring on the full reasoning.
+    business_image_url = db.Column(db.String(500), nullable=True)
+    visible_image_source = db.Column(
+        db.Enum(VisibleImageSource, name="visible_image_source", schema="business"),
+        nullable=False,
+        default=VisibleImageSource.NONE,
+    )
+    photo_visibility = db.Column(
+        db.Enum(PhotoVisibility, name="photo_visibility", schema="business"),
+        nullable=False,
+        default=PhotoVisibility.CONNECTIONS,
+    )
 
     # --- Section 1: Business Details ---
     business_name = db.Column(db.String(200), nullable=False)
@@ -167,3 +223,36 @@ class BusinessProfile(BaseModel):
     location_complete = db.Column(db.Boolean, nullable=False, default=False)
     identity_verified = db.Column(db.Boolean, nullable=False, default=False)
     documents_verified = db.Column(db.Boolean, nullable=False, default=False)
+
+    # --- Find Business narrowing methods -----------------------------
+    # Mirror SupplierProfile.to_search_result_dict/to_profile_preview_dict
+    # exactly -- same file.txt §4 privacy narrowing, same reasoning: a
+    # supplier searching for a business sees enough to recognise "yes,
+    # that's my customer", never the business's full stored trading/
+    # operating/verification record.
+
+    def to_search_result_dict(self, matched_field: str, masked_identifier: str) -> dict:
+        return {
+            "id": str(self.id),
+            "businessName": self.business_name,
+            "category": self.category.value if self.category else None,
+            "location": self.city_or_town,
+            "matchedField": matched_field,
+            "maskedMatchedIdentifier": masked_identifier,
+        }
+
+    def to_profile_preview_dict(self, connection_status: str, visible_photo_url: str | None = None) -> dict:
+        """visible_photo_url is passed in, not resolved here -- same
+        reasoning as SupplierProfile's own to_profile_preview_dict:
+        the actual resolution needs auth.users.profile_image_url and
+        an ACTIVE-connection check, neither of which this model owns."""
+        return {
+            "id": str(self.id),
+            "businessName": self.business_name,
+            "category": self.category.value if self.category else None,
+            "location": self.city_or_town,
+            "memberSinceYear": self.created_at.year if self.created_at else None,
+            "description": self.description,
+            "connectionStatus": connection_status,
+            "photoUrl": visible_photo_url,
+        }

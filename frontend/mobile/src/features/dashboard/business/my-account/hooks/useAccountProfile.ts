@@ -4,8 +4,8 @@
  * other on first render (file.txt §26: don't block the whole screen
  * while one optional section loads).
  *
- *   - name/email/phone/accountStatus/verification -> auth's real
- *     GET /auth/me (useCurrentUser) — see types.ts's ownership note.
+ *   - name/email/phone/accountStatus -> auth's real GET /auth/me
+ *     (useCurrentUser) — see types.ts's ownership note.
  *   - businessName -> business-profile's OWN query
  *     (businessProfileKeys.profile), read-only. This deliberately
  *     reuses business-profile's existing query key rather than
@@ -15,6 +15,14 @@
  *     project's normal 30s staleTime (queryClient.ts), never polled.
  *     My Account never WRITES to this key — see types.ts's data-
  *     ownership note for why.
+ *   - verification -> HARDCODED "NOT_VERIFIED", not derived from
+ *     anything. A previous version of this file mapped this from
+ *     user.verificationStatus (email-OTP confirmation) — a real bug,
+ *     not a naming issue: that field proves someone controls an
+ *     inbox, nothing about a real identity/business check. See
+ *     types.ts's own TrustVerificationStatus docstring for the full
+ *     reasoning. This is the ONE line that changes once real
+ *     verification logic exists — nothing downstream needs to.
  *
  * The business name is treated as OPTIONAL and non-blocking: if it
  * hasn't loaded yet, the header still renders with the person's name
@@ -26,7 +34,7 @@ import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { getBusinessProfile } from "@/features/dashboard/business/business-profile/api/businessProfileApi";
 import { businessProfileKeys } from "@/features/dashboard/business/business-profile/hooks/businessProfileKeys";
 import { useCurrentUserId } from "@/features/dashboard/business/business-profile/hooks/useCurrentUserId";
-import { toVerificationBadgeStatus, type AccountProfileSummary } from "../types";
+import type { AccountProfileSummary } from "../types";
 
 export function useAccountProfile() {
   const userQuery = useCurrentUser();
@@ -49,7 +57,7 @@ export function useAccountProfile() {
         email: user.email,
         phoneNumber: user.phoneNumber,
         businessName: businessNameQuery.data ?? null,
-        verification: toVerificationBadgeStatus(user.verificationStatus),
+        verification: "NOT_VERIFIED",
         accountStatus: user.accountStatus,
       }
     : undefined;
