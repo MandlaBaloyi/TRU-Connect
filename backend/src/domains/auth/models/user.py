@@ -83,6 +83,15 @@ class User(BaseModel):
     first_name = db.Column(db.String(100), nullable=True)
     last_name = db.Column(db.String(100), nullable=True)
     phone_number = db.Column(db.String(32), nullable=True)
+    # The ONE personal photo, shared across roles -- a person only has
+    # one face regardless of whether they're viewed as a business or
+    # supplier. Read LIVE at request time by whichever profile chose
+    # PERSONAL as its visible_image_source (see SupplierProfile/
+    # BusinessProfile's own photo_visibility/visible_image_source
+    # columns), never copied onto those tables -- same "read fresh,
+    # never a stale duplicate" rule BusinessProfile's own
+    # uses_same_as_account_phone/email already established.
+    profile_image_url = db.Column(db.String(500), nullable=True)
 
     account_status = db.Column(
         db.Enum(AccountStatus, name="account_status", schema="auth"),  
@@ -116,6 +125,7 @@ class User(BaseModel):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "phone_number": self.phone_number,
+            "profile_image_url": self.profile_image_url,
             "account_status": self.account_status.value if self.account_status else None,
             "verification_status": self.verification_status.value if self.verification_status else None,
             "is_active": self.is_active,

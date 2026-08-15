@@ -2,7 +2,7 @@ import React from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { CreditCard, Mail, Phone, ShieldAlert, Trash2, UserX } from "lucide-react-native";
+import { CreditCard, ShieldAlert, Trash2, UserX } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -19,11 +19,18 @@ import { VerificationBadge } from "../components/VerificationBadge";
 
 /**
  * My Account landing screen. Same progressive-disclosure principle as
- * Account Security's landing screen (see security/screens/
- * AccountSecurityScreen.tsx): shows STATE here, every control lives one
- * level down. Deliberately NOT a social-media profile (file.txt §1) —
- * no counts, no stats, no feed. Just: who is this, is it verified, how
- * do I reach it, how does it pay, how do I control it.
+ * Account Security's landing screen: shows STATE here, every control
+ * lives one level down.
+ *
+ * REVISED: Contact details and About no longer have their own
+ * sections here — both moved into the consolidated Profile screen
+ * (screens/ProfileScreen.tsx), reached via the header's pencil icon
+ * or by tapping the avatar below (both go to the same place now,
+ * matching the reference this redesign was based on). This screen
+ * keeps the read-only preview (name, business name, verification,
+ * bio) plus the sections that are genuinely their OWN destinations,
+ * not just identity fields — Payment methods, Account status, Danger
+ * zone.
  */
 export default function MyAccountScreen() {
   const router = useRouter();
@@ -70,12 +77,15 @@ export default function MyAccountScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Profile header */}
+        {/* Profile preview — tapping the avatar opens the same
+            Profile editor the header's pencil icon does. */}
         <View style={styles.header}>
           <ProfileAvatar
             name={fullName}
             imageUri={profileImage?.status === "approved" ? profileImage.localUri : null}
-            onPress={go("/business/my-account/profile-image")}
+            onPress={go("/business/my-account/profile")}
+            showCameraBadge={false}
+            verified={summary.verification === "VERIFIED"}
           />
           <Text style={[styles.name, { color: theme.colors.onSurface }]}>{fullName}</Text>
           {summary.businessName && (
@@ -83,34 +93,9 @@ export default function MyAccountScreen() {
               {summary.businessName}
             </Text>
           )}
-          <VerificationBadge status={summary.verification} />
+          {summary.verification === "VERIFIED" && <VerificationBadge />}
           {bio && <Text style={[styles.bio, { color: theme.colors.onSurfaceVariant }]}>{bio}</Text>}
         </View>
-
-        {/* Contact details */}
-        <CardSection title="Contact details">
-          <Card
-            icon={(c) => <Phone size={20} color={c} />}
-            label="Phone number"
-            description={summary.phoneNumber ?? "Not set"}
-            onPress={go("/business/my-account/edit-phone")}
-          />
-          <Card
-            icon={(c) => <Mail size={20} color={c} />}
-            label="Email address"
-            description={summary.email}
-            onPress={go("/business/my-account/edit-email")}
-          />
-        </CardSection>
-
-        {/* About */}
-        <CardSection title="About">
-          <Card
-            label="Bio"
-            description={bio ?? "Tell customers a little about you"}
-            onPress={go("/business/my-account/bio")}
-          />
-        </CardSection>
 
         {/* Payment methods */}
         <CardSection title="Payment methods">

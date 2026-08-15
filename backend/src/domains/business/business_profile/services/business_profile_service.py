@@ -41,6 +41,33 @@ from src.domains.business.business_profile.repositories.business_profile_reposit
 from src.extensions import db
 
 
+def _refresh_normalized_contact(profile: BusinessProfile, user: User) -> None:
+    """Keeps normalized_phone/normalized_email in sync with the
+    EFFECTIVE contact value (respecting uses_same_as_account_phone/
+    Email, same live-resolution rule get_profile's own _to_dict
+    already applies) -- added for Find Business (network/connections'
+    own supplier-side mirror of Find Supplier).
+
+    KNOWN LIMITATION, honestly flagged rather than silently assumed
+    fine: this only runs when the BUSINESS PROFILE itself is touched
+    (update_contact_details below, and the initial seed at
+    verification). If a business is using "same as account" and later
+    changes their ACCOUNT phone/email through some other path, this
+    column won't refresh until the business profile is touched again
+    -- there is currently no real account-phone/email-change endpoint
+    at all (My Account's own contact editing is still mock-backed), so
+    this gap can't actually manifest yet. Worth revisiting the moment
+    a real account-contact-change endpoint exists.
+    """
+    from src.shared.validation.identifiers import normalize_email, normalize_phone
+
+    effective_phone = user.phone_number if profile.uses_same_as_account_phone else profile.phone
+    effective_email = user.email if profile.uses_same_as_account_email else profile.email
+
+    profile.normalized_phone = normalize_phone(effective_phone) if effective_phone else None
+    profile.normalized_email = normalize_email(effective_email) if effective_email else None
+
+
 class BusinessProfileService:
     @staticmethod
     def get_profile(business_id: uuid.UUID) -> dict:
@@ -80,6 +107,9 @@ class BusinessProfileService:
         ]:
             if field in data:
                 setattr(profile, column, data[field])
+        user = User.query.get(business_id)
+        if user:
+            _refresh_normalized_contact(profile, user)
         db.session.commit()
         return BusinessProfileService.get_profile(business_id)
 

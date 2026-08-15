@@ -31,9 +31,11 @@
  */
 import type {
   AddPaymentMethodInput,
+  ConnectCode,
   DeactivationRequestStatus,
   DeleteAccountInput,
   DeletionRequestStatus,
+  DisplayNameInput,
   PaymentMethod,
 } from "../types";
 
@@ -92,6 +94,16 @@ export async function updateContactField(field: ContactField, value: string): Pr
     throw new Error("Enter a valid phone number.");
   }
   return trimmed;
+}
+
+export async function updateDisplayName(input: DisplayNameInput): Promise<DisplayNameInput> {
+  await latency();
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  if (firstName.length === 0) {
+    throw new Error("Enter your first name.");
+  }
+  return { firstName, lastName };
 }
 
 // --- Bio ----------------------------------------------------------------
@@ -183,4 +195,31 @@ export async function requestAccountDeletion(input: DeleteAccountInput): Promise
   }
   deletionRequestState = "SUBMITTED";
   return deletionRequestState;
+}
+
+// --- Connect Code (QR) ----------------------------------------------------
+// See types.ts's own extensive note on this concept. MOCK, session-
+// scoped: the token below is a random-looking string generated
+// client-side purely so the QR rendering/regenerate flow is real and
+// reviewable now — it is NOT a real opaque backend-issued token (there
+// is no backend lookup for it to mean anything against yet), and it
+// deliberately does NOT encode user_id/role, matching what the real
+// one won't either.
+
+function generateMockToken(): string {
+  const bytes = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+let connectCodeState: ConnectCode = { token: generateMockToken(), createdAt: new Date().toISOString() };
+
+export async function getConnectCode(): Promise<ConnectCode> {
+  await latency(150);
+  return connectCodeState;
+}
+
+export async function regenerateConnectCode(): Promise<ConnectCode> {
+  await latency(300);
+  connectCodeState = { token: generateMockToken(), createdAt: new Date().toISOString() };
+  return connectCodeState;
 }

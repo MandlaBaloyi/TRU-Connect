@@ -70,6 +70,7 @@ from src.core.exceptions import (
 from src.domains.auth.models.user import AccountStatus, User, UserRole, VerificationStatus
 from src.domains.auth.repositories.refresh_token_repository import RefreshTokenRepository
 from src.domains.auth.repositories.user_repository import UserRepository
+from src.extensions import db
 from src.shared.audit import audit, audit_context
 from src.shared.cache.cache import cache
 from src.shared.constants.constants import (
@@ -99,6 +100,22 @@ class AuthService:
             data=data, role=UserRole.BUSINESS, first_name=data["first_name"], last_name=data["last_name"]
         )
         AuthService._send_verification_otp(user)
+
+        # Supplier Invitation, reverse direction (a supplier invited
+        # this business) -- same registration-time-only linking as
+        # register_supplier's own hook below, now generalized to both
+        # roles. See link_invitation_at_registration's own docstring.
+        ticket = data.get("invitation_ticket")
+        if ticket:
+            try:
+                from src.domains.network.connections.services.connections_service import (
+                    link_invitation_at_registration,
+                )
+
+                link_invitation_at_registration(ticket, user.id, "business")
+            except Exception:  # noqa: BLE001
+                current_app.logger.exception("Failed to link invitation for user %s", user.id)
+
         return user
 
     @staticmethod
@@ -107,6 +124,25 @@ class AuthService:
             data=data, role=UserRole.SUPPLIER, first_name=data["owner_name"], last_name=None
         )
         AuthService._send_verification_otp(user)
+
+        # Supplier Invitation (file.txt Phase 2) -- registration-time
+        # half of the two-stage link; see connections_service.py's
+        # own docstring on why this ONLY links, never creates the real
+        # ConnectionRequest (that happens at verification success,
+        # OTPService.verify_otp). Resilient the same way the seed
+        # helpers there are: a failure here must not block registration
+        # itself succeeding.
+        ticket = data.get("invitation_ticket")
+        if ticket:
+            try:
+                from src.domains.network.connections.services.connections_service import (
+                    link_invitation_at_registration,
+                )
+
+                link_invitation_at_registration(ticket, user.id, "supplier")
+            except Exception:  # noqa: BLE001
+                current_app.logger.exception("Failed to link invitation for user %s", user.id)
+
         return user
 
     @staticmethod
@@ -352,4 +388,23 @@ class AuthService:
         user = UserRepository.get_by_id(user_id)
         if user is None:
             raise UnauthorizedError("User not found.")
+        return user
+
+    @staticmethod
+    def update_profile_image(user_id: str, image_url: str | None) -> User:
+        """The ONE personal photo, shared across roles -- see
+        User.profile_image_url's own model docstring. Stores whatever
+        URL it's given directly; this endpoint doesn't call Cloudinary
+        or any other storage provider itself -- that's a real,
+        separate piece of work still ahead. Once real photo storage
+        exists, the actual upload flow calls THIS same method with a
+        real, provider-issued URL instead of whatever value it's given
+        today -- the field and the update path are real now, only the
+        thing that populates them is still pending.
+        """
+        user = UserRepository.get_by_id(user_id)
+        if user is None:
+            raise UnauthorizedError("User not found.")
+        user.profile_image_url = image_url
+        db.session.commit()
         return user

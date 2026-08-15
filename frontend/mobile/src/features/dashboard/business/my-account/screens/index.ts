@@ -1,8 +1,6 @@
 export { default as MyAccountScreen } from "./MyAccountScreen";
-export { default as EditPhoneScreen } from "./EditPhoneScreen";
-export { default as EditEmailScreen } from "./EditEmailScreen";
-export { default as BioScreen } from "./BioScreen";
-export { default as VerificationScreen } from "./VerificationScreen";
+export { default as ProfileScreen } from "./ProfileScreen";
+export { default as QRCodeScreen } from "./QRCodeScreen";
 export { default as PaymentMethodsScreen } from "./PaymentMethodsScreen";
 export { default as AddPaymentMethodScreen } from "./AddPaymentMethodScreen";
 export { default as CardPaymentsScreen } from "./CardPaymentsScreen";

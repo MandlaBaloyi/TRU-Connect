@@ -10,6 +10,7 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 const HEADER_HEIGHT = 60; // within the approved 56–64dp range
+const HEADER_HEIGHT_COMPACT = 44; // Community's compact title row — no subtitle allowance needed
 const HEADER_HEIGHT_WITH_TABS = 48; // tighter — no subtitle text to make room for here
 
 export interface AppHeaderTab {
@@ -28,31 +29,47 @@ type AppHeaderProps =
       notificationCount?: number;
     }
   | {
-      /** Account / More — title, optional subtitle, optional single
-       *  right-side action. */
+      /** Account / More / Community — title, optional subtitle,
+       *  optional right-side action(s). `secondaryRightIcon` renders
+       *  to the LEFT of `rightIcon` (e.g. Community's search icon
+       *  sitting left of its bell) — added for Community's "Find
+       *  Supplier" quick-access entry point; optional and additive,
+       *  every other "title"-variant screen is unaffected. */
       variant: "title";
       title: string;
       subtitle?: string;
       rightIcon?: React.ReactNode;
       onRightIconPress?: () => void;
+      secondaryRightIcon?: React.ReactNode;
+      onSecondaryRightIconPress?: () => void;
+      /** Defaults true. Set false when this header is composed with
+       *  more content directly beneath it that owns the "real" bottom
+       *  border itself (e.g. Community's title row + utility row
+       *  reading as ONE block) — otherwise both borders render and
+       *  produce a redundant double line. Every other "title" screen
+       *  (My Account, Security, Settings, More, Account) is
+       *  unaffected since it's opt-out, not opt-in. */
+      showBottomBorder?: boolean;
+      /** Defaults false. The "title" row normally reserves extra
+       *  height + top-aligns its text to leave room for an optional
+       *  subtitle line. Community has no subtitle and sits directly
+       *  above more of its own header content (Invite row, tabs row)
+       *  — compact drops the row to a shorter, vertically-centered
+       *  height instead of carrying that subtitle allowance. Every
+       *  other "title" screen doesn't pass this, so is unaffected. */
+      compact?: boolean;
     }
   | {
-      /** Community / Discovery — title row, plus a second-level tab
-       *  row immediately below it.
+      /** Discovery — title row, plus a second-level tab row
+       *  immediately below it. (Community moved OFF this variant —
+       *  it now needs content, not just tabs, between its title row
+       *  and its For You/Following row, so it composes "title" plus
+       *  its own body content instead; see community.tsx.)
        *
-       *  tabsAlign controls how the tabs are laid out — these are
-       *  genuinely different, explicitly requested looks for the two
-       *  screens that use this variant, not one-size-fits-all:
-       *    "spread" (default) — natural-width labels with equal GAPS
-       *      between them (space-between), for Discovery's 4 tabs.
-       *      With very different label lengths ("All" vs
-       *      "Opportunities"), equal-width columns would make short
-       *      labels float in mostly-empty space, which reads as
-       *      uneven even though the columns are mathematically equal.
-       *    "columns" — each tab takes an equal share of the full
-       *      width (flex: 1) with its label centred inside that
-       *      share, for Community's 2 tabs: "For You" centred in the
-       *      left half, "Following" centred in the right half.
+       *  tabsAlign controls how the tabs are laid out — kept
+       *  configurable because Discovery's 4 unevenly-sized labels
+       *  ("All" vs "Opportunities") read better with natural widths
+       *  and equal gaps ("spread") than forced equal columns would.
        */
       variant: "title-with-tabs";
       title: string;
@@ -98,8 +115,10 @@ type AppHeaderProps =
 export function AppHeader(props: AppHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const suppressBorder = props.variant === "title" && props.showBottomBorder === false;
   const wrapperStyle = [
     styles.wrapper,
+    suppressBorder && styles.wrapperNoBorder,
     { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outlineVariant, paddingTop: insets.top },
   ];
 
@@ -128,12 +147,16 @@ export function AppHeader(props: AppHeaderProps) {
     );
   }
 
+  const isCompact = props.variant === "title" && props.compact === true;
   const titleRow = (
     <View
       style={[
         styles.row,
         styles.titleRow,
-        { minHeight: props.variant === "title-with-tabs" ? HEADER_HEIGHT_WITH_TABS : HEADER_HEIGHT },
+        isCompact && styles.titleRowCompact,
+        {
+          minHeight: props.variant === "title-with-tabs" ? HEADER_HEIGHT_WITH_TABS : isCompact ? HEADER_HEIGHT_COMPACT : HEADER_HEIGHT,
+        },
       ]}
     >
       <View style={styles.textWrap}>
@@ -142,10 +165,24 @@ export function AppHeader(props: AppHeaderProps) {
           <RNText style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>{props.subtitle}</RNText>
         )}
       </View>
-      {props.rightIcon && (
-        <Pressable onPress={props.onRightIconPress} hitSlop={10} style={styles.iconButton}>
-          {props.rightIcon}
-        </Pressable>
+      {/* Grouped into ONE cluster, not two independent flex siblings —
+          `row`'s justifyContent: space-between would otherwise treat
+          title/search/overflow as 3 separate items and spread a gap
+          between EACH of them, floating search away from the overflow
+          icon instead of sitting tight beside it. */}
+      {(props.rightIcon || (props.variant === "title" && props.secondaryRightIcon)) && (
+        <View style={styles.actionsGroup}>
+          {props.variant === "title" && props.secondaryRightIcon && (
+            <Pressable onPress={props.onSecondaryRightIconPress} hitSlop={10} style={styles.iconButton}>
+              {props.secondaryRightIcon}
+            </Pressable>
+          )}
+          {props.rightIcon && (
+            <Pressable onPress={props.onRightIconPress} hitSlop={10} style={styles.iconButton}>
+              {props.rightIcon}
+            </Pressable>
+          )}
+        </View>
       )}
     </View>
   );
@@ -185,14 +222,17 @@ export function AppHeader(props: AppHeaderProps) {
 
 const styles = StyleSheet.create({
   wrapper: { borderBottomWidth: StyleSheet.hairlineWidth },
+  wrapperNoBorder: { borderBottomWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md },
   titleRow: { alignItems: "flex-start", paddingTop: spacing.sm },
+  titleRowCompact: { alignItems: "center", paddingTop: 0 },
   textWrap: { gap: 2, flexShrink: 1 },
   tru: { fontSize: 20, letterSpacing: -0.3, fontWeight: "700" },
   connect: { fontWeight: "700", fontStyle: "italic" },
   title: { ...typography.h1 },
   subtitle: { ...typography.bodySmall, fontWeight: "600", marginTop: 1 },
   actions: { flexDirection: "row", alignItems: "center" },
+  actionsGroup: { flexDirection: "row", alignItems: "center" },
   iconButton: { padding: spacing.xs, marginLeft: spacing.xs },
   badge: { position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: 4 },
   // "fill" (default): natural-width labels, equal GAPS between them
