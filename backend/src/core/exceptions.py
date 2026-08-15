@@ -1,7 +1,7 @@
 """
 Custom exception hierarchy.
-"Proper exception handling"; Auth Hardening
-master prompt, Objective 1 (structured error codes).
+"Proper exception handling"
+(structured error codes).
 
 Services raise these instead of returning ad-hoc error tuples; the app
 factory's single error handler converts any AppError into the standard

@@ -1,7 +1,6 @@
 """
 Forgot/Reset Password Service.
-Ref: continuation master prompt (Phase 3), Step 14; Auth Hardening master
-prompt, Objectives 4, 5, 6, 7.
+
 
 NAMING NOTE: the physical database column remains
 PasswordResetToken.token_hash (no migration -- see

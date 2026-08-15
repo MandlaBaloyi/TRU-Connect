@@ -1,7 +1,7 @@
 """
 OTP request/verification schemas.
 matches frontend/mobile/src/features/auth/types.ts (VerifyOtpPayload: destination
-+ code) and docs/05_BACKEND_API_SPECIFICATION.txt, Section 5.1
++ code) 
 (/auth/phone/request-otp, /auth/phone/verify-otp).
 """
 from __future__ import annotations

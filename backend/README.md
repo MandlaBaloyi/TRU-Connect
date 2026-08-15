@@ -1,15 +1,7 @@
 # TRU Connect Backend
 
 Flask + PostgreSQL backend for TRU Connect. Implements the App
-Factory, Repository, and Service Layer patterns -- see the backend
-master prompt and docs/05_BACKEND_API_SPECIFICATION.txt.
 
-## Status
-
-Foundation only (Steps 1-4): Configuration Layer, Extensions, App
-Factory, Database Connection base mixin. No models, repositories,
-services, or routes exist yet -- those begin at Step 5 (User
-Model) of the phased authentication plan.
 
 ## Setup
 
@@ -37,8 +29,4 @@ Run the server:
 python app.py
 ```
 
-## Documentation
 
-Source-of-truth documents live in ../docs -- particularly
-docs/04_DATABASE_DESIGN.txt, docs/05_BACKEND_API_SPECIFICATION.txt,
-and docs/06_BUSINESS_RULES_AND_WORKFLOWS.txt.
