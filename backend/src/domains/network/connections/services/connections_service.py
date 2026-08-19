@@ -161,7 +161,7 @@ def _resolve_visible_photo_url(profile, *, personal_photo_url: str | None, is_ac
 
 def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
     from src.domains.auth.models.user import User
-    from src.domains.supplier.catalogue.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
@@ -183,19 +183,39 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
 
 
 def list_supplier_products(supplier_profile_id: str | UUID) -> List[dict]:
-    """Real, minimal -- a name-only list, matching Product's own
-    deliberately lean shape (see that model's docstring). Viewable by
+    """Real, and now genuinely useful -- name/category/price/unit,
+    matching Product's own grown shape (Phase 1: Products). Viewable by
     ANY authenticated business regardless of connection status --
     browsing stays open; only ordering is gated (can_place_order
-    above)."""
-    from src.domains.supplier.catalogue.repositories.product_repository import ProductRepository
+    above). Archived products excluded (ProductRepository.
+    list_for_supplier's own include_archived=False default) -- a
+    business browsing a supplier's catalogue should never see
+    something the supplier pulled from sale.
+    """
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.services import product_media_service
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
     products = ProductRepository.list_for_supplier(supplier_profile_id)
-    return [{"id": str(p.id), "name": p.name} for p in products]
+    return [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "category": p.category.value,
+            "priceCents": p.price_cents,
+            "sellingUnit": p.selling_unit.value,
+            # Real, APPROVED-only media -- this is exactly the endpoint
+            # a business actually sees, so it's the one place this
+            # matters most (see product_media_service's own
+            # list_approved_media docstring for why only APPROVED ever
+            # reaches here).
+            "images": product_media_service.list_approved_media(p.id),
+        }
+        for p in products
+    ]
 
 
 def _handle_existing_connection(
@@ -772,14 +792,14 @@ def _connection_summary(request, *, other_party_name: str) -> dict:
 #
 # Nothing calls this yet -- Stock Ordering doesn't exist as a feature
 # -- but the check itself is real and tested now, not a placeholder
-# for later. Reaches into supplier/catalogue's own repository for the
+# for later. Reaches into supplier/products' own repository for the
 # product-count half, the same cross-domain-read pattern this service
 # already uses for business_profile/supplier_profile.
 # ---------------------------------------------------------------------------
 
 
 def can_place_order(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
-    from src.domains.supplier.catalogue.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
 
     connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
     is_connected = connection is not None and connection.status == ConnectionRequestStatus.ACTIVE

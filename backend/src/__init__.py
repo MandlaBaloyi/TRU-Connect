@@ -27,6 +27,15 @@ def create_app(env_name: str | None = None) -> Flask:
     from src.domains.security.audit.services import audit_service
     audit_service.register(app)
 
+    # Media domain's own dispatch registration -- products "subscribes"
+    # to scan results for its own folder prefix without shared/media
+    # ever needing to know what a "product" is. See
+    # shared/media/webhook_service.py's own docstring.
+    from src.domains.supplier.products.services import product_media_service
+    from src.shared.media.webhook_service import register_scan_result_handler
+
+    register_scan_result_handler(product_media_service.FOLDER_PREFIX, product_media_service.apply_scan_result)
+
     from src.master_scheduler import trigger
     trigger.start(app)
 
@@ -61,6 +70,18 @@ def _register_blueprints(app: Flask) -> None:
 
     from src.domains.network.connections.api.connections_routes import connections_bp
     app.register_blueprint(connections_bp)
+
+    from src.domains.supplier.products.api.products_routes import products_bp
+    app.register_blueprint(products_bp)
+
+    from src.domains.supplier.inventory.api.inventory_routes import inventory_bp
+    app.register_blueprint(inventory_bp)
+
+    from src.domains.supplier.products.api.media_routes import product_media_bp
+    app.register_blueprint(product_media_bp)
+
+    from src.shared.media.api.webhook_routes import media_webhooks_bp
+    app.register_blueprint(media_webhooks_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:
@@ -103,6 +124,14 @@ def _register_error_handlers(app: Flask) -> None:
         RATE_LIMIT_AUDIT_EVENTS as CONNECTIONS_RATE_LIMIT_AUDIT_EVENTS,
     )
     rate_limit_responses.register_audit_events(CONNECTIONS_RATE_LIMIT_AUDIT_EVENTS)
+    from src.domains.supplier.products.rate_limit.policies import (
+        RATE_LIMIT_AUDIT_EVENTS as PRODUCTS_RATE_LIMIT_AUDIT_EVENTS,
+    )
+    rate_limit_responses.register_audit_events(PRODUCTS_RATE_LIMIT_AUDIT_EVENTS)
+    from src.domains.supplier.inventory.rate_limit.policies import (
+        RATE_LIMIT_AUDIT_EVENTS as INVENTORY_RATE_LIMIT_AUDIT_EVENTS,
+    )
+    rate_limit_responses.register_audit_events(INVENTORY_RATE_LIMIT_AUDIT_EVENTS)
     # Future domains' own rate_limit/policies.py RATE_LIMIT_AUDIT_EVENTS
     # get registered here the same way.
     rate_limit_responses.register(app)
