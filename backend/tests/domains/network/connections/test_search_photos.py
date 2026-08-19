@@ -63,24 +63,31 @@ def test_default_settings_show_no_photo_in_search(make_business, make_supplier, 
     assert results[0]["photoUrl"] is None
 
 
-def test_exact_phone_match_also_resolves_photo(make_business, make_supplier, make_supplier_profile):
-    """The single-match phone/email branch goes through the same
-    to_dict helper as the name-prefix list -- confirmed directly,
-    not assumed just because the list branch works."""
-    from src.shared.validation.identifiers import normalize_phone
-
+def test_multiple_name_matches_each_resolve_their_own_photo(make_business, make_supplier, make_supplier_profile):
+    """Name-prefix search is the ONLY search path now (phone/email
+    exact-match search was removed -- see connections_service.py's own
+    _dispatch_search docstring), which means it's also the only path
+    that can ever return MORE than one result. This confirms photo
+    resolution is genuinely applied per-result in that list, not just
+    proven once against a single-item list and assumed to generalize."""
     business = make_business()
-    supplier_user = make_supplier()
-    supplier_user.profile_image_url = "https://example.com/personal.jpg"
-    profile = make_supplier_profile(
-        supplier_user, business_name="Phone Match Co", normalized_phone=normalize_phone("0712345678")
-    )
-    _set_supplier_photo(supplier_user, profile, visible_image_source="personal", photo_visibility="everyone")
 
-    results = connections_service.search_suppliers("0712345678", business.id)
+    visible_user = make_supplier("visible-photo@example.com")
+    visible_user.profile_image_url = "https://example.com/visible.jpg"
+    visible_profile = make_supplier_profile(visible_user, business_name="Photo Match Visible Co")
+    _set_supplier_photo(visible_user, visible_profile, visible_image_source="personal", photo_visibility="everyone")
 
-    assert len(results) == 1
-    assert results[0]["photoUrl"] == "https://example.com/personal.jpg"
+    hidden_user = make_supplier("hidden-photo@example.com")
+    hidden_user.profile_image_url = "https://example.com/hidden.jpg"
+    hidden_profile = make_supplier_profile(hidden_user, business_name="Photo Match Hidden Co")
+    _set_supplier_photo(hidden_user, hidden_profile, visible_image_source="personal", photo_visibility="connections")
+
+    results = connections_service.search_suppliers("Photo Match", business.id)
+
+    by_name = {r["businessName"]: r for r in results}
+    assert len(results) == 2
+    assert by_name["Photo Match Visible Co"]["photoUrl"] == "https://example.com/visible.jpg"
+    assert by_name["Photo Match Hidden Co"]["photoUrl"] is None
 
 
 def test_reverse_direction_search_also_resolves_photo(make_business, make_business_profile, make_supplier):

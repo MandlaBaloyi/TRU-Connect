@@ -231,14 +231,16 @@ class BusinessProfile(BaseModel):
     # that's my customer", never the business's full stored trading/
     # operating/verification record.
 
-    def to_search_result_dict(self, matched_field: str, masked_identifier: str) -> dict:
+    def to_search_result_dict(self) -> dict:
+        """No longer takes matched_field/masked_identifier -- see
+        SupplierProfile.to_search_result_dict's own docstring
+        (supplier_profile.py) for the full reasoning; this mirrors
+        that simplification exactly."""
         return {
             "id": str(self.id),
             "businessName": self.business_name,
             "category": self.category.value if self.category else None,
             "location": self.city_or_town,
-            "matchedField": matched_field,
-            "maskedMatchedIdentifier": masked_identifier,
         }
 
     def to_profile_preview_dict(self, connection_status: str, visible_photo_url: str | None = None) -> dict:

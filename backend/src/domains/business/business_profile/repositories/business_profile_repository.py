@@ -4,12 +4,18 @@ placeholder name) without needing a migration-time backfill or a
 nullable-profile check scattered through the service layer -- same
 reasoning as Order Book's AutoClearSettingsRepository.
 
-search_by_phone/search_by_email/search_by_name_prefix -- added for
-Find Business (network/connections' own supplier-side mirror of
-Find Supplier). Same conventions as SupplierProfileRepository's own
-search methods: phone/email take an ALREADY-NORMALIZED value, name
-search is PREFIX-ONLY, never a substring scan (file.txt §4 privacy
-rule, applied identically in both directions)."""
+search_by_name_prefix -- added for Find Business (network/connections'
+own supplier-side mirror of Find Supplier). PREFIX-ONLY, never a
+substring scan (file.txt §4 privacy rule, applied identically in both
+directions).
+
+search_by_phone/search_by_email were REMOVED -- previously present
+here (mirroring SupplierProfileRepository's own, since deleted), used
+only by connections_service.py's own _dispatch_search. Search is
+name/business-name only now; see that function's own docstring for the
+full reasoning. normalized_phone/normalized_email columns stay on the
+model -- they're unrelated to search (kept in sync by
+business_profile_service.py, see that file)."""
 from __future__ import annotations
 
 import uuid
@@ -40,14 +46,6 @@ class BusinessProfileRepository:
             db.session.add(profile)
             db.session.flush()
         return profile
-
-    @staticmethod
-    def search_by_phone(normalized_phone: str) -> Optional[BusinessProfile]:
-        return BusinessProfile.query.filter_by(normalized_phone=normalized_phone).first()
-
-    @staticmethod
-    def search_by_email(normalized_email: str) -> Optional[BusinessProfile]:
-        return BusinessProfile.query.filter_by(normalized_email=normalized_email).first()
 
     @staticmethod
     def search_by_name_prefix(name_query: str, limit: int = 20) -> List[BusinessProfile]:

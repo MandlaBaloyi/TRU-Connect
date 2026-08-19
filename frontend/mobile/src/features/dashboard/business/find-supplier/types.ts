@@ -17,28 +17,27 @@
  * on either type that could carry a supplier's full phone number,
  * full email, or exact address — only enough to let the business
  * recognise "yes, that's my supplier" (file.txt §4's own framing).
- * The matched identifier is shown MASKED, mirroring the backend's own
- * existing `mask_email` helper (src/shared/helpers/helpers.py) — this
- * frontend type deliberately can't hold anything that helper wouldn't
- * already be masking server-side.
+ *
+ * SEARCH IS NAME/BUSINESS-NAME ONLY -- phone/email exact-match search
+ * was REMOVED (backend: connections_service.py's own _dispatch_search
+ * docstring has the full reasoning). Even with the matched identifier
+ * masked, exact-match phone/email search let someone probe arbitrary
+ * numbers/addresses one at a time to learn who's registered — a real
+ * enumeration vector, not a theoretical one. MatchedField/
+ * matchedField/maskedMatchedIdentifier are GONE from this file
+ * entirely, not just unused — once name is the only match kind,
+ * carrying fields whose value never varies is dead weight in both the
+ * type and every consumer that has to keep it in sync for no reason.
  */
 
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
 
-/** What the query LOOKS like, purely for UI copy ("Matched by phone")
- *  — the real normalization/matching decision is entirely the
- *  backend's (file.txt §3: phone/email normalization happens
- *  server-side). This is never sent as an instruction to the backend,
- *  only inferred client-side for display after results come back. */
-export type MatchedField = "PHONE" | "EMAIL" | "NAME";
-
 export interface SupplierSearchQuery {
-  /** Single smart input — phone, email, or business name. The
-   *  business never has to pick which kind of search this is; that's
-   *  exactly the normalization problem file.txt §3 describes solving
-   *  server-side. */
+  /** Business name only now — see file header. The business types a
+   *  name (or the start of one); there's no phone/email branch to
+   *  route to anymore. */
   query: string;
 }
 
@@ -62,13 +61,6 @@ export interface SupplierSearchResult {
   /** Suburb/city only, never a street address. */
   location: string | null;
   verificationStatus: SupplierVerificationStatus;
-  matchedField: MatchedField;
-  /** The identifier that matched, ALREADY MASKED by the time it
-   *  reaches the frontend (e.g. "a***@wholesale.co.za" or
-   *  "+27 71 *** 45 78") — confirms recognition without exposing the
-   *  full value. Masking happens server-side; this field can never
-   *  hold anything else. */
-  maskedMatchedIdentifier: string;
   /** Resolved server-side, respecting the supplier's own
    *  photo_visibility/visible_image_source settings — genuinely null
    *  unless they've actively chosen to show something AND the
@@ -142,11 +134,10 @@ export interface InviteSupplierResult {
 /**
  * GET  /api/v1/supplier-discovery/search?q=...
  *      -> { results: SupplierSearchResult[] }
- *      Rate-limited per business_id. Server normalizes `q` (phone ->
- *      E.164, email -> lowercase-trimmed) before matching against
- *      indexed supplier identifiers. Exact/near-exact matching only —
- *      never a fuzzy "everyone whose name contains this" scan
- *      (file.txt §4).
+ *      Rate-limited per business_id. NAME/BUSINESS-NAME PREFIX MATCH
+ *      ONLY (phone/email exact-match search was removed — see file
+ *      header). Never a fuzzy "everyone whose name contains this"
+ *      scan (file.txt §4).
  *
  * GET  /api/v1/supplier-discovery/suppliers/{id}
  *      -> SupplierProfilePreview

@@ -1,12 +1,21 @@
 backend
 ├── migrations
 │   ├── versions
+│   │   ├── 2d972736bccf_supplier_invitation_table.py
+│   │   ├── 2ea418343d1b_network_invitation_fk_set_null.py
+│   │   ├── 35a0d5d4f291_rename_connection_requests_table.py
+│   │   ├── 61c383f6d763_supplier_products_table.py
+│   │   ├── 6c44aff745a7_network_invitation_generalization.py
+│   │   ├── 7e079a2ec638_photo_visibility_fields.py
 │   │   ├── a1b2c3d4e5f6_business_profile_table.py
 │   │   ├── acccb39c3c86_initial_auth_domain_schema_migration.py
 │   │   ├── b1a2c3d4e5f6_security_audit_events.py
+│   │   ├── c06dd99faa7e_supplier_discovery_tables.py
 │   │   ├── c2d3e4f5a6b7_loan_book_tables.py
+│   │   ├── c410a2f2aae9_connection_request_retry_history.py
 │   │   ├── d3e4f5a6b7c8_loan_book_table_prefix.py
 │   │   ├── e4f5a6b7c8d9_order_book_tables.py
+│   │   ├── e6b87c4271b4_business_profile_search_columns.py
 │   │   └── f5a6b7c8d9e0_loan_book_customers_prefix.py
 │   ├── alembic.ini
 │   ├── env.py
@@ -63,13 +72,9 @@ backend
 │   │   │   └── __init__.py
 │   │   ├── business
 │   │   │   ├── business_profile
-│   │   │   │   ├── algorithms
-│   │   │   │   │   └── __init__.py
 │   │   │   │   ├── api
 │   │   │   │   │   ├── __init__.py
 │   │   │   │   │   └── business_profile_routes.py
-│   │   │   │   ├── commands
-│   │   │   │   │   └── __init__.py
 │   │   │   │   ├── events
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── models
@@ -91,7 +96,6 @@ backend
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── validators
 │   │   │   │   │   └── __init__.py
-│   │   │   │   ├── {models,repositories,services,schemas,api}
 │   │   │   │   └── __init__.py
 │   │   │   ├── loan_book
 │   │   │   │   ├── api
@@ -165,30 +169,6 @@ backend
 │   │   │   │   │   └── trash_retention.py
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── ORDER_BOOK_BACKEND_README.md
-│   │   │   ├── order_queue
-│   │   │   │   ├── algorithms
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── api
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── commands
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── events
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── models
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── queries
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── schemas
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── services
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── utils
-│   │   │   │   │   └── __init__.py
-│   │   │   │   ├── validators
-│   │   │   │   │   └── __init__.py
-│   │   │   │   └── __init__.py
 │   │   │   ├── rate_limit
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── policies.py
@@ -205,6 +185,37 @@ backend
 │   │   │   ├── services
 │   │   │   │   └── __init__.py
 │   │   │   ├── utils
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
+│   │   ├── network
+│   │   │   ├── connections
+│   │   │   │   ├── api
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── connections_routes.py
+│   │   │   │   ├── jobs
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── expired_invitations_cleanup_job.py
+│   │   │   │   ├── models
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── connection_request.py
+│   │   │   │   │   └── network_invitation.py
+│   │   │   │   ├── rate_limit
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── policies.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── connection_request_repository.py
+│   │   │   │   │   └── network_invitation_repository.py
+│   │   │   │   ├── schedulers
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── connections_scheduler.py
+│   │   │   │   ├── schemas
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── connections_schemas.py
+│   │   │   │   ├── services
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── connections_service.py
+│   │   │   │   │   └── errors.py
 │   │   │   │   └── __init__.py
 │   │   │   └── __init__.py
 │   │   ├── platform
@@ -276,6 +287,14 @@ backend
 │   │   │   │   └── __init__.py
 │   │   │   └── __init__.py
 │   │   ├── supplier
+│   │   │   ├── catalogue
+│   │   │   │   ├── models
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── product.py
+│   │   │   │   ├── repositories
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── product_repository.py
+│   │   │   │   └── __init__.py
 │   │   │   ├── rate_limit
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── policies.py
@@ -289,11 +308,13 @@ backend
 │   │   │   │   ├── events
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── models
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── supplier_profile.py
 │   │   │   │   ├── queries
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── repositories
-│   │   │   │   │   └── __init__.py
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── supplier_profile_repository.py
 │   │   │   │   ├── schemas
 │   │   │   │   │   └── __init__.py
 │   │   │   │   ├── services
@@ -374,6 +395,7 @@ backend
 │   │   │   │   ├── base
 │   │   │   │   │   └── base.html
 │   │   │   │   ├── business
+│   │   │   │   │   ├── business_invitation.html
 │   │   │   │   │   └── welcome_business.html
 │   │   │   │   ├── platform
 │   │   │   │   ├── security
@@ -434,6 +456,7 @@ backend
 │   │   │   └── tickets.py
 │   │   ├── validation
 │   │   │   ├── __init__.py
+│   │   │   ├── identifiers.py
 │   │   │   └── validators.py
 │   │   └── __init__.py
 │   ├── __init__.py
@@ -451,20 +474,47 @@ backend
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── test_auth_scheduler.py
-│   │   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   └── test_supplier_profile_seeding.py
 │   │   ├── business
 │   │   │   ├── business_profile
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── conftest.py
 │   │   │   │   └── test_ownership.py
 │   │   │   ├── loan_book
+│   │   │   │   ├── __init__.py
 │   │   │   │   ├── conftest.py
 │   │   │   │   ├── test_api_ownership.py
 │   │   │   │   └── test_ownership.py
 │   │   │   └── order_book
+│   │   │       ├── __init__.py
 │   │   │       ├── conftest.py
 │   │   │       ├── test_api_ownership.py
 │   │   │       └── test_ownership.py
+│   │   ├── network
+│   │   │   ├── connections
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── conftest.py
+│   │   │   │   ├── test_api.py
+│   │   │   │   ├── test_concurrency.py
+│   │   │   │   ├── test_connection_requests.py
+│   │   │   │   ├── test_customer_requests.py
+│   │   │   │   ├── test_customer_requests_ownership.py
+│   │   │   │   ├── test_expired_invitations_cleanup_job.py
+│   │   │   │   ├── test_find_business.py
+│   │   │   │   ├── test_invitation_fk.py
+│   │   │   │   ├── test_invitations.py
+│   │   │   │   ├── test_invitations_api.py
+│   │   │   │   ├── test_like_escaping.py
+│   │   │   │   ├── test_my_connections.py
+│   │   │   │   ├── test_ordering_gate.py
+│   │   │   │   ├── test_ownership.py
+│   │   │   │   ├── test_photo_visibility.py
+│   │   │   │   ├── test_retry_after_decline.py
+│   │   │   │   ├── test_search.py
+│   │   │   │   ├── test_search_photos.py
+│   │   │   │   └── test_search_rate_limit_audit.py
+│   │   │   └── __init__.py
 │   │   ├── platform
 │   │   │   ├── schedulers
 │   │   │   │   ├── __init__.py
@@ -488,6 +538,10 @@ backend
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── test_monitor.py
 │   │   │   └── __init__.py
+│   │   ├── supplier
+│   │   │   ├── supplier_profile
+│   │   │   │   └── __init__.py
+│   │   │   └── __init__.py
 │   │   └── __init__.py
 │   ├── shared
 │   │   ├── finance
@@ -503,12 +557,6 @@ backend
 │   └── tests.txt
 ├── .env
 ├── app.py
-├── AUDIT_MIGRATION_NOTES.md
-├── INTEGRATION.md
-├── INTEGRATION_AUDIT.md
-├── MASTER_SCHEDULER_MIGRATION_NOTES.md
-├── MIGRATION_NOTES.md
 ├── plan.md
 ├── README.md
-├── reorganize_shared.py
 └── requirements.txt

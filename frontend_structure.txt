@@ -17,6 +17,12 @@ frontend
 │   │   │   │   │   ├── discovery.tsx
 │   │   │   │   │   ├── home.tsx
 │   │   │   │   │   └── more.tsx
+│   │   │   │   ├── find-supplier
+│   │   │   │   │   ├── products
+│   │   │   │   │   │   └── [supplierId].tsx
+│   │   │   │   │   ├── [supplierId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── invite.tsx
 │   │   │   │   ├── loan-book
 │   │   │   │   │   ├── customer
 │   │   │   │   │   │   └── [customerId].tsx
@@ -32,16 +38,14 @@ frontend
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   ├── account-status.tsx
 │   │   │   │   │   ├── add-payment-method.tsx
-│   │   │   │   │   ├── bio.tsx
 │   │   │   │   │   ├── card-payments.tsx
 │   │   │   │   │   ├── deactivate-account.tsx
 │   │   │   │   │   ├── delete-account.tsx
-│   │   │   │   │   ├── edit-email.tsx
-│   │   │   │   │   ├── edit-phone.tsx
 │   │   │   │   │   ├── index.tsx
 │   │   │   │   │   ├── payment-methods.tsx
 │   │   │   │   │   ├── profile-image.tsx
-│   │   │   │   │   └── verification.tsx
+│   │   │   │   │   ├── profile.tsx
+│   │   │   │   │   └── qr-code.tsx
 │   │   │   │   ├── my-business
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   ├── business-details.tsx
@@ -97,6 +101,10 @@ frontend
 │   │   │   │   │   ├── sync.tsx
 │   │   │   │   │   ├── terms.tsx
 │   │   │   │   │   └── theme.tsx
+│   │   │   │   ├── supplier-requests
+│   │   │   │   │   ├── [requestId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
 │   │   │   │   └── _layout.tsx
 │   │   │   ├── supplier
 │   │   │   │   ├── (tabs)
@@ -106,14 +114,49 @@ frontend
 │   │   │   │   │   ├── discovery.tsx
 │   │   │   │   │   ├── home.tsx
 │   │   │   │   │   └── more.tsx
-│   │   │   │   ├── product-catalogue
-│   │   │   │   │   ├── [id]
+│   │   │   │   ├── bulk-products
+│   │   │   │   │   ├── import
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── index.tsx
+│   │   │   │   │   │   └── preview.tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── edit.tsx
+│   │   │   │   ├── customer-requests
+│   │   │   │   │   ├── [requestId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── find-business
+│   │   │   │   │   ├── [businessId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── invite.tsx
+│   │   │   │   ├── inventory
+│   │   │   │   │   ├── [productId]
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── adjust.tsx
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── my-account
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   ├── account-status.tsx
+│   │   │   │   │   ├── add-payment-method.tsx
+│   │   │   │   │   ├── billing.tsx
+│   │   │   │   │   ├── card-payments.tsx
+│   │   │   │   │   ├── deactivate-account.tsx
+│   │   │   │   │   ├── delete-account.tsx
+│   │   │   │   │   ├── index.tsx
+│   │   │   │   │   ├── payment-methods.tsx
+│   │   │   │   │   ├── profile-image.tsx
+│   │   │   │   │   ├── profile.tsx
+│   │   │   │   │   ├── qr-code.tsx
+│   │   │   │   │   └── subscription.tsx
+│   │   │   │   ├── products
+│   │   │   │   │   ├── [productId]
+│   │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   │   ├── edit.tsx
-│   │   │   │   │   │   ├── images.tsx
 │   │   │   │   │   │   └── index.tsx
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   ├── add.tsx
-│   │   │   │   │   ├── drafts.tsx
 │   │   │   │   │   └── index.tsx
 │   │   │   │   └── _layout.tsx
 │   │   │   ├── _layout.tsx
@@ -129,6 +172,9 @@ frontend
 │   │   ├── _layout.tsx
 │   │   └── index.tsx
 │   ├── assets
+│   │   ├── bulk-import
+│   │   │   ├── TRU_Connect_Bulk_Import_Guide.docx
+│   │   │   └── TRU_Connect_Product_Import_Template.xlsx
 │   │   ├── icons
 │   │   └── images
 │   │       └── tru-connect-logo.png
@@ -227,9 +273,24 @@ frontend
 │   │   │       │   │   ├── algorithms
 │   │   │       │   │   ├── api
 │   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── InlineSupplierSearch.tsx
+│   │   │       │   │   │   └── SupplierResultCard.tsx
 │   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── useConnectionRequest.ts
+│   │   │       │   │   │   ├── useInviteSupplier.ts
+│   │   │       │   │   │   ├── useRecentSearches.ts
+│   │   │       │   │   │   ├── useSupplierProducts.ts
+│   │   │       │   │   │   └── useSupplierSearch.ts
 │   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── InviteSupplierScreen.tsx
+│   │   │       │   │   │   ├── SupplierProductsScreen.tsx
+│   │   │       │   │   │   └── SupplierProfileScreen.tsx
 │   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── httpSupplierSearchService.ts
+│   │   │       │   │   │   ├── mockSupplierSearchService.ts
+│   │   │       │   │   │   ├── recentSearchesStore.ts
+│   │   │       │   │   │   └── supplierSearchService.ts
 │   │   │       │   │   └── types.ts
 │   │   │       │   ├── loan-book
 │   │   │       │   │   ├── algorithms
@@ -306,32 +367,34 @@ frontend
 │   │   │       │   │   └── types.ts
 │   │   │       │   ├── my-account
 │   │   │       │   │   ├── components
-│   │   │       │   │   │   ├── ContactFieldForm.tsx
 │   │   │       │   │   │   ├── FileUploadStateView.tsx
+│   │   │       │   │   │   ├── MyAccountHeaderActions.tsx
+│   │   │       │   │   │   ├── MyCodeTab.tsx
 │   │   │       │   │   │   ├── ProfileAvatar.tsx
+│   │   │       │   │   │   ├── ScanCodeTab.tsx
 │   │   │       │   │   │   └── VerificationBadge.tsx
 │   │   │       │   │   ├── hooks
 │   │   │       │   │   │   ├── useAccountLifecycle.ts
 │   │   │       │   │   │   ├── useAccountProfile.ts
 │   │   │       │   │   │   ├── useBio.ts
+│   │   │       │   │   │   ├── useConnectCode.ts
 │   │   │       │   │   │   ├── useContactDetails.ts
+│   │   │       │   │   │   ├── useDisplayName.ts
 │   │   │       │   │   │   ├── useFileUpload.ts
 │   │   │       │   │   │   ├── usePaymentMethods.ts
 │   │   │       │   │   │   └── useProfileImage.ts
 │   │   │       │   │   ├── screens
 │   │   │       │   │   │   ├── AccountStatusScreen.tsx
 │   │   │       │   │   │   ├── AddPaymentMethodScreen.tsx
-│   │   │       │   │   │   ├── BioScreen.tsx
 │   │   │       │   │   │   ├── CardPaymentsScreen.tsx
 │   │   │       │   │   │   ├── DeactivateAccountScreen.tsx
 │   │   │       │   │   │   ├── DeleteAccountScreen.tsx
-│   │   │       │   │   │   ├── EditEmailScreen.tsx
-│   │   │       │   │   │   ├── EditPhoneScreen.tsx
 │   │   │       │   │   │   ├── index.ts
 │   │   │       │   │   │   ├── MyAccountScreen.tsx
 │   │   │       │   │   │   ├── PaymentMethodsScreen.tsx
 │   │   │       │   │   │   ├── ProfileImageScreen.tsx
-│   │   │       │   │   │   └── VerificationScreen.tsx
+│   │   │       │   │   │   ├── ProfileScreen.tsx
+│   │   │       │   │   │   └── QRCodeScreen.tsx
 │   │   │       │   │   ├── services
 │   │   │       │   │   │   ├── accountService.ts
 │   │   │       │   │   │   └── fileRepository.ts
@@ -470,6 +533,21 @@ frontend
 │   │   │       │   │   ├── services
 │   │   │       │   │   │   └── settingsStorage.ts
 │   │   │       │   │   └── types.ts
+│   │   │       │   ├── supplier-requests
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   └── SupplierRequestCard.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── useRespondToRequest.ts
+│   │   │       │   │   │   └── useSupplierRequests.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── index.ts
+│   │   │       │   │   │   ├── SupplierRequestDetailScreen.tsx
+│   │   │       │   │   │   └── SupplierRequestsScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── httpSupplierRequestsService.ts
+│   │   │       │   │   │   ├── mockSupplierRequestsService.ts
+│   │   │       │   │   │   └── supplierRequestsService.ts
+│   │   │       │   │   └── types.ts
 │   │   │       │   └── verify-business
 │   │   │       │       ├── algorithms
 │   │   │       │       ├── api
@@ -487,6 +565,16 @@ frontend
 │   │   │       │   │   ├── ScoreCard.tsx
 │   │   │       │   │   ├── SectionHeader.tsx
 │   │   │       │   │   └── StatCard.tsx
+│   │   │       │   ├── connections
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   └── MyConnectionsList.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   └── useMyConnections.ts
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── connectionsService.ts
+│   │   │       │   │   │   ├── httpConnectionsService.ts
+│   │   │       │   │   │   └── mockConnectionsService.ts
+│   │   │       │   │   └── types.ts
 │   │   │       │   ├── hooks
 │   │   │       │   │   └── useDashboardNotifications.ts
 │   │   │       │   ├── types
@@ -506,6 +594,102 @@ frontend
 │   │   │           │   ├── screens
 │   │   │           │   ├── services
 │   │   │           │   └── types.ts
+│   │   │           ├── bulk-products
+│   │   │           │   ├── algorithms
+│   │   │           │   │   ├── importCrossReference.ts
+│   │   │           │   │   └── priceAdjustment.ts
+│   │   │           │   ├── components
+│   │   │           │   │   ├── BulkPriceModal.tsx
+│   │   │           │   │   ├── ImportPreviewRow.tsx
+│   │   │           │   │   ├── ImportSummaryCard.tsx
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   └── SelectionActionBar.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── useBulkProductActions.ts
+│   │   │           │   │   └── useCurrentUserId.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── BulkEditScreen.tsx
+│   │   │           │   │   ├── ImportPreviewScreen.tsx
+│   │   │           │   │   └── ImportUploadScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   ├── downloadDocuments.ts
+│   │   │           │   │   ├── fileReader.ts
+│   │   │           │   │   ├── importColumns.ts
+│   │   │           │   │   ├── importMatchers.ts
+│   │   │           │   │   ├── importSession.ts
+│   │   │           │   │   ├── parseImageManifest.ts
+│   │   │           │   │   ├── parseSpreadsheet.ts
+│   │   │           │   │   └── rowValidator.ts
+│   │   │           │   └── types.ts
+│   │   │           ├── customer-requests
+│   │   │           │   ├── components
+│   │   │           │   │   └── CustomerRequestCard.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── useCustomerRequests.ts
+│   │   │           │   │   └── useRespondToRequest.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── CustomerRequestDetailScreen.tsx
+│   │   │           │   │   ├── CustomerRequestsScreen.tsx
+│   │   │           │   │   └── index.ts
+│   │   │           │   ├── services
+│   │   │           │   │   ├── customerRequestsService.ts
+│   │   │           │   │   ├── httpCustomerRequestsService.ts
+│   │   │           │   │   └── mockCustomerRequestsService.ts
+│   │   │           │   └── types.ts
+│   │   │           ├── find-business
+│   │   │           │   ├── components
+│   │   │           │   │   ├── BusinessResultCard.tsx
+│   │   │           │   │   └── InlineBusinessSearch.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── useBusinessSearch.ts
+│   │   │           │   │   ├── useConnectionRequest.ts
+│   │   │           │   │   ├── useInviteBusiness.ts
+│   │   │           │   │   └── useRecentSearches.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── BusinessProfileScreen.tsx
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   └── InviteBusinessScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   ├── businessSearchService.ts
+│   │   │           │   │   ├── httpBusinessSearchService.ts
+│   │   │           │   │   ├── mockBusinessSearchService.ts
+│   │   │           │   │   └── recentSearchesStore.ts
+│   │   │           │   └── types.ts
+│   │   │           ├── inventory
+│   │   │           │   ├── algorithms
+│   │   │           │   │   └── computeInventoryStatus.ts
+│   │   │           │   ├── api
+│   │   │           │   │   ├── httpInventoryApi.ts
+│   │   │           │   │   ├── inventoryApi.ts
+│   │   │           │   │   └── mockInventoryApi.ts
+│   │   │           │   ├── components
+│   │   │           │   │   ├── DefaultThresholdSheet.tsx
+│   │   │           │   │   ├── EmptyInventory.tsx
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── InventoryFilterBar.tsx
+│   │   │           │   │   ├── InventoryIcon.tsx
+│   │   │           │   │   ├── InventoryListRow.tsx
+│   │   │           │   │   ├── InventoryOverflowMenu.tsx
+│   │   │           │   │   ├── InventoryStatusBadge.tsx
+│   │   │           │   │   ├── InventorySummaryBar.tsx
+│   │   │           │   │   ├── LowStockAlertSheet.tsx
+│   │   │           │   │   └── ThresholdModal.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── inventoryKeys.ts
+│   │   │           │   │   ├── useCurrentUserId.ts
+│   │   │           │   │   ├── useInventoryItem.ts
+│   │   │           │   │   ├── useInventoryList.ts
+│   │   │           │   │   ├── useInventoryMutations.ts
+│   │   │           │   │   └── useInventorySettings.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── AdjustStockScreen.tsx
+│   │   │           │   │   ├── InventoryDetailScreen.tsx
+│   │   │           │   │   └── InventoryScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   └── exportInventory.ts
+│   │   │           │   └── types.ts
 │   │   │           ├── manage-deliveries
 │   │   │           │   ├── algorithms
 │   │   │           │   ├── api
@@ -522,39 +706,87 @@ frontend
 │   │   │           │   ├── screens
 │   │   │           │   ├── services
 │   │   │           │   └── types.ts
-│   │   │           ├── product-catalogue
-│   │   │           │   ├── algorithms
-│   │   │           │   │   └── README.md
-│   │   │           │   ├── api
-│   │   │           │   │   └── productCatalogueApi.ts
+│   │   │           ├── my-account
 │   │   │           │   ├── components
-│   │   │           │   │   ├── ProductCard.tsx
-│   │   │           │   │   ├── ProductCatalogueIcon.tsx
-│   │   │           │   │   ├── ProductCategorySelector.tsx
-│   │   │           │   │   ├── ProductFilterSheet.tsx
-│   │   │           │   │   ├── ProductForm.tsx
-│   │   │           │   │   ├── ProductImageUploader.tsx
-│   │   │           │   │   ├── ProductPriceCard.tsx
-│   │   │           │   │   ├── ProductSearchBar.tsx
-│   │   │           │   │   └── ProductStatusBadge.tsx
+│   │   │           │   │   ├── FileUploadStateView.tsx
+│   │   │           │   │   ├── MyAccountHeaderActions.tsx
+│   │   │           │   │   ├── MyCodeTab.tsx
+│   │   │           │   │   ├── ProfileAvatar.tsx
+│   │   │           │   │   ├── ScanCodeTab.tsx
+│   │   │           │   │   ├── SubscriptionTierCard.tsx
+│   │   │           │   │   └── VerificationBadge.tsx
 │   │   │           │   ├── hooks
+│   │   │           │   │   ├── useAccountLifecycle.ts
+│   │   │           │   │   ├── useAccountProfile.ts
+│   │   │           │   │   ├── useBio.ts
+│   │   │           │   │   ├── useBusinessName.ts
+│   │   │           │   │   ├── useConnectCode.ts
+│   │   │           │   │   ├── useContactDetails.ts
+│   │   │           │   │   ├── useDisplayName.ts
+│   │   │           │   │   ├── useFileUpload.ts
+│   │   │           │   │   ├── usePaymentMethods.ts
+│   │   │           │   │   ├── useProfileImage.ts
+│   │   │           │   │   └── useSubscription.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── AccountStatusScreen.tsx
+│   │   │           │   │   ├── AddPaymentMethodScreen.tsx
+│   │   │           │   │   ├── BillingScreen.tsx
+│   │   │           │   │   ├── CardPaymentsScreen.tsx
+│   │   │           │   │   ├── DeactivateAccountScreen.tsx
+│   │   │           │   │   ├── DeleteAccountScreen.tsx
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── PaymentMethodsScreen.tsx
+│   │   │           │   │   ├── ProfileImageScreen.tsx
+│   │   │           │   │   ├── ProfileScreen.tsx
+│   │   │           │   │   ├── QRCodeScreen.tsx
+│   │   │           │   │   ├── SubscriptionScreen.tsx
+│   │   │           │   │   └── SupplierMyAccountScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   ├── accountService.ts
+│   │   │           │   │   ├── fileRepository.ts
+│   │   │           │   │   ├── paymentMethodsService.ts
+│   │   │           │   │   └── subscriptionService.ts
+│   │   │           │   └── types.ts
+│   │   │           ├── products
+│   │   │           │   ├── algorithms
+│   │   │           │   │   ├── photoLimits.ts
+│   │   │           │   │   ├── sortProducts.ts
+│   │   │           │   │   └── unitPricing.ts
+│   │   │           │   ├── api
+│   │   │           │   │   ├── httpProductsApi.ts
+│   │   │           │   │   ├── mockProductsApi.ts
+│   │   │           │   │   └── productsApi.ts
+│   │   │           │   ├── components
+│   │   │           │   │   ├── EmptyProducts.tsx
+│   │   │           │   │   ├── ImageCarousel.tsx
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── ProductCard.tsx
+│   │   │           │   │   ├── ProductForm.tsx
+│   │   │           │   │   ├── ProductPhotosField.tsx
+│   │   │           │   │   ├── ProductSearchBar.tsx
+│   │   │           │   │   ├── ProductsIcon.tsx
+│   │   │           │   │   ├── ProductsOverflowMenu.tsx
+│   │   │           │   │   ├── ProductStatusFilterBar.tsx
+│   │   │           │   │   ├── SelectFieldModal.tsx
+│   │   │           │   │   ├── SelectFieldRow.tsx
+│   │   │           │   │   └── SortOptionsSheet.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── productsKeys.ts
+│   │   │           │   │   ├── useArchiveProduct.ts
 │   │   │           │   │   ├── useCreateProduct.ts
-│   │   │           │   │   ├── useDeleteProduct.ts
+│   │   │           │   │   ├── useCurrentUserId.ts
+│   │   │           │   │   ├── useProduct.ts
 │   │   │           │   │   ├── useProducts.ts
-│   │   │           │   │   ├── useProductSearch.ts
 │   │   │           │   │   └── useUpdateProduct.ts
 │   │   │           │   ├── screens
 │   │   │           │   │   ├── AddProductScreen.tsx
-│   │   │           │   │   ├── DraftProductsScreen.tsx
 │   │   │           │   │   ├── EditProductScreen.tsx
-│   │   │           │   │   ├── ProductCatalogueScreen.tsx
-│   │   │           │   │   ├── ProductDetailsScreen.tsx
-│   │   │           │   │   └── ProductImagesScreen.tsx
+│   │   │           │   │   ├── ProductDetailScreen.tsx
+│   │   │           │   │   └── ProductsScreen.tsx
 │   │   │           │   ├── services
-│   │   │           │   │   ├── pricingCalculator.ts
-│   │   │           │   │   ├── productMapper.ts
-│   │   │           │   │   ├── productValidation.ts
-│   │   │           │   │   └── stockManager.ts
+│   │   │           │   │   ├── exportProducts.ts
+│   │   │           │   │   └── productMapper.ts
 │   │   │           │   └── types.ts
 │   │   │           └── verify-business
 │   │   │               ├── algorithms
@@ -587,6 +819,7 @@ frontend
 │   │   │   ├── typography.ts
 │   │   │   └── wordmark.ts
 │   │   ├── types
+│   │   │   ├── assets.d.ts
 │   │   │   ├── env.d.ts
 │   │   │   └── index.ts
 │   │   └── utils
@@ -595,6 +828,7 @@ frontend
 │   ├── .npmrc
 │   ├── app.json
 │   ├── babel.config.js
+│   ├── metro.config.js
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── supplierFeature.md

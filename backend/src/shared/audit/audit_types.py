@@ -169,6 +169,14 @@ class AuditEventName(str, enum.Enum):
     # --- Network / Supplier Discovery (file.txt Phase 1) ---
     SUPPLIER_SEARCH_RATE_LIMITED = "network.supplier_search_rate_limited"
     CONNECTION_REQUEST_RATE_LIMITED = "network.connection_request_rate_limited"
+    # Reverse direction (supplier searching for businesses, Find Business).
+    # Deliberately a distinct event from SUPPLIER_SEARCH_RATE_LIMITED above
+    # rather than reusing it -- that name means "the supplier-search action
+    # got rate-limited" (business searching FOR suppliers), which is not
+    # what's happening here. This event name mirrors it for the other
+    # direction: the business-search action (supplier searching FOR
+    # businesses) getting rate-limited.
+    BUSINESS_SEARCH_RATE_LIMITED = "network.business_search_rate_limited"
 
 
 @dataclass

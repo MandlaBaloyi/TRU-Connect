@@ -44,4 +44,13 @@ def business_key_func() -> str:
 RATE_LIMIT_AUDIT_EVENTS: dict[str, AuditEventName] = {
     "connections.search": AuditEventName.SUPPLIER_SEARCH_RATE_LIMITED,
     "connections.request_connection": AuditEventName.CONNECTION_REQUEST_RATE_LIMITED,
+    # Find Business's own search route (supplier -> business direction).
+    # Previously unmapped: the 429 response itself always fired correctly
+    # (rate limiting worked), but the audit trail entry for that specific
+    # violation was silently never recorded, because
+    # _AUDIT_EVENT_REGISTRY.get(request.endpoint) returned None for this
+    # endpoint and responses.py's handler skips logging when that happens
+    # (correct, safe behaviour for a genuinely-unmapped endpoint -- this
+    # endpoint just should have been mapped from the start).
+    "connections.search_businesses": AuditEventName.BUSINESS_SEARCH_RATE_LIMITED,
 }

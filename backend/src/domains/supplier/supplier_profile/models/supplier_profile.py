@@ -130,20 +130,26 @@ class SupplierProfile(BaseModel):
         default=PhotoVisibility.CONNECTIONS,
     )
 
-    def to_search_result_dict(self, matched_field: str, masked_identifier: str) -> dict:
+    def to_search_result_dict(self) -> dict:
         """The PRIVACY-NARROWED shape for a search result row -- see
         file.txt §4: enough to recognise the supplier, never the full
         stored record. Deliberately does NOT reuse to_public_dict-style
         full serialization; this method exists specifically so nobody
-        accidentally widens a search response by generalizing it later."""
+        accidentally widens a search response by generalizing it later.
+
+        No longer takes matched_field/masked_identifier -- search is
+        name/business-name only now (phone/email exact-match search
+        was removed, see connections_service.py's own _dispatch_search
+        docstring for the full reasoning). Those two fields would only
+        ever have been "NAME"/"" once that was true, so rather than
+        keep two permanently-constant fields around, the shape was
+        simplified to drop them entirely."""
         return {
             "id": str(self.id),
             "businessName": self.business_name,
             "category": self.category,
             "location": self.location,
             "verificationStatus": self.verification_status.value if self.verification_status else None,
-            "matchedField": matched_field,
-            "maskedMatchedIdentifier": masked_identifier,
         }
 
     def to_profile_preview_dict(self, connection_status: str, visible_photo_url: str | None = None) -> dict:

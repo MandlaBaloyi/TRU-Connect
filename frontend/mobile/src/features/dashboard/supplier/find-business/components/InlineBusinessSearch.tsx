@@ -29,7 +29,7 @@ export function InlineBusinessSearch({ query }: { query: string }) {
         {recentSearches.length === 0 ? (
           <EmptyState
             icon={<UserSearch size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}
-            message="Search for a business you already work with, by their phone number, email, or business name."
+            message="Search for a business you already work with, by their business name."
           />
         ) : (
           <View style={styles.recentSection}>
@@ -87,7 +87,7 @@ export function InlineBusinessSearch({ query }: { query: string }) {
       <ScrollView contentContainerStyle={styles.preSearch}>
         <EmptyState
           icon={<UserSearch size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}
-          message="No business found with that phone number, email, or name. Double-check what you entered, or invite them below."
+          message="No business found with that name. Double-check what you entered, or invite them below."
         />
         <View style={styles.inviteBlock}>
           <Pressable
