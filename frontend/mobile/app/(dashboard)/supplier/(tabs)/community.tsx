@@ -69,7 +69,7 @@ export default function SupplierCommunity() {
             </Pressable>
             <TextInput
               mode="outlined"
-              placeholder="Search phone, email, or name"
+              placeholder="Search by business name"
               value={query}
               onChangeText={setQuery}
               autoCapitalize="none"

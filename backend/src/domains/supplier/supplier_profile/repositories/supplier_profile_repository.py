@@ -3,16 +3,23 @@ SupplierProfile repository -- ONLY talks to SQLAlchemy, no business
 rules, matching every other repository in this codebase (see
 user_repository.py's own docstring for the same rule).
 
-search_by_phone/search_by_email take an ALREADY-NORMALIZED value --
-normalization is the caller's job (shared.validation.identifiers), not
-this repository's. search_by_name_prefix is deliberately a PREFIX
-match, never a substring/contains scan -- file.txt §4: "should NOT
-expose everybody". A prefix index scan is also the only one of the
-three that can actually use ix_supplier_profiles_business_name
-efficiently at scale; a leading-wildcard LIKE '%term%' can't use a
-plain btree index at all, so this restriction is a genuine
-production-grade concern (FILE2.txt's own framing), not just a privacy
-one.
+search_by_name_prefix is deliberately a PREFIX match, never a
+substring/contains scan -- file.txt §4: "should NOT expose everybody".
+A prefix index scan is also the only one that can actually use
+ix_supplier_profiles_business_name efficiently at scale; a
+leading-wildcard LIKE '%term%' can't use a plain btree index at all,
+so this restriction is a genuine production-grade concern (FILE2.txt's
+own framing), not just a privacy one.
+
+search_by_phone/search_by_email were REMOVED (previously present here,
+used only by connections_service.py's own _dispatch_search) -- search
+is name/business-name only now; see that function's own docstring for
+the full reasoning (exact-match phone/email search is an enumeration
+vector). normalized_phone/normalized_email columns themselves stay on
+the model -- they're still populated at verification and still used
+for the UNRELATED masked-contact-detail display on an already-existing
+connection request (get_supplier_request_detail), which is a different
+concern from search.
 
 get_or_create_for_supplier MIRRORS BusinessProfileRepository's own
 get_or_create_for_business exactly (see that file's docstring: "every
@@ -58,14 +65,6 @@ class SupplierProfileRepository:
             db.session.add(profile)
             db.session.flush()
         return profile
-
-    @staticmethod
-    def search_by_phone(normalized_phone: str) -> Optional[SupplierProfile]:
-        return SupplierProfile.query.filter_by(normalized_phone=normalized_phone, is_deleted=False).first()
-
-    @staticmethod
-    def search_by_email(normalized_email: str) -> Optional[SupplierProfile]:
-        return SupplierProfile.query.filter_by(normalized_email=normalized_email, is_deleted=False).first()
 
     @staticmethod
     def search_by_name_prefix(name_query: str, limit: int = 20) -> List[SupplierProfile]:

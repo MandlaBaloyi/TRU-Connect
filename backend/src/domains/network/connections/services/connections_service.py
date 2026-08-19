@@ -22,8 +22,15 @@ PRIVACY, file.txt §4: search never returns more than
 {Supplier,Business}Profile.to_search_result_dict/to_profile_preview_dict
 already narrow it to. This service adds nothing to those shapes.
 
-SEARCH DISPATCH: exactly one of phone/email/name matching runs per
-call, decided by what the query LOOKS like -- never all three.
+SEARCH DISPATCH: name/business-name prefix matching only. Phone/email
+exact-match search was REMOVED (see this function's own docstring) --
+even with the identifier masked in the response, exact-match phone/
+email search is an enumeration vector: someone could probe many
+numbers/addresses one at a time to learn who's registered on the
+platform at all, independent of any real relationship with them. Name
+search doesn't have this property -- a name has to already be roughly
+known, and prefix-only matching (never substring) still bounds how
+much a single query can reveal.
 """
 from __future__ import annotations
 
@@ -49,7 +56,7 @@ from src.domains.supplier.supplier_profile.repositories.supplier_profile_reposit
 )
 from src.extensions import db
 from src.shared.helpers.helpers import mask_email, mask_phone
-from src.shared.validation.identifiers import looks_like_phone, normalize_email, normalize_phone
+from src.shared.validation.identifiers import normalize_email
 
 MIN_QUERY_LENGTH = 2
 
@@ -57,54 +64,57 @@ MIN_QUERY_LENGTH = 2
 def _dispatch_search(query: str, repository, *, resolve_photo) -> List[dict]:
     """Shared dispatch logic for both directions -- `repository` is
     either SupplierProfileRepository or BusinessProfileRepository;
-    both expose the identical search_by_phone/search_by_email/
-    search_by_name_prefix + to_search_result_dict contract (confirmed
-    directly against both files before writing this, not assumed).
+    both expose the identical search_by_name_prefix + to_search_result_dict
+    contract (confirmed directly against both files before writing this,
+    not assumed).
+
+    NAME/BUSINESS-NAME ONLY, both roles -- phone/email exact-match
+    search (previously the first two branches here) was deliberately
+    removed. It was a real, working feature, not a bug -- but a
+    privacy-sensitive design choice that shouldn't have shipped this
+    way: even with the identifier masked in the response, exact-match
+    phone/email search lets someone probe many numbers/addresses one
+    at a time to learn who's registered, which has nothing to do with
+    an existing relationship (the entire premise file.txt §4 sets out
+    -- TRU Connect digitises relationships that already exist, it
+    isn't a discovery/enumeration tool). Removed rather than left
+    dormant: SupplierProfileRepository.search_by_phone/search_by_email
+    and BusinessProfileRepository's equivalents had no other real
+    caller anywhere in this codebase (confirmed by searching, not
+    assumed) -- keeping exact-match phone/email lookup methods alive
+    with zero legitimate callers is exactly the kind of dead capability
+    that tends to get silently wired back in later, so they were
+    deleted along with these branches, not just unused.
+
+    matchedField/maskedMatchedIdentifier are GONE from the result shape
+    entirely, not just always "NAME"/"" now -- once name is the only
+    match kind, carrying two fields whose value never varies is dead
+    weight on the wire and in every type/mock that has to keep them in
+    sync for no reason. See to_search_result_dict's own docstring
+    (supplier_profile.py / business_profile.py) for the simplified
+    shape.
 
     resolve_photo(profile) -> str | None is injected by the caller
     (search_suppliers/search_businesses) rather than computed here,
     since it needs the SEARCHING user's own identity (to check
     connection status per result) -- this function only knows the
-    query, not who's asking. Applied even to a single-match phone/
-    email hit, not just name-prefix lists -- REVISED per direct
-    product feedback: an earlier version of this deliberately left
-    photos out of search results entirely, reasoning that a photo was
-    "a step further than bare results should expose." That was
-    overly cautious -- if someone explicitly sets photo_visibility to
-    EVERYONE, hiding it specifically from search contradicts their
-    own choice. Same resolution rule as the profile-preview endpoints
-    either way (see _resolve_visible_photo_url) -- NOBODY/CONNECTIONS-
+    query, not who's asking. Same resolution rule as the profile-preview
+    endpoints (see _resolve_visible_photo_url) -- NOBODY/CONNECTIONS-
     not-yet-active still correctly show nothing; only EVERYONE (or an
-    active CONNECTIONS relationship) actually shows anything here,
-    same as everywhere else this rule applies.
+    active CONNECTIONS relationship) actually shows anything here, same
+    as everywhere else this rule applies.
     """
     trimmed = query.strip()
     if len(trimmed) < MIN_QUERY_LENGTH:
         raise InvalidSearchQueryError(f"Search query must be at least {MIN_QUERY_LENGTH} characters.")
 
-    def to_dict(profile, matched_field, masked_identifier) -> dict:
-        result = profile.to_search_result_dict(matched_field, masked_identifier)
-        result["photoUrl"] = resolve_photo(profile)
-        return result
-
-    if "@" in trimmed:
-        normalized = normalize_email(trimmed)
-        profile = repository.search_by_email(normalized)
-        if not profile or not profile.normalized_email:
-            return []
-        return [to_dict(profile, "EMAIL", mask_email(profile.normalized_email))]
-
-    if looks_like_phone(trimmed):
-        normalized = normalize_phone(trimmed)
-        if normalized is None:
-            return []
-        profile = repository.search_by_phone(normalized)
-        if not profile or not profile.normalized_phone:
-            return []
-        return [to_dict(profile, "PHONE", mask_phone(profile.normalized_phone))]
-
     profiles = repository.search_by_name_prefix(trimmed)
-    return [to_dict(p, "NAME", "") for p in profiles]
+    results = []
+    for profile in profiles:
+        result = profile.to_search_result_dict()
+        result["photoUrl"] = resolve_photo(profile)
+        results.append(result)
+    return results
 
 
 # ---------------------------------------------------------------------------

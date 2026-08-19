@@ -8,10 +8,16 @@
  * business-profile/api/businessProfileApi.ts, now that the real
  * backend exists and httpSupplierSearchService.ts is the other half.
  *
- * The mock data below deliberately exercises the real privacy
- * narrowing (masked identifiers, no full contact details) so the UI
- * was built against the actual shape it receives from the real
- * backend too, not a convenient shortcut that needed rework later.
+ * SEARCH IS NAME/BUSINESS-NAME PREFIX MATCH ONLY, mirroring the real
+ * backend exactly (SupplierProfileRepository.search_by_name_prefix) —
+ * phone/email exact-match search was removed (see types.ts's own file
+ * header for the full reasoning), and this mock's matching logic was
+ * also changed from a substring `.includes()` scan to a genuine
+ * prefix match, since a substring scan was never what the real
+ * backend does (file.txt §4: "should NOT expose everybody" — a
+ * prefix-only rule is part of that privacy narrowing, not just a
+ * performance detail) and this mock exists specifically to exercise
+ * the UI against the real shape/behaviour, not a more permissive one.
  */
 import type {
   ConnectionStatus,
@@ -32,8 +38,6 @@ interface MockSupplier {
   verificationStatus: SupplierVerificationStatus;
   memberSinceYear: number;
   description: string;
-  phone: string; // unmasked in the mock "database" only — never returned as-is
-  email: string; // unmasked in the mock "database" only — never returned as-is
   /** null for most mock suppliers on purpose — mirrors the real
    *  default (visible_image_source=NONE) so the UI's no-photo
    *  fallback state gets exercised too, not just the happy path. */
@@ -42,8 +46,8 @@ interface MockSupplier {
 }
 
 // Mock "database" — deliberately includes messy real-world input
-// (spacing, casing) so normalization/matching has something real to
-// prove itself against once the backend exists.
+// (spacing, casing) so name-prefix matching has something real to
+// prove itself against.
 const MOCK_SUPPLIERS: MockSupplier[] = [
   {
     id: "sup_001",
@@ -53,8 +57,6 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     verificationStatus: "verified",
     memberSinceYear: 2023,
     description: "Bulk soft drinks, water, and snacks for spaza shops and small retailers.",
-    phone: "+27712345678",
-    email: "orders@abcwholesale.co.za",
     photoUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
     productCount: 3,
   },
@@ -66,8 +68,6 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     verificationStatus: "pending",
     memberSinceYear: 2024,
     description: "Fruit and vegetables, delivered twice a week.",
-    phone: "+27823456789",
-    email: "mabenaproduce@email.com",
     photoUrl: null,
     productCount: 0,
   },
@@ -79,8 +79,6 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     verificationStatus: "unverified",
     memberSinceYear: 2025,
     description: "",
-    phone: "+27734567890",
-    email: "sekhubakery@email.com",
     photoUrl: null,
     productCount: 0,
   },
@@ -92,55 +90,13 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
 // backend-authoritative data once the real relationship domain exists).
 const connectionState = new Map<string, ConnectionStatus>();
 
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!domain) return "***";
-  if (local.length <= 2) return `${local[0]}*@${domain}`;
-  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
-}
-
-function maskPhone(phone: string): string {
-  // +27712345678 -> +27 71 *** 45 78 — enough to recognise, not enough
-  // to reconstruct the full number from a screenshot.
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 6) return "***";
-  const last4 = digits.slice(-4);
-  return `${phone.slice(0, 3)} ${digits.slice(2, 4)} *** ${last4.slice(0, 2)} ${last4.slice(2)}`;
-}
-
-function looksLikeEmail(query: string): boolean {
-  return query.includes("@");
-}
-
-function looksLikePhone(query: string): boolean {
-  const digits = query.replace(/[\s()-]/g, "");
-  return /^\+?\d{7,15}$/.test(digits);
-}
-
-function normalizeForMatch(query: string): string {
-  if (looksLikeEmail(query)) return query.trim().toLowerCase();
-  if (looksLikePhone(query)) {
-    // Crude local-mock normalization only — real E.164 normalization
-    // is a backend concern (types.ts's contract note; the real
-    // implementation should use a proper library, not this).
-    const digits = query.replace(/\D/g, "");
-    if (digits.startsWith("0")) return `+27${digits.slice(1)}`;
-    if (digits.startsWith("27")) return `+${digits}`;
-    return `+${digits}`;
-  }
-  return query.trim().toLowerCase();
-}
-
-function toSearchResult(supplier: MockSupplier, matchedField: SupplierSearchResult["matchedField"]): SupplierSearchResult {
+function toSearchResult(supplier: MockSupplier): SupplierSearchResult {
   return {
     id: supplier.id,
     businessName: supplier.businessName,
     category: supplier.category,
     location: supplier.location,
     verificationStatus: supplier.verificationStatus,
-    matchedField,
-    maskedMatchedIdentifier:
-      matchedField === "EMAIL" ? maskEmail(supplier.email) : matchedField === "PHONE" ? maskPhone(supplier.phone) : "",
     photoUrl: supplier.photoUrl,
   };
 }
@@ -151,24 +107,11 @@ export async function searchSuppliers(query: string): Promise<SupplierSearchResu
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
-  const normalized = normalizeForMatch(trimmed);
-
-  if (looksLikeEmail(trimmed)) {
-    const match = MOCK_SUPPLIERS.find((s) => s.email.toLowerCase() === normalized);
-    return match ? [toSearchResult(match, "EMAIL")] : [];
-  }
-
-  if (looksLikePhone(trimmed)) {
-    const match = MOCK_SUPPLIERS.find((s) => s.phone === normalized);
-    return match ? [toSearchResult(match, "PHONE")] : [];
-  }
-
-  // Name search — exact/near-exact only, never a broad substring scan
-  // across everything (file.txt §4: "should NOT expose everybody").
+  // PREFIX match only, matching SupplierProfileRepository.
+  // search_by_name_prefix exactly — never a substring scan anywhere
+  // in the middle of a name (file.txt §4).
   const lower = trimmed.toLowerCase();
-  return MOCK_SUPPLIERS.filter((s) => s.businessName.toLowerCase().includes(lower)).map((s) =>
-    toSearchResult(s, "NAME")
-  );
+  return MOCK_SUPPLIERS.filter((s) => s.businessName.toLowerCase().startsWith(lower)).map(toSearchResult);
 }
 
 export async function getSupplierProfile(id: string): Promise<SupplierProfilePreview | null> {

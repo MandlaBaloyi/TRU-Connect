@@ -9,6 +9,12 @@
  * BusinessProfile doesn't have one (unlike SupplierProfile's), so this
  * type doesn't invent a field the backend can't actually populate.
  *
+ * SEARCH IS NAME/BUSINESS-NAME ONLY -- phone/email exact-match search
+ * was REMOVED, mirroring find-supplier/types.ts's own identical
+ * change; see that file's header for the full enumeration-vector
+ * reasoning. matchedField/maskedMatchedIdentifier are GONE from this
+ * file entirely, not just unused.
+ *
  * REAL BACKEND, not mocked-first this round — network/supplier_discovery
  * was extended and tested end-to-end (both directions, real Postgres)
  * before this frontend was written. Still ships with a mock
@@ -17,8 +23,6 @@
  * consistent, app-wide toggle rather than working for some features
  * and not others.
  */
-
-export type MatchedField = "PHONE" | "EMAIL" | "NAME";
 
 export interface BusinessSearchQuery {
   query: string;
@@ -29,8 +33,6 @@ export interface BusinessSearchResult {
   businessName: string;
   category: string | null;
   location: string | null;
-  matchedField: MatchedField;
-  maskedMatchedIdentifier: string;
   /** Resolved server-side — see find-supplier/types.ts's own
    *  SupplierSearchResult.photoUrl doc comment for the full
    *  reasoning; identical rule, other direction. */
@@ -68,8 +70,8 @@ export interface InviteBusinessResult {
 /**
  * GET  /api/v1/supplier-discovery/businesses/search?q=...
  *      -> { results: BusinessSearchResult[] }
- *      Supplier-only, rate-limited. Same normalization/matching
- *      discipline as Find Supplier's own search, mirrored.
+ *      Supplier-only, rate-limited. NAME/BUSINESS-NAME PREFIX MATCH
+ *      ONLY, mirroring Find Supplier's own search exactly.
  *
  * GET  /api/v1/supplier-discovery/businesses/{id}
  *      -> BusinessProfilePreview

@@ -3,6 +3,12 @@ Find Business + Supplier Requests tests -- the reverse direction of
 Find Supplier / Customer Requests. Same IDOR-safety discipline as
 test_ownership.py and test_customer_requests_ownership.py, mirrored
 for the other side of the relationship.
+
+Also carries the reverse-direction half of the name/business-name-only
+search redesign's regression coverage (see test_search.py's own module
+docstring for the full reasoning) -- test_searching_by_a_real_
+registered_phone_or_email_no_longer_matches and
+test_search_result_shape_has_no_matched_field_or_identifier below.
 """
 from __future__ import annotations
 
@@ -20,6 +26,43 @@ def test_supplier_can_find_business_by_name(make_supplier, make_business, make_b
     results = connections_service.search_businesses("Findable", supplier_user.id)
     assert len(results) == 1
     assert results[0]["businessName"] == "Findable Traders"
+
+
+def test_search_result_shape_has_no_matched_field_or_identifier(make_supplier, make_business, make_business_profile):
+    """Mirrors test_search.py's own equivalent test -- Find Business's
+    to_search_result_dict was simplified identically to Find Supplier's,
+    see BusinessProfile.to_search_result_dict's own docstring."""
+    supplier_user = make_supplier()
+    business = make_business()
+    make_business_profile(business, business_name="Shape Check Traders")
+
+    results = connections_service.search_businesses("Shape Check", supplier_user.id)
+    assert "matchedField" not in results[0]
+    assert "maskedMatchedIdentifier" not in results[0]
+    assert set(results[0].keys()) == {"id", "businessName", "category", "location", "photoUrl"}
+
+
+def test_searching_by_a_real_registered_phone_or_email_no_longer_matches(
+    make_supplier, make_business, make_business_profile
+):
+    """Reverse-direction mirror of test_search.py's own core regression
+    test -- a business with a real, stored normalized_phone/
+    normalized_email must no longer be findable by either, proving the
+    enumeration-vector fix applies on this side too, not just Find
+    Supplier's."""
+    from src.shared.validation.identifiers import normalize_email, normalize_phone
+
+    supplier_user = make_supplier()
+    business = make_business()
+    make_business_profile(
+        business,
+        business_name="Reverse Regression Traders",
+        normalized_phone=normalize_phone("082 987 6543"),
+        normalized_email=normalize_email("Owner@ReverseRegression.co.za"),
+    )
+
+    assert connections_service.search_businesses("082 987 6543", supplier_user.id) == []
+    assert connections_service.search_businesses("owner@reverseregression.co.za", supplier_user.id) == []
 
 
 def test_supplier_requests_connection_to_business(make_supplier, make_business, make_business_profile):
