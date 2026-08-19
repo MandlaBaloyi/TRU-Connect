@@ -36,3 +36,10 @@ phonenumbers==8.13.55
 APScheduler==3.11.3
 tzlocal==5.4.4
 tzdata==2026.3
+
+# --- TRU Connect Media Domain: Cloudinary ---
+cloudinary==1.46.0
+requests==2.34.2  # only used by scripts/verify_cloudinary_connection.py, a manual dev tool -- the app itself never makes outbound HTTP calls to Cloudinary (signing is local, uploads happen client-side)
+
+# --- TRU Connect Bulk Import Domain: spreadsheet parsing ---
+openpyxl==3.1.5

@@ -178,6 +178,13 @@ class AuditEventName(str, enum.Enum):
     # businesses) getting rate-limited.
     BUSINESS_SEARCH_RATE_LIMITED = "network.business_search_rate_limited"
 
+    # --- Supplier / Products ---
+    PRODUCT_CREATE_RATE_LIMITED = "supplier.product_create_rate_limited"
+    PRODUCT_BULK_ACTION_RATE_LIMITED = "supplier.product_bulk_action_rate_limited"
+    INVENTORY_ADJUST_RATE_LIMITED = "supplier.inventory_adjust_rate_limited"
+    MEDIA_SIGN_RATE_LIMITED = "supplier.media_sign_rate_limited"
+    PRODUCT_MEDIA_REJECTED = "supplier.product_media_rejected"
+
 
 @dataclass
 class AuditEvent:

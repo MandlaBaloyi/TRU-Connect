@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from src.domains.network.connections.models.connection_request import ConnectionRequest, ConnectionRequestStatus
 from src.domains.network.connections.services import connections_service
-from src.domains.supplier.catalogue.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.extensions import db
 
 
@@ -53,7 +54,7 @@ def test_cannot_order_when_supplier_has_products_but_not_connected(
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Has Stock No Connection Co")
-    ProductRepository.create(profile.id, "Bread loaves")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
     result = connections_service.can_place_order(business.id, profile.id)
 
@@ -68,7 +69,7 @@ def test_can_order_when_both_conditions_are_met(make_business, make_supplier, ma
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Ready To Order Co")
     _make_active_connection(business, profile)
-    ProductRepository.create(profile.id, "Bread loaves")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
     result = connections_service.can_place_order(business.id, profile.id)
 
@@ -83,7 +84,7 @@ def test_pending_connection_is_not_sufficient(make_business, make_supplier, make
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Still Pending Co")
     connections_service.request_connection(business.id, profile.id)  # stays PENDING
-    ProductRepository.create(profile.id, "Bread loaves")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
     result = connections_service.can_place_order(business.id, profile.id)
 
@@ -95,8 +96,8 @@ def test_list_supplier_products_returns_real_products(make_business, make_suppli
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Listable Co")
-    ProductRepository.create(profile.id, "Bread loaves")
-    ProductRepository.create(profile.id, "Milk 2L")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
+    ProductRepository.create(profile.id, "Milk 2L", ProductCategory.DAIRY_CHILLED, 3200, ProductUnit.EACH)
 
     products = connections_service.list_supplier_products(profile.id)
 
@@ -104,12 +105,32 @@ def test_list_supplier_products_returns_real_products(make_business, make_suppli
     names = {p["name"] for p in products}
     assert names == {"Bread loaves", "Milk 2L"}
 
+    bread = next(p for p in products if p["name"] == "Bread loaves")
+    assert bread["category"] == "BAKERY"
+    assert bread["priceCents"] == 2500
+    assert bread["sellingUnit"] == "EACH"
+    assert bread["images"] == []
+
+
+def test_list_supplier_products_excludes_archived(make_business, make_supplier, make_supplier_profile):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Half Archived Co")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
+    archived = ProductRepository.create(profile.id, "Old Stock", ProductCategory.OTHER, 100, ProductUnit.EACH)
+    ProductRepository.archive(archived)
+
+    products = connections_service.list_supplier_products(profile.id)
+
+    names = {p["name"] for p in products}
+    assert names == {"Bread loaves"}
+
 
 def test_get_supplier_profile_includes_real_product_count(make_business, make_supplier, make_supplier_profile):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Counted Co")
-    ProductRepository.create(profile.id, "Bread loaves")
+    ProductRepository.create(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
     result = connections_service.get_supplier_profile(business.id, profile.id)
 
