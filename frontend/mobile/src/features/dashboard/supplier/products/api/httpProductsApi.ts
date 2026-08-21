@@ -1,24 +1,35 @@
 /**
- * Products — real backend implementation. NOT YET CALLABLE END-TO-END:
- * the backend's Product model is still the deliberately minimal
- * {id, name, supplier_profile_id} slice built only to back the ordering
- * gate (can_place_order) -- it doesn't have category/price/unit/
- * stock_status/images/archived yet. This file is written against the
- * CONTRACT this feature has already committed to (types.ts), so growing
- * the backend model to match is the only thing that needs to happen
- * before flipping EXPO_PUBLIC_USE_MOCK_API off for this feature -- this
- * file itself shouldn't need to change shape when that lands.
+ * Products — real backend implementation. Callable end-to-end as of
+ * this pass: the backend's Product model matches this file's own
+ * ApiProduct shape exactly (grown in Phase 1 of the backend build).
  *
  * Route paths follow the existing supplier-discovery namespace
- * (/api/v1/supplier-discovery/*) rather than inventing a new one,
- * matching this codebase's current real routing, not a doc-derived
- * guess.
+ * (/api/v1/supplier-discovery/*), matching this codebase's real
+ * routing.
+ *
+ * IMAGE UPLOAD IS ORCHESTRATED INSIDE createProduct, TRANSPARENT TO
+ * THE CALLER -- AddProductScreen.tsx calls createProduct exactly once,
+ * passing localImageUris, the same shape it's always called with in
+ * mock mode. Internally here: create the product first (this is the
+ * part that can genuinely fail the whole operation), THEN best-effort
+ * sign+upload+register each local image ONE AT A TIME, catching
+ * failures per-image rather than failing product creation over a
+ * photo that didn't make it -- matches the exact "don't restart the
+ * whole batch over one failed image" principle already proven out in
+ * Bulk Import's own worker. A freshly uploaded image is PENDING, not
+ * APPROVED, until Cloudinary's scan completes and the webhook fires --
+ * so `images` on the RETURNED product is honestly still empty right
+ * after creation even when every upload succeeded; that's expected,
+ * not a bug (see docs/... the "Uploading... Scanning... Ready" UX this
+ * was always designed around). Per-image retry UI is a natural,
+ * separately-scoped follow-up, not built in this pass.
  */
 import { apiGet, apiPost, apiPut, ApiError } from "@/services/api/apiClient";
 
-import type { CreateProductInput, Product, ProductFilters, StockStatus, UpdateProductInput } from "../types";
+import type { CreateProductInput, Product, ProductFilters, UpdateProductInput } from "../types";
 import type { PriceAdjustment } from "../../bulk-products/types";
 import { ProductsError } from "../types";
+import { uploadToCloudinary, type CloudinarySignedUpload } from "../services/cloudinaryUpload";
 
 interface ApiProduct {
   id: string;
@@ -29,7 +40,6 @@ interface ApiProduct {
   selling_unit: string;
   unit_quantity: number | null;
   unit_measure: string | null;
-  stock_status: string;
   images: string[];
   is_archived: boolean;
   created_at: string;
@@ -46,12 +56,86 @@ function fromApiProduct(dto: ApiProduct): Product {
     sellingUnit: dto.selling_unit as Product["sellingUnit"],
     unitQuantity: dto.unit_quantity,
     unitMeasure: dto.unit_measure as Product["unitMeasure"],
-    stockStatus: dto.stock_status as Product["stockStatus"],
+    // LEGACY, backend no longer sends this field at all -- see
+    // Product.stockStatus's own docstring (types.ts) for why it's kept
+    // on the type but never read anywhere in this feature's UI
+    // anymore. Defaulted rather than left undefined so nothing
+    // downstream trips over a genuinely missing value for a field
+    // TypeScript still thinks is required.
+    stockStatus: "IN_STOCK",
     images: dto.images,
     isArchived: dto.is_archived,
     createdAt: dto.created_at,
     updatedAt: dto.updated_at,
   };
+}
+
+interface SignedUploadDto {
+  cloud_name: string;
+  api_key: string;
+  timestamp: number;
+  signature: string;
+  public_id: string;
+  upload_url: string;
+  allowed_formats: string;
+  transformation: string;
+  notification_url: string;
+}
+
+async function requestUploadSignature(productId: string): Promise<CloudinarySignedUpload> {
+  const data = await apiPost<SignedUploadDto>(
+    `/supplier-discovery/products/${productId}/media/upload-signature`,
+    {}
+  );
+  return {
+    cloudName: data.cloud_name,
+    apiKey: data.api_key,
+    timestamp: data.timestamp,
+    signature: data.signature,
+    publicId: data.public_id,
+    uploadUrl: data.upload_url,
+    allowedFormats: data.allowed_formats,
+    transformation: data.transformation,
+    notificationUrl: data.notification_url,
+  };
+}
+
+async function registerMedia(
+  productId: string,
+  uploaded: Awaited<ReturnType<typeof uploadToCloudinary>>
+): Promise<void> {
+  await apiPost(`/supplier-discovery/products/${productId}/media`, {
+    cloudinary_public_id: uploaded.publicId,
+    secure_url: uploaded.secureUrl,
+    resource_type: uploaded.resourceType,
+    format: uploaded.format,
+    width: uploaded.width,
+    height: uploaded.height,
+    bytes: uploaded.bytes,
+  });
+}
+
+/**
+ * Best-effort, one image at a time, in order (position 0 = cover,
+ * matching Product.images' own convention -- uploading in order means
+ * the FIRST successfully-approved image stays the cover once scanning
+ * completes, without this function needing to track sort_order itself;
+ * the backend already assigns it by upload order). A single image
+ * failing (network drop, oversized file, tier limit) is logged and
+ * skipped, never thrown -- see this file's own header docstring for
+ * why product creation must not fail over a photo.
+ */
+async function uploadProductImagesBestEffort(productId: string, localUris: string[]): Promise<void> {
+  for (const localUri of localUris) {
+    try {
+      const signed = await requestUploadSignature(productId);
+      const uploaded = await uploadToCloudinary(signed, localUri);
+      await registerMedia(productId, uploaded);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Product photo upload failed, continuing with the rest:", error);
+    }
+  }
 }
 
 export async function getProducts(filters: ProductFilters = {}): Promise<Product[]> {
@@ -77,34 +161,34 @@ export async function getProduct(id: string): Promise<Product> {
 }
 
 export async function createProduct(input: CreateProductInput): Promise<Product> {
+  let product: Product;
   try {
     const data = await apiPost<ApiProduct>("/supplier-discovery/products", {
       name: input.name.trim(),
       category: input.category,
       price_cents: input.priceCents,
       selling_unit: input.sellingUnit,
-      // Image upload is a separate call against the Cloudinary pipeline
-      // (sub-goal 3) -- creation itself never carries local file URIs
-      // to the backend, only already-hosted URLs once they exist (see
-      // the follow-up PATCH this screen will need once that pipeline
-      // lands). stock_status is NOT sent -- Inventory owns stock
-      // status now (see products/types.ts's own Product.stockStatus
-      // docstring); the real backend seeds an Inventory record
-      // separately, matching AddProductScreen's own two-call sequence.
+      // stock_status is NOT sent -- Inventory owns stock status now
+      // (see products/types.ts's own Product.stockStatus docstring);
+      // the real backend seeds an Inventory record separately,
+      // matching AddProductScreen's own two-call sequence.
     });
-    return fromApiProduct(data);
+    product = fromApiProduct(data);
   } catch (error) {
     if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
       // Per-field mapping isn't defined yet -- the real envelope
       // ({success, message, data, errors, code}, src/core/responses.py)
-      // carries a flat errors[] list, not a field-keyed object. Revisit
-      // once the real POST /supplier-discovery/products endpoint exists
-      // and its actual validation-error shape is known, rather than
-      // guessing a field mapping here now.
+      // carries a flat errors[] list, not a field-keyed object.
       throw new ProductsError(error.message, "VALIDATION_ERROR");
     }
     throw error;
   }
+
+  if (input.localImageUris.length > 0) {
+    await uploadProductImagesBestEffort(product.id, input.localImageUris);
+  }
+
+  return product;
 }
 
 export async function archiveProduct(id: string): Promise<Product> {
@@ -128,9 +212,12 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
       selling_unit: input.sellingUnit,
       // stock_status intentionally not sent -- Edit Product no longer
       // touches it, same reasoning as createProduct above.
-      // Same caveat as createProduct: image upload is a separate call
-      // against the Cloudinary pipeline (sub-goal 3). This won't carry
-      // the mixed local/remote `images` array until that's real.
+      // Edit Product's own image upload (attaching NEW photos to an
+      // already-existing product, distinct from images already
+      // approved) is a separately-scoped follow-up -- this call
+      // updates the text fields only; ProductForm's own images array
+      // for an edit is a mix of already-remote URLs (nothing to do)
+      // and potentially-new local URIs (not yet wired to upload here).
     });
     return fromApiProduct(data);
   } catch (error) {
@@ -151,18 +238,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
 // partially fail, and no way to report "197 succeeded, 3 didn't" as a
 // single coherent result -- exactly the kind of thing this feature's
 // own bulk-import security/architecture discussion was about avoiding.
-// The real backend endpoints below don't exist yet (same "not callable
-// end-to-end" caveat as the rest of this file); shaped this way now so
-// wiring them later doesn't change this file's callers.
 // ---------------------------------------------------------------------------
-
-export async function bulkUpdateStockStatus(productIds: string[], stockStatus: StockStatus): Promise<Product[]> {
-  const data = await apiPost<{ results: ApiProduct[] }>("/supplier-discovery/products/bulk/stock-status", {
-    product_ids: productIds,
-    stock_status: stockStatus,
-  });
-  return data.results.map(fromApiProduct);
-}
 
 export async function bulkAdjustPrice(productIds: string[], adjustment: PriceAdjustment): Promise<Product[]> {
   const data = await apiPost<{ results: ApiProduct[] }>("/supplier-discovery/products/bulk/adjust-price", {

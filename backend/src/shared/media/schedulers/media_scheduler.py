@@ -8,16 +8,26 @@ Every 10 minutes, not hourly like the invitation cleanup -- a stuck
 PENDING upload directly blocks a supplier from seeing whether their
 photo worked; the shortest reasonable check interval matters here more
 than it does for a week-scale invitation expiry.
+
+Orphan upload sweep runs less often (30 minutes) -- its own grace
+period (intents/services.py's own INTENT_GRACE_PERIOD_MINUTES, 60
+minutes) is already generous, so checking every 10 minutes would just
+be wasted queries against rows that can't have expired yet.
 """
 from __future__ import annotations
 
 from src.master_scheduler.interfaces import JobSpec
-from src.shared.media.jobs import stuck_media_sweep
+from src.shared.media.jobs import orphan_upload_sweep, stuck_media_sweep
 
 JOB_SPECS: list[JobSpec] = [
     JobSpec(
         name="media_stuck_pending_sweep",
         func=stuck_media_sweep.run,
         interval_seconds=600,
+    ),
+    JobSpec(
+        name="media_orphan_upload_sweep",
+        func=orphan_upload_sweep.run,
+        interval_seconds=1800,
     ),
 ]

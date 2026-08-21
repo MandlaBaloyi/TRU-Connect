@@ -32,8 +32,8 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.shared.media.cloudinary_provider import CloudinaryMediaProvider
-from src.shared.media.config import MediaConfig
+from src.shared.media.providers.cloudinary_provider import CloudinaryMediaProvider
+from src.shared.media.config.media_config import MediaConfig
 
 # A tiny, real 1x1 red pixel PNG -- doesn't need an external file.
 TEST_IMAGE_BYTES = bytes.fromhex(
@@ -56,7 +56,10 @@ def main() -> int:
     public_id = f"tru_connect/_verify/{uuid.uuid4()}"
 
     print(f"Requesting a signed upload for: {public_id}")
-    signed = provider.generate_signed_upload(public_id)
+    # 1600px matches products/tiers/*.py's own stored_max_dimension_px
+    # default -- this script exercises the exact same ingest-time
+    # compression every real product photo upload will use.
+    signed = provider.generate_signed_upload(public_id, max_dimension_px=1600)
     print(f"  signature: {signed.signature[:12]}... (truncated)")
     print(f"  upload_url: {signed.upload_url}")
 
@@ -69,6 +72,7 @@ def main() -> int:
             "signature": signed.signature,
             "public_id": signed.public_id,
             "allowed_formats": signed.allowed_formats,
+            "transformation": signed.transformation,
         },
         files={"file": ("test.png", TEST_IMAGE_BYTES, "image/png")},
         timeout=30,

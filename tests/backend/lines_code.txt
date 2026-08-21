@@ -1,0 +1,15 @@
+$files = Get-ChildItem -Recurse -File |
+    Where-Object {
+        $_.FullName -notmatch '\\(\.git|\.venv|node_modules|__pycache__|dist|build)\\'
+    } |
+    Where-Object {
+        $_.Extension -in '.py','.ts','.tsx','.js','.jsx','.html','.css','.scss'
+    }
+
+$total = 0
+
+foreach ($file in $files) {
+    $total += (Get-Content -LiteralPath $file.FullName | Measure-Object -Line).Lines
+}
+
+"Total lines of source code: $total"

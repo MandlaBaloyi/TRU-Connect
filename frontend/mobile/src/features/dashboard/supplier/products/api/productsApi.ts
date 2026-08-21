@@ -20,7 +20,6 @@ export const getProduct = impl.getProduct;
 export const createProduct = impl.createProduct;
 export const updateProduct = impl.updateProduct;
 export const archiveProduct = impl.archiveProduct;
-export const bulkUpdateStockStatus = impl.bulkUpdateStockStatus;
 export const bulkAdjustPrice = impl.bulkAdjustPrice;
 export const bulkArchiveProducts = impl.bulkArchiveProducts;
 

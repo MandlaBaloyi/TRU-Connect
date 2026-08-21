@@ -30,11 +30,12 @@ def create_app(env_name: str | None = None) -> Flask:
     # Media domain's own dispatch registration -- products "subscribes"
     # to scan results for its own folder prefix without shared/media
     # ever needing to know what a "product" is. See
-    # shared/media/webhook_service.py's own docstring.
+    # shared/media/webhooks/webhook_service.py's own docstring.
     from src.domains.supplier.products.services import product_media_service
-    from src.shared.media.webhook_service import register_scan_result_handler
+    from src.shared.media import folder_naming
+    from src.shared.media.webhooks.webhook_service import register_scan_result_handler
 
-    register_scan_result_handler(product_media_service.FOLDER_PREFIX, product_media_service.apply_scan_result)
+    register_scan_result_handler(folder_naming.is_supplier_product_asset, product_media_service.apply_scan_result)
 
     from src.master_scheduler import trigger
     trigger.start(app)
@@ -82,6 +83,9 @@ def _register_blueprints(app: Flask) -> None:
 
     from src.shared.media.api.webhook_routes import media_webhooks_bp
     app.register_blueprint(media_webhooks_bp)
+
+    from src.domains.supplier.bulk_import.api.bulk_import_routes import bulk_import_bp
+    app.register_blueprint(bulk_import_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:
@@ -132,6 +136,10 @@ def _register_error_handlers(app: Flask) -> None:
         RATE_LIMIT_AUDIT_EVENTS as INVENTORY_RATE_LIMIT_AUDIT_EVENTS,
     )
     rate_limit_responses.register_audit_events(INVENTORY_RATE_LIMIT_AUDIT_EVENTS)
+    from src.domains.supplier.bulk_import.rate_limit.policies import (
+        RATE_LIMIT_AUDIT_EVENTS as BULK_IMPORT_RATE_LIMIT_AUDIT_EVENTS,
+    )
+    rate_limit_responses.register_audit_events(BULK_IMPORT_RATE_LIMIT_AUDIT_EVENTS)
     # Future domains' own rate_limit/policies.py RATE_LIMIT_AUDIT_EVENTS
     # get registered here the same way.
     rate_limit_responses.register(app)
