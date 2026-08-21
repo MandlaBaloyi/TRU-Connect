@@ -22,7 +22,7 @@ import { downloadImportGuide, downloadImportTemplate } from "../services/downloa
 import { parseSpreadsheetFile } from "../services/parseSpreadsheet";
 import { parseImageManifest } from "../services/parseImageManifest";
 import { applyImageManifest } from "../algorithms/importCrossReference";
-import { setImportSession } from "../services/importSession";
+import { setImportSession, type PickedFile } from "../services/importSession";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -34,11 +34,6 @@ const SPREADSHEET_MIME_TYPES = [
   "application/vnd.ms-excel",
 ];
 const ZIP_MIME_TYPES = ["application/zip", "application/x-zip-compressed", "multipart/x-zip"];
-
-interface PickedFile {
-  uri: string;
-  name: string;
-}
 
 export default function ImportUploadScreen() {
   const router = useRouter();
@@ -86,7 +81,7 @@ export default function ImportUploadScreen() {
       const parsedFile = await parseSpreadsheetFile(spreadsheetFile.uri, spreadsheetFile.name);
       const manifest = zipFile ? await parseImageManifest(zipFile.uri, zipFile.name) : null;
       const withImageErrors = applyImageManifest(parsedFile, manifest);
-      setImportSession({ file: withImageErrors, manifest });
+      setImportSession({ file: withImageErrors, manifest, spreadsheetFile, zipFile });
       router.push("/supplier/bulk-products/import/preview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that file. Check the format and try again.");

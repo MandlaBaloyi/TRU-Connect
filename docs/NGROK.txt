@@ -1,0 +1,118 @@
+TRU CONNECT — NGROK QUICK REFERENCE
+=====================================
+
+WHAT NGROK ACTUALLY DOES HERE
+------------------------------
+Your Flask backend normally only lives on your own computer's private
+network (localhost / your LAN). Cloudinary can't reach a private
+address — it lives on the public internet and has no way in.
+
+ngrok gives your local Flask server a temporary PUBLIC web address
+and quietly forwards anything that hits it straight through to
+localhost. Cloudinary calls that public address; ngrok relays it to
+Flask behind the scenes. Nothing about your code changes — Cloudinary
+just gets a real door to knock on instead of a private one it can't
+reach.
+
+This is a DEV-ONLY WORKAROUND. Once TRU Connect is actually deployed
+for real (a real server, a real domain), it will already have a
+permanent public address, and ngrok won't be needed at all. You are
+not building a permanent piece of the app right now — you're
+temporarily giving your laptop the one thing a real server already
+has automatically.
+
+
+DO YOU NEED IT RIGHT NOW? — DEPENDS WHAT YOU'RE DOING
+------------------------------------------------------
+NO, not needed for:
+  - Building or testing any feature that isn't about photos
+  - Adding/editing/browsing products, Inventory, Bulk Import's
+    spreadsheet parsing, Orders, anything text/data-based
+  - General bug fixing, UI work, backend logic changes
+  - Your phone talks straight to Flask over your local network for
+    all of this — ngrok is never involved.
+
+YES, needed for:
+  - The one specific gap between "I uploaded a photo" and "it shows
+    as approved in the app." That gap only closes if Cloudinary can
+    reach your backend to deliver the scan result. Without ngrok
+    running, uploads still succeed and land in Cloudinary fine — they
+    just sit at PENDING forever (eventually flipped to ERROR by the
+    30-minute cleanup job), since there's nowhere for the "scan
+    finished" callback to go.
+
+Rule of thumb: if you're not testing a real photo going from
+Pending -> Approved -> visible in the app, skip ngrok entirely.
+
+
+HOW TO RUN IT, STEP BY STEP
+-----------------------------
+1. Start Flask first, in its own terminal window, like normal:
+       flask run
+
+2. Open a SECOND, separate terminal window. Don't close the Flask
+   one — both need to stay running at the same time.
+
+3. In the new window, start the tunnel:
+       ngrok http 5000
+   (swap 5000 for whatever port Flask is actually using)
+
+4. You'll see a screen with a line like:
+       Forwarding    https://abcd1234.ngrok-free.app -> http://localhost:5000
+   That https://....ngrok-free.app address is your real, current
+   tunnel URL.
+
+5. Open backend/.env and update this line with that exact URL,
+   no trailing slash:
+       CLOUDINARY_WEBHOOK_BASE_URL=https://abcd1234.ngrok-free.app
+
+6. Go back to the Flask terminal, stop it (Ctrl+C), and start it
+   again. Flask only picks up .env changes on startup — leaving it
+   running won't apply the new URL.
+
+7. Test a photo upload. Watch the Flask terminal for a request to
+   /api/v1/media/webhooks/cloudinary-scan a few seconds after the
+   upload — that's Cloudinary calling back through the tunnel.
+   Scanning can take anywhere from a few seconds to a couple of
+   minutes, so give it a moment before assuming something's wrong.
+
+
+THE ONE THING THAT TRIPS PEOPLE UP EVERY TIME
+------------------------------------------------
+On the FREE ngrok plan, the forwarding URL is NOT permanent — it
+changes every single time you stop and restart the tunnel. If you
+close ngrok and open it again later, you'll get a brand new
+....ngrok-free.app address and need to repeat steps 4-6 with the new
+one. This is a real free-tier limitation, not a bug.
+
+
+IF WINDOWS DEFENDER FLAGS ngrok.exe AGAIN
+--------------------------------------------
+This is a known, common false positive for tunneling tools generally
+(they behave similarly to how legitimate remote-access tools work).
+If it happens again:
+  1. Windows Security -> Virus & threat protection -> Protection
+     history -> find the ngrok entry -> Actions -> Restore/Allow.
+  2. Then add a permanent exclusion so it doesn't happen again:
+     Virus & threat protection settings -> Manage settings ->
+     Exclusions -> Add an exclusion -> File -> point it at your
+     actual ngrok.exe path.
+  Always check the exact detection name first (something ending in
+  "!ml" means an AI/heuristic guess, not a confirmed signature match)
+  and consider a quick VirusTotal check if you want independent
+  confirmation before restoring.
+
+
+WHAT ELSE THIS SAME TUNNEL COULD BE USED FOR LATER
+-----------------------------------------------------
+- WhatsApp Cloud API testing, whenever that work starts — Meta needs
+  a public URL to deliver incoming messages, the exact same pattern
+  as Cloudinary's webhook. Same tool, same idea, different endpoint.
+- Testing the app the way a real user on mobile data would experience
+  it, rather than over a clean home WiFi network.
+- Handing a real, working link to someone else (a supplier, an
+  investor) so they can use the actual live app on their own device,
+  anywhere — without deploying anything yet.
+
+None of these are needed today. Just worth knowing the same setup
+already covers them when the time comes.

@@ -15,7 +15,6 @@ import type {
   Product,
   ProductFilters,
   ProductListFilter,
-  StockStatus,
   UpdateProductInput,
 } from "../types";
 import { ProductsError } from "../types";
@@ -242,19 +241,6 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
 // own memory of the bulk-import security/architecture discussion for
 // why N-requests-per-bulk-action doesn't scale.
 // ---------------------------------------------------------------------------
-
-export async function bulkUpdateStockStatus(productIds: string[], stockStatus: StockStatus): Promise<Product[]> {
-  await latency(400);
-  const idSet = new Set(productIds);
-  const updated: Product[] = [];
-  mockProducts = mockProducts.map((product) => {
-    if (!idSet.has(product.id)) return product;
-    const next = { ...product, stockStatus, updatedAt: nowIso() };
-    updated.push(next);
-    return next;
-  });
-  return updated;
-}
 
 export async function bulkAdjustPrice(productIds: string[], adjustment: PriceAdjustment): Promise<Product[]> {
   await latency(400);

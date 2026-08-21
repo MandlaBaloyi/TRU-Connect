@@ -13,14 +13,26 @@ from flask_jwt_extended import create_access_token
 from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.products.services import product_media_service
-from src.shared.media.provider import MediaProvider, ScanResult, SignedUpload
+from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload
 
 
 class FakeMediaProvider(MediaProvider):
     def __init__(self):
         self.deleted_public_ids: list[str] = []
 
-    def generate_signed_upload(self, public_id: str) -> SignedUpload:
+    def upload_asset(self, public_id, file_bytes, max_dimension_px=1600, resource_type="image"):
+        from src.shared.media.providers.provider import UploadedAsset
+        return UploadedAsset(
+            public_id=public_id,
+            secure_url=f"https://res.cloudinary.com/test/{public_id}.jpg",
+            resource_type=resource_type,
+            format="jpg",
+            width=800,
+            height=600,
+            bytes=len(file_bytes),
+        )
+
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600) -> SignedUpload:
         return SignedUpload(
             cloud_name="test_cloud",
             api_key="test_key",
@@ -29,6 +41,8 @@ class FakeMediaProvider(MediaProvider):
             public_id=public_id,
             upload_url="https://api.cloudinary.com/v1_1/test_cloud/image/upload",
             allowed_formats="jpg,jpeg,png,webp",
+            transformation="c_limit,w_1600,h_1600,q_auto",
+            notification_url="",
         )
 
     def verify_webhook_signature(self, raw_body: str, timestamp: str, signature: str) -> bool:
@@ -107,7 +121,7 @@ def test_register_media_via_http(client, monkeypatch, make_supplier, make_suppli
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/products/{profile.id}/{product.id}/asset1"
+    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/asset1"
 
     response = client.post(
         f"/api/v1/supplier-discovery/products/{product.id}/media",
@@ -139,7 +153,7 @@ def test_register_media_rejects_wrong_folder_public_id_via_http(
     response = client.post(
         f"/api/v1/supplier-discovery/products/{product.id}/media",
         json={
-            "cloudinary_public_id": "tru_connect/products/not-this-supplier/not-this-product/hacked",
+            "cloudinary_public_id": "tru_connect/suppliers/not-this-supplier/products/not-this-product/hacked",
             "secure_url": "https://x/hacked.jpg",
         },
         headers=_auth(supplier, "supplier"),
@@ -165,7 +179,7 @@ def test_business_role_rejected_from_media_endpoints(client, make_business):
 def test_webhook_rejects_invalid_signature(client):
     response = client.post(
         "/api/v1/media/webhooks/cloudinary-scan",
-        json={"public_id": "tru_connect/products/x/y/z", "moderation_status": "approved"},
+        json={"public_id": "tru_connect/suppliers/x/products/y/z", "moderation_status": "approved"},
         headers={"X-Cld-Timestamp": "123", "X-Cld-Signature": "not_real"},
     )
 
@@ -178,12 +192,12 @@ def test_webhook_approves_media_end_to_end(client, monkeypatch, make_supplier, m
     real DB update -- the fullest end-to-end proof available without
     actual network access to Cloudinary."""
     fake = _patch_provider(monkeypatch)
-    monkeypatch.setattr("src.shared.media.webhook_service.get_media_provider", lambda: fake)
+    monkeypatch.setattr("src.shared.media.webhooks.webhook_service.get_media_provider", lambda: fake)
 
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/products/{profile.id}/{product.id}/webhook-test"
+    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/webhook-test"
     client.post(
         f"/api/v1/supplier-discovery/products/{product.id}/media",
         json={"cloudinary_public_id": public_id, "secure_url": "https://x/webhook-test.jpg"},

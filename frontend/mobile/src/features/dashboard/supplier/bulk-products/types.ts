@@ -150,3 +150,37 @@ export interface ImportPreviewSummary {
   matchedImages: number;
   missingImages: number;
 }
+
+// ---------------------------------------------------------------------------
+// ImportJob -- the REAL backend's own DB-backed progress record (see
+// backend/domains/supplier/bulk_import/models/import_job.py). The
+// client-side preview above (ParsedImportFile etc.) is instant local
+// feedback only; once Confirm is pressed, THIS is what actually gets
+// polled -- the backend re-parses and re-validates the real file
+// independently, so its own counts are the source of truth, not a
+// mirror of the client's own parse.
+// ---------------------------------------------------------------------------
+
+export type ImportJobStatus = "UPLOADED" | "VALIDATING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+export interface ImportJob {
+  id: string;
+  status: ImportJobStatus;
+  sourceFilename: string;
+  hasImagesZip: boolean;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  createdRows: number;
+  imagesTotal: number;
+  imagesMatched: number;
+  failureReason: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface ImportJobError {
+  rowNumber: number;
+  field: string;
+  message: string;
+}

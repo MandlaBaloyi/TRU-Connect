@@ -9,10 +9,12 @@
  * "UPDATE STOCK" WAS REMOVED FROM HERE -- see BulkEditScreen's own
  * docstring for why bulk-setting Product.stockStatus stopped making
  * sense once Products migrated to inventory-derived status.
- * bulkUpdateStockStatus itself still exists in products/api (harmless,
- * unreferenced by any UI now) in case a real backend still wants that
- * general-purpose bulk endpoint for other callers (admin tooling,
- * etc.) -- only this hook's own exposure of it was retired.
+ * bulkUpdateStockStatus itself has since been removed entirely from
+ * products/api (mock, http, and the switcher) -- it called a
+ * stock_status endpoint the real backend never actually built, and
+ * had no caller left anywhere in the UI. If a genuine admin-tooling
+ * need for bulk stock-status writes ever arises, it should be a new,
+ * deliberately-designed endpoint, not a resurrection of this one.
  *
  * DATA-LAYER FUNCTIONS STAY OWNED BY products/api, NOT DUPLICATED HERE
  * -- bulk price/archive operations mutate the exact same underlying

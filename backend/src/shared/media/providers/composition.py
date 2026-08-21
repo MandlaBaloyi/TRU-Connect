@@ -7,8 +7,8 @@ providers later means changing this one function's body.
 """
 from __future__ import annotations
 
-from src.shared.media.config import MediaConfig
-from src.shared.media.provider import MediaProvider
+from src.shared.media.config.media_config import MediaConfig
+from src.shared.media.providers.provider import MediaProvider
 
 _provider: MediaProvider | None = None
 
@@ -16,7 +16,7 @@ _provider: MediaProvider | None = None
 def get_media_provider() -> MediaProvider:
     global _provider
     if _provider is None:
-        from src.shared.media.cloudinary_provider import CloudinaryMediaProvider
+        from src.shared.media.providers.cloudinary_provider import CloudinaryMediaProvider
 
         _provider = CloudinaryMediaProvider(MediaConfig.from_env())
     return _provider

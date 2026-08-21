@@ -17,7 +17,7 @@ from flask import Blueprint, request
 
 from src.core.responses import error_response, success_response
 from src.shared.media.errors import InvalidWebhookSignatureError
-from src.shared.media.webhook_service import handle_scan_webhook
+from src.shared.media.webhooks.webhook_service import handle_scan_webhook
 
 media_webhooks_bp = Blueprint("media_webhooks", __name__)
 

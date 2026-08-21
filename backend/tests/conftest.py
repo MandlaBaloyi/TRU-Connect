@@ -28,6 +28,18 @@ from src.shared.email.email import get_fake_provider
 def app():
     application = create_app("testing")
     with application.app_context():
+        # Discovered from the metadata itself, not a hardcoded list --
+        # a NEW domain's own schema (e.g. "media", added during the
+        # tiers/ledger work) previously needed someone to remember to
+        # manually CREATE SCHEMA against the test database once,
+        # outside of pytest entirely, or every test touching that
+        # schema failed with "schema does not exist". create_all()
+        # only creates TABLES, never the schemas they live in.
+        schemas = {table.schema for table in db.metadata.tables.values() if table.schema}
+        for schema in schemas:
+            db.session.execute(db.text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+        db.session.commit()
+
         db.create_all()
         get_fake_provider().clear()
         cache.clear()

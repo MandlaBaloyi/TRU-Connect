@@ -1,11 +1,19 @@
 """
 Webhook service -- verifies the caller is genuinely Cloudinary, parses
 the scan result, then dispatches to whichever DOMAIN registered
-itself for that asset's folder prefix. shared/media still doesn't
+itself as owning that asset's public_id. shared/media still doesn't
 know what a "product" is: products/services/product_media_service.py
-calls register_scan_result_handler("tru_connect/products/", ...) once
-at app startup (see src/__init__.py), and this file just looks up
-which callback owns a given public_id's prefix.
+calls register_scan_result_handler(folder_naming.is_supplier_product_asset,
+apply_scan_result) once at app startup (see src/__init__.py).
+
+MATCHER FUNCTIONS, NOT PREFIX STRINGS -- the who-owns-it-first folder
+taxonomy (tru_connect/suppliers/{supplier_id}/products/{product_id}/...,
+see folder_naming.py's own docstring) means there's no longer a fixed
+string every product asset starts with -- supplier_profile_id is a
+variable UUID sitting BEFORE the "products" segment. Each domain
+supplies its own predicate (public_id -> bool) instead, giving it full
+control over how it recognises its own assets regardless of where in
+the path that recognition needs to happen.
 
 IDEMPOTENT BY CONSTRUCTION, NOT BY ACCIDENT -- this file itself does
 no idempotency check; it's the REGISTERED HANDLER's job (see
@@ -16,17 +24,17 @@ senders retry; a duplicate delivery must never double-process.
 from __future__ import annotations
 
 import json
-from typing import Callable, Dict
+from typing import Callable, List, Tuple
 
-from src.shared.media.composition import get_media_provider
+from src.shared.media.providers.composition import get_media_provider
 from src.shared.media.errors import InvalidWebhookSignatureError
-from src.shared.media.provider import ScanResult
+from src.shared.media.providers.provider import ScanResult
 
-_HANDLERS: Dict[str, Callable[[ScanResult], None]] = {}
+_HANDLERS: List[Tuple[Callable[[str], bool], Callable[[ScanResult], None]]] = []
 
 
-def register_scan_result_handler(folder_prefix: str, handler: Callable[[ScanResult], None]) -> None:
-    _HANDLERS[folder_prefix] = handler
+def register_scan_result_handler(matcher: Callable[[str], bool], handler: Callable[[ScanResult], None]) -> None:
+    _HANDLERS.append((matcher, handler))
 
 
 def clear_scan_result_handlers() -> None:
@@ -43,11 +51,11 @@ def handle_scan_webhook(raw_body: str, timestamp: str, signature: str) -> ScanRe
     payload = json.loads(raw_body)
     result = provider.parse_scan_result(payload)
 
-    for prefix, handler in _HANDLERS.items():
-        if result.public_id.startswith(prefix):
+    for matcher, handler in _HANDLERS:
+        if matcher(result.public_id):
             handler(result)
             break
-    # An unmatched prefix isn't an error -- Cloudinary still needs a
+    # An unmatched public_id isn't an error -- Cloudinary still needs a
     # 200 so it doesn't retry forever, and a genuinely unrecognised
     # asset (e.g. something uploaded outside this backend's own
     # signed-upload flow) has nothing here to reconcile against.

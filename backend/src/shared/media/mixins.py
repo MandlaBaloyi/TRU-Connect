@@ -59,5 +59,5 @@ class MediaAssetMixin:
 
     scan_status = db.Column(db.String(20), nullable=False, default=MediaScanStatus.PENDING.value)
     scan_provider = db.Column(db.String(50), nullable=True)
-    scan_result = db.Column(db.String(500), nullable=True)
+    scan_result = db.Column(db.Text, nullable=True)
     scanned_at = db.Column(db.DateTime(timezone=True), nullable=True)

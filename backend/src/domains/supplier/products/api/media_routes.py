@@ -4,12 +4,11 @@ Product media routes -- the two supplier-facing endpoints
 lives in shared/media/api/webhook_routes.py, not here, since it's not
 supplier-scoped at all.
 
-tier IS HARDCODED TO "FREE" -- same honest-about-today's-reality
-pattern as products_routes.py's own DTOs; there is no real Subscription
-domain on this backend yet. The tier LIMIT-CHECKING logic itself
-(product_media_service.request_upload_signature) is fully real and
-enforced -- only the tier LOOKUP is a placeholder, isolated to this one
-line, so swapping in a real lookup later is a one-line change.
+tier IS RESOLVED INSIDE THE SERVICE, NOT PASSED FROM HERE -- see
+tiers/resolver.py's own docstring. Still honestly returns FREE for
+every account today (no real Subscription domain exists yet), but the
+route itself no longer needs to know that -- it just calls the
+service, which asks the resolver.
 """
 from __future__ import annotations
 
@@ -51,7 +50,7 @@ def _flatten_marshmallow_errors(exc: MarshmallowValidationError) -> list[str]:
 @role_required("supplier")
 @limiter.limit(rate_limit_policies.MEDIA_SIGN, key_func=rate_limit_policies.supplier_key_func)
 def request_media_upload_signature(product_id: str):
-    signed = product_media_service.request_upload_signature(product_id, _supplier_profile_id(), tier="FREE")
+    signed = product_media_service.request_upload_signature(product_id, _supplier_profile_id())
     return success_response(
         data={
             "cloud_name": signed.cloud_name,
@@ -61,6 +60,8 @@ def request_media_upload_signature(product_id: str):
             "public_id": signed.public_id,
             "upload_url": signed.upload_url,
             "allowed_formats": signed.allowed_formats,
+            "transformation": signed.transformation,
+            "notification_url": signed.notification_url,
         }
     )
 
