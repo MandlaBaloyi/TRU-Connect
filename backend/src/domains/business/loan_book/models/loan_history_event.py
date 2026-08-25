@@ -3,16 +3,7 @@ LoanHistoryEvent -- an append-only log of everything that happens in a
 business's Loan Book: sales, payments, deletions, restores, receipt
 interactions.
 
-WHY THIS ISN'T shared.audit: the shape here is structurally identical
-to shared.audit's own design (append-only, one row per event, never
-mutated) -- but that's not merged into it, because shared.audit's real
-internal structure (AuditEventName enum, the reserved-but-empty
-event_types/business.py placeholder) has never been directly seen by
-whoever wrote this. Guessing at how a new domain plugs into an existing
-system, without seeing its real shape, is exactly the mistake that cost
-real back-and-forth earlier in this project (test_runner.py's
-JobExecutionOutcome fields). Building Loan Book's own small event log
-now, matching shared.audit's PATTERN without touching its CODE, is the
+
 same call the frontend already made for the same reason -- and it means
 the eventual merge is a deliberate architecture decision made by someone
 who can see both real systems at once, not an accidental one made by

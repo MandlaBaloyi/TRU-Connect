@@ -20,6 +20,7 @@ import type {
 import { ProductsError } from "../types";
 import type { PriceAdjustment } from "../../bulk-products/types";
 import { applyPriceAdjustment } from "../../bulk-products/algorithms/priceAdjustment";
+import { computeCompareAtPrice } from "../algorithms/discount";
 
 const MOCK_SUPPLIER_ID = "mock-supplier-001";
 
@@ -40,9 +41,13 @@ let mockProducts: Product[] = [
     name: "Coca-Cola 500ml",
     category: "BEVERAGES",
     priceCents: 1200,
+    compareAtPriceCents: null,
     sellingUnit: "BOTTLE",
     unitQuantity: null,
     unitMeasure: null,
+    description: null,
+    sku: "SKU-0001",
+    productCode: "TRU-3F7K9M",
     stockStatus: "IN_STOCK",
     images: [
       "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300&h=300&fit=crop",
@@ -58,9 +63,15 @@ let mockProducts: Product[] = [
     name: "Coca-Cola 1.25L",
     category: "BEVERAGES",
     priceCents: 2100,
+    // A real example of the "was RX, now RY" comparison price -- shows
+    // crossed out next to the real price on Product Detail.
+    compareAtPriceCents: 2500,
     sellingUnit: "BOTTLE",
     unitQuantity: null,
     unitMeasure: null,
+    description: null,
+    sku: "SKU-0002",
+    productCode: "TRU-7H2N4P",
     stockStatus: "IN_STOCK",
     images: [],
     isArchived: false,
@@ -73,9 +84,13 @@ let mockProducts: Product[] = [
     name: "Simba Chips 120g",
     category: "SNACKS_CONFECTIONERY",
     priceCents: 1850,
+    compareAtPriceCents: null,
     sellingUnit: "EACH",
     unitQuantity: null,
     unitMeasure: null,
+    description: null,
+    sku: "SKU-0003",
+    productCode: "TRU-5R8T2W",
     stockStatus: "IN_STOCK",
     images: ["https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=300&h=300&fit=crop"],
     isArchived: false,
@@ -88,9 +103,15 @@ let mockProducts: Product[] = [
     name: "Albany Bread",
     category: "BAKERY",
     priceCents: 1999,
+    compareAtPriceCents: null,
     sellingUnit: "EACH",
     unitQuantity: null,
     unitMeasure: null,
+    // A real example of the description field, matching the exact
+    // "3 loaves per case" style already discussed for bulk import.
+    description: "Sliced white bread. 1 loaf per unit.",
+    sku: "SKU-0004",
+    productCode: "TRU-9K3X6L",
     stockStatus: "OUT_OF_STOCK",
     images: [],
     isArchived: false,
@@ -103,9 +124,13 @@ let mockProducts: Product[] = [
     name: "Fanta Orange 2L (discontinued line)",
     category: "BEVERAGES",
     priceCents: 2500,
+    compareAtPriceCents: null,
     sellingUnit: "BOTTLE",
     unitQuantity: null,
     unitMeasure: null,
+    description: null,
+    sku: "SKU-0005",
+    productCode: "TRU-2M6Q8V",
     stockStatus: "OUT_OF_STOCK",
     images: [],
     // Seeded already-archived so the Archived filter has something
@@ -156,11 +181,57 @@ export async function getProduct(id: string): Promise<Product> {
   return found;
 }
 
-function validate(input: Pick<CreateProductInput, "name" | "priceCents">): Record<string, string> {
+let mockSkuCounter = mockProducts.length;
+
+/** Mirrors the real backend's own per-supplier sequential counter in
+ *  spirit (SKU-0001, SKU-0002...) -- doesn't need the real atomic-
+ *  update rigor here, this is a single in-memory session, never
+ *  genuinely concurrent. */
+function generateMockSku(): string {
+  mockSkuCounter += 1;
+  return `SKU-${String(mockSkuCounter).padStart(4, "0")}`;
+}
+
+const _PRODUCT_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+/** Mirrors the real backend's own algorithms/product_code_generator.py
+ *  -- same alphabet (excludes 0/O/1/I), same collision-checked retry,
+ *  just against the in-memory mock list instead of a real database. */
+function generateMockProductCode(): string {
+  let candidate: string;
+  do {
+    candidate =
+      "TRU-" +
+      Array.from({ length: 6 }, () => _PRODUCT_CODE_ALPHABET[Math.floor(Math.random() * _PRODUCT_CODE_ALPHABET.length)]).join("");
+  } while (mockProducts.some((p) => p.productCode === candidate));
+  return candidate;
+}
+
+function validate(
+  input: Pick<CreateProductInput, "name" | "priceCents"> & {
+    compareAtPriceCents?: number;
+    sku?: string;
+    supplierId?: string;
+    excludeProductId?: string;
+  }
+): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!input.name.trim()) errors.name = "Enter a product name.";
   if (input.priceCents === null || input.priceCents === undefined || input.priceCents < 0) {
     errors.priceCents = "Enter a valid price.";
+  }
+  if (input.compareAtPriceCents !== undefined && input.compareAtPriceCents !== null) {
+    if (input.compareAtPriceCents <= input.priceCents) {
+      errors.compareAtPriceCents = "Compare-at price must be higher than the actual price to show as a discount.";
+    }
+  }
+  if (input.sku && input.sku.trim()) {
+    const collision = mockProducts.some(
+      (p) => p.sku === input.sku!.trim() && p.supplierId === MOCK_SUPPLIER_ID && p.id !== input.excludeProductId
+    );
+    if (collision) {
+      errors.sku = `SKU "${input.sku.trim()}" is already used by another product.`;
+    }
   }
   return errors;
 }
@@ -178,9 +249,16 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
     name: input.name.trim(),
     category: input.category,
     priceCents: input.priceCents,
+    compareAtPriceCents: input.compareAtPriceCents ?? null,
     sellingUnit: input.sellingUnit,
     unitQuantity: null,
     unitMeasure: null,
+    description: input.description?.trim() || null,
+    // Left blank -- auto-filled, same as the real backend. Never
+    // product_code -- that's never accepted as input anywhere, even
+    // here in the mock.
+    sku: input.sku?.trim() || generateMockSku(),
+    productCode: generateMockProductCode(),
     // Legacy field, no longer supplied by the form -- see this field's
     // own docstring in types.ts. Defaulted, never read by current UI.
     stockStatus: "IN_STOCK",
@@ -205,12 +283,32 @@ export async function archiveProduct(id: string): Promise<Product> {
   return archived;
 }
 
+export async function unarchiveProduct(id: string): Promise<Product> {
+  await latency(300);
+  const index = mockProducts.findIndex((p) => p.id === id);
+  if (index === -1) throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
+  const unarchived: Product = { ...mockProducts[index], isArchived: false, updatedAt: nowIso() };
+  mockProducts = [...mockProducts.slice(0, index), unarchived, ...mockProducts.slice(index + 1)];
+  return unarchived;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  // Real removal from the mock array -- unlike archive, there's no
+  // client-facing screen that ever needs to see a deleted product
+  // again, matching the real backend's own behaviour: a soft-deleted
+  // row never comes back from any client-facing query either.
+  await latency(300);
+  const index = mockProducts.findIndex((p) => p.id === id);
+  if (index === -1) throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
+  mockProducts = [...mockProducts.slice(0, index), ...mockProducts.slice(index + 1)];
+}
+
 export async function updateProduct(input: UpdateProductInput): Promise<Product> {
   await latency(400);
   const index = mockProducts.findIndex((p) => p.id === input.id);
   if (index === -1) throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
 
-  const fieldErrors = validate(input);
+  const fieldErrors = validate({ ...input, excludeProductId: input.id });
   if (Object.keys(fieldErrors).length > 0) {
     throw new ProductsError("Check the highlighted fields.", "VALIDATION_ERROR", fieldErrors);
   }
@@ -220,10 +318,17 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
     name: input.name.trim(),
     category: input.category,
     priceCents: input.priceCents,
-    sellingUnit: input.sellingUnit,
+    compareAtPriceCents: input.compareAtPriceCents ?? mockProducts[index].compareAtPriceCents,
     // stockStatus deliberately NOT set here -- the spread above
     // already carries the existing value forward unchanged. Edit
     // Product no longer supplies one (see types.ts's own docstring).
+    sellingUnit: input.sellingUnit,
+    description: input.description !== undefined ? input.description.trim() || null : mockProducts[index].description,
+    // undefined means "leave the existing SKU alone" -- matches the
+    // real backend's own update_product semantics exactly. Never
+    // product_code -- the spread above already carries it forward,
+    // and nothing here ever overwrites it.
+    sku: input.sku?.trim() || mockProducts[index].sku,
     images: input.images,
     updatedAt: nowIso(),
   };
@@ -255,6 +360,33 @@ export async function bulkAdjustPrice(productIds: string[], adjustment: PriceAdj
   return updated;
 }
 
+export async function bulkSetDiscount(productIds: string[], discountPercent: number): Promise<Product[]> {
+  await latency(400);
+  // Same rule as the real backend's own product_service.py::
+  // bulk_set_discount -- 0 isn't a real discount, 100+ divides by
+  // zero or goes negative. Checked before touching anything, matching
+  // the real backend's all-or-nothing behaviour for the whole batch.
+  if (discountPercent <= 0 || discountPercent >= 100) {
+    throw new ProductsError("Check the highlighted fields.", "VALIDATION_ERROR", {
+      discountPercent: "Discount must be between 1% and 99%.",
+    });
+  }
+
+  const idSet = new Set(productIds);
+  const updated: Product[] = [];
+  mockProducts = mockProducts.map((product) => {
+    if (!idSet.has(product.id)) return product;
+    const next = {
+      ...product,
+      compareAtPriceCents: computeCompareAtPrice(product.priceCents, discountPercent),
+      updatedAt: nowIso(),
+    };
+    updated.push(next);
+    return next;
+  });
+  return updated;
+}
+
 export async function bulkArchiveProducts(productIds: string[]): Promise<Product[]> {
   await latency(400);
   const idSet = new Set(productIds);
@@ -266,4 +398,23 @@ export async function bulkArchiveProducts(productIds: string[]): Promise<Product
     return next;
   });
   return updated;
+}
+
+export async function bulkUnarchiveProducts(productIds: string[]): Promise<Product[]> {
+  await latency(400);
+  const idSet = new Set(productIds);
+  const updated: Product[] = [];
+  mockProducts = mockProducts.map((product) => {
+    if (!idSet.has(product.id) || !product.isArchived) return product;
+    const next = { ...product, isArchived: false, updatedAt: nowIso() };
+    updated.push(next);
+    return next;
+  });
+  return updated;
+}
+
+export async function bulkDeleteProducts(productIds: string[]): Promise<void> {
+  await latency(400);
+  const idSet = new Set(productIds);
+  mockProducts = mockProducts.filter((product) => !idSet.has(product.id));
 }

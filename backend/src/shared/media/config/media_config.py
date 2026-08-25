@@ -33,7 +33,7 @@ class MediaConfig:
     # e.g. https://your-tunnel.ngrok-free.app while developing locally,
     # a real domain once deployed. Genuinely universal, not a
     # Products-specific setting: every domain's uploads notify the
-    # SAME one webhook endpoint (/api/v1/media/webhooks/cloudinary-scan),
+    # SAME one webhook endpoint (/api/v1/media/webhooks/cloudinary-notifications),
     # which then routes internally by folder (see webhooks/webhook_service.py's
     # own docstring) -- that's exactly why this lives here and not in
     # products/tiers/. Empty by default; a signed upload simply won't
@@ -41,6 +41,14 @@ class MediaConfig:
     # piece of this build that stays honest about what isn't wired up
     # yet rather than sending a broken value.
     webhook_base_url: str = ""
+    # A real, deliberate toggle -- not hardcoded on -- so malware
+    # scanning can be turned off later (e.g. hitting the Perception
+    # Point free-tier scan quota, or before real launch capital is in
+    # place) purely by changing an env var, no code change or
+    # redeploy needed. Defaults True: once this account has Perception
+    # Point installed, scanning should be the default, not something
+    # someone has to remember to opt into.
+    moderation_enabled: bool = True
 
     @classmethod
     def from_env(cls) -> "MediaConfig":
@@ -49,10 +57,11 @@ class MediaConfig:
             api_key=os.environ.get("CLOUDINARY_API_KEY", ""),
             api_secret=os.environ.get("CLOUDINARY_API_SECRET", ""),
             webhook_base_url=os.environ.get("CLOUDINARY_WEBHOOK_BASE_URL", "").rstrip("/"),
+            moderation_enabled=os.environ.get("CLOUDINARY_MODERATION_ENABLED", "true").lower() != "false",
         )
 
     @property
     def notification_url(self) -> str:
         if not self.webhook_base_url:
             return ""
-        return f"{self.webhook_base_url}/api/v1/media/webhooks/cloudinary-scan"
+        return f"{self.webhook_base_url}/api/v1/media/webhooks/cloudinary-notifications"

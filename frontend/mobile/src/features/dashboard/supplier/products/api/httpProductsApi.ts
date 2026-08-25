@@ -24,12 +24,62 @@
  * was always designed around). Per-image retry UI is a natural,
  * separately-scoped follow-up, not built in this pass.
  */
-import { apiGet, apiPost, apiPut, ApiError } from "@/services/api/apiClient";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/services/api/apiClient";
 
 import type { CreateProductInput, Product, ProductFilters, UpdateProductInput } from "../types";
 import type { PriceAdjustment } from "../../bulk-products/types";
 import { ProductsError } from "../types";
 import { uploadToCloudinary, type CloudinarySignedUpload } from "../services/cloudinaryUpload";
+
+/**
+ * Maps the backend's flat errors[] list (src/core/responses.py's own
+ * envelope shape -- {success, message, data, errors, code}, never a
+ * field-keyed object) back onto the specific form field each message
+ * is actually about, so ProductForm's own fieldErrors.xxx display
+ * (already built, already wired) has something real to show instead
+ * of only ever the generic top-level message.
+ *
+ * REAL BUG FOUND DURING REVIEW: this mapping never existed at all --
+ * every server-side validation error (a compare-at price that isn't
+ * actually higher than the real price, a duplicate SKU, an
+ * unrealistic price) has been showing ONLY the generic "Check the
+ * highlighted fields" message since the day this screen shipped,
+ * never red text under the actual field, even though the form has
+ * been ready for it the whole time.
+ *
+ * KEYWORD MATCHING, NOT A STRUCTURAL FIX -- the real, fully robust
+ * version would have the backend return {field, message} pairs
+ * instead of plain strings, but that response shape
+ * (src/core/responses.py's error_response) is shared across this
+ * entire backend, not just Products -- changing it here would be a
+ * breaking change to every other domain's error contract too, out of
+ * scope for this one screen's fix. Order matters below: "compare-at
+ * price" is checked BEFORE plain "price", since the compare-at
+ * message itself contains the word "price" and would otherwise
+ * wrongly attribute to the real price field.
+ */
+function mapErrorsToFields(errors: string[]): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const message of errors) {
+    const lower = message.toLowerCase();
+    if (lower.includes("compare-at price") || lower.includes("compare at price")) {
+      fieldErrors.compareAtPriceCents = message;
+    } else if (lower.includes("sku")) {
+      fieldErrors.sku = message;
+    } else if (lower.includes("description")) {
+      fieldErrors.description = message;
+    } else if (lower.includes("price")) {
+      fieldErrors.priceCents = message;
+    } else if (lower.includes("category")) {
+      fieldErrors.category = message;
+    } else if (lower.includes("unit")) {
+      fieldErrors.sellingUnit = message;
+    } else if (lower.includes("name")) {
+      fieldErrors.name = message;
+    }
+  }
+  return fieldErrors;
+}
 
 interface ApiProduct {
   id: string;
@@ -37,9 +87,13 @@ interface ApiProduct {
   name: string;
   category: string;
   price_cents: number;
+  compare_at_price_cents: number | null;
   selling_unit: string;
   unit_quantity: number | null;
   unit_measure: string | null;
+  description: string | null;
+  sku: string;
+  product_code: string;
   images: string[];
   is_archived: boolean;
   created_at: string;
@@ -53,9 +107,13 @@ function fromApiProduct(dto: ApiProduct): Product {
     name: dto.name,
     category: dto.category as Product["category"],
     priceCents: dto.price_cents,
+    compareAtPriceCents: dto.compare_at_price_cents,
     sellingUnit: dto.selling_unit as Product["sellingUnit"],
     unitQuantity: dto.unit_quantity,
     unitMeasure: dto.unit_measure as Product["unitMeasure"],
+    description: dto.description,
+    sku: dto.sku,
+    productCode: dto.product_code,
     // LEGACY, backend no longer sends this field at all -- see
     // Product.stockStatus's own docstring (types.ts) for why it's kept
     // on the type but never read anywhere in this feature's UI
@@ -80,6 +138,8 @@ interface SignedUploadDto {
   allowed_formats: string;
   transformation: string;
   notification_url: string;
+  moderation: string;
+  asset_folder: string;
 }
 
 async function requestUploadSignature(productId: string): Promise<CloudinarySignedUpload> {
@@ -97,6 +157,8 @@ async function requestUploadSignature(productId: string): Promise<CloudinarySign
     allowedFormats: data.allowed_formats,
     transformation: data.transformation,
     notificationUrl: data.notification_url,
+    moderation: data.moderation,
+    assetFolder: data.asset_folder,
   };
 }
 
@@ -172,14 +234,18 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       // (see products/types.ts's own Product.stockStatus docstring);
       // the real backend seeds an Inventory record separately,
       // matching AddProductScreen's own two-call sequence.
+      // undefined (never sent) means "leave it blank" for sku --
+      // the backend auto-generates one. Never product_code -- that
+      // field doesn't exist in this request at all, matching the
+      // backend's own schema, which never declares it either.
+      sku: input.sku,
+      description: input.description,
+      compare_at_price_cents: input.compareAtPriceCents,
     });
     product = fromApiProduct(data);
   } catch (error) {
     if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
-      // Per-field mapping isn't defined yet -- the real envelope
-      // ({success, message, data, errors, code}, src/core/responses.py)
-      // carries a flat errors[] list, not a field-keyed object.
-      throw new ProductsError(error.message, "VALIDATION_ERROR");
+      throw new ProductsError(error.message, "VALIDATION_ERROR", mapErrorsToFields(error.errors));
     }
     throw error;
   }
@@ -203,9 +269,32 @@ export async function archiveProduct(id: string): Promise<Product> {
   }
 }
 
+export async function unarchiveProduct(id: string): Promise<Product> {
+  try {
+    const data = await apiPost<ApiProduct>(`/supplier-discovery/products/${id}/unarchive`, {});
+    return fromApiProduct(data);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "PRODUCT_NOT_FOUND") {
+      throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
+    }
+    throw error;
+  }
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  try {
+    await apiDelete(`/supplier-discovery/products/${id}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "PRODUCT_NOT_FOUND") {
+      throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
+    }
+    throw error;
+  }
+}
+
 export async function updateProduct(input: UpdateProductInput): Promise<Product> {
   try {
-    const data = await apiPut<ApiProduct>(`/supplier-discovery/products/${input.id}`, {
+    const data = await apiPatch<ApiProduct>(`/supplier-discovery/products/${input.id}`, {
       name: input.name.trim(),
       category: input.category,
       price_cents: input.priceCents,
@@ -218,11 +307,17 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
       // updates the text fields only; ProductForm's own images array
       // for an edit is a mix of already-remote URLs (nothing to do)
       // and potentially-new local URIs (not yet wired to upload here).
+      // undefined sku means "leave the existing one alone" -- matches
+      // the backend's own update_product semantics exactly. Still
+      // never product_code, same reasoning as createProduct above.
+      sku: input.sku,
+      description: input.description,
+      compare_at_price_cents: input.compareAtPriceCents,
     });
     return fromApiProduct(data);
   } catch (error) {
     if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
-      throw new ProductsError(error.message, "VALIDATION_ERROR");
+      throw new ProductsError(error.message, "VALIDATION_ERROR", mapErrorsToFields(error.errors));
     }
     if (error instanceof ApiError && error.code === "PRODUCT_NOT_FOUND") {
       throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
@@ -244,8 +339,23 @@ export async function bulkAdjustPrice(productIds: string[], adjustment: PriceAdj
   const data = await apiPost<{ results: ApiProduct[] }>("/supplier-discovery/products/bulk/adjust-price", {
     product_ids: productIds,
     direction: adjustment.direction,
-    adjustment_type: adjustment.type,
+    // REAL BUG FOUND DURING DEVICE TESTING: this used to be sent as
+    // "adjustment_type". The backend's own BulkAdjustPriceSchema
+    // requires a field literally named "type" (required=True) --
+    // sending "adjustment_type" instead meant the required field was
+    // simply never present, and the backend correctly rejected every
+    // request with a 422. Same class of bug as the PUT/PATCH mismatch
+    // on Edit Product, just a JSON key instead of an HTTP verb.
+    type: adjustment.type,
     value: adjustment.value,
+  });
+  return data.results.map(fromApiProduct);
+}
+
+export async function bulkSetDiscount(productIds: string[], discountPercent: number): Promise<Product[]> {
+  const data = await apiPost<{ results: ApiProduct[] }>("/supplier-discovery/products/bulk/discount", {
+    product_ids: productIds,
+    discount_percent: discountPercent,
   });
   return data.results.map(fromApiProduct);
 }
@@ -255,4 +365,15 @@ export async function bulkArchiveProducts(productIds: string[]): Promise<Product
     product_ids: productIds,
   });
   return data.results.map(fromApiProduct);
+}
+
+export async function bulkUnarchiveProducts(productIds: string[]): Promise<Product[]> {
+  const data = await apiPost<{ results: ApiProduct[] }>("/supplier-discovery/products/bulk/unarchive", {
+    product_ids: productIds,
+  });
+  return data.results.map(fromApiProduct);
+}
+
+export async function bulkDeleteProducts(productIds: string[]): Promise<void> {
+  await apiPost("/supplier-discovery/products/bulk/delete", { product_ids: productIds });
 }

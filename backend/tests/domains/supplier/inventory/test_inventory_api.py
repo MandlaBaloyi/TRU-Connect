@@ -19,12 +19,17 @@ def _auth(user, role: str) -> dict:
 
 
 def _make_product(profile_id, **overrides):
+    from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
+    from src.domains.supplier.products.algorithms.sku_generator import generate_sku
+
     defaults = dict(
         supplier_profile_id=profile_id,
         name="Coca-Cola 500ml",
         category=ProductCategory.BEVERAGES,
         price_cents=1200,
         selling_unit=ProductUnit.EACH,
+        sku=generate_sku(profile_id),
+        product_code=generate_product_code(),
     )
     defaults.update(overrides)
     return ProductRepository.create(**defaults)
@@ -45,6 +50,10 @@ def test_list_inventory_returns_composed_shape(client, make_supplier, make_suppl
     assert len(results) == 1
     item = results[0]
     assert item["product"]["name"] == "Coca-Cola 500ml"
+    # Real gap found during frontend wiring: this field used to be
+    # missing from the inventory route's own response entirely, even
+    # though the Inventory screens now display it.
+    assert item["product"]["product_code"].startswith("TRU-")
     assert item["inventory"]["quantity_on_hand"] == 0
     assert item["status"] == "OUT_OF_STOCK"
     assert item["available_quantity"] == 0

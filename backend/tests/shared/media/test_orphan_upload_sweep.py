@@ -19,10 +19,10 @@ class FakeMediaProvider(MediaProvider):
     def __init__(self):
         self.deleted: list = []
 
-    def generate_signed_upload(self, public_id, max_dimension_px):
+    def generate_signed_upload(self, public_id, max_dimension_px, asset_folder="tru_connect/fake"):
         raise NotImplementedError
 
-    def upload_asset(self, public_id, file_bytes, max_dimension_px, resource_type="image"):
+    def upload_asset(self, public_id, file_bytes, max_dimension_px, asset_folder="tru_connect/fake", resource_type="image"):
         raise NotImplementedError
 
     def verify_webhook_signature(self, raw_body, timestamp, signature):
@@ -33,6 +33,15 @@ class FakeMediaProvider(MediaProvider):
 
     def delete_asset(self, public_id):
         self.deleted.append(public_id)
+
+    def delete_assets(self, public_ids):
+        self.deleted.extend(public_ids)
+
+    def delete_folder(self, folder_path):
+        pass
+
+    def is_moderation_enabled(self) -> bool:
+        return True
 
 
 @pytest.fixture()

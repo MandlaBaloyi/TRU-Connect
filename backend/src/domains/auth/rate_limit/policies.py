@@ -17,7 +17,7 @@ from __future__ import annotations
 from flask import request
 from flask_limiter.util import get_remote_address
 
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.event_types.auth import AuthAuditEvent
 
 # --- Auth limits (Phase 1) --------------------------------------------
 
@@ -83,12 +83,12 @@ def login_key_func() -> str:
 # point — it does NOT match plain Flask single-blueprint convention,
 # and guessing at it silently would have meant this mapping never
 # matched anything, ever, in production.
-RATE_LIMIT_AUDIT_EVENTS: dict[str, AuditEventName] = {
-    "api.auth.login": AuditEventName.LOGIN_RATE_LIMITED,
-    "api.auth.register": AuditEventName.REGISTER_RATE_LIMITED,
-    "api.auth.refresh": AuditEventName.REFRESH_RATE_LIMITED,
-    "api.auth.forgot_password": AuditEventName.PASSWORD_RESET_REQUEST_RATE_LIMITED,
-    "api.auth.reset_password": AuditEventName.PASSWORD_RESET_RATE_LIMITED,
-    "api.auth.request_otp": AuditEventName.OTP_REQUEST_RATE_LIMITED,
-    "api.auth.verify_otp": AuditEventName.OTP_VERIFY_RATE_LIMITED,
+RATE_LIMIT_AUDIT_EVENTS: dict[str, AuthAuditEvent] = {
+    "api.auth.login": AuthAuditEvent.LOGIN_RATE_LIMITED,
+    "api.auth.register": AuthAuditEvent.REGISTER_RATE_LIMITED,
+    "api.auth.refresh": AuthAuditEvent.REFRESH_RATE_LIMITED,
+    "api.auth.forgot_password": AuthAuditEvent.PASSWORD_RESET_REQUEST_RATE_LIMITED,
+    "api.auth.reset_password": AuthAuditEvent.PASSWORD_RESET_RATE_LIMITED,
+    "api.auth.request_otp": AuthAuditEvent.OTP_REQUEST_RATE_LIMITED,
+    "api.auth.verify_otp": AuthAuditEvent.OTP_VERIFY_RATE_LIMITED,
 }

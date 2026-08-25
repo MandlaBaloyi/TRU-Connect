@@ -49,7 +49,18 @@ export function ImageCarousel({ images, height = 260 }: Props) {
           setActiveIndex(index);
         }}
         renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={[styles.image, { width, height }]} resizeMode="cover" />
+          <Image
+            source={{ uri: item }}
+            style={[styles.image, { width, height, backgroundColor: theme.colors.surfaceVariant }]}
+            // "contain", not "cover" -- every supplier's photo has a
+            // different natural shape (a tall bottle, a wide box, a
+            // square item); "cover" was stretching/cropping to force
+            // it to fill this box exactly, cutting parts of the photo
+            // off. "contain" always shows the WHOLE photo, at its own
+            // real proportions, on every device -- the same box shape
+            // for everyone, never a distorted or cropped product.
+            resizeMode="contain"
+          />
         )}
       />
       {images.length > 1 && (

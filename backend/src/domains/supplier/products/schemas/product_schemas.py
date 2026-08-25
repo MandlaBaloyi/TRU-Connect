@@ -19,18 +19,36 @@ class CreateProductSchema(Schema):
     name = fields.Str(required=True)
     category = fields.Str(required=True, validate=validate.OneOf(_CATEGORY_VALUES))
     price_cents = fields.Integer(required=True)
+    # NOT required=True -- see product.py's own compare_at_price_cents
+    # docstring. A sale/promotion price a supplier sets when running
+    # one; validated against price_cents in product_service.py, not
+    # here (a shape schema doesn't know about a second field's value).
+    compare_at_price_cents = fields.Integer(required=False, allow_none=True, load_default=None)
     selling_unit = fields.Str(required=True, validate=validate.OneOf(_UNIT_VALUES))
     unit_quantity = fields.Integer(required=False, allow_none=True, load_default=None)
     unit_measure = fields.Str(
         required=False, allow_none=True, load_default=None, validate=validate.OneOf(_UNIT_VALUES)
     )
+    description = fields.Str(required=False, allow_none=True, load_default=None)
+    # Optional to type -- left blank means product_service.py
+    # auto-fills one via algorithms/sku_generator.py.
+    # product_code is DELIBERATELY absent from this schema -- never
+    # accepted from any request, always server-generated, see
+    # product.py's own product_code column docstring.
+    sku = fields.Str(required=False, allow_none=True, load_default=None)
 
 
 class UpdateProductSchema(Schema):
     name = fields.Str(required=True)
     category = fields.Str(required=True, validate=validate.OneOf(_CATEGORY_VALUES))
     price_cents = fields.Integer(required=True)
+    compare_at_price_cents = fields.Integer(required=False, allow_none=True, load_default=None)
     selling_unit = fields.Str(required=True, validate=validate.OneOf(_UNIT_VALUES))
+    description = fields.Str(required=False, allow_none=True, load_default=None)
+    # None here means "leave the existing SKU alone" -- see
+    # product_service.py's own update_product docstring. Still never
+    # product_code, same reasoning as CreateProductSchema above.
+    sku = fields.Str(required=False, allow_none=True, load_default=None)
 
 
 class BulkAdjustPriceSchema(Schema):
@@ -42,6 +60,15 @@ class BulkAdjustPriceSchema(Schema):
 
 class BulkArchiveSchema(Schema):
     product_ids = fields.List(fields.Str(), required=True, validate=validate.Length(min=1))
+
+
+class BulkSetDiscountSchema(Schema):
+    product_ids = fields.List(fields.Str(), required=True, validate=validate.Length(min=1))
+    # Whole percentage points, e.g. 20 for "20% off" -- the real
+    # 1-99 bound is enforced in product_service.py (a shape schema
+    # doesn't know about the division-by-zero/negative-price math that
+    # makes 0 and 100+ genuinely invalid, not just unusual).
+    discount_percent = fields.Integer(required=True)
 
 
 class RegisterMediaSchema(Schema):

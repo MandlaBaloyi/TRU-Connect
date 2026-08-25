@@ -16,7 +16,8 @@ from datetime import datetime, timedelta, timezone
 
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
 from src.shared.audit.audit import publish
-from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditEventName, AuditStatus
+from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 from src.shared.media.mixins import MediaScanStatus
 from src.shared.scheduling.scheduling_types import JobResult
 
@@ -38,7 +39,7 @@ def run() -> JobResult:
         )
         publish(
             AuditEvent(
-                event_name=AuditEventName.PRODUCT_MEDIA_REJECTED,
+                event_name=SupplierAuditEvent.PRODUCT_MEDIA_REJECTED,
                 domain=AuditDomain.SUPPLIER,
                 status=AuditStatus.FAILURE,
                 metadata={

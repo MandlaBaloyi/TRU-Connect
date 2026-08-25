@@ -35,6 +35,22 @@ export interface CloudinarySignedUpload {
   // versa) would make Cloudinary reject the whole upload as an
   // invalid signature, not just skip the notification.
   notificationUrl: string;
+  // "perception_point" when malware scanning is currently active
+  // (CLOUDINARY_MODERATION_ENABLED on the backend), "" when it's been
+  // deliberately turned off (e.g. free-tier scan quota, or before
+  // real launch capital is in place). Same signature rule as
+  // notificationUrl -- must be echoed exactly as signed, or omitted
+  // exactly when it was omitted.
+  moderation: string;
+  // NOT the same field as publicId's own path, even though it's built
+  // from the identical string -- Cloudinary treats public_id (the
+  // asset's permanent URL) and asset_folder (purely where it shows up
+  // in the browsable Media Library UI) as genuinely independent
+  // concepts. Must be echoed exactly, same signature rule as every
+  // other field here -- omitting it (a real gap found during review)
+  // meant every upload was fully find-able by search but invisible in
+  // the Folders tree on this account's Dynamic Folder Mode.
+  assetFolder: string;
 }
 
 export interface CloudinaryUploadResult {
@@ -53,12 +69,29 @@ export async function uploadToCloudinary(
 ): Promise<CloudinaryUploadResult> {
   const filename = localUri.split("/").pop() || "photo.jpg";
 
+  // REAL BUG FOUND DURING CODE REVIEW: this used to hardcode
+  // type: "image/jpeg" for every upload, regardless of what the file
+  // actually was -- a PNG or WEBP would still be labeled "image/jpeg"
+  // in the multipart request. Cloudinary very likely detects the real
+  // format from the file's own bytes rather than trusting this label,
+  // which is probably why it never caused a visible failure -- but
+  // the label itself was simply wrong. Derived from the real
+  // extension now, with a sane fallback for anything unrecognised.
+  const extension = filename.split(".").pop()?.toLowerCase();
+  const mimeTypeByExtension: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  const mimeType = (extension && mimeTypeByExtension[extension]) || "image/jpeg";
+
   // React Native's own FormData/fetch understand this {uri, name, type}
   // shape for a file field -- not a real Blob, but the RN networking
   // layer knows to stream the file at `uri` directly, which is what
   // keeps this from ever loading the whole image into JS memory first.
   const formData = new FormData();
-  formData.append("file", { uri: localUri, name: filename, type: "image/jpeg" } as unknown as Blob);
+  formData.append("file", { uri: localUri, name: filename, type: mimeType } as unknown as Blob);
   formData.append("api_key", signed.apiKey);
   formData.append("timestamp", String(signed.timestamp));
   formData.append("signature", signed.signature);
@@ -68,6 +101,10 @@ export async function uploadToCloudinary(
   if (signed.notificationUrl) {
     formData.append("notification_url", signed.notificationUrl);
   }
+  if (signed.moderation) {
+    formData.append("moderation", signed.moderation);
+  }
+  formData.append("asset_folder", signed.assetFolder);
 
   const response = await fetch(signed.uploadUrl, { method: "POST", body: formData });
   const data = await response.json();

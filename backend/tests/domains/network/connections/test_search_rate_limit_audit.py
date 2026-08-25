@@ -22,7 +22,7 @@ from __future__ import annotations
 from flask_jwt_extended import create_access_token
 
 from src.domains.security.audit.models.audit_event import AuditEventRecord
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.event_types.network import NetworkAuditEvent
 
 
 def _token_for(user, role: str) -> str:
@@ -60,7 +60,7 @@ class TestBusinessSearchRateLimitAudit:
         _exhaust_search_limit(client, "/api/v1/supplier-discovery/search?q=Audit", token)
 
         record = (
-            AuditEventRecord.query.filter_by(event_name=AuditEventName.SUPPLIER_SEARCH_RATE_LIMITED.value)
+            AuditEventRecord.query.filter_by(event_name=NetworkAuditEvent.SUPPLIER_SEARCH_RATE_LIMITED.value)
             .order_by(AuditEventRecord.timestamp.desc())
             .first()
         )
@@ -87,7 +87,7 @@ class TestSupplierSearchRateLimitAudit:
         _exhaust_search_limit(client, "/api/v1/supplier-discovery/businesses/search?q=Audit", token)
 
         record = (
-            AuditEventRecord.query.filter_by(event_name=AuditEventName.BUSINESS_SEARCH_RATE_LIMITED.value)
+            AuditEventRecord.query.filter_by(event_name=NetworkAuditEvent.BUSINESS_SEARCH_RATE_LIMITED.value)
             .order_by(AuditEventRecord.timestamp.desc())
             .first()
         )

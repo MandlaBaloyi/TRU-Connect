@@ -36,6 +36,7 @@ from src.domains.supplier.products.rate_limit import policies as rate_limit_poli
 from src.domains.supplier.products.schemas.product_schemas import (
     BulkAdjustPriceSchema,
     BulkArchiveSchema,
+    BulkSetDiscountSchema,
     CreateProductSchema,
     UpdateProductSchema,
 )
@@ -80,9 +81,17 @@ def _to_dto(product) -> dict:
         "name": product.name,
         "category": product.category.value,
         "price_cents": product.price_cents,
+        "compare_at_price_cents": product.compare_at_price_cents,
         "selling_unit": product.selling_unit.value,
         "unit_quantity": product.unit_quantity,
         "unit_measure": product.unit_measure.value if product.unit_measure else None,
+        "description": product.description,
+        # NEVER present in CreateProductSchema/UpdateProductSchema --
+        # see product.py's own product_code column docstring. Read-only
+        # everywhere it's shown (Product screen, Inventory), enforced
+        # by never accepting it as input, not by a frontend-only rule.
+        "product_code": product.product_code,
+        "sku": product.sku,
         # Real, APPROVED-only media -- see product_media_service's own
         # list_approved_media docstring. Never PENDING/REJECTED/ERROR;
         # those aren't this supplier's own screens' concern to filter,
@@ -113,6 +122,9 @@ def create_product():
         selling_unit=data["selling_unit"],
         unit_quantity=data.get("unit_quantity"),
         unit_measure=data.get("unit_measure"),
+        sku=data.get("sku"),
+        description=data.get("description"),
+        compare_at_price_cents=data.get("compare_at_price_cents"),
     )
     return success_response(data=_to_dto(product), status_code=201)
 
@@ -121,10 +133,17 @@ def create_product():
 @fully_authenticated
 @role_required("supplier")
 def list_products():
-    include_archived = request.args.get("filter") == "ARCHIVED"
+    filter_param = request.args.get("filter")
+    # ARCHIVED -> only archived rows (the real fix -- see
+    # product_repository.py's own docstring for the full bug history).
+    # Anything else (ALL, or no filter param at all) preserves the
+    # existing, correct, already-tested behavior: active products only,
+    # exactly what every "All" tab screenshot throughout this whole
+    # build has always shown.
+    is_archived = True if filter_param == "ARCHIVED" else False
     search_term = request.args.get("q") or None
     products = product_service.list_products(
-        _supplier_profile_id(), include_archived=include_archived, search_term=search_term
+        _supplier_profile_id(), is_archived=is_archived, search_term=search_term
     )
     return success_response(data={"results": [_to_dto(p) for p in products]})
 
@@ -154,6 +173,9 @@ def update_product(product_id: str):
         category=data["category"],
         price_cents=data["price_cents"],
         selling_unit=data["selling_unit"],
+        sku=data.get("sku"),
+        description=data.get("description"),
+        compare_at_price_cents=data.get("compare_at_price_cents"),
     )
     return success_response(data=_to_dto(product))
 
@@ -164,6 +186,25 @@ def update_product(product_id: str):
 def archive_product(product_id: str):
     product = product_service.archive_product(product_id, _supplier_profile_id())
     return success_response(data=_to_dto(product))
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/<product_id>/unarchive", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+def unarchive_product(product_id: str):
+    product = product_service.unarchive_product(product_id, _supplier_profile_id())
+    return success_response(data=_to_dto(product))
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/<product_id>", methods=["DELETE"])
+@fully_authenticated
+@role_required("supplier")
+def delete_product(product_id: str):
+    # Soft delete only -- see product_service.delete_product's own
+    # docstring. Nothing here ever calls Cloudinary directly; that
+    # cleanup happens later, on a schedule, never inside this request.
+    product_service.delete_product(product_id, _supplier_profile_id())
+    return success_response(data={"id": product_id, "deleted": True})
 
 
 @products_bp.route("/api/v1/supplier-discovery/products/bulk/adjust-price", methods=["POST"])
@@ -199,4 +240,55 @@ def bulk_archive():
         return error_response(message="Validation failed", errors=_flatten_marshmallow_errors(exc), status_code=422)
 
     products = product_service.bulk_archive(data["product_ids"], _supplier_profile_id())
+    return success_response(data={"results": [_to_dto(p) for p in products]})
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/bulk/unarchive", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+@limiter.limit(rate_limit_policies.PRODUCT_BULK_ACTION, key_func=rate_limit_policies.supplier_key_func)
+def bulk_unarchive():
+    payload = request.get_json(silent=True) or {}
+    try:
+        data = BulkArchiveSchema().load(payload)  # same shape ({product_ids}) -- no need for a near-duplicate schema
+    except MarshmallowValidationError as exc:
+        return error_response(message="Validation failed", errors=_flatten_marshmallow_errors(exc), status_code=422)
+
+    products = product_service.bulk_unarchive(data["product_ids"], _supplier_profile_id())
+    return success_response(data={"results": [_to_dto(p) for p in products]})
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/bulk/delete", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+@limiter.limit(rate_limit_policies.PRODUCT_BULK_ACTION, key_func=rate_limit_policies.supplier_key_func)
+def bulk_delete():
+    payload = request.get_json(silent=True) or {}
+    try:
+        data = BulkArchiveSchema().load(payload)  # same shape ({product_ids}) -- no need for a near-duplicate schema
+    except MarshmallowValidationError as exc:
+        return error_response(message="Validation failed", errors=_flatten_marshmallow_errors(exc), status_code=422)
+
+    products = product_service.bulk_delete(data["product_ids"], _supplier_profile_id())
+    return success_response(data={"results": [_to_dto(p) for p in products]})
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/bulk/discount", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+@limiter.limit(rate_limit_policies.PRODUCT_BULK_ACTION, key_func=rate_limit_policies.supplier_key_func)
+def bulk_set_discount():
+    payload = request.get_json(silent=True) or {}
+    try:
+        data = BulkSetDiscountSchema().load(payload)
+    except MarshmallowValidationError as exc:
+        return error_response(message="Validation failed", errors=_flatten_marshmallow_errors(exc), status_code=422)
+
+    # ProductValidationError (bad discount_percent, or a computed
+    # compare_at_price that would exceed the real price ceiling) isn't
+    # caught here -- same as create_product/update_product just above,
+    # a global error handler already converts it to a real 422.
+    products = product_service.bulk_set_discount(
+        data["product_ids"], _supplier_profile_id(), data["discount_percent"]
+    )
     return success_response(data={"results": [_to_dto(p) for p in products]})

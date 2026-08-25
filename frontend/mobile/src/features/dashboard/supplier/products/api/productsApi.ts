@@ -20,7 +20,12 @@ export const getProduct = impl.getProduct;
 export const createProduct = impl.createProduct;
 export const updateProduct = impl.updateProduct;
 export const archiveProduct = impl.archiveProduct;
+export const unarchiveProduct = impl.unarchiveProduct;
+export const deleteProduct = impl.deleteProduct;
 export const bulkAdjustPrice = impl.bulkAdjustPrice;
+export const bulkSetDiscount = impl.bulkSetDiscount;
 export const bulkArchiveProducts = impl.bulkArchiveProducts;
+export const bulkUnarchiveProducts = impl.bulkUnarchiveProducts;
+export const bulkDeleteProducts = impl.bulkDeleteProducts;
 
 export { ProductsError } from "../types";

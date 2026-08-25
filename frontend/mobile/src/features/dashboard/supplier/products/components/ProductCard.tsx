@@ -25,6 +25,7 @@ import { Archive, Check, Package } from "lucide-react-native";
 
 import type { Product } from "../types";
 import type { InventoryStatus } from "../../inventory/types";
+import { calculateDiscount } from "../algorithms/discount";
 import { formatCents } from "../services/productMapper";
 import { InventoryStatusBadge } from "../../inventory/components";
 import { spacing } from "@/theme/spacing";
@@ -55,6 +56,7 @@ export function ProductCard({
 }: Props) {
   const theme = useTheme();
   const interactive = Boolean(onPress) || selectable;
+  const discount = calculateDiscount(product.priceCents, product.compareAtPriceCents);
 
   return (
     <Pressable
@@ -90,6 +92,11 @@ export function ProductCard({
         ) : (
           <Package size={22} color={theme.colors.onSurfaceVariant} strokeWidth={1.75} />
         )}
+        {discount && (
+          <View style={[styles.saleBadge, { backgroundColor: theme.colors.error }]}>
+            <Text style={styles.saleBadgeText}>{discount.percentOff}% OFF</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.body}>
@@ -100,6 +107,11 @@ export function ProductCard({
           <Text style={[styles.price, { color: theme.colors.onSurface }]} numberOfLines={1}>
             {formatCents(product.priceCents)}
           </Text>
+          {product.compareAtPriceCents !== null && (
+            <Text style={[styles.compareAtPrice, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+              {formatCents(product.compareAtPriceCents)}
+            </Text>
+          )}
           {(product.isArchived || inventoryStatus) && <Text style={{ color: theme.colors.onSurfaceVariant }}>•</Text>}
           {product.isArchived ? (
             <View style={styles.archivedBadge}>
@@ -142,10 +154,21 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   thumbImage: { width: "100%", height: "100%" },
+  saleBadge: {
+    position: "absolute",
+    bottom: 2,
+    left: 2,
+    right: 2,
+    paddingVertical: 1,
+    borderRadius: 3,
+    alignItems: "center",
+  },
+  saleBadgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "700" },
   body: { flex: 1, gap: 4 },
   name: { ...typography.h2 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   price: { ...typography.body, fontWeight: "700" },
+  compareAtPrice: { ...typography.bodySmall, textDecorationLine: "line-through" },
   archivedBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
   archivedLabel: { ...typography.bodySmall },
 });

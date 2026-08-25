@@ -68,6 +68,7 @@ export default function InventoryDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleBlock}>
           <Text style={[styles.name, { color: theme.colors.onSurface }]}>{product.name}</Text>
+          <Text style={[styles.productCode, { color: theme.colors.onSurfaceVariant }]}>{product.productCode}</Text>
           <Text style={[styles.price, { color: theme.colors.onSurfaceVariant }]}>
             {formatCents(product.priceCents)} / {unit}
           </Text>
@@ -134,6 +135,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xxl },
   titleBlock: { gap: spacing.xs },
   name: { ...typography.h1 },
+  productCode: { ...typography.caption },
   price: { ...typography.body },
   card: { borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.md },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.md },

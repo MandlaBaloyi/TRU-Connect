@@ -45,9 +45,10 @@ from src.shared.audit.audit_types import (
     ActorType,
     AuditDomain,
     AuditEvent,
-    AuditEventName,
+    AuditEventNameType,
     AuditStatus,
 )
+from src.shared.audit.event_types.auth import AuthAuditEvent
 from src.shared.helpers.helpers import mask_email
 
 logger = logging.getLogger("tru_connect.audit")
@@ -122,7 +123,7 @@ def _enrich_from_request(event: AuditEvent) -> None:
 
 
 def _emit(
-    event_name: AuditEventName,
+    event_name: AuthAuditEvent,
     status: AuditStatus,
     *,
     module: Optional[str] = None,
@@ -158,7 +159,7 @@ def _emit(
 def log_login_success(user_id: str, ip_address: Optional[str]) -> None:
     logger.info("login_success user_id=%s ip=%s", user_id, ip_address or "unknown")
     _emit(
-        AuditEventName.LOGIN_SUCCESS, AuditStatus.SUCCESS,
+        AuthAuditEvent.LOGIN_SUCCESS, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id, ip_address=ip_address,
     )
 
@@ -166,7 +167,7 @@ def log_login_success(user_id: str, ip_address: Optional[str]) -> None:
 def log_login_failed(email: str, ip_address: Optional[str]) -> None:
     logger.warning("login_failed email=%s ip=%s", mask_email(email), ip_address or "unknown")
     _emit(
-        AuditEventName.LOGIN_FAILED, AuditStatus.FAILURE,
+        AuthAuditEvent.LOGIN_FAILED, AuditStatus.FAILURE,
         module="auth_service", email=email, ip_address=ip_address,
         failure_reason="invalid_credentials",
     )
@@ -175,7 +176,7 @@ def log_login_failed(email: str, ip_address: Optional[str]) -> None:
 def log_login_locked_out(email: str, ip_address: Optional[str]) -> None:
     logger.warning("login_locked_out email=%s ip=%s", mask_email(email), ip_address or "unknown")
     _emit(
-        AuditEventName.LOGIN_LOCKED, AuditStatus.FAILURE,
+        AuthAuditEvent.LOGIN_LOCKED, AuditStatus.FAILURE,
         module="auth_service", email=email, ip_address=ip_address,
         failure_reason="account_locked_too_many_attempts",
     )
@@ -184,7 +185,7 @@ def log_login_locked_out(email: str, ip_address: Optional[str]) -> None:
 def log_login_blocked_unverified(email: str, ip_address: Optional[str]) -> None:
     logger.info("login_blocked_unverified email=%s ip=%s", mask_email(email), ip_address or "unknown")
     _emit(
-        AuditEventName.LOGIN_UNVERIFIED, AuditStatus.FAILURE,
+        AuthAuditEvent.LOGIN_UNVERIFIED, AuditStatus.FAILURE,
         module="auth_service", email=email, ip_address=ip_address,
         failure_reason="email_not_verified",
     )
@@ -197,7 +198,7 @@ def log_unverified_account_expired(email: str) -> None:
     # deletion, which is not reconstructable after the fact.
     logger.info("unverified_account_expired email=%s", mask_email(email))
     _emit(
-        AuditEventName.UNVERIFIED_ACCOUNT_EXPIRED, AuditStatus.SUCCESS,
+        AuthAuditEvent.UNVERIFIED_ACCOUNT_EXPIRED, AuditStatus.SUCCESS,
         module="cleanup_unverified_emails", actor_type=ActorType.SCHEDULER, email=email,
     )
 
@@ -210,7 +211,7 @@ def log_registration_role_conflict(email: str, existing_role: str, attempted_rol
         attempted_role,
     )
     _emit(
-        AuditEventName.REGISTER_ROLE_CONFLICT, AuditStatus.FAILURE,
+        AuthAuditEvent.REGISTER_ROLE_CONFLICT, AuditStatus.FAILURE,
         module="auth_service", email=email, role=existing_role,
         failure_reason="role_conflict",
         metadata={"existing_role": existing_role, "attempted_role": attempted_role},
@@ -220,7 +221,7 @@ def log_registration_role_conflict(email: str, existing_role: str, attempted_rol
 def log_password_reset_requested(email: str) -> None:
     logger.info("password_reset_requested email=%s", mask_email(email))
     _emit(
-        AuditEventName.PASSWORD_RESET_REQUESTED, AuditStatus.SUCCESS,
+        AuthAuditEvent.PASSWORD_RESET_REQUESTED, AuditStatus.SUCCESS,
         module="password_reset_service", email=email,
     )
 
@@ -228,7 +229,7 @@ def log_password_reset_requested(email: str) -> None:
 def log_password_reset_completed(user_id: str) -> None:
     logger.info("password_reset_completed user_id=%s", user_id)
     _emit(
-        AuditEventName.PASSWORD_RESET_SUCCESS, AuditStatus.SUCCESS,
+        AuthAuditEvent.PASSWORD_RESET_SUCCESS, AuditStatus.SUCCESS,
         module="password_reset_service", user_id=user_id,
     )
 
@@ -242,7 +243,7 @@ def log_password_reset_completed(user_id: str) -> None:
 def log_register_success(user_id: str, email: str, role: str) -> None:
     logger.info("register_success user_id=%s email=%s role=%s", user_id, mask_email(email), role)
     _emit(
-        AuditEventName.REGISTER_SUCCESS, AuditStatus.SUCCESS,
+        AuthAuditEvent.REGISTER_SUCCESS, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id, email=email, role=role,
     )
 
@@ -250,7 +251,7 @@ def log_register_success(user_id: str, email: str, role: str) -> None:
 def log_register_failed(email: str, reason: str) -> None:
     logger.warning("register_failed email=%s reason=%s", mask_email(email), reason)
     _emit(
-        AuditEventName.REGISTER_FAILED, AuditStatus.FAILURE,
+        AuthAuditEvent.REGISTER_FAILED, AuditStatus.FAILURE,
         module="auth_service", email=email, failure_reason=reason,
     )
 
@@ -266,7 +267,7 @@ def log_register_resumed(email: str, role: str) -> None:
     """
     logger.info("register_resumed email=%s role=%s", mask_email(email), role)
     _emit(
-        AuditEventName.REGISTER_RESUMED, AuditStatus.SUCCESS,
+        AuthAuditEvent.REGISTER_RESUMED, AuditStatus.SUCCESS,
         module="auth_service", email=email, role=role,
     )
 
@@ -274,7 +275,7 @@ def log_register_resumed(email: str, role: str) -> None:
 def log_otp_created(user_id: str, email: str) -> None:
     logger.info("otp_created user_id=%s email=%s", user_id, mask_email(email))
     _emit(
-        AuditEventName.OTP_CREATED, AuditStatus.SUCCESS,
+        AuthAuditEvent.OTP_CREATED, AuditStatus.SUCCESS,
         module="otp_service", user_id=user_id, email=email,
     )
 
@@ -282,7 +283,7 @@ def log_otp_created(user_id: str, email: str) -> None:
 def log_otp_verified(user_id: str, email: str) -> None:
     logger.info("otp_verified user_id=%s email=%s", user_id, mask_email(email))
     _emit(
-        AuditEventName.OTP_VERIFIED, AuditStatus.SUCCESS,
+        AuthAuditEvent.OTP_VERIFIED, AuditStatus.SUCCESS,
         module="otp_service", user_id=user_id, email=email,
     )
 
@@ -290,7 +291,7 @@ def log_otp_verified(user_id: str, email: str) -> None:
 def log_otp_failed(email: str, reason: str) -> None:
     logger.warning("otp_failed email=%s reason=%s", mask_email(email), reason)
     _emit(
-        AuditEventName.OTP_FAILED, AuditStatus.FAILURE,
+        AuthAuditEvent.OTP_FAILED, AuditStatus.FAILURE,
         module="otp_service", email=email, failure_reason=reason,
     )
 
@@ -298,7 +299,7 @@ def log_otp_failed(email: str, reason: str) -> None:
 def log_otp_resent(user_id: str, email: str) -> None:
     logger.info("otp_resent user_id=%s email=%s", user_id, mask_email(email))
     _emit(
-        AuditEventName.OTP_RESENT, AuditStatus.SUCCESS,
+        AuthAuditEvent.OTP_RESENT, AuditStatus.SUCCESS,
         module="otp_service", user_id=user_id, email=email,
     )
 
@@ -306,7 +307,7 @@ def log_otp_resent(user_id: str, email: str) -> None:
 def log_email_verified(user_id: str, email: str) -> None:
     logger.info("email_verified user_id=%s email=%s", user_id, mask_email(email))
     _emit(
-        AuditEventName.EMAIL_VERIFIED, AuditStatus.SUCCESS,
+        AuthAuditEvent.EMAIL_VERIFIED, AuditStatus.SUCCESS,
         module="otp_service", user_id=user_id, email=email,
     )
 
@@ -314,7 +315,7 @@ def log_email_verified(user_id: str, email: str) -> None:
 def log_token_created(user_id: str) -> None:
     logger.info("token_created user_id=%s", user_id)
     _emit(
-        AuditEventName.TOKEN_CREATED, AuditStatus.SUCCESS,
+        AuthAuditEvent.TOKEN_CREATED, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id,
     )
 
@@ -322,7 +323,7 @@ def log_token_created(user_id: str) -> None:
 def log_token_refreshed(user_id: str) -> None:
     logger.info("token_refreshed user_id=%s", user_id)
     _emit(
-        AuditEventName.TOKEN_REFRESHED, AuditStatus.SUCCESS,
+        AuthAuditEvent.TOKEN_REFRESHED, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id,
     )
 
@@ -337,7 +338,7 @@ def log_token_revoked(user_id: str, reason: str = "logout") -> None:
     """
     logger.info("token_revoked user_id=%s reason=%s", user_id, reason)
     _emit(
-        AuditEventName.TOKEN_REVOKED, AuditStatus.SUCCESS,
+        AuthAuditEvent.TOKEN_REVOKED, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id,
         metadata={"reason": reason},
     )
@@ -346,13 +347,13 @@ def log_token_revoked(user_id: str, reason: str = "logout") -> None:
 def log_logout(user_id: str) -> None:
     logger.info("logout user_id=%s", user_id)
     _emit(
-        AuditEventName.LOGOUT, AuditStatus.SUCCESS,
+        AuthAuditEvent.LOGOUT, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id,
     )
 
 
 def log_rate_limit_exceeded(
-    event_name: AuditEventName,
+    event_name: AuditEventNameType,
     ip_address: Optional[str],
     email: Optional[str] = None,
     user_id: Optional[str] = None,
@@ -367,7 +368,7 @@ def log_rate_limit_exceeded(
     exceeded" is the same kind of event everywhere it happens; only
     event_name changes per call site (rate_limit/policies.py's
     RATE_LIMIT_AUDIT_EVENTS maps each route to its own specific
-    AuditEventName, e.g. LOGIN_RATE_LIMITED vs REGISTER_RATE_LIMITED).
+    event name, e.g. LOGIN_RATE_LIMITED vs REGISTER_RATE_LIMITED).
 
     user_id is almost always None here BY DESIGN, not by omission: the
     rate limiter runs BEFORE authentication on every route it guards

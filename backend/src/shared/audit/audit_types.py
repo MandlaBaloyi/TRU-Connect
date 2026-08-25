@@ -6,8 +6,12 @@ and the consumer (Security's audit service) import from here. Living in
 shared/ is what keeps the dependency arrow correct: Auth never imports
 Security, Security never imports Auth, both import these types.
 
-Nothing in this file is Authentication-specific. Event names are namespaced
-by domain so future domains extend the enum without colliding.
+Nothing in this file is Authentication-specific. Event NAME VALUES
+themselves live in shared/audit/event_types/ (one small file per real
+domain), not here -- this file holds the DOMAIN-AGNOSTIC transport
+contract (AuditEvent, AuditDomain, ActorType, AuditCategory,
+AuditSeverity, AuditStatus) that every domain's events share regardless
+of their own specific names.
 """
 
 from __future__ import annotations
@@ -15,7 +19,19 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Union
+
+from src.shared.audit.event_types.auth import AuthAuditEvent
+from src.shared.audit.event_types.network import NetworkAuditEvent
+from src.shared.audit.event_types.platform import PlatformAuditEvent
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
+
+# Accepts any real domain's event enum -- used as AuditEvent.event_name's
+# own type hint below, and by anything else (e.g. security/audit/rules/
+# event_config.py's own get_policy) that needs to accept an event name
+# from ANY domain, not just one. Grows by one member when a new domain
+# gets its own event_types/ file -- nothing else about this file changes.
+AuditEventNameType = Union[AuthAuditEvent, NetworkAuditEvent, PlatformAuditEvent, SupplierAuditEvent]
 
 
 class AuditDomain(str, enum.Enum):
@@ -80,112 +96,14 @@ class AuditStatus(str, enum.Enum):
     FAILURE = "failure"
 
 
-class AuditEventName(str, enum.Enum):
-    """
-    Every event the platform can emit. Namespaced by domain prefix so
-    future domains extend this without collision.
-
-    NOTE ON COVERAGE: not all values below have a publisher yet. Auth
-    events map to real code paths today (or will as call sites are added).
-    The ACCOUNT_* / ROLE_* / PERMISSION_* values are defined here but
-    nothing publishes them, because no admin account-management feature
-    exists yet — they are declared now so the enum (and any admin-panel
-    filter UI built against it) does not need to change when that feature
-    lands.
-    """
-
-    # --- Registration ---
-    REGISTER_REQUESTED = "auth.register_requested"
-    REGISTER_SUCCESS = "auth.register_success"
-    REGISTER_FAILED = "auth.register_failed"
-    REGISTER_ROLE_CONFLICT = "auth.register_role_conflict"
-    REGISTER_RESUMED = "auth.register_resumed"
-
-    # --- Email verification ---
-    EMAIL_VERIFICATION_SENT = "auth.email_verification_sent"
-    EMAIL_VERIFIED = "auth.email_verified"
-    EMAIL_VERIFICATION_FAILED = "auth.email_verification_failed"
-    EMAIL_VERIFICATION_EXPIRED = "auth.email_verification_expired"
-
-    # --- OTP ---
-    OTP_CREATED = "auth.otp_created"
-    OTP_SENT = "auth.otp_sent"
-    OTP_VERIFIED = "auth.otp_verified"
-    OTP_FAILED = "auth.otp_failed"
-    OTP_RESENT = "auth.otp_resent"
-    OTP_EXPIRED = "auth.otp_expired"
-
-    # --- Login ---
-    LOGIN_SUCCESS = "auth.login_success"
-    LOGIN_FAILED = "auth.login_failed"
-    LOGIN_BLOCKED = "auth.login_blocked"
-    LOGIN_LOCKED = "auth.login_locked"
-    LOGIN_RATE_LIMITED = "auth.login_rate_limited"
-    LOGIN_UNVERIFIED = "auth.login_unverified"
-
-    # --- Rate limiting (added alongside LOGIN_RATE_LIMITED, which
-    # already existed pre-declared with no publisher — see this class's
-    # own docstring on that pattern. Same naming convention, one per
-    # rate-limited route rather than one generic catch-all, matching
-    # how LOGIN_FAILED/LOGIN_LOCKED/LOGIN_UNVERIFIED are already split
-    # by specific cause rather than collapsed into one event.) ---
-    REGISTER_RATE_LIMITED = "auth.register_rate_limited"
-    REFRESH_RATE_LIMITED = "auth.refresh_rate_limited"
-    PASSWORD_RESET_REQUEST_RATE_LIMITED = "auth.password_reset_request_rate_limited"
-    PASSWORD_RESET_RATE_LIMITED = "auth.password_reset_rate_limited"
-    OTP_REQUEST_RATE_LIMITED = "auth.otp_request_rate_limited"
-    OTP_VERIFY_RATE_LIMITED = "auth.otp_verify_rate_limited"
-
-    # --- Password reset ---
-    PASSWORD_RESET_REQUESTED = "auth.password_reset_requested"
-    PASSWORD_RESET_TOKEN_CREATED = "auth.password_reset_token_created"
-    PASSWORD_RESET_SUCCESS = "auth.password_reset_success"
-    PASSWORD_RESET_FAILED = "auth.password_reset_failed"
-    PASSWORD_RESET_EXPIRED = "auth.password_reset_expired"
-
-    # --- Tokens ---
-    TOKEN_CREATED = "auth.token_created"
-    TOKEN_REFRESHED = "auth.token_refreshed"
-    TOKEN_REVOKED = "auth.token_revoked"
-    TOKEN_EXPIRED = "auth.token_expired"
-
-    # --- Logout ---
-    LOGOUT = "auth.logout"
-    LOGOUT_ALL_DEVICES = "auth.logout_all_devices"
-
-    # --- Account administration (no publisher yet — see class docstring) ---
-    ACCOUNT_ENABLED = "auth.account_enabled"
-    ACCOUNT_DISABLED = "auth.account_disabled"
-    ACCOUNT_DELETED = "auth.account_deleted"
-    ACCOUNT_UNLOCKED = "auth.account_unlocked"
-    ROLE_CHANGED = "auth.role_changed"
-    PERMISSION_CHANGED = "auth.permission_changed"
-
-    # --- Platform / system ---
-    UNVERIFIED_ACCOUNT_EXPIRED = "auth.unverified_account_expired"
-    SCHEDULED_JOB_COMPLETED = "platform.scheduled_job_completed"
-    SCHEDULED_JOB_FAILED = "platform.scheduled_job_failed"
-
-    # --- Network / Supplier Discovery (file.txt Phase 1) ---
-    SUPPLIER_SEARCH_RATE_LIMITED = "network.supplier_search_rate_limited"
-    CONNECTION_REQUEST_RATE_LIMITED = "network.connection_request_rate_limited"
-    # Reverse direction (supplier searching for businesses, Find Business).
-    # Deliberately a distinct event from SUPPLIER_SEARCH_RATE_LIMITED above
-    # rather than reusing it -- that name means "the supplier-search action
-    # got rate-limited" (business searching FOR suppliers), which is not
-    # what's happening here. This event name mirrors it for the other
-    # direction: the business-search action (supplier searching FOR
-    # businesses) getting rate-limited.
-    BUSINESS_SEARCH_RATE_LIMITED = "network.business_search_rate_limited"
-
-    # --- Supplier / Products ---
-    PRODUCT_CREATE_RATE_LIMITED = "supplier.product_create_rate_limited"
-    PRODUCT_BULK_ACTION_RATE_LIMITED = "supplier.product_bulk_action_rate_limited"
-    INVENTORY_ADJUST_RATE_LIMITED = "supplier.inventory_adjust_rate_limited"
-    MEDIA_SIGN_RATE_LIMITED = "supplier.media_sign_rate_limited"
-    PRODUCT_MEDIA_REJECTED = "supplier.product_media_rejected"
-    BULK_IMPORT_SUBMIT_RATE_LIMITED = "supplier.bulk_import_submit_rate_limited"
-    MEDIA_ORPHAN_ASSET_CLEANED = "media.orphan_asset_cleaned"
+# AuditEventName (the single flat 89-line enum every domain's events
+# used to live in together) is GONE -- moved to shared/audit/event_types/,
+# one small file per domain that actually publishes events (auth.py,
+# supplier.py, network.py, platform.py). See event_types/__init__.py's
+# own docstring for the full reasoning. Import the specific domain enum
+# directly instead (e.g. `from src.shared.audit.event_types.auth import
+# AuthAuditEvent`), or use AuditEventNameType below when a type hint
+# needs to accept any of them.
 
 
 @dataclass
@@ -203,7 +121,7 @@ class AuditEvent:
     """
 
     # --- Required: the irreducible minimum for a usable audit record ---
-    event_name: AuditEventName
+    event_name: AuditEventNameType
     domain: AuditDomain
     status: AuditStatus
 

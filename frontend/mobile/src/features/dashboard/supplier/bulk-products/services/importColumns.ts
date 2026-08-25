@@ -55,6 +55,21 @@ export const IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
     description: "How many you currently have. Leave blank to start at 0 (Out of stock until you add stock).",
   },
   {
+    header: "sku",
+    required: false,
+    description: "Your own tracking label. Leave blank and we'll generate one for you automatically.",
+  },
+  {
+    header: "description",
+    required: false,
+    description: "Plain text, e.g. \"3 loaves per case.\" Shown to businesses when they order.",
+  },
+  {
+    header: "compare_at_price",
+    required: false,
+    description: "The \"was\" price for a sale, e.g. 25.00. Must be higher than price. Leave blank if not running one.",
+  },
+  {
     header: "image_1",
     required: false,
     description: "Filename of the main photo, exactly as it appears inside your images ZIP, e.g. \"coke500.jpg\".",

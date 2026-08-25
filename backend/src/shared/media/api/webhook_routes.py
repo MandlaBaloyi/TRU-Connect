@@ -1,9 +1,21 @@
 """
-Cloudinary scan-callback webhook. NO @fully_authenticated -- Cloudinary
+Cloudinary notification webhook. NO @fully_authenticated -- Cloudinary
 itself is calling this, not a logged-in TRU Connect user. The HMAC
 signature (verified inside webhook_service.handle_scan_webhook) is the
 ONLY authorization this endpoint has, which is exactly why that
 verification is not optional and not best-effort.
+
+NAMED "notifications", NOT "scan" -- Cloudinary sends MORE THAN ONE
+kind of notification to this SAME url: an "upload" notification (fires
+the instant a file lands, before any scanning) and a real "moderation"
+notification (the actual scan verdict) both arrive here. Cloudinary
+only supports ONE configurable URL per upload -- there's no way to
+have these land on separate endpoints -- so this file's own job is
+telling them apart correctly (see webhook_service.py's own docstring
+for the dispatch side, and cloudinary_provider.py's parse_scan_result
+for where the "upload" vs "moderation" distinction actually gets made).
+A name implying "scan-only" undersold what actually flows through
+here, discovered during real device testing.
 
 Always returns 200 on anything short of a bad signature -- webhook
 senders retry aggressively on non-2xx, and retrying a webhook whose
@@ -22,8 +34,8 @@ from src.shared.media.webhooks.webhook_service import handle_scan_webhook
 media_webhooks_bp = Blueprint("media_webhooks", __name__)
 
 
-@media_webhooks_bp.route("/api/v1/media/webhooks/cloudinary-scan", methods=["POST"])
-def cloudinary_scan_callback():
+@media_webhooks_bp.route("/api/v1/media/webhooks/cloudinary-notifications", methods=["POST"])
+def cloudinary_notification_callback():
     raw_body = request.get_data(as_text=True)
     timestamp = request.headers.get("X-Cld-Timestamp", "")
     signature = request.headers.get("X-Cld-Signature", "")

@@ -13,6 +13,7 @@ from flask_jwt_extended import create_access_token
 from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.products.services import product_media_service
+from src.shared.media import folder_naming
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload
 
 
@@ -20,7 +21,7 @@ class FakeMediaProvider(MediaProvider):
     def __init__(self):
         self.deleted_public_ids: list[str] = []
 
-    def upload_asset(self, public_id, file_bytes, max_dimension_px=1600, resource_type="image"):
+    def upload_asset(self, public_id, file_bytes, max_dimension_px=1600, asset_folder="tru_connect/fake", resource_type="image"):
         from src.shared.media.providers.provider import UploadedAsset
         return UploadedAsset(
             public_id=public_id,
@@ -32,7 +33,7 @@ class FakeMediaProvider(MediaProvider):
             bytes=len(file_bytes),
         )
 
-    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600) -> SignedUpload:
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake") -> SignedUpload:
         return SignedUpload(
             cloud_name="test_cloud",
             api_key="test_key",
@@ -43,6 +44,8 @@ class FakeMediaProvider(MediaProvider):
             allowed_formats="jpg,jpeg,png,webp",
             transformation="c_limit,w_1600,h_1600,q_auto",
             notification_url="",
+            moderation="perception_point",
+            asset_folder=asset_folder,
         )
 
     def verify_webhook_signature(self, raw_body: str, timestamp: str, signature: str) -> bool:
@@ -54,6 +57,15 @@ class FakeMediaProvider(MediaProvider):
     def delete_asset(self, public_id: str) -> None:
         self.deleted_public_ids.append(public_id)
 
+    def delete_assets(self, public_ids) -> None:
+        self.deleted_public_ids.extend(public_ids)
+
+    def delete_folder(self, folder_path: str) -> None:
+        pass
+
+    def is_moderation_enabled(self) -> bool:
+        return True
+
 
 def _token_for(user, role: str) -> str:
     return create_access_token(identity=str(user.id), additional_claims={"role": role})
@@ -64,12 +76,17 @@ def _auth(user, role: str) -> dict:
 
 
 def _make_product(profile_id, **overrides):
+    from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
+    from src.domains.supplier.products.algorithms.sku_generator import generate_sku
+
     defaults = dict(
         supplier_profile_id=profile_id,
         name="Coca-Cola 500ml",
         category=ProductCategory.BEVERAGES,
         price_cents=1200,
         selling_unit=ProductUnit.EACH,
+        sku=generate_sku(profile_id),
+        product_code=generate_product_code(),
     )
     defaults.update(overrides)
     return ProductRepository.create(**defaults)
@@ -121,7 +138,7 @@ def test_register_media_via_http(client, monkeypatch, make_supplier, make_suppli
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/asset1"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/asset1"
 
     response = client.post(
         f"/api/v1/supplier-discovery/products/{product.id}/media",
@@ -178,7 +195,7 @@ def test_business_role_rejected_from_media_endpoints(client, make_business):
 
 def test_webhook_rejects_invalid_signature(client):
     response = client.post(
-        "/api/v1/media/webhooks/cloudinary-scan",
+        "/api/v1/media/webhooks/cloudinary-notifications",
         json={"public_id": "tru_connect/suppliers/x/products/y/z", "moderation_status": "approved"},
         headers={"X-Cld-Timestamp": "123", "X-Cld-Signature": "not_real"},
     )
@@ -197,7 +214,7 @@ def test_webhook_approves_media_end_to_end(client, monkeypatch, make_supplier, m
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/webhook-test"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/webhook-test"
     client.post(
         f"/api/v1/supplier-discovery/products/{product.id}/media",
         json={"cloudinary_public_id": public_id, "secure_url": "https://x/webhook-test.jpg"},
@@ -205,7 +222,7 @@ def test_webhook_approves_media_end_to_end(client, monkeypatch, make_supplier, m
     )
 
     response = client.post(
-        "/api/v1/media/webhooks/cloudinary-scan",
+        "/api/v1/media/webhooks/cloudinary-notifications",
         json={"public_id": public_id, "status": "APPROVED"},
         headers={"X-Cld-Timestamp": "123", "X-Cld-Signature": "valid_signature"},
     )

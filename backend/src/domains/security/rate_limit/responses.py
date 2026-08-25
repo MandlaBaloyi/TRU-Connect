@@ -4,8 +4,7 @@ The rate-limit-exceeded response handler.
 DOMAIN-AGNOSTIC BY DESIGN: this module never imports a specific
 domain's rate_limit/policies.py (previously it imported auth's
 directly -- that coupling is exactly what this refactor removes).
-Instead, each domain registers its own endpoint -> AuditEventName
-mapping into _AUDIT_EVENT_REGISTRY via register_audit_events(), called
+Instead, each domain registers its own endpoint -> event mapping into _AUDIT_EVENT_REGISTRY via register_audit_events(), called
 explicitly at app-boot time (see src/__init__.py's
 _register_error_handlers). security/ owns the ENGINE; each domain owns
 its own POLICY and registers into the shared engine -- the same
@@ -31,17 +30,17 @@ from flask_jwt_extended import get_jwt_identity
 from flask_limiter.errors import RateLimitExceeded
 
 from src.shared.audit import audit as shared_audit
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.audit_types import AuditEventNameType
 
 logger = logging.getLogger(__name__)
 
 # Populated by each domain's rate_limit/policies.py via
 # register_audit_events(), called explicitly during app boot -- see
 # src/__init__.py. Never populated by this module itself.
-_AUDIT_EVENT_REGISTRY: dict[str, AuditEventName] = {}
+_AUDIT_EVENT_REGISTRY: dict[str, AuditEventNameType] = {}
 
 
-def register_audit_events(mapping: dict[str, AuditEventName]) -> None:
+def register_audit_events(mapping: dict[str, AuditEventNameType]) -> None:
     """Called once per domain at app-boot time, e.g.:
 
         from src.domains.auth.rate_limit.policies import RATE_LIMIT_AUDIT_EVENTS

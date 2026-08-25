@@ -21,10 +21,10 @@ from src.shared.media.providers.provider import MediaProvider, ScanResult, Signe
 
 
 class FakeMediaProvider(MediaProvider):
-    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600) -> SignedUpload:
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake") -> SignedUpload:
         raise NotImplementedError("bulk import never uses the signed-client-upload path")
 
-    def upload_asset(self, public_id: str, file_bytes: bytes, max_dimension_px: int = 1600, resource_type: str = "image") -> UploadedAsset:
+    def upload_asset(self, public_id: str, file_bytes: bytes, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake", resource_type: str = "image") -> UploadedAsset:
         return UploadedAsset(
             public_id=public_id,
             secure_url=f"https://res.cloudinary.com/test/{public_id}.jpg",
@@ -43,6 +43,15 @@ class FakeMediaProvider(MediaProvider):
 
     def delete_asset(self, public_id: str) -> None:
         pass
+
+    def delete_assets(self, public_ids) -> None:
+        pass
+
+    def delete_folder(self, folder_path: str) -> None:
+        pass
+
+    def is_moderation_enabled(self) -> bool:
+        return True
 
 
 def _token_for(user, role: str) -> str:
@@ -243,3 +252,79 @@ def test_submit_with_real_zip_via_http(client, monkeypatch, make_supplier, make_
     data = poll.get_json()["data"]
     assert data["status"] == "COMPLETED"
     assert data["images_matched"] == 1
+
+
+def test_repeated_malicious_zips_lock_out_bulk_import_via_http(client, monkeypatch, make_supplier, make_supplier_profile):
+    """THE DECISIVE END-TO-END TEST for the lockout mechanism -- a real
+    path-traversal ZIP (never something an honest supplier's own zip
+    tool would ever produce), submitted through the REAL HTTP route,
+    MAX_VIOLATIONS times. Confirms the account genuinely gets locked
+    out of bulk import specifically -- and that everything else (this
+    test doesn't re-prove it, but the route itself never touches any
+    other feature) stays untouched, since this is a feature lock, not
+    an account lock."""
+    _synchronous_enqueue(monkeypatch)
+    from src.domains.supplier.bulk_import.services import abuse_tracking
+    from src.shared.cache.cache import cache
+
+    cache.clear()
+
+    supplier = make_supplier()
+    make_supplier_profile(supplier)
+    csv_bytes = b"name,category,price,unit,image_1\nCoca-Cola 500ml,Beverages,12.00,Each,evil.jpg\n"
+
+    def _malicious_zip() -> io.BytesIO:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("../../../etc/evil.jpg", b"data")
+        buf.seek(0)
+        return buf
+
+    for _ in range(abuse_tracking.MAX_VIOLATIONS):
+        response = client.post(
+            "/api/v1/supplier-discovery/imports",
+            data={"spreadsheet": (io.BytesIO(csv_bytes), "products.csv"), "zip": (_malicious_zip(), "images.zip")},
+            content_type="multipart/form-data",
+            headers=_auth(supplier, "supplier"),
+        )
+        # Each individual submission is still accepted (202) -- the
+        # violation is detected asynchronously, by the worker, same as
+        # every other real bulk-import failure.
+        assert response.status_code == 202
+
+    locked_response = client.post(
+        "/api/v1/supplier-discovery/imports",
+        data={"spreadsheet": (io.BytesIO(csv_bytes), "products.csv"), "zip": (_malicious_zip(), "images.zip")},
+        content_type="multipart/form-data",
+        headers=_auth(supplier, "supplier"),
+    )
+
+    assert locked_response.status_code == 403
+    assert "locked" in locked_response.get_json()["message"].lower()
+
+
+def test_ordinary_validation_errors_never_trigger_lockout_via_http(client, monkeypatch, make_supplier, make_supplier_profile):
+    """The other half of the same fix, confirmed not to have
+    regressed: a merely oversized/malformed file -- something an
+    honest supplier could genuinely produce by accident -- must NEVER
+    count toward lockout, no matter how many times it happens."""
+    _synchronous_enqueue(monkeypatch)
+    from src.shared.cache.cache import cache
+
+    cache.clear()
+
+    supplier = make_supplier()
+    make_supplier_profile(supplier)
+    csv_bytes = b"name,category,price,unit,image_1\nCoca-Cola 500ml,Beverages,12.00,Each,coke500.jpg\n"
+
+    for _ in range(5):  # comfortably past MAX_VIOLATIONS if this were (wrongly) counted
+        response = client.post(
+            "/api/v1/supplier-discovery/imports",
+            data={
+                "spreadsheet": (io.BytesIO(csv_bytes), "products.csv"),
+                "zip": (io.BytesIO(b"not a real zip file"), "images.zip"),
+            },
+            content_type="multipart/form-data",
+            headers=_auth(supplier, "supplier"),
+        )
+        assert response.status_code == 202  # still accepted every time, never locked out

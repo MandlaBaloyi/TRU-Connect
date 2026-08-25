@@ -15,6 +15,7 @@ from src.domains.supplier.products.repositories.product_media_repository import 
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.products.services import product_media_service
 from src.domains.supplier.products.services.errors import ProductNotFoundError
+from src.shared.media import folder_naming
 from src.shared.media.errors import PhotoLimitExceededError
 from src.shared.media.mixins import MediaScanStatus
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload
@@ -25,7 +26,7 @@ class FakeMediaProvider(MediaProvider):
         self.deleted_public_ids: list[str] = []
         self.signed_calls: list[str] = []
 
-    def upload_asset(self, public_id, file_bytes, max_dimension_px=1600, resource_type="image"):
+    def upload_asset(self, public_id, file_bytes, max_dimension_px=1600, asset_folder="tru_connect/fake", resource_type="image"):
         from src.shared.media.providers.provider import UploadedAsset
         return UploadedAsset(
             public_id=public_id,
@@ -37,7 +38,7 @@ class FakeMediaProvider(MediaProvider):
             bytes=len(file_bytes),
         )
 
-    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600) -> SignedUpload:
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake") -> SignedUpload:
         self.signed_calls.append(public_id)
         return SignedUpload(
             cloud_name="test_cloud",
@@ -49,6 +50,8 @@ class FakeMediaProvider(MediaProvider):
             allowed_formats="jpg,jpeg,png,webp",
             transformation="c_limit,w_1600,h_1600,q_auto",
             notification_url="",
+            moderation="perception_point",
+            asset_folder=asset_folder,
         )
 
     def verify_webhook_signature(self, raw_body: str, timestamp: str, signature: str) -> bool:
@@ -60,6 +63,15 @@ class FakeMediaProvider(MediaProvider):
     def delete_asset(self, public_id: str) -> None:
         self.deleted_public_ids.append(public_id)
 
+    def delete_assets(self, public_ids) -> None:
+        self.deleted_public_ids.extend(public_ids)
+
+    def delete_folder(self, folder_path: str) -> None:
+        pass
+
+    def is_moderation_enabled(self) -> bool:
+        return True
+
 
 @pytest.fixture()
 def fake_provider(monkeypatch):
@@ -69,12 +81,17 @@ def fake_provider(monkeypatch):
 
 
 def _make_product(profile_id, **overrides):
+    from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
+    from src.domains.supplier.products.algorithms.sku_generator import generate_sku
+
     defaults = dict(
         supplier_profile_id=profile_id,
         name="Coca-Cola 500ml",
         category=ProductCategory.BEVERAGES,
         price_cents=1200,
         selling_unit=ProductUnit.EACH,
+        sku=generate_sku(profile_id),
+        product_code=generate_product_code(),
     )
     defaults.update(overrides)
     return ProductRepository.create(**defaults)
@@ -90,7 +107,7 @@ def test_request_upload_signature_builds_scoped_public_id(fake_provider, make_su
 
     signed = product_media_service.request_upload_signature(product.id, profile.id)
 
-    assert signed.public_id.startswith(f"tru_connect/suppliers/{profile.id}/products/{product.id}/")
+    assert signed.public_id.startswith(folder_naming.supplier_product_folder(profile.id, product.id) + "/")
 
 
 def test_request_upload_signature_raises_not_found_for_other_suppliers_product(
@@ -145,7 +162,7 @@ def test_register_uploaded_media_creates_pending_row(fake_provider, make_supplie
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/abc123"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/abc123"
 
     media = product_media_service.register_uploaded_media(
         product.id, profile.id, public_id, "https://res.cloudinary.com/x/abc123.jpg", "image", "jpg", 800, 600, 50_000
@@ -177,7 +194,7 @@ def test_register_uploaded_media_rejects_and_cleans_up_oversized_file(
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/toobig"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/toobig"
     oversized_bytes = 100 * 1024 * 1024  # 100MB, well over FREE tier's 3MB max (products/tiers/free.py)
 
     with pytest.raises(PhotoLimitExceededError):
@@ -198,7 +215,7 @@ def test_apply_scan_result_approves_pending_media(fake_provider, make_supplier, 
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/scan-me"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/scan-me"
     product_media_service.register_uploaded_media(
         product.id, profile.id, public_id, "https://x/scan-me.jpg", "image", "jpg", 100, 100, 500
     )
@@ -217,7 +234,7 @@ def test_apply_scan_result_is_idempotent_does_not_reapply_to_terminal_state(
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/scan-me2"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/scan-me2"
     product_media_service.register_uploaded_media(
         product.id, profile.id, public_id, "https://x/scan-me2.jpg", "image", "jpg", 100, 100, 500
     )
@@ -240,6 +257,57 @@ def test_apply_scan_result_for_unknown_public_id_is_a_safe_no_op(fake_provider, 
     )
 
 
+def test_real_webhook_sequence_reaches_approved_not_stuck_behind_a_false_error(
+    fake_provider, make_supplier, make_supplier_profile
+):
+    """THE DECISIVE TEST for the real bug found during device testing:
+    replays the EXACT two-webhook sequence Cloudinary actually sent
+    (an "upload" notification with moderation: [{"status": "pending"}]
+    arriving first, followed seconds later by the real "moderation"
+    notification with the genuine "approved" verdict) and confirms the
+    row correctly ends up APPROVED. Before the fix, the first webhook
+    incorrectly wrote a terminal ERROR, and apply_scan_result's own
+    correct idempotency guard then blocked the second, genuine
+    approval from ever being applied -- this test would have caught
+    that regression directly."""
+    from src.shared.media.providers.cloudinary_provider import CloudinaryMediaProvider
+    from src.shared.media.config.media_config import MediaConfig
+
+    supplier = make_supplier()
+    profile = make_supplier_profile(supplier)
+    product = _make_product(profile.id)
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/real-sequence"
+    product_media_service.register_uploaded_media(
+        product.id, profile.id, public_id, "https://x/real-sequence.jpg", "image", "jpg", 600, 600, 35302
+    )
+
+    real_provider = CloudinaryMediaProvider(MediaConfig(cloud_name="x", api_key="x", api_secret="x"))
+
+    # Webhook 1 -- the real "upload" notification, arrives first.
+    upload_notification = real_provider.parse_scan_result(
+        {
+            "notification_type": "upload",
+            "public_id": public_id,
+            "moderation": [{"kind": "perception_point", "status": "pending"}],
+        }
+    )
+    product_media_service.apply_scan_result(upload_notification)
+
+    # Webhook 2 -- the real "moderation" notification, arrives seconds later.
+    moderation_notification = real_provider.parse_scan_result(
+        {
+            "notification_type": "moderation",
+            "moderation_status": "approved",
+            "moderation_kind": "perception_point",
+            "public_id": public_id,
+        }
+    )
+    product_media_service.apply_scan_result(moderation_notification)
+
+    media = ProductMediaRepository.get_by_public_id(public_id)
+    assert media.scan_status == MediaScanStatus.APPROVED.value
+
+
 def test_apply_scan_result_ignores_a_non_scan_notification_without_touching_the_row(
     fake_provider, make_supplier, make_supplier_profile
 ):
@@ -250,7 +318,7 @@ def test_apply_scan_result_ignores_a_non_scan_notification_without_touching_the_
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/scan-me"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/scan-me"
     product_media_service.register_uploaded_media(
         product.id, profile.id, public_id, "https://x/scan-me.jpg", "image", "jpg", 100, 100, 500
     )
@@ -274,7 +342,7 @@ def test_apply_scan_result_stores_a_large_real_payload_without_crashing(
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    public_id = f"tru_connect/suppliers/{profile.id}/products/{product.id}/scan-me2"
+    public_id = folder_naming.supplier_product_folder(profile.id, product.id) + "/scan-me2"
     product_media_service.register_uploaded_media(
         product.id, profile.id, public_id, "https://x/scan-me2.jpg", "image", "jpg", 100, 100, 500
     )

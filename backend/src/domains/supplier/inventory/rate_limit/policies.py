@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from flask_jwt_extended import get_jwt_identity
 
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 
 INVENTORY_ADJUST = "20 per minute"
 
@@ -23,6 +23,6 @@ def supplier_key_func() -> str:
 # inventory_bp registered directly on the app (same pattern as
 # products_bp/connections_bp) -- endpoint names are just
 # "inventory.<view_function_name>".
-RATE_LIMIT_AUDIT_EVENTS: dict[str, AuditEventName] = {
-    "inventory.adjust_stock": AuditEventName.INVENTORY_ADJUST_RATE_LIMITED,
+RATE_LIMIT_AUDIT_EVENTS: dict[str, SupplierAuditEvent] = {
+    "inventory.adjust_stock": SupplierAuditEvent.INVENTORY_ADJUST_RATE_LIMITED,
 }

@@ -97,6 +97,17 @@ class Product(BaseModel):
         # named explicitly rather than left for the query planner to
         # discover under load.
         db.Index("ix_products_supplier_profile_id_is_archived", "supplier_profile_id", "is_archived"),
+        # product_code is PLATFORM-WIDE unique -- it's the short,
+        # human-readable stand-in for this row's own UUID, shown to
+        # both the supplier and any business ordering from them (see
+        # algorithms/product_code_generator.py's own docstring).
+        db.UniqueConstraint("product_code", name="uq_products_product_code"),
+        # sku is unique per SUPPLIER, not platform-wide -- matches how
+        # SKUs actually work in the real world; every business has its
+        # own numbering, with no expectation two unrelated suppliers
+        # never reuse the same label (see algorithms/sku_generator.py's
+        # own docstring).
+        db.UniqueConstraint("supplier_profile_id", "sku", name="uq_products_supplier_profile_id_sku"),
         {"schema": "supplier"},
     )
 
@@ -111,6 +122,13 @@ class Product(BaseModel):
     # as loan_book/order_book's own amount columns throughout this
     # codebase.
     price_cents = db.Column(db.BigInteger, nullable=False)
+    # The "was RX, now RY" comparison price -- optional; a supplier
+    # running a sale/promotion sets this to what the item used to cost.
+    # ALWAYS validated (services/product_service.py) to be strictly
+    # greater than price_cents when provided -- a "discount" that's
+    # actually a markup is either a mistake or meaningless, caught at
+    # save time rather than silently published.
+    compare_at_price_cents = db.Column(db.BigInteger, nullable=True)
     selling_unit = db.Column(
         db.Enum(ProductUnit, name="product_unit", schema="supplier"), nullable=False
     )
@@ -123,3 +141,19 @@ class Product(BaseModel):
         db.Enum(ProductUnit, name="product_unit", schema="supplier"), nullable=True
     )
     is_archived = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
+    # Plain text -- "3 loaves per case", ingredients, anything a
+    # supplier wants a business to see before ordering. Optional,
+    # never required.
+    description = db.Column(db.String(1000), nullable=True)
+
+    # NEVER NULL, NEVER SUPPLIED BY A REQUEST -- both always generated
+    # server-side before a row is ever inserted (see
+    # services/product_service.py's own create_product). sku is
+    # optional TO TYPE (auto-filled via algorithms/sku_generator.py
+    # when left blank, still always ends up with a real value here);
+    # product_code is NEVER typed by anyone, always
+    # algorithms/product_code_generator.py's own output, and is never
+    # editable once set.
+    sku = db.Column(db.String(50), nullable=False)
+    product_code = db.Column(db.String(20), nullable=False)

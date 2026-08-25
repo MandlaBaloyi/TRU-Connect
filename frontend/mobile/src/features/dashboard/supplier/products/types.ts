@@ -183,6 +183,33 @@ export interface Product {
    * `images[0]` without a null check first.
    */
   images: string[];
+  /**
+   * The supplier's own tracking label -- Stock Keeping Unit. Optional
+   * to type; left blank, the backend auto-fills a stable one
+   * (SKU-0001, SKU-0002...) so every product still has something to
+   * group sales/profit/order-count by. UNIQUE PER SUPPLIER, not
+   * platform-wide -- matches how SKUs actually work in the real world.
+   * Editable, unlike productCode below.
+   */
+  sku: string;
+  /**
+   * The short, human-readable stand-in for this product's own internal
+   * id -- shown to both the supplier and any business ordering from
+   * them, in place of a UUID nobody could read aloud. ALWAYS
+   * server-generated, NEVER editable, anywhere -- this field is
+   * deliberately absent from CreateProductInput/UpdateProductInput
+   * below; there is nothing for a supplier to type, ever.
+   */
+  productCode: string;
+  /** Plain text -- ingredients, case size ("3 loaves per case"),
+   *  anything a supplier wants a business to see before ordering.
+   *  Optional, null when never set. */
+  description: string | null;
+  /** The "was RX" comparison price for a sale/promotion -- null when
+   *  not running one. Always strictly HIGHER than priceCents when set
+   *  (enforced server-side); the UI shows it crossed out next to the
+   *  real price, never the other way round. */
+  compareAtPriceCents: Cents | null;
   /** Products aren't deleted, ever -- see this field's own reasoning
    *  at CreateProductInput and the Archive flow in ProductDetailScreen.
    *  Historical orders must keep referencing a real product row. */
@@ -202,6 +229,12 @@ export interface CreateProductInput {
    *  own convention exactly, so nothing needs to change shape once
    *  Cloudinary (sub-goal 3) starts actually uploading these. */
   localImageUris: string[];
+  /** Optional -- left blank/undefined, the backend auto-generates one.
+   *  productCode is deliberately absent here: never typed, always
+   *  server-generated. See Product.sku's own docstring. */
+  sku?: string;
+  description?: string;
+  compareAtPriceCents?: Cents;
 }
 
 /**
@@ -222,6 +255,14 @@ export interface UpdateProductInput {
   priceCents: Cents;
   sellingUnit: ProductUnit;
   images: string[];
+  /** undefined means "leave the existing SKU alone" -- matches the
+   *  backend's own update_product semantics exactly (see
+   *  product_service.py's own docstring). Never re-generates a new
+   *  one on the supplier's behalf; only creating a product does that.
+   *  Still never productCode -- same reasoning as CreateProductInput. */
+  sku?: string;
+  description?: string;
+  compareAtPriceCents?: Cents;
 }
 
 /**

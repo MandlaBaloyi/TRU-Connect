@@ -10,7 +10,7 @@ import io
 from flask_jwt_extended import create_access_token
 
 from src.domains.security.audit.models.audit_event import AuditEventRecord
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 
 
 def _token_for(user, role: str) -> str:
@@ -43,7 +43,7 @@ def test_submit_import_rate_limit_is_recorded_in_audit_trail(
     assert last_response.status_code == 429
 
     record = (
-        AuditEventRecord.query.filter_by(event_name=AuditEventName.BULK_IMPORT_SUBMIT_RATE_LIMITED.value)
+        AuditEventRecord.query.filter_by(event_name=SupplierAuditEvent.BULK_IMPORT_SUBMIT_RATE_LIMITED.value)
         .order_by(AuditEventRecord.timestamp.desc())
         .first()
     )

@@ -24,7 +24,8 @@ import logging
 from datetime import datetime, timezone
 
 from src.shared.audit.audit import publish
-from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditEventName, AuditStatus
+from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 from src.shared.media.intents.repositories import MediaUploadIntentRepository
 from src.shared.media.providers.composition import get_media_provider
 from src.shared.scheduling.scheduling_types import JobResult
@@ -53,7 +54,7 @@ def run() -> JobResult:
 
         publish(
             AuditEvent(
-                event_name=AuditEventName.MEDIA_ORPHAN_ASSET_CLEANED,
+                event_name=SupplierAuditEvent.MEDIA_ORPHAN_ASSET_CLEANED,
                 domain=AuditDomain.PLATFORM,
                 status=AuditStatus.SUCCESS,
                 metadata={

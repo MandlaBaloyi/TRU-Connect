@@ -62,6 +62,8 @@ def request_media_upload_signature(product_id: str):
             "allowed_formats": signed.allowed_formats,
             "transformation": signed.transformation,
             "notification_url": signed.notification_url,
+            "moderation": signed.moderation,
+            "asset_folder": signed.asset_folder,
         }
     )
 

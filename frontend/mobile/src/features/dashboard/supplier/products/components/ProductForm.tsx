@@ -28,6 +28,7 @@ import { useTheme } from "react-native-paper";
 import type { Cents, ProductCategory, ProductUnit } from "../types";
 import { CATEGORY_OPTIONS, UNIT_OPTIONS } from "../types";
 import { formatCents, parseCentsInput } from "../services/productMapper";
+import { stripEmoji } from "../algorithms/textSanitizers";
 import { ProductPhotosField } from "./ProductPhotosField";
 import { SelectFieldModal } from "./SelectFieldModal";
 import { SelectFieldRow } from "./SelectFieldRow";
@@ -38,7 +39,20 @@ export interface ProductFormValues {
   name: string;
   category: ProductCategory;
   priceCents: Cents;
+  /** The "was RX" comparison price for a sale/promotion -- undefined
+   *  when not running one. Validated (must be higher than priceCents)
+   *  the same way on both mock and http (see productMapper.ts's own
+   *  parseCentsInput, shared with the real price field). */
+  compareAtPriceCents?: Cents;
   sellingUnit: ProductUnit;
+  /** Plain text, optional. */
+  description?: string;
+  /** Optional to type -- left blank, the backend auto-generates a
+   *  stable one. Editable on BOTH create and edit, unlike productCode
+   *  (never shown on this form at all -- see Product.productCode's
+   *  own docstring in types.ts; it doesn't exist yet at creation time,
+   *  and is never editable once it does). */
+  sku?: string;
   images: string[];
   /** Only meaningful on CREATE -- see this file's own header docstring.
    *  Undefined when editing (the field isn't rendered at all then). */
@@ -74,27 +88,58 @@ export function ProductForm({
 
   const [images, setImages] = useState<string[]>(initialValues?.images ?? []);
   const [name, setName] = useState(initialValues?.name ?? "");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
   const [category, setCategory] = useState<ProductCategory>(initialValues?.category ?? "OTHER");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [priceText, setPriceText] = useState(
     initialValues?.priceCents !== undefined ? String(initialValues.priceCents / 100) : ""
   );
+  const [compareAtPriceText, setCompareAtPriceText] = useState(
+    initialValues?.compareAtPriceCents !== undefined ? String(initialValues.compareAtPriceCents / 100) : ""
+  );
   const [sellingUnit, setSellingUnit] = useState<ProductUnit>(initialValues?.sellingUnit ?? "EACH");
   const [unitPickerOpen, setUnitPickerOpen] = useState(false);
   const [quantityText, setQuantityText] = useState("");
+  const [sku, setSku] = useState(initialValues?.sku ?? "");
 
   const priceCents = parseCentsInput(priceText);
+  // Blank is genuinely valid (no sale running) -- only parsed/validated
+  // once something's actually been typed.
+  const compareAtPriceCents = compareAtPriceText.trim() === "" ? undefined : parseCentsInput(compareAtPriceText) ?? undefined;
+  const compareAtPriceTouchedButInvalid = compareAtPriceText.trim() !== "" && compareAtPriceCents === undefined;
+  // REAL GAP FOUND DURING REVIEW: a technically-valid number (e.g. 300
+  // when price is 320) was never checked against price on THIS form at
+  // all -- it only ever got caught after a full round trip to the
+  // server. Same rule as product_service.py's own validation, checked
+  // here too so a supplier sees the problem immediately.
+  const compareAtPriceNotHigherThanPrice =
+    compareAtPriceCents !== undefined && priceCents !== null && compareAtPriceCents <= priceCents;
   const quantity = quantityText.trim() === "" ? 0 : Number.parseInt(quantityText, 10);
   const isValidQuantity = Number.isFinite(quantity) && quantity >= 0;
-  const canSubmit = name.trim().length > 0 && priceCents !== null && (!isCreating || isValidQuantity) && !isSubmitting;
+  const canSubmit =
+    name.trim().length > 0 &&
+    priceCents !== null &&
+    !compareAtPriceTouchedButInvalid &&
+    !compareAtPriceNotHigherThanPrice &&
+    (!isCreating || isValidQuantity) &&
+    !isSubmitting;
 
   const handleSubmit = () => {
-    if (priceCents === null || (isCreating && !isValidQuantity)) return;
+    if (
+      priceCents === null ||
+      compareAtPriceTouchedButInvalid ||
+      compareAtPriceNotHigherThanPrice ||
+      (isCreating && !isValidQuantity)
+    )
+      return;
     onSubmit({
       name: name.trim(),
       category,
       priceCents,
+      compareAtPriceCents,
       sellingUnit,
+      description: description.trim() || undefined,
+      sku: sku.trim() || undefined,
       images,
       startingQuantity: isCreating ? quantity : undefined,
     });
@@ -111,13 +156,34 @@ export function ProductForm({
         <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Product name</Text>
         <TextInput
           value={name}
-          onChangeText={setName}
+          onChangeText={(text) => setName(stripEmoji(text))}
           placeholder="Coca-Cola 500ml"
           placeholderTextColor={theme.colors.onSurfaceVariant}
           style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
           accessibilityLabel="Product name"
         />
         {fieldErrors.name && <Text style={[styles.error, { color: theme.colors.error }]}>{fieldErrors.name}</Text>}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Description (optional)</Text>
+        <TextInput
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. 3 loaves per case."
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          multiline
+          numberOfLines={8}
+          style={[
+            styles.input,
+            styles.multilineInput,
+            { borderColor: theme.colors.outline, color: theme.colors.onSurface },
+          ]}
+          accessibilityLabel="Description"
+        />
+        {fieldErrors.description && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{fieldErrors.description}</Text>
+        )}
       </View>
 
       <SelectFieldRow
@@ -145,11 +211,56 @@ export function ProductForm({
         )}
       </View>
 
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Compare-at price (optional)</Text>
+        <TextInput
+          value={compareAtPriceText}
+          onChangeText={setCompareAtPriceText}
+          placeholder={'e.g. R 25.00 -- shown crossed out as "was RX"'}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          keyboardType="decimal-pad"
+          style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
+          accessibilityLabel="Compare-at price"
+        />
+        {compareAtPriceText.length > 0 && compareAtPriceCents !== undefined && (
+          <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>{formatCents(compareAtPriceCents)}</Text>
+        )}
+        {compareAtPriceTouchedButInvalid && !fieldErrors.compareAtPriceCents && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>Enter a valid amount.</Text>
+        )}
+        {compareAtPriceNotHigherThanPrice && !fieldErrors.compareAtPriceCents && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>
+            Compare-at price must be higher than the actual price to show as a discount.
+          </Text>
+        )}
+        {fieldErrors.compareAtPriceCents && (
+          <Text style={[styles.error, { color: theme.colors.error }]}>{fieldErrors.compareAtPriceCents}</Text>
+        )}
+      </View>
+
       <SelectFieldRow
         label="Sold as"
         valueLabel={labelFor(UNIT_OPTIONS, sellingUnit)}
         onPress={() => setUnitPickerOpen(true)}
       />
+
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>SKU (optional)</Text>
+        <TextInput
+          value={sku}
+          onChangeText={(text) => setSku(stripEmoji(text))}
+          placeholder="Leave blank to auto-generate"
+          placeholderTextColor={theme.colors.onSurfaceVariant}
+          autoCapitalize="characters"
+          style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
+          accessibilityLabel="SKU"
+        />
+        <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+          Your own tracking label -- used to see which products sell the most. Leave blank and we'll generate one for
+          you.
+        </Text>
+        {fieldErrors.sku && <Text style={[styles.error, { color: theme.colors.error }]}>{fieldErrors.sku}</Text>}
+      </View>
 
       {isCreating && (
         <View style={styles.field}>
@@ -219,6 +330,7 @@ const styles = StyleSheet.create({
   field: { gap: spacing.sm },
   label: { ...typography.bodySmall },
   input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, minHeight: 48, ...typography.body },
+  multilineInput: { paddingTop: spacing.sm, textAlignVertical: "top", minHeight: 140 },
   hint: { ...typography.caption },
   error: { ...typography.bodySmall },
   submit: { minHeight: 52, alignItems: "center", justifyContent: "center", borderRadius: radius.md },

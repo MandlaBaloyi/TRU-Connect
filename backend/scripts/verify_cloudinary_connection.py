@@ -59,21 +59,33 @@ def main() -> int:
     # 1600px matches products/tiers/*.py's own stored_max_dimension_px
     # default -- this script exercises the exact same ingest-time
     # compression every real product photo upload will use.
-    signed = provider.generate_signed_upload(public_id, max_dimension_px=1600)
+    signed = provider.generate_signed_upload(public_id, max_dimension_px=1600, asset_folder=public_id.rsplit("/", 1)[0])
     print(f"  signature: {signed.signature[:12]}... (truncated)")
     print(f"  upload_url: {signed.upload_url}")
 
     print("Uploading a real test image directly to Cloudinary (bypassing this backend, as designed)...")
+    body = {
+        "api_key": signed.api_key,
+        "timestamp": signed.timestamp,
+        "signature": signed.signature,
+        "public_id": signed.public_id,
+        "allowed_formats": signed.allowed_formats,
+        "transformation": signed.transformation,
+        "asset_folder": signed.asset_folder,
+    }
+    # notification_url/moderation are only ever SIGNED when actually
+    # configured (see cloudinary_provider.py's own docstring) -- must
+    # be included here ONLY when non-empty, or this request stops
+    # matching what was actually signed and Cloudinary rejects it as
+    # an invalid signature.
+    if signed.notification_url:
+        body["notification_url"] = signed.notification_url
+    if signed.moderation:
+        body["moderation"] = signed.moderation
+
     response = requests.post(
         signed.upload_url,
-        data={
-            "api_key": signed.api_key,
-            "timestamp": signed.timestamp,
-            "signature": signed.signature,
-            "public_id": signed.public_id,
-            "allowed_formats": signed.allowed_formats,
-            "transformation": signed.transformation,
-        },
+        data=body,
         files={"file": ("test.png", TEST_IMAGE_BYTES, "image/png")},
         timeout=30,
     )
