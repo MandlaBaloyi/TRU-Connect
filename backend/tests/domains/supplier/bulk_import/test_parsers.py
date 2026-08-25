@@ -110,6 +110,92 @@ class TestRowValidator:
         category_error = next(e for e in row.errors if e.field == "category")
         assert "Did you mean" not in category_error.message
 
+    # --- sku / description / compare_at_price -- all genuinely optional ---
+
+    def test_sku_description_compare_at_price_are_all_optional(self):
+        row = validate_row(
+            {"name": "Bread", "category": "Bakery", "price": "18.50", "unit": "Each"}, row_number=2
+        )
+
+        assert row.is_valid
+        assert row.sku is None
+        assert row.description is None
+        assert row.compare_at_price_cents is None
+
+    def test_sku_is_passed_through_when_provided(self):
+        row = validate_row(
+            {"name": "Bread", "category": "Bakery", "price": "18.50", "unit": "Each", "sku": "BREAD-CASE-24"},
+            row_number=2,
+        )
+
+        assert row.is_valid
+        assert row.sku == "BREAD-CASE-24"
+
+    def test_description_is_passed_through_when_provided(self):
+        row = validate_row(
+            {
+                "name": "Bread",
+                "category": "Bakery",
+                "price": "18.50",
+                "unit": "Each",
+                "description": "3 loaves per case.",
+            },
+            row_number=2,
+        )
+
+        assert row.is_valid
+        assert row.description == "3 loaves per case."
+
+    def test_compare_at_price_is_parsed_when_valid_and_higher_than_price(self):
+        row = validate_row(
+            {
+                "name": "Bread",
+                "category": "Bakery",
+                "price": "18.50",
+                "unit": "Each",
+                "compare_at_price": "25.00",
+            },
+            row_number=2,
+        )
+
+        assert row.is_valid
+        assert row.compare_at_price_cents == 2500
+
+    def test_compare_at_price_below_price_is_a_real_row_error(self):
+        """Same rule as the single-product form's own validation --
+        caught here too so a supplier sees this in the PREVIEW, before
+        ever submitting."""
+        row = validate_row(
+            {
+                "name": "Bread",
+                "category": "Bakery",
+                "price": "18.50",
+                "unit": "Each",
+                "compare_at_price": "10.00",
+            },
+            row_number=2,
+        )
+
+        assert not row.is_valid
+        error = next(e for e in row.errors if e.field == "compare_at_price")
+        assert "higher than the actual price" in error.message
+
+    def test_invalid_compare_at_price_text_is_a_real_row_error(self):
+        row = validate_row(
+            {
+                "name": "Bread",
+                "category": "Bakery",
+                "price": "18.50",
+                "unit": "Each",
+                "compare_at_price": "not a number",
+            },
+            row_number=2,
+        )
+
+        assert not row.is_valid
+        error = next(e for e in row.errors if e.field == "compare_at_price")
+        assert "Invalid compare-at price" in error.message
+
 
 class TestParseCsv:
     def test_parses_real_csv_correctly(self):

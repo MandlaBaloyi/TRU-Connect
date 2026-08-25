@@ -29,7 +29,13 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { bulkAdjustPrice, bulkArchiveProducts } from "../../products/api/productsApi";
+import {
+  bulkAdjustPrice,
+  bulkArchiveProducts,
+  bulkDeleteProducts,
+  bulkSetDiscount,
+  bulkUnarchiveProducts,
+} from "../../products/api/productsApi";
 import { productsKeys } from "../../products/hooks";
 import type { PriceAdjustment } from "../types";
 import { useCurrentUserId } from "./useCurrentUserId";
@@ -48,15 +54,37 @@ export function useBulkProductActions() {
     onSuccess: invalidateAll,
   });
 
+  const setDiscountMutation = useMutation({
+    mutationFn: ({ productIds, discountPercent }: { productIds: string[]; discountPercent: number }) =>
+      bulkSetDiscount(productIds, discountPercent),
+    onSuccess: invalidateAll,
+  });
+
   const archiveMutation = useMutation({
     mutationFn: (productIds: string[]) => bulkArchiveProducts(productIds),
+    onSuccess: invalidateAll,
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: (productIds: string[]) => bulkUnarchiveProducts(productIds),
+    onSuccess: invalidateAll,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (productIds: string[]) => bulkDeleteProducts(productIds),
     onSuccess: invalidateAll,
   });
 
   return {
     bulkAdjustPrice: adjustPriceMutation.mutateAsync,
     isBulkAdjustingPrice: adjustPriceMutation.isPending,
+    bulkSetDiscount: setDiscountMutation.mutateAsync,
+    isBulkSettingDiscount: setDiscountMutation.isPending,
     bulkArchive: archiveMutation.mutateAsync,
     isBulkArchiving: archiveMutation.isPending,
+    bulkUnarchive: unarchiveMutation.mutateAsync,
+    isBulkUnarchiving: unarchiveMutation.isPending,
+    bulkDelete: deleteMutation.mutateAsync,
+    isBulkDeleting: deleteMutation.isPending,
   };
 }

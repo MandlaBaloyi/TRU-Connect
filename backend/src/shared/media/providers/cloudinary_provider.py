@@ -37,9 +37,10 @@ either wasteful or visibly degraded.
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import List, Optional
 
 import cloudinary
+import cloudinary.api
 import cloudinary.uploader
 import cloudinary.utils
 
@@ -57,7 +58,38 @@ ALLOWED_IMAGE_FORMATS = ("jpg", "jpeg", "png", "webp")
 
 
 def _incoming_transformation(max_dimension_px: int) -> str:
+    """For generate_signed_upload ONLY -- this string is sent as a raw
+    HTTP multipart form field, straight to Cloudinary's own upload
+    endpoint, and Cloudinary's server parses THIS EXACT SHORTHAND
+    SYNTAX natively and correctly. Never pass this string into the
+    Python SDK's own uploader.upload() -- see
+    _incoming_transformation_dict's own docstring for why that's a
+    completely different, incompatible code path."""
     return f"c_limit,w_{max_dimension_px},h_{max_dimension_px},q_auto"
+
+
+def _incoming_transformation_dict(max_dimension_px: int) -> dict:
+    """For upload_asset (the Python SDK call) ONLY -- REAL BUG FOUND
+    DURING DEVICE TESTING, confirmed directly against the installed
+    SDK's own source: cloudinary.utils.build_upload_params() feeds
+    whatever's passed as `transformation` through
+    generate_transformation_string(), which treats a PLAIN STRING as
+    the NAME of a saved, pre-registered transformation preset (visible
+    in the SDK's own output as a "t_" prefix) -- NOT as inline
+    parameter shorthand. Since no preset is ever actually registered
+    with that name, Cloudinary correctly rejected every server-side
+    upload with "Unknown transformation c_limit". A dict is the SDK's
+    own documented, correct input shape for inline parameters; it
+    takes an entirely different, correct branch inside
+    generate_transformation_string() that builds the exact same
+    c_limit/w/h/q_auto shorthand generate_signed_upload's own string
+    already produces directly. Confirmed directly against the
+    installed SDK before this fix, not assumed:
+    generate_transformation_string(transformation=<this dict>) really
+    does produce a valid "c_limit,h_X,q_auto,w_X" string; the plain-
+    string form really did produce a broken "t_c_limit,w_X,h_X,q_auto"
+    named-transformation lookup instead."""
+    return {"crop": "limit", "width": max_dimension_px, "height": max_dimension_px, "quality": "auto"}
 
 
 class CloudinaryMediaProvider(MediaProvider):
@@ -70,7 +102,7 @@ class CloudinaryMediaProvider(MediaProvider):
             secure=True,
         )
 
-    def generate_signed_upload(self, public_id: str, max_dimension_px: int) -> SignedUpload:
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int, asset_folder: str) -> SignedUpload:
         allowed_formats = ",".join(ALLOWED_IMAGE_FORMATS)
         transformation = _incoming_transformation(max_dimension_px)
         params = {
@@ -78,6 +110,12 @@ class CloudinaryMediaProvider(MediaProvider):
             "public_id": public_id,
             "allowed_formats": allowed_formats,
             "transformation": transformation,
+            # Genuinely independent from public_id's own path (see
+            # this method's own docstring / folder_naming.py) -- the
+            # real fix for uploads never appearing in Cloudinary's
+            # browsable Folders tree despite being fully find-able by
+            # search.
+            "asset_folder": asset_folder,
         }
         notification_url = self._config.notification_url
         if notification_url:
@@ -86,6 +124,15 @@ class CloudinaryMediaProvider(MediaProvider):
             # then rejected by Cloudinary as an invalid callback URL)
             # if included unconditionally.
             params["notification_url"] = notification_url
+
+        # Cloudinary's own documented mechanism, confirmed directly
+        # against their docs: installing the Perception Point add-on
+        # alone does NOT scan anything -- every upload has to
+        # explicitly request it via this parameter, or Cloudinary just
+        # stores the file normally with no scan at all.
+        moderation = "perception_point" if self.is_moderation_enabled() else ""
+        if moderation:
+            params["moderation"] = moderation
 
         signed = cloudinary.utils.sign_request(dict(params), {})
         return SignedUpload(
@@ -98,20 +145,24 @@ class CloudinaryMediaProvider(MediaProvider):
             allowed_formats=allowed_formats,
             transformation=transformation,
             notification_url=notification_url,
+            moderation=moderation,
+            asset_folder=asset_folder,
         )
 
     def upload_asset(
-        self, public_id: str, file_bytes: bytes, max_dimension_px: int, resource_type: str = "image"
+        self, public_id: str, file_bytes: bytes, max_dimension_px: int, asset_folder: str, resource_type: str = "image"
     ) -> UploadedAsset:
-        upload_kwargs = {}
+        upload_kwargs = {"asset_folder": asset_folder}
         if self._config.notification_url:
             upload_kwargs["notification_url"] = self._config.notification_url
+        if self.is_moderation_enabled():
+            upload_kwargs["moderation"] = "perception_point"
 
         result = cloudinary.uploader.upload(
             file_bytes,
             public_id=public_id,
             resource_type=resource_type,
-            transformation=_incoming_transformation(max_dimension_px),
+            transformation=_incoming_transformation_dict(max_dimension_px),
             **upload_kwargs,
         )
         return UploadedAsset(
@@ -123,6 +174,9 @@ class CloudinaryMediaProvider(MediaProvider):
             height=result.get("height"),
             bytes=result.get("bytes"),
         )
+
+    def is_moderation_enabled(self) -> bool:
+        return self._config.moderation_enabled
 
     def verify_webhook_signature(self, raw_body: str, timestamp: str, signature: str) -> bool:
         if not timestamp or not signature:
@@ -152,6 +206,23 @@ class CloudinaryMediaProvider(MediaProvider):
             if isinstance(moderation, list) and moderation:
                 raw_status = moderation[0].get("status")
 
+        # REAL BUG FOUND DURING DEVICE TESTING, CONFIRMED AGAINST A
+        # REAL PAYLOAD BEFORE THIS FIX -- Cloudinary's "upload"
+        # notification carries its own moderation array with
+        # status: "pending" (scanning has been QUEUED, not completed).
+        # Previously, that "pending" value flowed straight into the
+        # status_map lookup below, matched nothing, and fell to the
+        # ERROR default -- a real, false verdict written to the
+        # database SECONDS BEFORE the genuine "moderation" notification
+        # (the real "approved"/"rejected" result) ever arrives. Because
+        # apply_scan_result's own idempotency guard correctly refuses
+        # to overwrite an already-terminal status, that false ERROR
+        # permanently blocked the real result from ever being applied.
+        # "pending" is never a real verdict in ANY payload shape --
+        # checked before anything else, unconditionally.
+        if raw_status is not None and raw_status.lower() == "pending":
+            return ScanResult(public_id=public_id, status="IGNORED", provider="cloudinary", raw_result=str(payload))
+
         # CONFIRMED WITH A REAL PAYLOAD DURING DEVICE TESTING, NOT
         # ASSUMED -- Cloudinary calls the SAME notification_url for its
         # "upload" notification (fires the instant the file lands,
@@ -174,3 +245,26 @@ class CloudinaryMediaProvider(MediaProvider):
 
     def delete_asset(self, public_id: str) -> None:
         cloudinary.uploader.destroy(public_id)
+
+    # Cloudinary's own Admin API caps how many public_ids a single
+    # delete_resources call accepts. Chunked defensively at a
+    # conservative value regardless of the exact live limit, rather
+    # than assume today's number holds forever -- a single product's
+    # own photo count (2/3/5 by tier) will never come close to this in
+    # practice; this exists for genuine robustness, not because it's
+    # expected to matter often.
+    _DELETE_RESOURCES_BATCH_SIZE = 100
+
+    def delete_assets(self, public_ids: List[str]) -> None:
+        if not public_ids:
+            return
+        for start in range(0, len(public_ids), self._DELETE_RESOURCES_BATCH_SIZE):
+            chunk = public_ids[start : start + self._DELETE_RESOURCES_BATCH_SIZE]
+            cloudinary.api.delete_resources(chunk)
+
+    def delete_folder(self, folder_path: str) -> None:
+        # Confirmed directly against the real SDK's own docstring
+        # during review: the folder must ALREADY be empty. Callers
+        # (the deleted-product sweep) always call delete_assets for
+        # everything inside first.
+        cloudinary.api.delete_folder(folder_path)

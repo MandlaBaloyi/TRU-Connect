@@ -39,7 +39,10 @@ export default function EditProductScreen() {
         name: values.name,
         category: values.category,
         priceCents: values.priceCents,
+        compareAtPriceCents: values.compareAtPriceCents,
         sellingUnit: values.sellingUnit,
+        description: values.description,
+        sku: values.sku,
         images: values.images,
       });
       router.back();
@@ -79,7 +82,10 @@ export default function EditProductScreen() {
           name: product.name,
           category: product.category,
           priceCents: product.priceCents,
+          compareAtPriceCents: product.compareAtPriceCents ?? undefined,
           sellingUnit: product.sellingUnit,
+          description: product.description ?? undefined,
+          sku: product.sku,
           images: product.images,
         }}
         onSubmit={handleSubmit}

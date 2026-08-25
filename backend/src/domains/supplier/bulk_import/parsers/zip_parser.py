@@ -64,7 +64,20 @@ ALLOWED_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 class UnsafeZipError(Exception):
     """Raised for anything this parser refuses to process -- the
     caller (bulk_import's own validator/service) turns this into a
-    clear, whole-file-level import error, never a 500."""
+    clear, whole-file-level import error, never a 500.
+
+    is_malicious IS DELIBERATELY FALSE BY DEFAULT, TRUE ONLY AT THE TWO
+    RAISE SITES BELOW WHERE THERE IS NO PLAUSIBLE HONEST CAUSE -- path
+    traversal and a suspicious compression ratio. Everything else
+    (too many files, a single file over the size ceiling, total size
+    too large, a corrupted zip) could genuinely happen to an honest
+    supplier with a large real catalog or a bad upload -- see
+    services/abuse_tracking.py's own docstring for the full reasoning
+    on why only these two count toward a lockout."""
+
+    def __init__(self, message: str, is_malicious: bool = False):
+        super().__init__(message)
+        self.is_malicious = is_malicious
 
 
 @dataclass(frozen=True)
@@ -112,7 +125,7 @@ def inspect_zip(file_path: str) -> List[ZipImageEntry]:
             # inspect-only stage, just used as the anchor for the
             # realpath check).
             if not _is_safe_member_path("/tmp/tru_connect_zip_sandbox", info.filename):
-                raise UnsafeZipError(f"Unsafe file path inside ZIP: {info.filename!r}")
+                raise UnsafeZipError(f"Unsafe file path inside ZIP: {info.filename!r}", is_malicious=True)
 
             # macOS's own __MACOSX metadata folder and hidden files --
             # never real image content, always skipped, same rule the
@@ -130,7 +143,9 @@ def inspect_zip(file_path: str) -> List[ZipImageEntry]:
             if info.compress_size > 0:
                 ratio = info.file_size / info.compress_size
                 if ratio > MAX_COMPRESSION_RATIO:
-                    raise UnsafeZipError(f"{basename} has a suspicious compression ratio -- refusing to extract.")
+                    raise UnsafeZipError(
+                        f"{basename} has a suspicious compression ratio -- refusing to extract.", is_malicious=True
+                    )
 
             total_uncompressed += info.file_size
             if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES:

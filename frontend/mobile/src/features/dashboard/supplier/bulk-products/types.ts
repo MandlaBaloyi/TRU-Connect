@@ -100,6 +100,18 @@ export interface ParsedImportRow {
    *  null -- see importColumns.ts's own docstring for why a text
    *  "stock" status was retired in favour of this. */
   quantity: number | null;
+  /** Optional -- null when the cell was left blank. Left blank, the
+   *  backend auto-generates one on import (see productMapper.ts's own
+   *  sibling sku docstring on Product for the full reasoning); this
+   *  file never generates one itself, since uniqueness can only be
+   *  checked against the real database, not client-side. */
+  sku: string | null;
+  description: string | null;
+  /** The "was RX" comparison price -- null when the cell was blank
+   *  (no sale running). Validated here the same way the single-
+   *  product form does (must be higher than priceCents), so a
+   *  supplier sees this in the PREVIEW, before ever submitting. */
+  compareAtPriceCents: Cents | null;
   /** From image_1/image_2/image_3 columns, blanks dropped, ORDERED
    *  pairs of (which column, what filename) -- not a flat string[],
    *  because filtering out blank cells would otherwise make position

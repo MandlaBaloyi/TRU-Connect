@@ -64,9 +64,11 @@ def _to_dto(item: dict) -> dict:
             "name": product.name,
             "category": product.category.value,
             "price_cents": product.price_cents,
+            "compare_at_price_cents": product.compare_at_price_cents,
             "selling_unit": product.selling_unit.value,
             "images": product_media_service.list_approved_media(product.id),
             "is_archived": product.is_archived,
+            "product_code": product.product_code,
         },
         "inventory": {
             "id": str(inventory.id),

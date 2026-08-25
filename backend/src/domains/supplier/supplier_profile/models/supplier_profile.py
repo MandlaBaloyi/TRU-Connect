@@ -130,6 +130,15 @@ class SupplierProfile(BaseModel):
         default=PhotoVisibility.CONNECTIONS,
     )
 
+    # The next number products/algorithms/sku_generator.py will issue
+    # for this supplier -- starts at 1, so the first auto-generated SKU
+    # is SKU-0001. Deliberately its own dedicated counter, never
+    # derived by counting or parsing existing products' SKU text (a
+    # supplier's own custom-typed SKU could be anything and must never
+    # influence what number comes next). Only ever moves forward, never
+    # decremented or reused, even if a product is later deleted.
+    next_sku_sequence = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+
     def to_search_result_dict(self) -> dict:
         """The PRIVACY-NARROWED shape for a search result row -- see
         file.txt §4: enough to recognise the supplier, never the full

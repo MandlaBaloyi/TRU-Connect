@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.services.product_service import MAX_DESCRIPTION_LENGTH, MAX_SKU_LENGTH
 
 IMAGE_COLUMN_HEADERS = ["image_1", "image_2", "image_3", "image_4", "image_5"]
 
@@ -141,6 +142,9 @@ class ParsedRow:
     price_cents: Optional[int]
     selling_unit: Optional[ProductUnit]
     quantity: Optional[int]
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    compare_at_price_cents: Optional[int] = None
     image_references: List[ImageReference] = field(default_factory=list)
     errors: List[RowError] = field(default_factory=list)
 
@@ -191,6 +195,37 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
     if quantity_error:
         errors.append(RowError("quantity", quantity_error))
 
+    # sku/description/compare_at_price are ALL optional -- same "leave
+    # it blank if you don't need it" pattern as quantity and the image
+    # columns. sku's own uniqueness is checked later, when the row
+    # actually reaches product_service.create_product (see
+    # import_worker.py) -- this validator only checks shape (length),
+    # the same split every other field here already follows.
+    sku_raw = raw.get("sku", "").strip()
+    sku = sku_raw or None
+    if sku and len(sku) > MAX_SKU_LENGTH:
+        errors.append(RowError("sku", f"SKU must be {MAX_SKU_LENGTH} characters or fewer."))
+
+    description_raw = raw.get("description", "").strip()
+    description = description_raw or None
+    if description and len(description) > MAX_DESCRIPTION_LENGTH:
+        errors.append(RowError("description", f"Description must be {MAX_DESCRIPTION_LENGTH} characters or fewer."))
+
+    compare_at_price_raw = raw.get("compare_at_price", "").strip()
+    compare_at_price_cents = None
+    if compare_at_price_raw:
+        compare_at_price_cents = parse_cents_input(compare_at_price_raw)
+        if compare_at_price_cents is None:
+            errors.append(RowError("compare_at_price", f'Invalid compare-at price: "{compare_at_price_raw}".'))
+        elif price_cents is not None and compare_at_price_cents <= price_cents:
+            # Same rule as the single-product form's own validation
+            # (product_service.py) -- caught here too so a supplier
+            # sees this in the PREVIEW, before ever submitting, instead
+            # of only discovering it after the real import runs.
+            errors.append(
+                RowError("compare_at_price", "Compare-at price must be higher than the actual price to show as a discount.")
+            )
+
     image_references = [
         ImageReference(column=col, filename=raw.get(col, "").strip())
         for col in IMAGE_COLUMN_HEADERS
@@ -205,6 +240,9 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         price_cents=price_cents,
         selling_unit=selling_unit,
         quantity=quantity,
+        sku=sku,
+        description=description,
+        compare_at_price_cents=compare_at_price_cents,
         image_references=image_references,
         errors=errors,
     )

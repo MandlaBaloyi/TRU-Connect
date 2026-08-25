@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
+from src.domains.supplier.products.models.product import Product
 from src.domains.supplier.products.models.product_media import ProductMedia
 from src.extensions import db
 from src.shared.media.mixins import MediaScanStatus
@@ -100,3 +101,31 @@ class ProductMediaRepository:
             ProductMedia.is_deleted.is_(False),
             ProductMedia.created_at < older_than,
         ).all()
+
+    @staticmethod
+    def list_media_for_deleted_products_older_than(cutoff: datetime) -> List[ProductMedia]:
+        """The deleted-product Cloudinary cleanup sweep's own query
+        (see products/jobs/deleted_product_media_sweep.py) -- every
+        NOT-YET-CLEANED-UP media row (is_deleted=False on the media
+        itself) belonging to a product that's been soft-deleted for at
+        least the configured grace period. Once a media row's real
+        Cloudinary asset is deleted, THIS row is also soft-deleted --
+        that tracks "cleaned up", independent of whatever its own
+        scan_status was (approved/rejected/pending all get cleaned up
+        the same way once the parent product is gone).
+
+        ORDERED BY Product.deleted_at, oldest first -- meaningful now
+        that the sweep caps how many PRODUCTS it processes per run
+        (see the sweep's own MAX_PRODUCTS_PER_RUN docstring): whatever
+        doesn't fit in this run's cap should be whatever's been
+        waiting the SHORTEST time, not an arbitrary DB-decided order."""
+        return (
+            ProductMedia.query.join(Product, ProductMedia.product_id == Product.id)
+            .filter(
+                ProductMedia.is_deleted.is_(False),
+                Product.is_deleted.is_(True),
+                Product.deleted_at < cutoff,
+            )
+            .order_by(Product.deleted_at.asc())
+            .all()
+        )

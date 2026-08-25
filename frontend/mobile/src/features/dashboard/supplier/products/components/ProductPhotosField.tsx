@@ -51,24 +51,37 @@ async function pickFromCamera(): Promise<string | null> {
     Alert.alert("Camera access needed", "Allow camera access to take a photo.");
     return null;
   }
-  const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
+  // No allowsEditing -- see this file's own docstring. A forced crop
+  // step before every single photo was confusing (unclear which
+  // button actually finished the upload) and redundant: the backend
+  // already fits every photo to a consistent size on ingest, so
+  // nothing here needs the supplier to manually crop anything first.
+  const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
   if (result.canceled || result.assets.length === 0) return null;
   return result.assets[0].uri;
 }
 
-async function pickFromLibrary(): Promise<string | null> {
+async function pickFromLibrary(remainingSlots: number): Promise<string[]> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     Alert.alert("Photo library access needed", "Allow photo library access to choose a photo.");
-    return null;
+    return [];
   }
+  // MULTI-SELECT, CAPPED AT WHATEVER'S ACTUALLY LEFT -- the real fix:
+  // previously this only ever returned one photo, forcing a supplier
+  // to reopen "Add" once per photo even though the surrounding
+  // component already knows and displays the real tier limit. The
+  // native picker enforces selectionLimit itself -- once reached, it
+  // simply won't let a further photo be tapped, so nothing here needs
+  // to reject an over-selection after the fact.
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     quality: 0.8,
-    allowsEditing: true,
+    allowsMultipleSelection: true,
+    selectionLimit: remainingSlots,
   });
-  if (result.canceled || result.assets.length === 0) return null;
-  return result.assets[0].uri;
+  if (result.canceled) return [];
+  return result.assets.map((asset) => asset.uri);
 }
 
 const TILE_SIZE = 88;
@@ -77,6 +90,8 @@ export function ProductPhotosField({ localImageUris, onChange, tier = "FREE" }: 
   const theme = useTheme();
   const limit = getPhotoLimit(tier);
   const atLimit = localImageUris.length >= limit;
+
+  const remainingSlots = limit - localImageUris.length;
 
   const openAddPicker = () => {
     Alert.alert("Add product photo", undefined, [
@@ -90,8 +105,8 @@ export function ProductPhotosField({ localImageUris, onChange, tier = "FREE" }: 
       {
         text: "Choose from Library",
         onPress: async () => {
-          const uri = await pickFromLibrary();
-          if (uri) onChange([...localImageUris, uri]);
+          const uris = await pickFromLibrary(remainingSlots);
+          if (uris.length > 0) onChange([...localImageUris, ...uris]);
         },
       },
       { text: "Cancel", style: "cancel" },

@@ -72,7 +72,18 @@ export interface InventoryItem {
  * at the API layer from two separate underlying resources.
  */
 export interface InventoryListItem {
-  product: Pick<Product, "id" | "name" | "category" | "priceCents" | "sellingUnit" | "images" | "isArchived">;
+  product: Pick<
+    Product,
+    | "id"
+    | "name"
+    | "category"
+    | "priceCents"
+    | "compareAtPriceCents"
+    | "sellingUnit"
+    | "images"
+    | "isArchived"
+    | "productCode"
+  >;
   inventory: InventoryItem;
   status: InventoryStatus;
   availableQuantity: number;

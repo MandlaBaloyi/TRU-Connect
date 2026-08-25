@@ -19,7 +19,9 @@
  * comes from POLLING getImportJob, never from this call's own
  * response.
  */
-import { apiGet, apiPost } from "@/services/api/apiClient";
+import { API_BASE_URL, STORAGE_KEYS } from "@/constants/config";
+import { apiGet, ApiError } from "@/services/api/apiClient";
+import { secureStorage } from "@/services/storage/secureStorage";
 
 import type { ImportJob, ImportJobError, ImportJobStatus, ParsedImportFile } from "../types";
 import type { PickedFile } from "../services/importSession";
@@ -94,14 +96,42 @@ export async function submitImport(
     } as unknown as Blob);
   }
 
-  // NO explicit Content-Type header here -- axios derives the correct
-  // "multipart/form-data; boundary=..." header itself from the
-  // FormData object. Setting Content-Type manually (a common mistake)
-  // would override that with a boundary-less value, and Flask/
-  // Werkzeug can't parse a multipart body without its boundary --
-  // request.files would silently come back empty.
-  const data = await apiPost<ApiImportJob>("/supplier-discovery/imports", formData);
-  return fromApiImportJob(data);
+  // REAL BUG FOUND DURING DEVICE TESTING: this used to go through
+  // apiPost (axios). A confirmed, long-standing axios bug
+  // (axios/axios#1321 -- "Axios don't send form data in react-native")
+  // silently drops a FormData file appended with React Native's own
+  // {uri, name, type} shape -- the request still goes through and
+  // looks fine, but the backend's own request.files.get("spreadsheet")
+  // comes back empty. cloudinaryUpload.ts's own direct-to-Cloudinary
+  // upload has always used raw fetch() instead, and has worked
+  // correctly every single time it's been tested -- this switches to
+  // that same proven mechanism rather than trying to work around
+  // axios's own bug.
+  //
+  // Auth and the response envelope are normally handled automatically
+  // by apiClient's own interceptors -- both are done by hand here
+  // since this bypasses axios entirely.
+  const token = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  const response = await fetch(`${API_BASE_URL}/supplier-discovery/imports`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    // NO explicit Content-Type -- same reasoning as cloudinaryUpload.ts:
+    // fetch derives the correct "multipart/form-data; boundary=..."
+    // header itself from the FormData object.
+    body: formData,
+  });
+
+  const envelope = await response.json();
+  if (!response.ok || !envelope.success) {
+    throw new ApiError(
+      envelope.message || "Couldn't start the import. Check your connection.",
+      response.status,
+      envelope.errors ?? [],
+      envelope.code
+    );
+  }
+
+  return fromApiImportJob(envelope.data);
 }
 
 export async function getImportJob(jobId: string): Promise<ImportJob> {

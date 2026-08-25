@@ -27,7 +27,10 @@ import openpyxl
 from src.domains.supplier.bulk_import.validators.row_validator import IMAGE_COLUMN_HEADERS, ParsedRow, validate_row
 
 REQUIRED_COLUMNS = ["name", "category", "price", "unit"]
-KNOWN_COLUMNS = REQUIRED_COLUMNS + ["quantity"] + IMAGE_COLUMN_HEADERS
+# sku/description/compare_at_price are OPTIONAL -- same "leave it
+# blank if you don't need it" pattern as quantity and the image
+# columns, never added to REQUIRED_COLUMNS.
+KNOWN_COLUMNS = REQUIRED_COLUMNS + ["quantity", "sku", "description", "compare_at_price"] + IMAGE_COLUMN_HEADERS
 
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20MB -- a spreadsheet this large is already suspicious
 MAX_ROWS = 10_000

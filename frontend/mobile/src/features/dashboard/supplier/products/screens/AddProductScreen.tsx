@@ -38,7 +38,10 @@ export default function AddProductScreen() {
         name: values.name,
         category: values.category,
         priceCents: values.priceCents,
+        compareAtPriceCents: values.compareAtPriceCents,
         sellingUnit: values.sellingUnit,
+        description: values.description,
+        sku: values.sku,
         localImageUris: values.images,
       });
 

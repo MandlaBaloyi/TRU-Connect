@@ -29,9 +29,11 @@ interface ApiInventoryListItem {
     name: string;
     category: string;
     price_cents: number;
+    compare_at_price_cents: number | null;
     selling_unit: string;
     images: string[];
     is_archived: boolean;
+    product_code: string;
   };
   inventory: {
     id: string;
@@ -54,9 +56,11 @@ function fromApiListItem(dto: ApiInventoryListItem): InventoryListItem {
       name: dto.product.name,
       category: dto.product.category as InventoryListItem["product"]["category"],
       priceCents: dto.product.price_cents,
+      compareAtPriceCents: dto.product.compare_at_price_cents,
       sellingUnit: dto.product.selling_unit as InventoryListItem["product"]["sellingUnit"],
       images: dto.product.images,
       isArchived: dto.product.is_archived,
+      productCode: dto.product.product_code,
     },
     inventory: {
       id: dto.inventory.id,

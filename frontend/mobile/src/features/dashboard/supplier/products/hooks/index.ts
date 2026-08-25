@@ -4,5 +4,7 @@ export { useProduct } from "./useProduct";
 export { useCreateProduct } from "./useCreateProduct";
 export { useUpdateProduct } from "./useUpdateProduct";
 export { useArchiveProduct } from "./useArchiveProduct";
+export { useUnarchiveProduct } from "./useUnarchiveProduct";
+export { useDeleteProduct } from "./useDeleteProduct";
 export { productsKeys, hasFilters } from "./productsKeys";
 export { useCurrentUserId } from "./useCurrentUserId";

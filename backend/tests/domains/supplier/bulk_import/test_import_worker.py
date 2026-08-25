@@ -26,10 +26,10 @@ class FakeMediaProvider(MediaProvider):
     def __init__(self):
         self.uploaded: list = []
 
-    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600) -> SignedUpload:
+    def generate_signed_upload(self, public_id: str, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake") -> SignedUpload:
         raise NotImplementedError("bulk import never uses the signed-client-upload path")
 
-    def upload_asset(self, public_id: str, file_bytes: bytes, max_dimension_px: int = 1600, resource_type: str = "image") -> UploadedAsset:
+    def upload_asset(self, public_id: str, file_bytes: bytes, max_dimension_px: int = 1600, asset_folder: str = "tru_connect/fake", resource_type: str = "image") -> UploadedAsset:
         self.uploaded.append(public_id)
         return UploadedAsset(
             public_id=public_id,
@@ -49,6 +49,15 @@ class FakeMediaProvider(MediaProvider):
 
     def delete_asset(self, public_id: str) -> None:
         pass
+
+    def delete_assets(self, public_ids) -> None:
+        pass
+
+    def delete_folder(self, folder_path: str) -> None:
+        pass
+
+    def is_moderation_enabled(self) -> bool:
+        return True
 
 
 @pytest.fixture()
@@ -87,6 +96,64 @@ class TestBasicImport:
         products = ProductRepository.list_for_supplier(profile.id)
         names = {p.name for p in products}
         assert names == {"Coca-Cola 500ml", "Bread"}
+
+    def test_sku_description_compare_at_price_flow_through_a_real_import(
+        self, fake_provider, make_supplier, make_supplier_profile
+    ):
+        """THE DECISIVE END-TO-END TEST for the three new bulk-import
+        columns -- a real CSV, through the real worker, producing a
+        real product with all three fields correctly set."""
+        supplier = make_supplier()
+        profile = make_supplier_profile(supplier)
+        job = _make_job(profile.id)
+        csv_bytes = (
+            b"name,category,price,unit,sku,description,compare_at_price\n"
+            b"Bread,Bakery,18.50,Each,BREAD-CASE-24,3 loaves per case.,25.00\n"
+        )
+
+        run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
+
+        product = ProductRepository.list_for_supplier(profile.id)[0]
+        assert product.sku == "BREAD-CASE-24"
+        assert product.description == "3 loaves per case."
+        assert product.compare_at_price_cents == 2500
+
+    def test_blank_sku_in_a_real_import_still_auto_generates_one(
+        self, fake_provider, make_supplier, make_supplier_profile
+    ):
+        supplier = make_supplier()
+        profile = make_supplier_profile(supplier)
+        job = _make_job(profile.id)
+        csv_bytes = b"name,category,price,unit\nBread,Bakery,18.50,Each\n"
+
+        run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
+
+        product = ProductRepository.list_for_supplier(profile.id)[0]
+        assert product.sku == "SKU-000001"
+
+    def test_duplicate_sku_in_a_real_import_is_a_row_error_not_a_crash(
+        self, fake_provider, make_supplier, make_supplier_profile
+    ):
+        """The row passed the FILE's own shape validation but the
+        shared Product Service found a real uniqueness collision --
+        must be recorded as a real row error, never crash the whole
+        job (same pattern as every other ProductValidationError this
+        worker already handles)."""
+        supplier = make_supplier()
+        profile = make_supplier_profile(supplier)
+        job = _make_job(profile.id)
+        csv_bytes = (
+            b"name,category,price,unit,sku\n"
+            b"Bread,Bakery,18.50,Each,SAME-SKU\n"
+            b"Milk,Dairy & Chilled,22.00,Each,SAME-SKU\n"
+        )
+
+        run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
+
+        products = ProductRepository.list_for_supplier(profile.id)
+        assert len(products) == 1  # only the first row's product was created
+        errors = ImportJobRepository.list_errors(job.id)
+        assert any("SAME-SKU" in e.message for e in errors)
 
     def test_seeds_real_inventory_quantity(self, fake_provider, make_supplier, make_supplier_profile):
         supplier = make_supplier()

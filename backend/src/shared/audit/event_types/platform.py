@@ -1,4 +1,14 @@
-# Reserved for future platform-specific audit event types.
-# Not yet in use -- the full AuditEventName enum currently lives in
-# src/shared/audit/audit_types.py. This file is a placeholder for a
-# future per-domain split, added by the shared/ reorganization.
+"""
+Platform's own audit event vocabulary (cross-cutting system/scheduler
+events, not owned by any one business domain) -- moved here from the
+single flat AuditEventName enum, same reasoning as event_types/auth.py's
+own docstring.
+"""
+from __future__ import annotations
+
+import enum
+
+
+class PlatformAuditEvent(str, enum.Enum):
+    SCHEDULED_JOB_COMPLETED = "platform.scheduled_job_completed"
+    SCHEDULED_JOB_FAILED = "platform.scheduled_job_failed"

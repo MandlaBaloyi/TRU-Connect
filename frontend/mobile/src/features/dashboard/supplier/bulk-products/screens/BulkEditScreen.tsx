@@ -35,7 +35,7 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 
 import { useProducts } from "../../products/hooks";
@@ -43,7 +43,7 @@ import { EmptyProducts, ProductCard, ProductSearchBar, ProductStatusFilterBar } 
 import type { Product, ProductListFilter } from "../../products/types";
 import { useBulkProductActions } from "../hooks";
 import type { PriceAdjustment } from "../types";
-import { BulkPriceModal, SelectionActionBar } from "../components";
+import { BulkDiscountModal, BulkPriceModal, SelectionActionBar } from "../components";
 import { useInventoryList } from "../../inventory/hooks";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -67,7 +67,16 @@ export default function BulkEditScreen() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [priceModalOpen, setPriceModalOpen] = useState(false);
-  const { bulkAdjustPrice, isBulkAdjustingPrice, bulkArchive } = useBulkProductActions();
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const {
+    bulkAdjustPrice,
+    isBulkAdjustingPrice,
+    bulkSetDiscount,
+    isBulkSettingDiscount,
+    bulkArchive,
+    bulkUnarchive,
+    bulkDelete,
+  } = useBulkProductActions();
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -84,15 +93,51 @@ export default function BulkEditScreen() {
   const showArchiveAction = selectedProducts.some((p) => !p.isArchived);
   const allVisibleSelected = products.length > 0 && selectedIds.size === products.length;
 
+  // Which action set the bottom bar shows -- driven by the CURRENT TAB,
+  // not the selected products' own archived state, since selectedIds
+  // doesn't clear across a filter change (see SelectionActionBar's own
+  // docstring for the full reasoning).
+  const actionBarMode = listFilter === "ARCHIVED" ? "ARCHIVED" : "ACTIVE";
+
   const handleApplyPrice = async (adjustment: PriceAdjustment) => {
     await bulkAdjustPrice({ productIds: Array.from(selectedIds), adjustment });
     setPriceModalOpen(false);
     clearSelection();
   };
 
+  const handleSetDiscount = async (discountPercent: number) => {
+    await bulkSetDiscount({ productIds: Array.from(selectedIds), discountPercent });
+    setDiscountModalOpen(false);
+    clearSelection();
+  };
+
   const handleArchive = async () => {
     await bulkArchive(Array.from(selectedIds));
     clearSelection();
+  };
+
+  const handleUnarchive = async () => {
+    await bulkUnarchive(Array.from(selectedIds));
+    clearSelection();
+  };
+
+  const handleDelete = () => {
+    const count = selectedIds.size;
+    Alert.alert(
+      count === 1 ? "Delete this product?" : `Delete ${count} products?`,
+      "This removes them from your shop everywhere. This can't be undone from the app.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await bulkDelete(Array.from(selectedIds));
+            clearSelection();
+          },
+        },
+      ]
+    );
   };
 
   if (isError) {
@@ -112,7 +157,7 @@ export default function BulkEditScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={[styles.intro, { color: theme.colors.onSurfaceVariant }]}>
-              Select products to change price or archive many at once.
+              Select products to change price, set a discount, or archive many at once.
             </Text>
             <View style={styles.countRow}>
               <Text style={[styles.count, { color: theme.colors.onSurfaceVariant }]}>
@@ -164,9 +209,13 @@ export default function BulkEditScreen() {
       {selectedIds.size > 0 && (
         <SelectionActionBar
           selectedCount={selectedIds.size}
+          mode={actionBarMode}
           showArchiveAction={showArchiveAction}
           onChangePrice={() => setPriceModalOpen(true)}
+          onSetDiscount={() => setDiscountModalOpen(true)}
           onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
+          onDelete={handleDelete}
           onCancel={clearSelection}
         />
       )}
@@ -177,6 +226,14 @@ export default function BulkEditScreen() {
         isSubmitting={isBulkAdjustingPrice}
         onApply={handleApplyPrice}
         onClose={() => setPriceModalOpen(false)}
+      />
+
+      <BulkDiscountModal
+        visible={discountModalOpen}
+        selectedCount={selectedIds.size}
+        isSubmitting={isBulkSettingDiscount}
+        onApply={handleSetDiscount}
+        onClose={() => setDiscountModalOpen(false)}
       />
     </ScreenContainer>
   );

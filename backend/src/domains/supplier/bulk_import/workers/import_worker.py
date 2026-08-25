@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import difflib
 import logging
+import os
 import tempfile
 from typing import Dict, Optional
 from uuid import UUID
@@ -40,6 +41,7 @@ from src.domains.supplier.bulk_import.models.import_job import ImportJobStatus
 from src.domains.supplier.bulk_import.parsers.spreadsheet_parser import UnsafeSpreadsheetError, parse_spreadsheet
 from src.domains.supplier.bulk_import.parsers.zip_parser import UnsafeZipError, extract_image_bytes, inspect_zip
 from src.domains.supplier.bulk_import.repositories.import_job_repository import ImportJobRepository
+from src.domains.supplier.bulk_import.services import abuse_tracking
 from src.domains.supplier.bulk_import.validators.row_validator import RowError
 from src.domains.supplier.inventory.services import inventory_service
 from src.domains.supplier.products.services import product_media_service, product_service
@@ -119,13 +121,34 @@ def _run(
         # from a real file path (not in-memory bytes) so the same
         # streaming/lazy-read behaviour they were built and tested
         # against applies here too, not a separate in-memory code path.
-        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
-            tmp.write(zip_bytes)
-            tmp.flush()
+        #
+        # REAL BUG FOUND DURING WINDOWS DEVICE TESTING -- delete=False
+        # HERE ON PURPOSE, file explicitly closed before being reopened
+        # by path. On POSIX, a file can be opened by a second handle
+        # while the first is still held open in the same process; on
+        # Windows, NamedTemporaryFile's default sharing mode does NOT
+        # allow this and raises a real PermissionError the instant
+        # inspect_zip/extract_image_bytes try to reopen tmp.name while
+        # the original `with` block still held it -- confirmed directly
+        # from a real Windows traceback, not assumed. Every test this
+        # whole build ran before real device testing ran on Linux,
+        # which never surfaces this class of bug at all -- this is now
+        # written to be correct on both platforms, not just "happened
+        # to work in one sandbox." Cleanup is explicit (finally), since
+        # delete=False means nothing removes this file automatically.
+        tmp_path: Optional[str] = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+                tmp_path = tmp.name
+                tmp.write(zip_bytes)
+            # tmp is now CLOSED -- safe to reopen by path on every
+            # platform, including Windows.
 
             try:
-                zip_entries = inspect_zip(tmp.name)
+                zip_entries = inspect_zip(tmp_path)
             except UnsafeZipError as exc:
+                if exc.is_malicious:
+                    abuse_tracking.record_violation(supplier_profile_id)
                 ImportJobRepository.add_error(job.id, row_number=0, field="_zip", message=str(exc))
                 ImportJobRepository.commit()
                 ImportJobRepository.set_status(job, ImportJobStatus.FAILED, failure_reason=str(exc))
@@ -169,7 +192,10 @@ def _run(
 
             target_filenames = {ref.filename for row in parsed.rows for ref in row.image_references}
             if target_filenames:
-                image_bytes_by_filename = extract_image_bytes(tmp.name, target_filenames)
+                image_bytes_by_filename = extract_image_bytes(tmp_path, target_filenames)
+        finally:
+            if tmp_path is not None and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
     else:
         # No zip uploaded, but rows reference images -- every such
         # reference is unsatisfiable, same as the frontend's own
@@ -220,6 +246,9 @@ def _run(
                 category=row.category,
                 price_cents=row.price_cents,
                 selling_unit=row.selling_unit,
+                sku=row.sku,
+                description=row.description,
+                compare_at_price_cents=row.compare_at_price_cents,
             )
         except ProductValidationError as exc:
             # The row passed THIS file's own validation but the shared

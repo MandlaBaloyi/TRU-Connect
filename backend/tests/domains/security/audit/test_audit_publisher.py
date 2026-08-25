@@ -14,7 +14,8 @@ from __future__ import annotations
 import pytest
 
 from src.shared.audit import audit
-from src.shared.audit.audit_types import ActorType, AuditEventName, AuditStatus
+from src.shared.audit.audit_types import ActorType, AuditStatus
+from src.shared.audit.event_types.auth import AuthAuditEvent
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +34,7 @@ def test_login_success_publishes_event():
 
     assert len(received) == 1
     event = received[0]
-    assert event.event_name is AuditEventName.LOGIN_SUCCESS
+    assert event.event_name is AuthAuditEvent.LOGIN_SUCCESS
     assert event.status is AuditStatus.SUCCESS
     assert event.user_id == "user-123"
     assert event.ip_address == "10.0.0.1"

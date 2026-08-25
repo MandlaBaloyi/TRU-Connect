@@ -19,7 +19,8 @@ import pytest
 
 from src.domains.security.audit.services import audit_service
 from src.shared.audit import audit
-from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditEventName, AuditStatus
+from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
+from src.shared.audit.event_types.auth import AuthAuditEvent
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +51,7 @@ def test_async_event_persists_when_executed_on_a_real_background_thread(app, db_
                 with app.app_context():
                     audit.publish(
                         AuditEvent(
-                            event_name=AuditEventName.UNVERIFIED_ACCOUNT_EXPIRED,
+                            event_name=AuthAuditEvent.UNVERIFIED_ACCOUNT_EXPIRED,
                             domain=AuditDomain.AUTH,
                             status=AuditStatus.SUCCESS,
                             email="thread-test@example.com",
@@ -69,7 +70,7 @@ def test_async_event_persists_when_executed_on_a_real_background_thread(app, db_
 
         row = (
             db_session.query(AuditEventRecord)
-            .filter_by(event_name=AuditEventName.UNVERIFIED_ACCOUNT_EXPIRED.value)
+            .filter_by(event_name=AuthAuditEvent.UNVERIFIED_ACCOUNT_EXPIRED.value)
             .first()
         )
         assert row is not None, "ASYNC event did not persist -- the app-context bug has regressed"
@@ -84,7 +85,7 @@ def test_sync_event_persists_immediately_unaffected_by_the_fix(app, db_session):
         audit_service.register(app)
         audit.publish(
             AuditEvent(
-                event_name=AuditEventName.LOGIN_SUCCESS,
+                event_name=AuthAuditEvent.LOGIN_SUCCESS,
                 domain=AuditDomain.AUTH,
                 status=AuditStatus.SUCCESS,
                 user_id=str(uuid.uuid4()),
@@ -93,7 +94,7 @@ def test_sync_event_persists_immediately_unaffected_by_the_fix(app, db_session):
         from src.domains.security.audit.models.audit_event import AuditEventRecord
 
         assert db_session.query(AuditEventRecord).filter_by(
-            event_name=AuditEventName.LOGIN_SUCCESS.value
+            event_name=AuthAuditEvent.LOGIN_SUCCESS.value
         ).count() == 1
 
 

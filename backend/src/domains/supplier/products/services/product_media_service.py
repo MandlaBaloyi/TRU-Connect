@@ -45,7 +45,8 @@ from src.domains.supplier.products.services.errors import ProductNotFoundError
 from src.domains.supplier.products.tiers import get_products_limits
 from src.domains.supplier.tiers.resolver import get_current_tier
 from src.shared.audit.audit import publish
-from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditEventName, AuditStatus
+from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 from src.shared.media import folder_naming
 from src.shared.media.errors import PhotoLimitExceededError
 from src.shared.media.intents.services import cancel_intent, create_intent, mark_registered
@@ -57,12 +58,23 @@ from src.shared.media.providers.provider import ScanResult, SignedUpload
 LEDGER_DOMAIN = "products"
 
 
-def _build_public_id(supplier_profile_id: str | UUID, product_id: str | UUID) -> str:
+def _build_public_id(supplier_profile_id: str | UUID, product_id: str | UUID) -> tuple[str, str]:
     # A random UUID per asset, not the client's own filename --
     # filenames are never trusted as part of a storage path (no
     # extension-based tricks, no collisions, nothing guessable).
+    #
+    # RETURNS (public_id, asset_folder) -- TWO VALUES, NOT ONE. A real
+    # gap found during review: public_id's own path and Cloudinary's
+    # separate asset_folder parameter look identical here, but
+    # Cloudinary treats them as genuinely independent concepts (see
+    # folder_naming.py's own docstring). Setting only public_id's path
+    # meant every upload was correctly find-able by search but never
+    # actually appeared in the browsable Folders tree at all -- this
+    # is the fix, giving callers both values so neither ever gets set
+    # without the other again.
     folder = folder_naming.supplier_product_folder(supplier_profile_id, product_id)
-    return f"{folder}/{uuid.uuid4()}"
+    public_id = f"{folder}/{uuid.uuid4()}"
+    return public_id, folder
 
 
 def _check_photo_limit(product_id: str | UUID, limit: int) -> None:
@@ -85,7 +97,7 @@ def request_upload_signature(product_id: str | UUID, supplier_profile_id: str | 
     # are known), not here -- signing itself costs nothing and commits
     # to nothing; see register_uploaded_media's own call.
 
-    public_id = _build_public_id(supplier_profile_id, product_id)
+    public_id, asset_folder = _build_public_id(supplier_profile_id, product_id)
     # Recorded the moment a signature is issued, BEFORE any real file
     # exists -- see intents/models.py's own docstring. If the client
     # genuinely uploads to Cloudinary but the register call below never
@@ -93,7 +105,7 @@ def request_upload_signature(product_id: str | UUID, supplier_profile_id: str | 
     # orphan sweep find and clean up that asset -- without it, an asset
     # with zero database awareness would sit in Cloudinary forever.
     create_intent(supplier_profile_id, LEDGER_DOMAIN, public_id)
-    return get_media_provider().generate_signed_upload(public_id, limits.stored_max_dimension_px)
+    return get_media_provider().generate_signed_upload(public_id, limits.stored_max_dimension_px, asset_folder)
 
 
 def register_uploaded_media(
@@ -148,6 +160,7 @@ def register_uploaded_media(
         bytes_=bytes_,
         sort_order=existing_count,
     )
+    _auto_approve_if_moderation_disabled(media)
 
     if bytes_ is not None:
         record_upload(supplier_profile_id, LEDGER_DOMAIN, bytes_)
@@ -189,8 +202,8 @@ def upload_and_register_from_bytes(product_id: str | UUID, supplier_profile_id: 
     check_quota_before_upload(supplier_profile_id, num_bytes)
 
     existing_count = ProductMediaRepository.count_non_rejected_for_product(product_id)
-    public_id = _build_public_id(supplier_profile_id, product_id)
-    uploaded = get_media_provider().upload_asset(public_id, file_bytes, limits.stored_max_dimension_px)
+    public_id, asset_folder = _build_public_id(supplier_profile_id, product_id)
+    uploaded = get_media_provider().upload_asset(public_id, file_bytes, limits.stored_max_dimension_px, asset_folder)
 
     media = ProductMediaRepository.create_pending(
         product_id=product_id,
@@ -203,9 +216,29 @@ def upload_and_register_from_bytes(product_id: str | UUID, supplier_profile_id: 
         bytes_=uploaded.bytes,
         sort_order=existing_count,
     )
+    _auto_approve_if_moderation_disabled(media)
 
     record_upload(supplier_profile_id, LEDGER_DOMAIN, uploaded.bytes or num_bytes)
     return media
+
+
+def _auto_approve_if_moderation_disabled(media: ProductMedia) -> None:
+    """Moderation is a real, deliberate toggle (MediaConfig.
+    moderation_enabled) -- if it's off, no scan was ever requested for
+    this upload, and Cloudinary will never call back with a result.
+    Leaving the row at PENDING in that case would mean it NEVER
+    becomes visible, silently -- not a safe default, and not what
+    "turn scanning off" should mean. When moderation is off, media is
+    trusted immediately instead. This is a genuine trade-off the
+    account is making on purpose (see products/tiers/ and the wider
+    Cloudinary-cost discussion this toggle came out of), not a silent
+    security downgrade -- scan_provider="none" makes that explicit in
+    the stored record itself."""
+    if get_media_provider().is_moderation_enabled():
+        return
+    ProductMediaRepository.apply_scan_status(
+        media, status=MediaScanStatus.APPROVED.value, scan_provider="none", raw_result="Moderation disabled at registration time."
+    )
 
 
 def apply_scan_result(result: ScanResult) -> None:
@@ -230,7 +263,7 @@ def apply_scan_result(result: ScanResult) -> None:
     if result.status == MediaScanStatus.REJECTED.value:
         publish(
             AuditEvent(
-                event_name=AuditEventName.PRODUCT_MEDIA_REJECTED,
+                event_name=SupplierAuditEvent.PRODUCT_MEDIA_REJECTED,
                 domain=AuditDomain.SUPPLIER,
                 status=AuditStatus.FAILURE,
                 metadata={

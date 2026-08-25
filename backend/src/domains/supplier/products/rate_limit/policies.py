@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from flask_jwt_extended import get_jwt_identity
 
-from src.shared.audit.audit_types import AuditEventName
+from src.shared.audit.event_types.supplier import SupplierAuditEvent
 
 # --- Products limits (Phase 1) ------------------------------------------
 
@@ -38,9 +38,9 @@ def supplier_key_func() -> str:
 # registered directly on the app (matching connections_bp/loan_book_bp/
 # order_book_bp's own pattern in src/__init__.py), so endpoint names
 # are just "products.<view_function_name>".
-RATE_LIMIT_AUDIT_EVENTS: dict[str, AuditEventName] = {
-    "products.create_product": AuditEventName.PRODUCT_CREATE_RATE_LIMITED,
-    "products.bulk_adjust_price": AuditEventName.PRODUCT_BULK_ACTION_RATE_LIMITED,
-    "products.bulk_archive": AuditEventName.PRODUCT_BULK_ACTION_RATE_LIMITED,
-    "products.request_media_upload_signature": AuditEventName.MEDIA_SIGN_RATE_LIMITED,
+RATE_LIMIT_AUDIT_EVENTS: dict[str, SupplierAuditEvent] = {
+    "products.create_product": SupplierAuditEvent.PRODUCT_CREATE_RATE_LIMITED,
+    "products.bulk_adjust_price": SupplierAuditEvent.PRODUCT_BULK_ACTION_RATE_LIMITED,
+    "products.bulk_archive": SupplierAuditEvent.PRODUCT_BULK_ACTION_RATE_LIMITED,
+    "products.request_media_upload_signature": SupplierAuditEvent.MEDIA_SIGN_RATE_LIMITED,
 }
