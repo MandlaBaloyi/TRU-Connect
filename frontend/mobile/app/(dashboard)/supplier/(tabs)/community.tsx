@@ -132,7 +132,11 @@ export default function SupplierCommunity() {
       {isSearchMode ? (
         <InlineBusinessSearch query={query} />
       ) : activeTab === "MY_CONNECTIONS" ? (
-        <MyConnectionsList />
+        <MyConnectionsList
+          onPressConnection={(connection) =>
+            router.push(`/supplier/find-business/${connection.otherPartyId}` as any)
+          }
+        />
       ) : (
         <EmptyState
           icon={<Users size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}

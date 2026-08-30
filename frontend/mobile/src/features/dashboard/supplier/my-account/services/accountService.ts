@@ -1,14 +1,16 @@
 /**
- * Supplier My Account service — THE SINGLE INTEGRATION BOUNDARY for
- * everything this feature owns that isn't real yet. Same discipline
- * as business/my-account/services/accountService.ts: mock-backed,
- * in-memory, resets on app restart — replace the function body, not
- * the signature, when the real backend exists.
+ * Supplier My Account service — mock-backed for everything that isn't
+ * real yet, but genuinely real for the supplier's own profile (see
+ * that section below) -- the first piece of this whole file to
+ * graduate from mock, replaced in place rather than rewritten, same
+ * "replace the function body, not the signature" plan this file's own
+ * business-name section already anticipated before this update.
  *
  * Smaller surface than the business version on purpose — see
- * types.ts's header for why payment methods and business-details
- * editing aren't here at all, not even as stubs.
+ * types.ts's header for why payment methods aren't here at all, not
+ * even as stubs.
  */
+import { apiGet, apiPatch } from "@/services/api/apiClient";
 import type {
   ConnectCode,
   DeactivationRequestStatus,
@@ -18,6 +20,7 @@ import type {
 } from "../types";
 
 const latency = () => new Promise<void>((resolve) => setTimeout(resolve, 300));
+const USE_MOCK: boolean = process.env.EXPO_PUBLIC_USE_MOCK_API !== "false";
 
 // --- Contact details --------------------------------------------------
 // PHONE/EMAIL THEMSELVES ARE REAL — from AuthUser via useCurrentUser
@@ -52,53 +55,73 @@ export async function updateDisplayName(input: DisplayNameInput): Promise<Displa
   return { firstName, lastName };
 }
 
-// --- Business name (read-only subtitle) -----------------------------------
-// Mocked, not real, unlike business/my-account's equivalent peek at
-// BusinessProfile (which reads a REAL endpoint). No GET
-// /supplier-discovery/my-profile exists yet — see types.ts's own
-// future-contract note. Once it does, this becomes a real read the
-// same way business's useAccountProfile already works, not a
-// rewrite.
+// --- Supplier profile (business name, bio/description, contact channels) --
+// GENUINELY REAL NOW -- GET/PATCH /supplier-discovery/my-profile, the
+// first real write path this whole domain has ever had. Everything
+// below used to be two separate in-memory mocks (business name, bio)
+// with no real endpoint behind either; both are now the SAME single
+// real profile, matching the real backend's own shape exactly (one
+// SupplierProfile row, one PATCH updates all of it together, not
+// piecemeal). "bio" here is genuinely SupplierProfile.description --
+// see this section's own history for why that was already true even
+// before this became real.
 
-let mockBusinessName: string | null = "Your Business";
-
-export async function getMyBusinessName(): Promise<string | null> {
-  await latency();
-  return mockBusinessName;
+export interface SupplierProfileData {
+  businessName: string;
+  category: string | null;
+  location: string | null;
+  description: string | null;
+  photoVisibility: string;
+  visibleImageSource: string;
+  whatsappNumber: string | null;
+  contactEmail: string | null;
+  tiktokHandle: string | null;
+  shareContactDetails: boolean;
 }
 
-export async function updateMyBusinessName(value: string): Promise<string> {
-  await latency();
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new Error("Enter your business name.");
+let mockProfile: SupplierProfileData = {
+  businessName: "Your Business",
+  category: null,
+  location: null,
+  description: null,
+  photoVisibility: "connections",
+  visibleImageSource: "none",
+  whatsappNumber: null,
+  contactEmail: null,
+  tiktokHandle: null,
+  shareContactDetails: false,
+};
+
+export async function getMyProfile(): Promise<SupplierProfileData> {
+  if (USE_MOCK) {
+    await latency();
+    return mockProfile;
   }
-  mockBusinessName = trimmed;
-  return mockBusinessName;
+  return apiGet<SupplierProfileData>("/supplier-discovery/my-profile");
 }
 
-// --- Bio ------------------------------------------------------------------
-// In-memory only, same reasoning as the business side's own bio mock:
-// this is account data the future backend will own, so pretending a
-// local save is durable would misrepresent that. Unlike Business's
-// bio (a private blurb), THIS bio is SupplierProfile.description —
-// already real, already shown to businesses in search results and
-// profile previews today. Editing it here is editing something live,
-// once the backend piece lands — worth remembering when writing UI
-// copy for this screen.
-
-let bioState: string | null = null;
-
-export async function getBio(): Promise<string | null> {
-  await latency();
-  return bioState;
-}
-
-export async function updateBio(bio: string): Promise<string> {
-  await latency();
-  const trimmed = bio.trim();
-  bioState = trimmed.length > 0 ? trimmed : null;
-  return bioState as string;
+export async function updateMyProfile(input: SupplierProfileData): Promise<SupplierProfileData> {
+  if (USE_MOCK) {
+    await latency();
+    const businessName = input.businessName.trim();
+    if (businessName.length === 0) {
+      throw new Error("Enter your business name.");
+    }
+    mockProfile = { ...input, businessName };
+    return mockProfile;
+  }
+  return apiPatch<SupplierProfileData>("/supplier-discovery/my-profile", {
+    business_name: input.businessName,
+    category: input.category,
+    location: input.location,
+    description: input.description,
+    photo_visibility: input.photoVisibility,
+    visible_image_source: input.visibleImageSource,
+    whatsapp_number: input.whatsappNumber,
+    contact_email: input.contactEmail,
+    tiktok_handle: input.tiktokHandle,
+    share_contact_details: input.shareContactDetails,
+  });
 }
 
 // --- Account lifecycle requests ------------------------------------------

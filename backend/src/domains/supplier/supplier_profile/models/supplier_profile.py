@@ -130,6 +130,26 @@ class SupplierProfile(BaseModel):
         default=PhotoVisibility.CONNECTIONS,
     )
 
+    # Real contact channels a supplier can choose to share with
+    # CONNECTED businesses only -- deliberately no EVERYONE tier here,
+    # unlike PhotoVisibility above. A photo shown in bare search
+    # results is one kind of exposure; a phone number or email address
+    # is a materially different, more sensitive one, and this domain's
+    # own architecture review agreed connected-only is the right
+    # (and only) gate for this data, not a wider opt-in. All three
+    # nullable -- a supplier who hasn't filled one in has nothing to
+    # show regardless of share_contact_details below.
+    whatsapp_number = db.Column(db.String(20), nullable=True)
+    contact_email = db.Column(db.String(255), nullable=True)
+    tiktok_handle = db.Column(db.String(100), nullable=True)
+    # ONE combined gate, not one per field -- a supplier who wants to
+    # share WhatsApp but not email accomplishes that by simply leaving
+    # email blank, rather than needing three separate switches to
+    # reason about. Defaults False -- same cautious "nothing shows
+    # until explicitly opted in" philosophy as
+    # VisibleImageSource.NONE's own default just above.
+    share_contact_details = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
     # The next number products/algorithms/sku_generator.py will issue
     # for this supplier -- starts at 1, so the first auto-generated SKU
     # is SKU-0001. Deliberately its own dedicated counter, never

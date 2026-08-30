@@ -1,11 +1,8 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { useTheme } from "react-native-paper";
-import { MapPin } from "lucide-react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
+import { ListCard } from "@/components/lists/CardListUI";
 import { palette } from "@/theme/colors";
-import { spacing, radius } from "@/theme/spacing";
-import { typography } from "@/theme/typography";
 
 import type { BusinessSearchResult } from "../types";
 
@@ -31,61 +28,33 @@ interface Props {
 
 /**
  * Mirrors business/find-supplier/components/SupplierResultCard.tsx's
- * own redesign exactly — same tile shape, same reasoning. No
- * verification pill here, same as before (BusinessSearchResult has
- * no such field).
+ * own redesign exactly -- same ListCard row, same reasoning. No
+ * verification pill here, same as before (BusinessSearchResult has no
+ * such field).
  */
 export function BusinessResultCard({ result, onPress }: Props) {
-  const theme = useTheme();
+  const metaParts = [result.category, result.location].filter((part): part is string => Boolean(part));
 
   return (
-    <Pressable
+    <ListCard
+      title={result.businessName}
+      subtitle={metaParts.length > 0 ? metaParts.join(" · ") : undefined}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant, opacity: pressed ? 0.85 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`View ${result.businessName}`}
-    >
-      <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={1}>
-        {result.businessName}
-      </Text>
-
-      {result.photoUrl ? (
-        <Image source={{ uri: result.photoUrl }} style={styles.image} />
-      ) : (
-        <View style={[styles.image, styles.fallback, { backgroundColor: colourFor(result.businessName) }]}>
-          <Text style={styles.fallbackText}>{initialsFor(result.businessName)}</Text>
-        </View>
-      )}
-
-      <View style={styles.metaBlock}>
-        {result.category && (
-          <Text style={[styles.meta, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-            {result.category}
-          </Text>
-        )}
-        {result.location && (
-          <View style={styles.locationRow}>
-            <MapPin size={11} color={theme.colors.onSurfaceVariant} />
-            <Text style={[styles.meta, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-              {result.location}
-            </Text>
+      icon={() =>
+        result.photoUrl ? (
+          <Image source={{ uri: result.photoUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={[styles.avatarImage, styles.fallback, { backgroundColor: colourFor(result.businessName) }]}>
+            <Text style={styles.fallbackText}>{initialsFor(result.businessName)}</Text>
           </View>
-        )}
-      </View>
-    </Pressable>
+        )
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  card: { width: "48%", padding: spacing.sm, borderRadius: radius.lg, borderWidth: 1, gap: spacing.xs },
-  name: { ...typography.bodySmall, fontWeight: "700" },
-  image: { width: "100%", aspectRatio: 1, borderRadius: radius.md },
+  avatarImage: { width: 44, height: 44, borderRadius: 22 },
   fallback: { alignItems: "center", justifyContent: "center" },
-  fallbackText: { color: palette.white, fontWeight: "700", fontSize: 28 },
-  metaBlock: { gap: 2 },
-  meta: { ...typography.bodySmall },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  fallbackText: { color: palette.white, fontWeight: "700", fontSize: 15 },
 });

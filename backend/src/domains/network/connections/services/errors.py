@@ -39,8 +39,28 @@ class ConnectionRequestNotFoundError(NotFoundError):
     code = "REQUEST_NOT_FOUND"
 
 
+class ProductNotFoundError(NotFoundError):
+    """For get_supplier_product -- used for 'genuinely doesn't exist',
+    'exists but belongs to a different supplier than the one in the
+    URL', AND 'exists but is archived' all alike, same IDOR-safety
+    reasoning as SupplierNotFoundError above: a business browsing a
+    supplier's catalogue should never be able to tell an archived
+    product apart from one that never existed."""
+
+    code = "PRODUCT_NOT_FOUND"
+
+
 class InvalidSearchQueryError(ValidationError):
     code = "INVALID_SEARCH_QUERY"
+
+
+class InvalidCatalogQueryError(ValidationError):
+    """Raised for an invalid page/limit/sort/category on
+    list_supplier_products -- a genuinely different validation concern
+    from InvalidSearchQueryError above (pagination/sort parameters, not
+    a search string), kept as its own class rather than reused."""
+
+    code = "INVALID_CATALOG_QUERY"
 
 
 class ConnectionAlreadyRequestedError(ConflictError):
@@ -61,3 +81,13 @@ class RetryLimitExceededError(ConflictError):
     'try again later'."""
 
     code = "RETRY_LIMIT_EXCEEDED"
+
+
+class ConnectionNotActiveError(ConflictError):
+    """Raised when trying to end a connection that exists but isn't
+    currently ACTIVE (already ended, still pending, or was declined) --
+    a genuine state conflict, not a "doesn't exist" case, so this uses
+    ConflictError (409) rather than reusing
+    ConnectionRequestNotFoundError."""
+
+    code = "CONNECTION_NOT_ACTIVE"

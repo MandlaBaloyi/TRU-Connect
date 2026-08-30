@@ -11,7 +11,6 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { useAccountProfile } from "../hooks/useAccountProfile";
-import { useBio } from "../hooks/useBio";
 import { useProfileImage } from "../hooks/useProfileImage";
 import { usePaymentMethods } from "../hooks/usePaymentMethods";
 import { useSubscription } from "../hooks/useSubscription";
@@ -40,7 +39,6 @@ export default function SupplierMyAccountScreen() {
   const theme = useTheme();
 
   const { summary, isLoading, isError, refetch } = useAccountProfile();
-  const { bio } = useBio();
   const { profileImage } = useProfileImage();
   const { paymentMethods } = usePaymentMethods();
   const { subscription } = useSubscription();
@@ -96,7 +94,7 @@ export default function SupplierMyAccountScreen() {
             </Text>
           )}
           {summary.verification === "VERIFIED" && <VerificationBadge />}
-          {bio && <Text style={[styles.bio, { color: theme.colors.onSurfaceVariant }]}>{bio}</Text>}
+          {summary.bio && <Text style={[styles.bio, { color: theme.colors.onSurfaceVariant }]}>{summary.bio}</Text>}
         </View>
 
         {/* Payment methods — the RECEIVING side, see types.ts's own note */}

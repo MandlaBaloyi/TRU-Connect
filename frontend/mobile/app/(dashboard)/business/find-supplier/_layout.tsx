@@ -15,7 +15,7 @@ export default function FindSupplierLayout() {
       }}
     >
       <Stack.Screen name="[supplierId]" options={{ title: "Supplier" }} />
-      <Stack.Screen name="products/[supplierId]" options={{ title: "Products" }} />
+      <Stack.Screen name="products/[supplierId]" options={{ title: "Stock Catalogue" }} />
       <Stack.Screen name="invite" options={{ title: "Invite Supplier" }} />
     </Stack>
   );

@@ -21,7 +21,12 @@ const impl = USE_MOCK ? mockApi : httpApi;
 export const searchSuppliers = impl.searchSuppliers;
 export const getSupplierProfile = impl.getSupplierProfile;
 export const requestConnection = impl.requestConnection;
+export const endConnection = impl.endConnection;
+export const reportSupplier = impl.reportSupplier;
 export const inviteSupplier = impl.inviteSupplier;
 export const getSupplierProducts = impl.getSupplierProducts;
+export const getSupplierProductCategories = impl.getSupplierProductCategories;
+export const getSupplierProduct = impl.getSupplierProduct;
+export const getRelatedProducts = impl.getRelatedProducts;
 
 export { getRecentSearches };

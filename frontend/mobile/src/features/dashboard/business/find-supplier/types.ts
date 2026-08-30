@@ -173,13 +173,140 @@ export interface InviteSupplierResult {
 export interface SupplierProduct {
   id: string;
   name: string;
+  /** All genuinely already sent by the real backend (see
+   *  connections_service.py's own list_supplier_products) -- the
+   *  frontend type simply never captured them until the My
+   *  Connections/search UI review found this. */
+  category: string;
+  priceCents: number;
+  /** The "was RX" comparison price for a sale -- null when the
+   *  supplier isn't running one. Feeds the same "X% OFF" badge
+   *  (products/algorithms/discount.ts) the supplier sees on their own
+   *  product screens -- a real discount is real regardless of who's
+   *  looking at it. */
+  compareAtPriceCents: number | null;
+  sellingUnit: string;
+  /** A real, direct answer to "can I actually order this right now" --
+   *  never the exact quantity. Computed server-side from the
+   *  supplier's real Inventory row (available = on hand - reserved),
+   *  and treats a product with no inventory row at all as out of
+   *  stock, not an error. */
+  inStock: boolean;
+  images: string[];
+}
+
+/**
+ * The real response shape for the catalogue list -- supplierName sits
+ * at the top level (same value for every product, so the backend
+ * deliberately doesn't repeat it into each one). This is the actual
+ * "certainty" fix applied one screen earlier than the product detail
+ * screen: a business browsing the whole catalogue sees whose it is
+ * before ever tapping into one specific product.
+ *
+ * contact is the same gated data (SupplierContactDetails, or null)
+ * SupplierProductDetail already carries -- added here too so
+ * "Contact Supplier" works from the catalogue's own 3-dot menu,
+ * without a business needing to first pick one specific product.
+ */
+export interface SupplierProductsCatalog {
+  supplierName: string;
+  contact: SupplierContactDetails | null;
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  products: SupplierProduct[];
+}
+
+/**
+ * The real request shape for GET .../products -- page/limit/sort/
+ * category are now genuinely applied server-side (see
+ * connections_service.py's own list_supplier_products docstring on
+ * why: once results are paginated, a client-side sort/filter could
+ * only ever see whatever's on the current page, silently missing real
+ * matches sitting on other pages). limit is capped server-side
+ * regardless of what's requested here -- passing a large number
+ * doesn't bypass that.
+ */
+export interface SupplierProductsQuery {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  category?: string | null;
+}
+
+/**
+ * A supplier's real contact channels -- null (the WHOLE object, not
+ * just individual fields) whenever EITHER the requesting business
+ * isn't actively connected OR the supplier hasn't opted into sharing.
+ * Resolved entirely server-side (see connections_service.py's own
+ * get_supplier_product docstring) -- this type never carries a
+ * "shouldShow" flag alongside the data, because the data's own
+ * presence already IS the permission: if it's here, it's meant to be
+ * shown.
+ */
+export interface SupplierContactDetails {
+  whatsappNumber: string | null;
+  email: string | null;
+  tiktokHandle: string | null;
+}
+
+/**
+ * One level deeper than SupplierProduct -- everything a business would
+ * want before deciding to order: description, and the product's own
+ * code (shown to businesses when they order, per Product.productCode's
+ * own backend docstring). NOT sku -- that's the supplier's own
+ * internal tracking label, not meaningful to a business browsing the
+ * catalogue.
+ *
+ * supplierName and contact are the real "certainty" fix this whole
+ * feature exists for -- see connections_service.py's own
+ * get_supplier_product docstring for the full reasoning on why
+ * contact is gated the way it is.
+ */
+export interface SupplierProductDetail {
+  id: string;
+  name: string;
+  supplierName: string;
+  contact: SupplierContactDetails | null;
+  category: string;
+  priceCents: number;
+  compareAtPriceCents: number | null;
+  sellingUnit: string;
+  /** Same real, direct meaning as SupplierProduct's own inStock. */
+  inStock: boolean;
+  description: string | null;
+  productCode: string;
+  images: string[];
 }
 
 /**
  * GET /api/v1/supplier-discovery/suppliers/{id}/products
- *     -> { products: SupplierProduct[] }
+ *     -> SupplierProductsCatalog
  *     Business-only. Viewable regardless of connection status —
  *     browsing stays open; only ORDERING is gated (a separate,
  *     not-yet-built concern), matching this session's own
  *     architecture-review decision.
+ *
+ * GET /api/v1/supplier-discovery/suppliers/{id}/products/{productId}
+ *     -> SupplierProductDetail
+ *     Same visibility rule as the list above. 404 (PRODUCT_NOT_FOUND)
+ *     for a genuinely nonexistent product, one belonging to a
+ *     different supplier than the URL says, OR an archived one — all
+ *     three deliberately indistinguishable from the response, same
+ *     IDOR-safety reasoning as SUPPLIER_NOT_FOUND elsewhere in this
+ *     domain.
  */
+
+/** DisconnectReason/ReportReason and their option lists now live in
+ *  shared/connections/types.ts, not here -- moved there after a real
+ *  backward-dependency was caught: DisconnectedSuppliersScreen.tsx
+ *  (a shared/ screen) needed these same labels to display each
+ *  disconnection's reason, and shared/ code depending on
+ *  business/find-supplier/ would invert the same "shared is neutral
+ *  ground" principle already established for shared/audit and
+ *  shared/media earlier in this project. Re-exported here so every
+ *  existing import in this feature (httpSupplierSearchService.ts,
+ *  mockSupplierSearchService.ts, and this feature's own components)
+ *  keeps working unchanged. */
+export type { DisconnectReason, ReportReason } from "../../shared/connections/types";
+export { DISCONNECT_REASONS, REPORT_REASONS } from "../../shared/connections/types";

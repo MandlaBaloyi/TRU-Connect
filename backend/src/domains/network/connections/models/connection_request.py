@@ -39,11 +39,32 @@ class ConnectionRequestStatus(str, enum.Enum):
     ACTIVE/DECLINED are modelled now so Phase 3's supplier-approval
     service extends this same table/enum instead of migrating it
     again, matching the frontend's own types.ts ConnectionStatus,
-    which already models the full future set for the identical reason."""
+    which already models the full future set for the identical reason.
+
+    ENDED added later -- a business voluntarily disconnecting from an
+    ACTIVE relationship, exactly the extension this docstring's own
+    "extending status's enum... is the expected next step" already
+    anticipated. The SAME row transitions ACTIVE -> ENDED rather than
+    being deleted or replaced -- nothing in this codebase hard-deletes
+    a real relationship's own history."""
 
     PENDING = "pending"
     ACTIVE = "active"
     DECLINED = "declined"
+    ENDED = "ended"
+
+
+class ConnectionEndReason(str, enum.Enum):
+    """Why a business chose to end an ACTIVE connection -- same
+    "preset reasons plus a genuine free-text escape hatch" shape as
+    SupplierReportReason (see supplier_report.py), deliberately mirrored
+    rather than invented separately, since both are "a business is
+    telling us something went wrong with a supplier" moments."""
+
+    FOUND_BETTER_SUPPLIER = "found_better_supplier"
+    NO_LONGER_NEEDED = "no_longer_needed"
+    BAD_EXPERIENCE = "bad_experience"
+    OTHER = "other"
 
 
 class ConnectionInitiatorRole(str, enum.Enum):
@@ -92,3 +113,15 @@ class ConnectionRequest(BaseModel):
     # can't distinguish attempts an hour apart from attempts a week
     # apart). Empty list, never null -- see this column's own default.
     retry_history = db.Column(ARRAY(db.DateTime(timezone=True)), nullable=False, default=list)
+
+    # Both null until a business actually ends an ACTIVE connection --
+    # see ConnectionEndReason's own docstring. Kept on this same row
+    # (not a separate table) since there's only ever one "ending" per
+    # relationship's own lifetime at a time; if it's later reconnected
+    # and ended again, that's a fresh transition on the same row,
+    # overwriting these two fields with the new reason -- the row's
+    # own updated_at (BaseModel) already tracks when that happened.
+    ended_reason = db.Column(
+        db.Enum(ConnectionEndReason, name="connection_end_reason", schema="network"), nullable=True
+    )
+    ended_details = db.Column(db.String(500), nullable=True)
