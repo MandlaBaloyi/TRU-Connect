@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Union
 
 from src.shared.audit.event_types.auth import AuthAuditEvent
+from src.shared.audit.event_types.business import BusinessAuditEvent
 from src.shared.audit.event_types.network import NetworkAuditEvent
 from src.shared.audit.event_types.platform import PlatformAuditEvent
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
@@ -31,7 +32,7 @@ from src.shared.audit.event_types.supplier import SupplierAuditEvent
 # event_config.py's own get_policy) that needs to accept an event name
 # from ANY domain, not just one. Grows by one member when a new domain
 # gets its own event_types/ file -- nothing else about this file changes.
-AuditEventNameType = Union[AuthAuditEvent, NetworkAuditEvent, PlatformAuditEvent, SupplierAuditEvent]
+AuditEventNameType = Union[AuthAuditEvent, BusinessAuditEvent, NetworkAuditEvent, PlatformAuditEvent, SupplierAuditEvent]
 
 
 class AuditDomain(str, enum.Enum):

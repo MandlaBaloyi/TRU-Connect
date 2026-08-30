@@ -34,20 +34,27 @@ much a single query can reveal.
 """
 from __future__ import annotations
 
-from typing import List
+import math
+from typing import List, Optional
 from uuid import UUID
 
 from src.domains.network.connections.models.connection_request import (
+    ConnectionEndReason,
     ConnectionInitiatorRole,
     ConnectionRequestStatus,
 )
+from src.domains.network.connections.models.supplier_report import SupplierReportReason
 from src.domains.network.connections.repositories.connection_request_repository import (
     ConnectionRequestRepository,
 )
+from src.domains.network.connections.repositories.supplier_report_repository import SupplierReportRepository
 from src.domains.network.connections.services.errors import (
     BusinessNotFoundError,
+    ConnectionNotActiveError,
     ConnectionRequestNotFoundError,
+    InvalidCatalogQueryError,
     InvalidSearchQueryError,
+    ProductNotFoundError,
     RetryLimitExceededError,
     SupplierNotFoundError,
 )
@@ -182,31 +189,155 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
     return profile
 
 
-def list_supplier_products(supplier_profile_id: str | UUID) -> List[dict]:
-    """Real, and now genuinely useful -- name/category/price/unit,
-    matching Product's own grown shape (Phase 1: Products). Viewable by
-    ANY authenticated business regardless of connection status --
-    browsing stays open; only ordering is gated (can_place_order
-    above). Archived products excluded (ProductRepository.
-    list_for_supplier's own include_archived=False default) -- a
-    business browsing a supplier's catalogue should never see
-    something the supplier pulled from sale.
-    """
+VALID_CATALOG_SORT_OPTIONS = {"NEWEST", "NAME_ASC", "PRICE_ASC", "PRICE_DESC"}
+MAX_CATALOG_PAGE_SIZE = 50
+DEFAULT_CATALOG_PAGE_SIZE = 20
+
+
+def get_supplier_product_categories(supplier_profile_id: str | UUID) -> List[str]:
+    """The real fix for a real bug caught during review: this used to
+    be derived on the FRONTEND from whichever products happened to be
+    on the currently-loaded page, which broke the moment pagination
+    existed. A dedicated, cheap, direct query -- correct regardless of
+    page/sort/filter, and fetched once by the frontend rather than
+    recomputed on every page change (a supplier's own category set
+    doesn't change just because the business viewing it turned a
+    page)."""
     from src.domains.supplier.products.repositories.product_repository import ProductRepository
-    from src.domains.supplier.products.services import product_media_service
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    products = ProductRepository.list_for_supplier(supplier_profile_id)
+    return ProductRepository.list_distinct_categories_for_supplier(supplier_profile_id)
+
+
+def list_supplier_products(
+    business_id: str | UUID,
+    supplier_profile_id: str | UUID,
+    page: int = 1,
+    limit: int = DEFAULT_CATALOG_PAGE_SIZE,
+    sort: str = "NEWEST",
+    category: Optional[str] = None,
+) -> dict:
+    """Real, and now genuinely useful -- name/category/price/unit,
+    matching Product's own grown shape (Phase 1: Products). Viewable by
+    ANY authenticated business regardless of connection status --
+    browsing stays open; only ordering is gated (can_place_order
+    above). Archived products excluded.
+
+    business_id -- so this can ALSO carry contact at the top level
+    (same gating as get_supplier_product's own: an ACTIVE connection
+    AND the supplier's own share_contact_details opt-in, both
+    required), for the "Contact Supplier" menu item, which needs
+    contact info without requiring a business to first pick one
+    specific product.
+
+    PAGE/LIMIT/SORT/CATEGORY ARE THE REAL "PROTECT THE API, AND SCALE"
+    FIX -- a supplier with hundreds of products used to mean one
+    request returning every single row (and every image URL) at once.
+    Sort and category filter are applied HERE, server-side, before
+    pagination -- not left to the frontend to slice client-side,
+    because once results are paginated, a client-side filter could
+    only ever see whatever's on the current page, silently missing
+    real matches sitting on other pages. limit is hard-capped at
+    MAX_CATALOG_PAGE_SIZE regardless of what's requested -- the actual
+    enforcement that makes this a genuine API protection, not just a
+    UI suggestion a client could ignore by asking for limit=10000.
+    """
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.services import product_media_service
+
+    if page < 1:
+        raise InvalidCatalogQueryError("Page must be 1 or greater.")
+    if limit < 1:
+        raise InvalidCatalogQueryError("Limit must be 1 or greater.")
+    limit = min(limit, MAX_CATALOG_PAGE_SIZE)
+    if sort not in VALID_CATALOG_SORT_OPTIONS:
+        raise InvalidCatalogQueryError(f"Invalid sort value. Must be one of: {', '.join(sorted(VALID_CATALOG_SORT_OPTIONS))}.")
+    if category is not None:
+        from src.domains.supplier.products.models.product import ProductCategory
+
+        try:
+            ProductCategory(category)
+        except ValueError:
+            raise InvalidCatalogQueryError("Invalid category value.")
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    if not supplier:
+        raise SupplierNotFoundError("Supplier not found.")
+
+    connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
+    is_active = connection is not None and connection.status == ConnectionRequestStatus.ACTIVE
+
+    contact = None
+    if is_active and supplier.share_contact_details:
+        contact = {
+            "whatsappNumber": supplier.whatsapp_number,
+            "email": supplier.contact_email,
+            "tiktokHandle": supplier.tiktok_handle,
+        }
+
+    products, total_count = ProductRepository.list_for_supplier_paginated(
+        supplier_profile_id, page=page, limit=limit, sort=sort, category=category
+    )
+    total_pages = max(1, math.ceil(total_count / limit))
+
+    # supplierName sits at the TOP LEVEL, not repeated inside every
+    # product dict -- same value for every row, so duplicating it
+    # would just be wasted bytes on every response. Same "certainty"
+    # fix as get_supplier_product's own supplierName, applied one
+    # screen earlier in the same flow -- a business browsing the whole
+    # catalogue should know whose it is before ever tapping into one
+    # specific product, not just once they get there.
+    return {
+        "supplierName": supplier.business_name,
+        "contact": contact,
+        "page": page,
+        "totalPages": total_pages,
+        "totalCount": total_count,
+        "products": _build_catalog_product_dicts(products),
+    }
+
+
+def _build_catalog_product_dicts(products: List) -> List[dict]:
+    """Shared by list_supplier_products above and
+    list_related_products below -- both need the exact same enriched
+    shape (compareAtPriceCents, inStock, approved-only images), and
+    duplicating this risks the two silently drifting apart over time.
+    Batches the inventory lookup, not one query per product -- same
+    "protect the API" discipline as pagination itself. A product with
+    no matching inventory row is treated as zero available (the same
+    default value a real row would have anyway), never created as a
+    side effect of this read -- see InventoryRepository.
+    list_by_product_ids' own docstring on why a business simply
+    browsing must never trigger a write to the supplier's own
+    inventory rows."""
+    from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
+    from src.domains.supplier.products.services import product_media_service
+
+    inventory_rows = InventoryRepository.list_by_product_ids([p.id for p in products])
+    available_by_product = {row.product_id: row.quantity_on_hand - row.quantity_reserved for row in inventory_rows}
+
     return [
         {
             "id": str(p.id),
             "name": p.name,
             "category": p.category.value,
             "priceCents": p.price_cents,
+            # Added so a business browsing this catalogue can see the
+            # same "was RX, now RY" / "% OFF" badge the supplier
+            # themselves sees on their own product screens -- the
+            # underlying discount is real regardless of who's looking
+            # at it.
+            "compareAtPriceCents": p.compare_at_price_cents,
             "sellingUnit": p.selling_unit.value,
+            # A real, direct answer to "can I actually order this
+            # right now" -- never the exact quantity (a business
+            # doesn't need to know "exactly 3 left", only whether
+            # it's currently orderable at all; the supplier's own
+            # exact count stays theirs).
+            "inStock": available_by_product.get(p.id, 0) > 0,
             # Real, APPROVED-only media -- this is exactly the endpoint
             # a business actually sees, so it's the one place this
             # matters most (see product_media_service's own
@@ -216,6 +347,117 @@ def list_supplier_products(supplier_profile_id: str | UUID) -> List[dict]:
         }
         for p in products
     ]
+
+
+def list_related_products(business_id: str | UUID, supplier_profile_id: str | UUID, product_id: str | UUID) -> dict:
+    """"More from [Supplier]" -- see ProductRepository.
+    list_related_products' own docstring for the full backfill
+    reasoning. Genuinely related (same category) products come first,
+    then any other product from this same supplier fills the
+    remaining slots if fewer than 5 genuine matches exist -- confirmed
+    after direct feedback: a supplier with real stock spread across
+    many categories was showing nothing here far too often. Priority
+    always goes to real relatedness; backfill only ever fills leftover
+    slots, never displaces a genuine match. Same visibility rule as
+    browsing the rest of the catalogue -- viewable by any
+    authenticated business regardless of connection status.
+    """
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    if not supplier:
+        raise SupplierNotFoundError("Supplier not found.")
+
+    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    if not product or product.is_archived:
+        raise ProductNotFoundError("Product not found.")
+
+    related = ProductRepository.list_related_products(supplier_profile_id, product.category, product.id, limit=5)
+    return {"products": _build_catalog_product_dicts(related)}
+
+
+def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUID, product_id: str | UUID) -> dict:
+    """The real, previously-missing piece confirmed during the My
+    Connections/search UI review: list_supplier_products above lets a
+    business see a supplier's whole catalogue, but there was no way at
+    all to view ONE product in real detail -- the supplier's own
+    product detail route is locked to role_required("supplier") plus
+    an ownership check, so a business calling it would always be
+    rejected outright, not just see the wrong data.
+
+    Same visibility rules as list_supplier_products -- viewable by ANY
+    authenticated business regardless of connection status (browsing
+    stays open; only ordering is gated, see can_place_order), archived
+    products excluded. get_by_id_and_supplier itself only filters
+    is_deleted, not is_archived (it's shared with supplier-side
+    mutation call sites that legitimately need to see archived rows),
+    so the archived check happens here explicitly instead.
+
+    ProductNotFoundError covers three cases identically -- genuinely
+    doesn't exist, exists under a different supplier than the URL
+    says, or exists but is archived -- same IDOR-safety reasoning as
+    every other *NotFoundError in this domain: a business should never
+    be able to tell these apart from the response.
+
+    business_id IS NEW -- added specifically so the business viewing
+    this can be CERTAIN who they're actually looking at (the real
+    problem this whole feature solves: "how do I know this is
+    genuinely my supplier before I order from them"). Two things this
+    unlocks: the supplier's own real business name (never shown on
+    this screen before), and their WhatsApp/email/TikTok, gated
+    server-side on a genuinely ACTIVE connection -- never trusted from
+    the app, same resolution pattern as _resolve_visible_photo_url
+    already uses for photos. contact is null (not an empty object)
+    whenever EITHER the connection isn't active OR the supplier hasn't
+    opted into share_contact_details -- a business browsing without a
+    real relationship should never be able to tell "not connected"
+    apart from "connected but declined to share" from the response
+    shape.
+    """
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.services import product_media_service
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    if not supplier:
+        raise SupplierNotFoundError("Supplier not found.")
+
+    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    if not product or product.is_archived:
+        raise ProductNotFoundError("Product not found.")
+
+    connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
+    is_active = connection is not None and connection.status == ConnectionRequestStatus.ACTIVE
+
+    contact = None
+    if is_active and supplier.share_contact_details:
+        contact = {
+            "whatsappNumber": supplier.whatsapp_number,
+            "email": supplier.contact_email,
+            "tiktokHandle": supplier.tiktok_handle,
+        }
+
+    from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
+
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    available = (inventory.quantity_on_hand - inventory.quantity_reserved) if inventory else 0
+
+    return {
+        "id": str(product.id),
+        "name": product.name,
+        "supplierName": supplier.business_name,
+        "contact": contact,
+        "category": product.category.value,
+        "priceCents": product.price_cents,
+        "compareAtPriceCents": product.compare_at_price_cents,
+        "sellingUnit": product.selling_unit.value,
+        # Same real, direct answer as list_supplier_products' own
+        # inStock -- never the exact quantity.
+        "inStock": available > 0,
+        "description": product.description,
+        "sku": product.sku,
+        "productCode": product.product_code,
+        "images": product_media_service.list_approved_media(product.id),
+    }
 
 
 def _handle_existing_connection(
@@ -228,6 +470,18 @@ def _handle_existing_connection(
     PENDING/ACTIVE: still fully idempotent -- a double-tap or a
     retried request after a flaky connection should never create a
     second row or surface an error for doing the same thing twice.
+
+    ENDED: NOT simply idempotent -- a REAL BUG, found and fixed after
+    direct report: this case fell through to the generic "just return
+    the existing status" branch below, meaning a reconnect attempt
+    after a voluntary disconnect got a 200 response with the row never
+    actually changing -- it stayed stuck at ENDED forever, invisible
+    to every list that filters on PENDING/ACTIVE on both sides. Now
+    resets to PENDING via ConnectionRequestRepository.reconnect, with
+    no rate limiting (see that method's own docstring on why: ending a
+    connection is voluntary, not an adversarial rejection, so
+    DECLINED's own "guard against harassment" reasoning doesn't
+    transfer here).
 
     DECLINED: NOT simply idempotent -- attempts a real retry, subject
     to MAX_CONNECTION_RETRY_PER_DAY/_PER_WEEK. Fetches the row LOCKED
@@ -243,6 +497,10 @@ def _handle_existing_connection(
     becomes allowed (whichever window's oldest qualifying attempt
     clears last -- both limits must be satisfied, not just one).
     """
+    if existing.status == ConnectionRequestStatus.ENDED:
+        reconnected = ConnectionRequestRepository.reconnect(existing, initiated_by_role)
+        return {"connectionStatus": reconnected.status.value.upper()}
+
     if existing.status != ConnectionRequestStatus.DECLINED:
         return {"connectionStatus": existing.status.value.upper()}
 
@@ -614,6 +872,22 @@ def _lookup_business_name(user_id: str | UUID) -> str:
     return profile.business_name if profile else "A business"
 
 
+def _lookup_business_profile_id(user_id: str | UUID) -> Optional[str]:
+    """The real BusinessProfile.id, distinct from user_id -- see
+    get_my_connections' own comment on other_party_id for why this
+    matters. None in the genuine edge case where no BusinessProfile
+    row exists yet for this user (mirrors _lookup_business_name's own
+    "A business" fallback for the same case, just returning None
+    instead of a placeholder string, since there's no id to fall back
+    to)."""
+    from src.domains.business.business_profile.repositories.business_profile_repository import (
+        BusinessProfileRepository,
+    )
+
+    profile = BusinessProfileRepository.get_for_business(user_id)
+    return str(profile.id) if profile else None
+
+
 def _lookup_supplier_name(user_id: str | UUID) -> str:
     profile = SupplierProfileRepository.get_by_supplier_id(user_id)
     return profile.business_name if profile else "A supplier"
@@ -757,20 +1031,49 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> List[dict]:
     if user_role == "supplier":
         supplier_profile_id = _resolve_supplier_profile_id(user_id)
         requests = ConnectionRequestRepository.list_active_for_supplier_profile(supplier_profile_id)
-        return [_connection_summary(r, other_party_name=_lookup_business_name(r.business_id)) for r in requests]
+        return [
+            _connection_summary(
+                r,
+                other_party_name=_lookup_business_name(r.business_id),
+                # BusinessProfile.id, NOT r.business_id (a raw
+                # auth.users.id) -- confirmed against
+                # get_business_profile's own lookup: these are
+                # genuinely different values, and the frontend route
+                # this feeds (GET /businesses/<business_profile_id>)
+                # expects the profile id specifically.
+                other_party_id=_lookup_business_profile_id(r.business_id),
+            )
+            for r in requests
+        ]
 
     requests = ConnectionRequestRepository.list_active_for_business(user_id)
     results = []
     for r in requests:
         supplier_profile = SupplierProfileRepository.get_by_id(r.supplier_profile_id)
         name = supplier_profile.business_name if supplier_profile else "Unknown supplier"
-        results.append(_connection_summary(r, other_party_name=name))
+        results.append(
+            _connection_summary(r, other_party_name=name, other_party_id=str(r.supplier_profile_id))
+        )
     return results
 
 
-def _connection_summary(request, *, other_party_name: str) -> dict:
+def _connection_summary(request, *, other_party_name: str, other_party_id: Optional[str]) -> dict:
     return {
         "id": str(request.id),
+        # The OTHER party's own real profile id -- a
+        # supplier_profile_id when viewed by a business, a
+        # BusinessProfile.id when viewed by a supplier. Same "one
+        # field, meaning depends on who's asking, resolved
+        # server-side" pattern as name just below. Nullable: a
+        # business's own profile can genuinely not exist yet in some
+        # edge cases (see _lookup_business_profile_id below), and a
+        # missing id should mean "don't render this as tappable",
+        # never a broken link. REAL GAP FOUND DURING the search/
+        # connections UI review: without this field at all, a tapped
+        # connection had no real id to route anywhere with -- only the
+        # connection REQUEST's own id (this dict's own "id" field
+        # above) was ever exposed.
+        "other_party_id": other_party_id,
         "name": other_party_name,
         "connectedSince": request.updated_at.isoformat() if request.updated_at else None,
     }
@@ -869,3 +1172,123 @@ def update_my_photo_settings(
         "visibleImageSource": profile.visible_image_source.value,
         "photoVisibility": profile.photo_visibility.value,
     }
+
+
+def end_connection(business_id: str | UUID, supplier_profile_id: str | UUID, reason: str, details: Optional[str]) -> dict:
+    """The real "Disconnect from this Supplier" action -- the same
+    row transitions ACTIVE -> ENDED (see ConnectionRequestStatus's own
+    docstring on ENDED), it's never deleted. Vanishes from
+    get_my_connections' own ACTIVE-only list the moment this commits;
+    list_ended_connections below is the "who have I disconnected from"
+    view.
+
+    reason arrives as the schema-validated uppercase string
+    (EndConnectionSchema's own validate.OneOf) -- [] member-name
+    lookup, not () value lookup, since the schema validates against
+    the member names ("FOUND_BETTER_SUPPLIER"), not the lowercase
+    .value strings.
+    """
+    connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
+    if not connection:
+        raise ConnectionRequestNotFoundError("Connection not found.")
+    if connection.status != ConnectionRequestStatus.ACTIVE:
+        raise ConnectionNotActiveError("This connection isn't currently active.")
+
+    ended = ConnectionRequestRepository.end_connection(connection, ConnectionEndReason[reason], details)
+    return {"connectionStatus": ended.status.value.upper()}
+
+
+def list_ended_connections(business_id: str | UUID) -> List[dict]:
+    """The "who have I disconnected from" list -- Community tab's own
+    overflow menu. Mirrors get_my_connections' own ACTIVE-branch shape
+    (id, name, otherPartyId, connectedSince) plus the two fields
+    unique to this list (endedReason, endedAt) -- a business asking
+    "who did I disconnect and why" needs those, an active-connections
+    list never did."""
+    requests = ConnectionRequestRepository.list_ended_for_business(business_id)
+    results = []
+    for r in requests:
+        supplier_profile = SupplierProfileRepository.get_by_id(r.supplier_profile_id)
+        name = supplier_profile.business_name if supplier_profile else "Unknown supplier"
+        results.append(
+            {
+                "id": str(r.id),
+                "name": name,
+                "otherPartyId": str(r.supplier_profile_id),
+                "endedReason": r.ended_reason.value.upper() if r.ended_reason else None,
+                "endedDetails": r.ended_details,
+                "endedAt": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
+    return results
+
+
+def report_supplier(
+    business_id: str | UUID,
+    supplier_profile_id: str | UUID,
+    reason: str,
+    details: Optional[str],
+    product_id: Optional[str | UUID] = None,
+) -> dict:
+    """A business reporting a concern about a supplier -- see
+    SupplierReport's own model docstring on why this is a real,
+    permanent record today even though no admin panel exists yet to
+    review it, and why the notification email is a courtesy on top of
+    that record, never a replacement for it. Deliberately does NOT
+    require an active (or even any) connection -- a genuine scam
+    concern should be reportable regardless of connection status,
+    unlike ordering or seeing contact details, which both genuinely do
+    require one.
+
+    product_id IS OPTIONAL -- set when reported from a specific
+    product's own 3-dot menu ("Report this product"), omitted when
+    reported from the catalogue's own menu ("Report" the supplier
+    generally). When provided, it's verified to genuinely belong to
+    THIS supplier first -- same IDOR-safety discipline as every other
+    ownership check in this domain; a mismatched product_id is
+    silently dropped rather than trusted, so a report can never end up
+    misleadingly attached to a product that isn't actually this
+    supplier's.
+
+    reason arrives as the schema-validated uppercase string
+    (ReportSupplierSchema's own validate.OneOf) -- same [] member-name
+    lookup reasoning as end_connection above.
+    """
+    from flask import current_app
+
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.shared.email.email import EmailService
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    if not supplier:
+        raise SupplierNotFoundError("Supplier not found.")
+
+    verified_product_id = None
+    product_name = None
+    if product_id is not None:
+        product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+        if product:
+            verified_product_id = product.id
+            product_name = product.name
+
+    report = SupplierReportRepository.create(
+        business_id, supplier_profile_id, SupplierReportReason[reason], details, product_id=verified_product_id
+    )
+
+    reports_email = current_app.config.get("SUPPLIER_REPORTS_EMAIL")
+    if reports_email:
+        EmailService.send_template(
+            to=reports_email,
+            template_name="network/supplier_reported.html",
+            subject=f"Supplier report: {supplier.business_name}",
+            context={
+                "supplier_business_name": supplier.business_name,
+                "supplier_profile_id": str(supplier_profile_id),
+                "product_name": product_name,
+                "reason": report.reason.value.replace("_", " ").title(),
+                "details": details or "(no additional details provided)",
+                "report_id": str(report.id),
+            },
+        )
+
+    return {"status": "SUBMITTED"}

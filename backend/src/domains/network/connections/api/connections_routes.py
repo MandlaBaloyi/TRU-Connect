@@ -69,12 +69,55 @@ def get_supplier_profile(supplier_profile_id: uuid.UUID):
     return success_response(data=profile)
 
 
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/products/categories", methods=["GET"]
+)
+@fully_authenticated
+@role_required("business")
+def get_supplier_product_categories(supplier_profile_id: uuid.UUID):
+    categories = connections_service.get_supplier_product_categories(supplier_profile_id)
+    return success_response(data={"categories": categories})
+
+
 @connections_bp.route("/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/products", methods=["GET"])
 @fully_authenticated
 @role_required("business")
 def list_supplier_products(supplier_profile_id: uuid.UUID):
-    products = connections_service.list_supplier_products(supplier_profile_id)
-    return success_response(data={"products": products})
+    # Same simple request.args.get pattern already used for the search
+    # routes in this file (e.g. search_suppliers' own "q" param) --
+    # real validation (range/allowed-values checks) happens in the
+    # service layer, not here.
+    page = request.args.get("page", default=1, type=int)
+    limit = request.args.get("limit", default=connections_service.DEFAULT_CATALOG_PAGE_SIZE, type=int)
+    sort = request.args.get("sort", default="NEWEST")
+    category = request.args.get("category")
+
+    result = connections_service.list_supplier_products(
+        _business_id(), supplier_profile_id, page=page, limit=limit, sort=sort, category=category
+    )
+    return success_response(data=result)
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/products/<uuid:product_id>",
+    methods=["GET"],
+)
+@fully_authenticated
+@role_required("business")
+def get_supplier_product(supplier_profile_id: uuid.UUID, product_id: uuid.UUID):
+    product = connections_service.get_supplier_product(_business_id(), supplier_profile_id, product_id)
+    return success_response(data=product)
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/products/<uuid:product_id>/related",
+    methods=["GET"],
+)
+@fully_authenticated
+@role_required("business")
+def list_related_products(supplier_profile_id: uuid.UUID, product_id: uuid.UUID):
+    result = connections_service.list_related_products(_business_id(), supplier_profile_id, product_id)
+    return success_response(data=result)
 
 
 @connections_bp.route(
@@ -312,5 +355,66 @@ def update_my_photo_settings():
         role,
         visible_image_source=payload.get("visibleImageSource"),
         photo_visibility=payload.get("photoVisibility"),
+    )
+    return success_response(data=result)
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/disconnect", methods=["POST"]
+)
+@fully_authenticated
+@role_required("business")
+def end_connection(supplier_profile_id: uuid.UUID):
+    from marshmallow import ValidationError as MarshmallowValidationError
+
+    from src.core.responses import error_response
+    from src.domains.network.connections.schemas.connections_schemas import EndConnectionSchema
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        data = EndConnectionSchema().load(payload)
+    except MarshmallowValidationError as exc:
+        errors = [str(msg) for field_errors in exc.messages.values() for msg in field_errors]
+        return error_response(message="Validation failed", errors=errors, status_code=422)
+
+    # ConnectionRequestNotFoundError/ConnectionNotActiveError aren't
+    # caught here -- same as every other route in this file, a
+    # global error handler already converts them to the real status
+    # code.
+    result = connections_service.end_connection(_business_id(), supplier_profile_id, data["reason"], data["details"])
+    return success_response(data=result)
+
+
+@connections_bp.route("/api/v1/supplier-discovery/connections/ended", methods=["GET"])
+@fully_authenticated
+@role_required("business")
+def list_ended_connections():
+    """Business-only -- the "who have I disconnected from" list has no
+    equivalent concept on the supplier side yet (a supplier ending a
+    relationship isn't a flow this pass builds), so unlike
+    get_my_connections above, this one doesn't need to branch on
+    role."""
+    results = connections_service.list_ended_connections(_business_id())
+    return success_response(data={"connections": results})
+
+
+@connections_bp.route("/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/report", methods=["POST"])
+@fully_authenticated
+@role_required("business")
+def report_supplier(supplier_profile_id: uuid.UUID):
+    from marshmallow import ValidationError as MarshmallowValidationError
+
+    from src.core.responses import error_response
+    from src.domains.network.connections.schemas.connections_schemas import ReportSupplierSchema
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        data = ReportSupplierSchema().load(payload)
+    except MarshmallowValidationError as exc:
+        errors = [str(msg) for field_errors in exc.messages.values() for msg in field_errors]
+        return error_response(message="Validation failed", errors=errors, status_code=422)
+
+    result = connections_service.report_supplier(
+        _business_id(), supplier_profile_id, data["reason"], data["details"], product_id=data["product_id"]
     )
     return success_response(data=result)

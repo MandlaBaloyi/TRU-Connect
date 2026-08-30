@@ -87,6 +87,12 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.supplier.bulk_import.api.bulk_import_routes import bulk_import_bp
     app.register_blueprint(bulk_import_bp)
 
+    from src.domains.supplier.supplier_profile.api.supplier_profile_routes import supplier_profile_bp
+    app.register_blueprint(supplier_profile_bp)
+
+    from src.domains.network.orders.api.orders_routes import orders_bp
+    app.register_blueprint(orders_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """

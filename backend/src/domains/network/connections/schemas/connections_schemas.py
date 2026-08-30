@@ -7,7 +7,7 @@ file existing now rather than from the start.
 """
 from __future__ import annotations
 
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 
 class InviteContactSchema(Schema):
@@ -17,3 +17,28 @@ class InviteContactSchema(Schema):
     schema serves both rather than two identical copies."""
 
     email = fields.Email(required=True)
+
+
+class EndConnectionSchema(Schema):
+    reason = fields.Str(
+        required=True,
+        validate=validate.OneOf(["FOUND_BETTER_SUPPLIER", "NO_LONGER_NEEDED", "BAD_EXPERIENCE", "OTHER"]),
+    )
+    details = fields.Str(required=False, allow_none=True, load_default=None)
+
+
+class ReportSupplierSchema(Schema):
+    reason = fields.Str(
+        required=True,
+        validate=validate.OneOf(
+            ["FAKE_PRODUCTS", "SUSPECTED_SCAM", "ORDER_NOT_RECEIVED", "INAPPROPRIATE_CONTENT", "OTHER"]
+        ),
+    )
+    details = fields.Str(required=False, allow_none=True, load_default=None)
+    # Set when reported from a specific product's own 3-dot menu,
+    # omitted when reported from the catalogue's own menu -- the
+    # service layer verifies this genuinely belongs to the supplier in
+    # the URL before trusting it (see report_supplier's own
+    # docstring), so this schema only validates SHAPE (a real UUID
+    # string), not ownership.
+    product_id = fields.Str(required=False, allow_none=True, load_default=None)

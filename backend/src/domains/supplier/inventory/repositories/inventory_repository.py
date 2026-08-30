@@ -83,6 +83,21 @@ class InventoryRepository:
         return Inventory.query.filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False).all()
 
     @staticmethod
+    def list_by_product_ids(product_ids: List[str | UUID]) -> List[Inventory]:
+        """READ-ONLY, deliberately NOT get_or_create_for_product -- this
+        exists for the business-facing catalogue view (connections_
+        service.py's own list_supplier_products/get_supplier_product),
+        where a business simply BROWSING a supplier's catalogue must
+        never trigger a write to that supplier's own inventory rows.
+        A product with no matching row here just means "no inventory
+        row exists yet" -- treated as zero available at the SERVICE
+        layer (same default value a real row would have anyway), never
+        created as a side effect of a read."""
+        if not product_ids:
+            return []
+        return Inventory.query.filter(Inventory.product_id.in_(product_ids), Inventory.is_deleted.is_(False)).all()
+
+    @staticmethod
     def adjust_quantity(inventory: Inventory, quantity_delta: int) -> Inventory:
         inventory.quantity_on_hand = inventory.quantity_on_hand + quantity_delta
         db.session.commit()

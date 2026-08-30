@@ -5,16 +5,14 @@ deliberately minimal version that only needed create/list/count for
 the ordering gate; now the full CRUD + bulk surface the real Products
 feature needs.
 
-KNOWN LIMITATION, FLAGGED NOT HIDDEN: list_for_supplier has no
-pagination. The frontend doesn't send page/limit params today (its
-mock API returns everything unpaginated), so building server-side
-pagination now would mean either the frontend silently never sees
-page 2, or building pagination UI nobody asked for yet in this phase.
-Real pagination is a genuine follow-up once a supplier's catalogue
-size makes it necessary -- the supplier_profile_id+is_archived index
-this table already has is exactly what a future LIMIT/OFFSET (or
-keyset) query would use, so adding it later doesn't require an index
-migration, only a repository/route change.
+list_for_supplier ITSELF STAYS UNPAGINATED, DELIBERATELY -- it's
+shared by the supplier's own Products screen and other callers that
+genuinely want the full, unfiltered list; adding pagination directly
+to it would force every existing caller to start handling pages it
+never asked for. Real server-side pagination exists as its own,
+separate method (list_for_supplier_paginated below), built once the
+business-facing catalogue view genuinely needed it -- a supplier with
+hundreds of products meant one request returning every row at once.
 """
 from __future__ import annotations
 
@@ -125,6 +123,133 @@ class ProductRepository:
             # a supplier searching their own products.
             query = query.filter(Product.name.ilike(f"%{search_term}%"))
         return query.order_by(Product.created_at.desc()).all()
+
+    @staticmethod
+    def list_for_supplier_paginated(
+        supplier_profile_id: str | UUID,
+        page: int,
+        limit: int,
+        sort: str,
+        category: Optional[str],
+    ) -> tuple[List[Product], int]:
+        """A SEPARATE method from list_for_supplier above, deliberately
+        -- that one is shared by the supplier's own Products screen and
+        other callers that want the full, unpaginated list; adding
+        pagination directly to it would force every existing caller to
+        start handling pages it never asked for. This one exists
+        specifically for the business-facing catalogue view
+        (connections_service.py's own list_supplier_products), where a
+        supplier with hundreds of products genuinely needs to be
+        fetched a page at a time, not all at once -- REAL "protect the
+        API, and scale" concern, not a cosmetic one: without this, one
+        request for a large catalogue means one query returning
+        potentially hundreds of rows (and hundreds of image-URL
+        resolutions alongside them).
+
+        Returns (products for this one page, total count matching the
+        filter) -- the total is computed from the SAME filtered query,
+        BEFORE pagination is applied, so the frontend can render the
+        real number of pages regardless of which page it's currently
+        showing.
+
+        Sort/category validation happens in the SERVICE layer, not
+        here -- same "repository has no business rules" discipline
+        already established throughout this codebase.
+        """
+        from src.domains.supplier.products.models.product import ProductCategory
+
+        query = Product.query.filter_by(
+            supplier_profile_id=supplier_profile_id, is_deleted=False, is_archived=False
+        )
+        if category is not None:
+            query = query.filter_by(category=ProductCategory(category))
+
+        total_count = query.count()
+
+        if sort == "NAME_ASC":
+            query = query.order_by(Product.name.asc())
+        elif sort == "PRICE_ASC":
+            query = query.order_by(Product.price_cents.asc())
+        elif sort == "PRICE_DESC":
+            query = query.order_by(Product.price_cents.desc())
+        else:  # "NEWEST" and any unrecognised value both fall back to this
+            query = query.order_by(Product.created_at.desc())
+
+        offset = (page - 1) * limit
+        products = query.offset(offset).limit(limit).all()
+        return products, total_count
+
+    @staticmethod
+    def list_distinct_categories_for_supplier(supplier_profile_id: str | UUID) -> List[str]:
+        """The real fix for a real bug: the category filter used to be
+        derived from whatever products happened to be on the CURRENT
+        PAGE, which broke the moment pagination existed (the list
+        would shift depending on which page you were viewing). A
+        supplier's own set of DISTINCT categories is small and bounded
+        even when their product list is huge, so this is a cheap,
+        direct query -- correct regardless of how many pages the
+        catalogue has, and computed once, independent of whichever
+        page/sort/filter the business currently has selected. Archived
+        products excluded, same visibility rule as
+        list_for_supplier_paginated above -- a business shouldn't see
+        a filter option that only exists because of something the
+        supplier pulled from sale."""
+        rows = (
+            db.session.query(Product.category)
+            .filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False, is_archived=False)
+            .distinct()
+            .all()
+        )
+        return [row[0].value for row in rows]
+
+    @staticmethod
+    def list_related_products(
+        supplier_profile_id: str | UUID, category: ProductCategory, exclude_product_id: str | UUID, limit: int = 5
+    ) -> List[Product]:
+        """"More from [Supplier]" -- genuinely related products FIRST
+        (same category, same supplier, excluding the one currently
+        being viewed), THEN backfilled with any OTHER product from
+        this same supplier (any category) if fewer than `limit` were
+        found -- confirmed during review: a supplier with real stock
+        but few products in any one category would otherwise show
+        NOTHING here far too often. Priority always goes to genuine
+        relatedness -- backfill only ever fills the leftover slots,
+        never displaces a real match. Still always excludes the
+        current product and never duplicates a row that's already in
+        the related set. Out-of-stock products are NOT excluded here
+        -- same consistent behaviour as the main catalogue grid.
+        Newest first in both passes -- no stronger "best match" signal
+        to rank by. Archived excluded throughout."""
+        related = (
+            Product.query.filter(
+                Product.supplier_profile_id == supplier_profile_id,
+                Product.category == category,
+                Product.id != exclude_product_id,
+                Product.is_deleted.is_(False),
+                Product.is_archived.is_(False),
+            )
+            .order_by(Product.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+        remaining = limit - len(related)
+        if remaining <= 0:
+            return related
+
+        already_included_ids = [exclude_product_id] + [p.id for p in related]
+        backfill = (
+            Product.query.filter(
+                Product.supplier_profile_id == supplier_profile_id,
+                Product.id.notin_(already_included_ids),
+                Product.is_deleted.is_(False),
+                Product.is_archived.is_(False),
+            )
+            .order_by(Product.created_at.desc())
+            .limit(remaining)
+            .all()
+        )
+        return related + backfill
 
     @staticmethod
     def count_for_supplier(supplier_profile_id: str | UUID) -> int:

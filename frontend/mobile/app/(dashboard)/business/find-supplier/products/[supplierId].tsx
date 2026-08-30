@@ -1,4 +1,4 @@
 /** Route only. Implementation lives in the feature folder. */
-import SupplierProductsScreen from "@/features/dashboard/business/find-supplier/screens/SupplierProductsScreen";
+import SupplierCatalogScreen from "@/features/dashboard/business/my-suppliers/screens/SupplierCatalogScreen";
 
-export default SupplierProductsScreen;
+export default SupplierCatalogScreen;

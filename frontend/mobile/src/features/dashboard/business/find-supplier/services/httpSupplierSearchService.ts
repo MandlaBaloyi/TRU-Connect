@@ -22,7 +22,17 @@
 import { apiGet, apiPost, ApiError } from "@/services/api/apiClient";
 
 import { recordRecentlyViewed } from "./recentSearchesStore";
-import type { ConnectionStatus, SupplierProduct, SupplierProfilePreview, SupplierSearchResult } from "../types";
+import type {
+  ConnectionStatus,
+  DisconnectReason,
+  ReportReason,
+  SupplierProduct,
+  SupplierProductDetail,
+  SupplierProductsCatalog,
+  SupplierProductsQuery,
+  SupplierProfilePreview,
+  SupplierSearchResult,
+} from "../types";
 
 export async function searchSuppliers(query: string): Promise<SupplierSearchResult[]> {
   const data = await apiGet<{ results: SupplierSearchResult[] }>(
@@ -56,11 +66,79 @@ export async function requestConnection(supplierId: string): Promise<ConnectionS
   return data.connectionStatus;
 }
 
+export async function endConnection(
+  supplierId: string,
+  reason: DisconnectReason,
+  details: string | null
+): Promise<void> {
+  await apiPost(`/supplier-discovery/suppliers/${supplierId}/disconnect`, { reason, details });
+}
+
+export async function reportSupplier(
+  supplierId: string,
+  reason: ReportReason,
+  details: string | null,
+  productId?: string
+): Promise<void> {
+  await apiPost(`/supplier-discovery/suppliers/${supplierId}/report`, { reason, details, product_id: productId });
+}
+
 export async function inviteSupplier(email: string): Promise<{ status: "SENT" }> {
   return apiPost<{ status: "SENT" }>("/supplier-discovery/invitations", { email });
 }
 
-export async function getSupplierProducts(supplierId: string): Promise<SupplierProduct[]> {
-  const data = await apiGet<{ products: SupplierProduct[] }>(`/supplier-discovery/suppliers/${supplierId}/products`);
+export async function getSupplierProducts(
+  supplierId: string,
+  query: SupplierProductsQuery = {}
+): Promise<SupplierProductsCatalog> {
+  return apiGet<SupplierProductsCatalog>(`/supplier-discovery/suppliers/${supplierId}/products`, {
+    params: {
+      page: query.page,
+      limit: query.limit,
+      sort: query.sort,
+      category: query.category ?? undefined,
+    },
+  });
+}
+
+/** The real fix for a real bug: this used to be derived on the
+ *  frontend from whichever products happened to be on the currently-
+ *  loaded page, which broke the moment pagination existed (the option
+ *  list would shift depending on which page you were viewing). A
+ *  dedicated endpoint -- correct regardless of page/sort/filter,
+ *  fetched once rather than recomputed on every page change. */
+export async function getSupplierProductCategories(supplierId: string): Promise<string[]> {
+  const data = await apiGet<{ categories: string[] }>(`/supplier-discovery/suppliers/${supplierId}/products/categories`);
+  return data.categories;
+}
+
+export async function getSupplierProduct(
+  supplierId: string,
+  productId: string
+): Promise<SupplierProductDetail | null> {
+  try {
+    return await apiGet<SupplierProductDetail>(
+      `/supplier-discovery/suppliers/${supplierId}/products/${productId}`
+    );
+  } catch (error) {
+    // PRODUCT_NOT_FOUND -> null, same contract as getSupplierProfile's
+    // own SUPPLIER_NOT_FOUND handling just above -- every OTHER error
+    // still propagates.
+    if (error instanceof ApiError && error.code === "PRODUCT_NOT_FOUND") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** "More from [Supplier]" -- same supplier, same category, excludes
+ *  the product being viewed, capped at 5. Genuinely zero or one
+ *  result when that's all that matches -- see the real backend's own
+ *  list_related_products docstring on why the criteria is never
+ *  widened just to force a count. */
+export async function getRelatedProducts(supplierId: string, productId: string): Promise<SupplierProduct[]> {
+  const data = await apiGet<{ products: SupplierProduct[] }>(
+    `/supplier-discovery/suppliers/${supplierId}/products/${productId}/related`
+  );
   return data.products;
 }

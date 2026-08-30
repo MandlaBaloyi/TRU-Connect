@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ArrowLeft, MoreVertical, Search, UserPlus, Users } from "lucide-react-native";
+import { ArrowLeft, Search, UserPlus, Users } from "lucide-react-native";
 import { TextInput, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useSupplierRequests } from "@/features/dashboard/business/supplier-requests/hooks/useSupplierRequests";
 import { MyConnectionsList } from "@/features/dashboard/shared/connections/components/MyConnectionsList";
+import { CommunityOverflowMenu } from "@/features/dashboard/shared/connections/components/CommunityOverflowMenu";
 import { InlineSupplierSearch } from "@/features/dashboard/business/find-supplier/components/InlineSupplierSearch";
 
 const TABS = [
@@ -121,7 +122,11 @@ export default function BusinessCommunity() {
             showBottomBorder={false}
             secondaryRightIcon={<Search size={22} color={theme.colors.onSurface} strokeWidth={2.4} />}
             onSecondaryRightIconPress={() => setIsSearchMode(true)}
-            rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} strokeWidth={2.4} />}
+            rightIcon={
+              <CommunityOverflowMenu
+                onViewDisconnectedSuppliers={() => router.push("/business/my-suppliers/disconnected" as any)}
+              />
+            }
           />
 
           <Pressable
@@ -183,7 +188,11 @@ export default function BusinessCommunity() {
           )}
 
           {activeTab === "MY_CONNECTIONS" ? (
-            <MyConnectionsList />
+            <MyConnectionsList
+              onPressConnection={(connection) =>
+                router.push(`/business/find-supplier/products/${connection.otherPartyId}` as any)
+              }
+            />
           ) : (
             <EmptyState
               icon={<Users size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}

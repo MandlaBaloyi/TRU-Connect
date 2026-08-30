@@ -113,7 +113,21 @@ export function FeatureHeader({ back, options, navigation }: NativeStackHeaderPr
 
         {/* Fixed-width slot keeps the title's position identical
             between screens that do and don't have a right action, and
-            makes a long title truncate rather than collide. */}
+            makes a long title truncate rather than collide.
+
+            minWidth WIDENED from 40 to 80 -- REAL BUG FOUND after
+            direct feedback: the Stock Catalogue screen puts TWO
+            elements here (a cart icon plus the 3-dot menu), but this
+            slot was sized for exactly one. Since the title text next
+            to it is flex:1 (greedily fills remaining space), a longer
+            title could squeeze this slot back down toward its old
+            40px minimum -- not enough room for two icons, so they'd
+            overlap or get pushed off depending on how long the
+            current screen's title happened to be. 80px is enough for
+            two ~40px icon buttons with no squeeze regardless of title
+            length. Single-icon screens are unaffected -- flex-end
+            alignment just right-aligns their one icon the same as
+            before, with a little more empty space to its left. */}
         <View style={styles.rightSlot}>
           {options.headerRight?.({ tintColor: theme.colors.onSurface, canGoBack: Boolean(back) })}
         </View>
@@ -134,5 +148,5 @@ const styles = StyleSheet.create({
   backButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backSpacer: { width: 40 },
   title: { ...typography.h2, flex: 1, marginLeft: spacing.xs },
-  rightSlot: { minWidth: 40, alignItems: "flex-end", justifyContent: "center" },
+  rightSlot: { minWidth: 80, alignItems: "flex-end", justifyContent: "center" },
 });

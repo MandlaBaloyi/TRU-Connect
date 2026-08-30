@@ -26,6 +26,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from src.extensions import db
 from src.domains.network.connections.models.connection_request import (
+    ConnectionEndReason,
     ConnectionInitiatorRole,
     ConnectionRequest,
     ConnectionRequestStatus,
@@ -170,6 +171,39 @@ class ConnectionRequestRepository:
         return request
 
     @staticmethod
+    def reconnect(request: ConnectionRequest, initiated_by_role: ConnectionInitiatorRole) -> ConnectionRequest:
+        """Resets an ENDED request back to PENDING -- a REAL BUG FOUND
+        after direct report: request_connection's own
+        _handle_existing_connection only ever special-cased DECLINED;
+        every other non-PENDING/ACTIVE status (including ENDED) fell
+        through to a silent no-op that returned the stale status
+        without ever actually creating a new pending state. A business
+        disconnecting from a supplier and then either side trying to
+        reconnect would get a 200 response with nothing actually
+        happening -- exactly matching the reported symptom ("backend
+        is fine, it's just not appearing... on both roles").
+
+        Deliberately its own method, NOT retry() above -- retry_history
+        exists specifically for the DECLINED rate-limit mechanism;
+        recording a reconnect-after-ENDED attempt there would silently
+        pollute that history with an unrelated event, and could
+        incorrectly count toward a FUTURE decline's own retry limit.
+        No rate limiting here at all -- ending a connection is a
+        voluntary action, not an adversarial rejection, so the same
+        "guard against harassment" reasoning DECLINED's own retry path
+        needs doesn't apply.
+
+        Clears ended_reason/ended_details -- no longer relevant once a
+        new connection attempt is underway; a future disconnect (if it
+        happens again) will set its own fresh reason."""
+        request.status = ConnectionRequestStatus.PENDING
+        request.initiated_by_role = initiated_by_role
+        request.ended_reason = None
+        request.ended_details = None
+        db.session.commit()
+        return request
+
+    @staticmethod
     def list_active_for_business(business_id: str | UUID) -> List[ConnectionRequest]:
         """ACTIVE only -- for the Community tab's "My Connections",
         regardless of which side originally initiated the request.
@@ -181,6 +215,37 @@ class ConnectionRequestRepository:
             .order_by(ConnectionRequest.updated_at.desc())
             .all()
         )
+
+    @staticmethod
+    def list_ended_for_business(business_id: str | UUID) -> List[ConnectionRequest]:
+        """ENDED only -- the "who have I disconnected from" list. Same
+        shape as list_active_for_business above, deliberately a
+        SEPARATE method rather than a status parameter bolted onto
+        that one -- that method already has a real, narrow, tested
+        contract (ACTIVE only); overloading it risks every existing
+        caller needing to account for a new parameter it never asked
+        for. Most-recently-ended first, matching the same "most recent
+        first" convention."""
+        return (
+            ConnectionRequest.query.filter_by(
+                business_id=business_id, status=ConnectionRequestStatus.ENDED, is_deleted=False
+            )
+            .order_by(ConnectionRequest.updated_at.desc())
+            .all()
+        )
+
+    @staticmethod
+    def end_connection(
+        connection: ConnectionRequest, reason: ConnectionEndReason, details: Optional[str]
+    ) -> ConnectionRequest:
+        """Transitions the SAME row ACTIVE -> ENDED -- never deleted,
+        never replaced with a new row. See ConnectionRequestStatus's
+        own docstring on ENDED for why."""
+        connection.status = ConnectionRequestStatus.ENDED
+        connection.ended_reason = reason
+        connection.ended_details = details
+        db.session.commit()
+        return connection
 
     @staticmethod
     def list_active_for_supplier_profile(supplier_profile_id: str | UUID) -> List[ConnectionRequest]:

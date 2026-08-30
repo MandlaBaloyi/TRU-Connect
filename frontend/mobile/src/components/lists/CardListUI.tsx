@@ -160,11 +160,17 @@ export function SwitchCard({
   );
 }
 
-/** A non-navigating card for entries that just display information. */
-/** A non-navigating display card (a device, a session, a login record
- *  — or a configured payment method). `icon` is optional, added for
- *  My Account's payment methods list — existing callers (Security's
- *  device/session lists) don't pass one and are unaffected. */
+/** A display card for entries that just show information -- OR, when
+ *  `onPress` is passed, a tappable row leading somewhere. Two modes in
+ *  one component (matching Card's own onPress/chevron pattern above)
+ *  rather than a parallel "TappableListCard" -- so a row that starts
+ *  as pure display (a device, a login record) and later needs to lead
+ *  somewhere just gains a prop, not a rewrite. Omitting `onPress` is
+ *  identical to before this was added -- every existing caller
+ *  (Security's device/session lists, My Account's payment methods) is
+ *  unaffected. `icon` is optional, added for My Account's payment
+ *  methods list — existing callers (Security's device/session lists)
+ *  don't pass one and are unaffected. */
 export function ListCard({
   icon,
   title,
@@ -172,6 +178,7 @@ export function ListCard({
   meta,
   badge,
   action,
+  onPress,
 }: {
   icon?: (color: string) => React.ReactNode;
   title: string;
@@ -179,10 +186,11 @@ export function ListCard({
   meta?: string;
   badge?: React.ReactNode;
   action?: React.ReactNode;
+  onPress?: () => void;
 }) {
   const theme = useTheme();
-  return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+  const content = (
+    <>
       {icon && (
         <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
           {icon(theme.colors.onSurfaceVariant)}
@@ -190,15 +198,42 @@ export function ListCard({
       )}
       <View style={styles.cardText}>
         <View style={styles.itemTitleRow}>
-          <Text style={[styles.cardLabel, { color: theme.colors.onSurface }]}>{title}</Text>
+          <Text style={[styles.cardLabel, { color: theme.colors.onSurface }]} numberOfLines={1}>
+            {title}
+          </Text>
           {badge}
         </View>
         {subtitle && (
-          <Text style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}>{subtitle}</Text>
+          <Text style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
         )}
         {meta && <Text style={[styles.itemMeta, { color: theme.colors.onSurfaceVariant }]}>{meta}</Text>}
       </View>
       {action}
+      {onPress && <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.card,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant, opacity: pressed ? 0.85 : 1 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+      {content}
     </View>
   );
 }

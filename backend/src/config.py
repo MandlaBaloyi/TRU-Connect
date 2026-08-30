@@ -36,6 +36,14 @@ class BaseConfig:
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "TRU Connect <no-reply@truconnect.dev>")
+    # Where a supplier report actually lands today -- there's no admin
+    # panel/control centre built yet to review these in-app, so a real
+    # inbox is the honest "someone actually sees this" mechanism until
+    # that exists. The report itself is ALSO a real, permanent database
+    # row regardless of whether this email ever arrives (see
+    # SupplierReport's own docstring) -- this address is a notification
+    # on top of that record, never a replacement for it.
+    SUPPLIER_REPORTS_EMAIL = os.environ.get("SUPPLIER_REPORTS_EMAIL", "reports@truconnect.dev")
     MAIL_TIMEOUT = int(os.environ.get("MAIL_TIMEOUT", 10))
     MAIL_MAX_RETRIES = int(os.environ.get("MAIL_MAX_RETRIES", 3))
     MAIL_RETRY_DELAYS = [

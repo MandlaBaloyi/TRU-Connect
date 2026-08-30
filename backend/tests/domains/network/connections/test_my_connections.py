@@ -46,6 +46,44 @@ def test_supplier_sees_its_active_connections(make_business, make_business_profi
     assert results[0]["name"] == "Active Business Co"
 
 
+def test_business_viewer_gets_the_suppliers_own_profile_id(make_business, make_supplier, make_supplier_profile):
+    """THE REAL GAP THIS FIXES -- other_party_id must be the supplier's
+    own supplier_profile_id (what the frontend route actually needs to
+    tap through to their products), not the connection request's own
+    id."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Active Supplier Co")
+    _make_active_connection(business, profile)
+
+    results = connections_service.get_my_connections(business.id, "business")
+
+    assert results[0]["other_party_id"] == str(profile.id)
+    assert results[0]["other_party_id"] != results[0]["id"]  # never the connection request's own id
+
+
+def test_supplier_viewer_gets_the_businesss_own_profile_id_not_the_raw_user_id(
+    make_business, make_business_profile, make_supplier
+):
+    """THE SUBTLER HALF OF THE SAME FIX -- BusinessProfile.id is a
+    genuinely different value from the raw auth.users.id
+    ConnectionRequest.business_id stores; other_party_id must be the
+    PROFILE id, matching what GET /businesses/<id> actually expects."""
+    business = make_business()
+    business_profile = make_business_profile(business, business_name="Active Business Co")
+    supplier_user = make_supplier()
+
+    connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    request = ConnectionRequest.query.filter_by(business_id=business.id).first()
+    request.status = ConnectionRequestStatus.ACTIVE
+    db.session.commit()
+
+    results = connections_service.get_my_connections(supplier_user.id, "supplier")
+
+    assert results[0]["other_party_id"] == str(business_profile.id)
+    assert results[0]["other_party_id"] != str(business.id)  # never the raw user id
+
+
 def test_pending_connections_do_not_appear(make_business, make_supplier, make_supplier_profile):
     business = make_business()
     supplier_user = make_supplier()

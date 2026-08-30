@@ -67,6 +67,24 @@ class SupplierProfileRepository:
         return profile
 
     @staticmethod
+    def update(profile: SupplierProfile, **fields) -> SupplierProfile:
+        """The first real write path for a supplier's own profile --
+        every field this domain currently supports editing (business
+        details, photo visibility, and the three contact channels) all
+        go through this one method, matching update_my_profile's own
+        docstring on why this deliberately isn't split into a narrow
+        "just the new fields" endpoint plus a separate one for the
+        older mock-only ones. Silently ignores an unrecognised kwarg
+        rather than raising -- the service layer is responsible for
+        only ever passing real column names; this method's own job is
+        applying them and committing once, not validating shape."""
+        for key, value in fields.items():
+            if hasattr(profile, key):
+                setattr(profile, key, value)
+        db.session.commit()
+        return profile
+
+    @staticmethod
     def search_by_name_prefix(name_query: str, limit: int = 20) -> List[SupplierProfile]:
         """Case-insensitive PREFIX match only -- see module docstring.
         `name_query` should already be caller-trimmed; this method

@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { Clock, UserPlus, UserSearch } from "lucide-react-native";
@@ -105,20 +105,23 @@ export function InlineBusinessSearch({ query }: { query: string }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.resultCount, { color: theme.colors.onSurfaceVariant }]}>
-        {results.length} result{results.length === 1 ? "" : "s"}
-      </Text>
-      <View style={styles.grid}>
-        {results.map((result) => (
-          <BusinessResultCard
-            key={result.id}
-            result={result}
-            onPress={() => router.push(`/supplier/find-business/${result.id}` as any)}
-          />
-        ))}
-      </View>
-    </ScrollView>
+    <FlatList
+      data={results}
+      keyExtractor={(result) => result.id}
+      contentContainerStyle={styles.results}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <Text style={[styles.resultCount, { color: theme.colors.onSurfaceVariant }]}>
+          {results.length} result{results.length === 1 ? "" : "s"}
+        </Text>
+      }
+      renderItem={({ item }) => (
+        <BusinessResultCard
+          result={item}
+          onPress={() => router.push(`/supplier/find-business/${item.id}` as any)}
+        />
+      )}
+    />
   );
 }
 
@@ -141,6 +144,5 @@ const styles = StyleSheet.create({
   inviteRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, minHeight: 40 },
   inviteText: { ...typography.body, fontWeight: "700" },
   results: { padding: spacing.md, gap: spacing.sm },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   resultCount: { ...typography.bodySmall, fontWeight: "600", marginBottom: spacing.xs },
 });

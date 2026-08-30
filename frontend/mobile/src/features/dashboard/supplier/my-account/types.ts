@@ -83,6 +83,10 @@ export interface AccountProfileSummary {
   phoneNumber: string | null;
   /** Read-only, from SupplierProfile — see this file's header. */
   businessName: string | null;
+  /** Also from SupplierProfile — genuinely SupplierProfile.description,
+   *  see accountService.ts's own note on why this and businessName
+   *  are the same real profile, not two separate reads. */
+  bio: string | null;
   verification: TrustVerificationStatus;
   accountStatus: AccountStatus | null;
 }
