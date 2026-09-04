@@ -20,9 +20,17 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from src.domains.auth.models.user import User
+from src.domains.business.business_profile.repositories.business_profile_repository import (
+    BusinessProfileRepository,
+)
+from src.domains.network.orders.algorithms.order_reference_generator import generate_unique_order_reference
+from src.domains.network.orders.notification_templates.stock_order_templates import build_new_order_notification
+from src.shared.notifications.notifications import publish_notification
 from src.domains.network.orders.services.commission import calculate_platform_commission_cents
 from src.domains.business.order_limits.tiers import get_stock_order_limits
 from src.domains.business.tiers.resolver import get_current_tier
+from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
@@ -31,6 +39,10 @@ from src.extensions import db
 from src.shared.audit.audit import publish
 from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
 from src.shared.audit.event_types.business import BusinessAuditEvent
+from src.domains.network.connections.models.connection_request import ConnectionRequestStatus
+from src.domains.network.connections.repositories.connection_request_repository import (
+    ConnectionRequestRepository,
+)
 from src.domains.network.orders.errors import (
     CartAlreadySubmittedError,
     CartNotFoundError,
@@ -38,6 +50,7 @@ from src.domains.network.orders.errors import (
     OrderLimitExceededError,
     PaymentMethodNotAvailableError,
     StaleCartItemError,
+    SupplierNotConnectedError,
     SupplierNotFoundError,
 )
 from src.domains.network.orders.models.stock_order import StockOrderDeliveryType, StockOrderPaymentMethod, StockOrderStatus
@@ -67,17 +80,34 @@ def _validate_cart_is_fresh(stock_order) -> None:
     of submission, never trusted from whatever was true when each item
     was originally added. A product could have been archived or
     deleted by the supplier at any point while sitting in someone's
-    cart. Rejects the WHOLE checkout with a clear, specific list of
-    which items are stale, rather than silently dropping them -- a
-    business's own order should never be silently rewritten without
-    their knowledge; they see exactly what's wrong and can remove the
-    stale item themselves (cart_service.remove_item) before retrying."""
+    cart -- OR its stock could have simply run out, including from a
+    DIFFERENT business's own order being submitted first while this
+    one sat in a cart. Rejects the WHOLE checkout with a clear,
+    specific list of which items are stale, rather than silently
+    dropping them -- a business's own order should never be silently
+    rewritten without their knowledge; they see exactly what's wrong
+    and can remove the stale item themselves (cart_service.remove_item)
+    before retrying.
+
+    STOCK SUFFICIENCY IS RE-CHECKED HERE TOO, NOT JUST AT ADD-TO-CART
+    TIME -- add_item's own check only proves a product was orderable
+    the moment it was added; nothing re-confirms that's still true by
+    the time checkout actually happens. Treated as the same kind of
+    "staleness" as an archived product, not a separate error path --
+    from a business's own perspective, both mean the same thing: this
+    item can't be ordered right now, remove it."""
     stale_product_ids = []
     for item in stock_order.items:
         if item.is_deleted:
             continue
         product = ProductRepository.get_by_id_and_supplier(item.product_id, stock_order.supplier_profile_id)
         if not product or product.is_archived:
+            stale_product_ids.append(str(item.product_id))
+            continue
+
+        inventory = InventoryRepository.get_by_product_id(product.id)
+        available = (inventory.quantity_on_hand - inventory.quantity_reserved) if inventory else 0
+        if available < item.quantity:
             stale_product_ids.append(str(item.product_id))
 
     if stale_product_ids:
@@ -204,6 +234,19 @@ def submit_checkout(
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
+    # THE REAL, CONFIRMED CONSTRAINT this domain never actually
+    # enforced until now -- see SupplierNotConnectedError's own
+    # docstring for the full reasoning. Browsing and building a cart
+    # both stay allowed without an active connection (nothing changes
+    # in cart_service.py); only the real financial commitment,
+    # actually submitting an order, requires it.
+    connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
+    if not connection or connection.status != ConnectionRequestStatus.ACTIVE:
+        raise SupplierNotConnectedError(
+            "You need an active connection with this supplier before you can check out. "
+            "Send a connection request first."
+        )
+
     stock_order = StockOrderRepository.get_cart(business_id, supplier_profile_id)
     if not stock_order:
         raise CartNotFoundError("No cart exists for this supplier.")
@@ -224,11 +267,75 @@ def submit_checkout(
     provider = get_payment_provider(method_enum)
     outcome = provider.process_checkout(stock_order, method_enum)
 
+    supplier_code = supplier.supplier_code
+    if not supplier_code:
+        # A real, honest fallback for a supplier profile created
+        # before this feature existed and somehow never backfilled --
+        # never lets checkout itself fail over this; assigns one right
+        # now instead, same generator every new supplier already gets.
+        from src.domains.supplier.supplier_profile.algorithms.supplier_code_generator import (
+            generate_unique_supplier_code,
+        )
+
+        supplier_code = generate_unique_supplier_code()
+        supplier.supplier_code = supplier_code
+
+    buyer_profile = BusinessProfileRepository.get_for_business(business_id)
+    buyer_user = db.session.get(User, business_id)
+
     stock_order.payment_method = method_enum
     stock_order.delivery_type = StockOrderDeliveryType(delivery_type)
     stock_order.delivery_address_text = delivery_address_text
     stock_order.status = outcome.order_status
+    # THE REAL, HUMAN-FACING ORDER REFERENCE -- assigned exactly once,
+    # here, at the real moment of submission -- never at cart creation,
+    # so an abandoned cart never consumes one. See that generator's
+    # own docstring for the full "why 4+6 characters, why secrets, why
+    # never sequential" reasoning.
+    stock_order.order_reference = generate_unique_order_reference(supplier_code)
+    # A REAL, DEDICATED timestamp -- never updated_at, which a future
+    # supplier approve/decline would otherwise silently shift. Set
+    # exactly once, here, and never touched again.
+    stock_order.submitted_at = datetime.now(timezone.utc)
+    # Buyer details, SNAPSHOTTED here -- what was true about this
+    # business at the real moment of submission, not a live join that
+    # could silently drift if the account changes later.
+    if buyer_user:
+        stock_order.buyer_name = " ".join(
+            part for part in [buyer_user.first_name, buyer_user.last_name] if part
+        ) or None
+        stock_order.buyer_phone = (buyer_profile.phone if buyer_profile else None) or buyer_user.phone_number
+        stock_order.buyer_email = (buyer_profile.email if buyer_profile else None) or buyer_user.email
+    if buyer_profile:
+        stock_order.buyer_business_name = buyer_profile.business_name
     db.session.commit()
+
+    # THE REAL NOTIFICATION TRIGGER -- the supplier finds out the
+    # moment a real order lands, not by polling. publish_notification
+    # never blocks this request; a failure here must never turn a
+    # genuinely successful checkout into an error, same reasoning as
+    # every other publish() call in this codebase.
+    publish_notification(
+        build_new_order_notification(
+            stock_order,
+            supplier_user_id=str(supplier.supplier_id),
+            buyer_business_name=stock_order.buyer_business_name or stock_order.buyer_name or "A business",
+        )
+    )
+
+    # THE REAL RESERVATION -- see InventoryRepository.reserve_quantity's
+    # own docstring for the full reasoning. Happens for every payment
+    # method, not just manual ones -- a real PAYFAST order (once
+    # wired) reaches CONFIRMED immediately and needs its own stock
+    # reserved just as much as a PENDING_SUPPLIER_APPROVAL one does.
+    # This is deliberately AFTER _validate_cart_is_fresh already
+    # re-confirmed sufficient stock exists for every item -- this loop
+    # only ever performs the increment, it never re-decides whether
+    # reserving is valid.
+    for item in real_items:
+        inventory = InventoryRepository.get_by_product_id(item.product_id)
+        if inventory:
+            InventoryRepository.reserve_quantity(inventory, item.quantity)
 
     commission_cents = calculate_platform_commission_cents(stock_order.total_cents, method_enum)
     # CASH/PROOF_OF_PAYMENT: SUCCEEDED immediately -- neither has a
@@ -260,6 +367,7 @@ def submit_checkout(
 
     return {
         "id": str(stock_order.id),
+        "orderReference": stock_order.order_reference,
         "status": stock_order.status.value,
         "totalCents": stock_order.total_cents,
         "instructions": outcome.instructions,

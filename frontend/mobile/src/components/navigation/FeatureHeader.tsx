@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import type { NativeStackHeaderProps } from "@react-navigation/native-stack";
 
 import { spacing } from "@/theme/spacing";
@@ -97,7 +97,7 @@ export function FeatureHeader({ back, options, navigation }: NativeStackHeaderPr
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <ArrowLeft size={24} color={theme.colors.onSurface} />
+            <ChevronLeft size={26} color={theme.colors.onSurface} strokeWidth={2.8} />
           </Pressable>
         ) : (
           <View style={styles.backSpacer} />

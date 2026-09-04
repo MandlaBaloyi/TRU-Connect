@@ -127,7 +127,7 @@ export default function CartScreen() {
         renderItem={({ item }) => (
           <CartItemRow
             item={item}
-            onPress={() => router.push(`/business/find-supplier/${supplierId}/products/${item.productId}` as any)}
+            onPress={() => router.push(`/business/my-suppliers/${supplierId}/products/${item.productId}` as any)}
             onIncrement={() => handleIncrement(item)}
             onDecrement={() => handleDecrement(item)}
             onRemove={() => removeItem(item.productId)}

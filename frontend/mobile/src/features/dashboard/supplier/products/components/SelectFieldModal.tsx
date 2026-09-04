@@ -60,7 +60,7 @@ export function SelectFieldModal<T extends string>({
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-            <ChevronLeft size={24} color={theme.colors.onSurface} />
+            <ChevronLeft size={26} color={theme.colors.onSurface} strokeWidth={2.8} />
           </Pressable>
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
           <View style={{ width: 24 }} />

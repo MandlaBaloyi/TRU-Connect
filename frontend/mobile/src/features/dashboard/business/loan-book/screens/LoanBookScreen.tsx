@@ -18,7 +18,7 @@
 
 import React from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { Trash2, History } from "lucide-react-native";
 
@@ -47,14 +47,20 @@ import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import { PlaceholderMenuButton } from "@/components/navigation/PlaceholderMenuButton";
 
 
 
 export default function LoanBookScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
   const filterState = useCustomerFilters();
   const { summary, customers, isLoading, isRefreshing, isError, refetch } = useLoanBook();
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ headerRight: () => <PlaceholderMenuButton /> });
+  }, [navigation]);
 
   const filteredCustomers = applyCustomerFilters(customers, filterState.filters);
   const isEmpty = !isLoading && customers.length === 0;

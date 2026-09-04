@@ -8,11 +8,14 @@ NEVER DUPLICATES PRODUCT DATA -- no name/price/category live here,
 only product_id (a real FK) plus quantity. Matches the frontend's own
 explicit design principle exactly.
 
-quantity_reserved EXISTS BUT NOTHING SETS IT YET -- schema-ready for
-when Orders can actually reserve stock against a real order, same
-"add the field while cheap, wire the behaviour later" pattern as
-Product.unit_quantity/unit_measure. No reservation LOGIC exists here
-because there's nothing to reserve against.
+quantity_reserved -- REAL, WIRED as of checkout_service.py's own
+submit_checkout: incremented via InventoryRepository.reserve_quantity
+the moment a real order is placed, matching this field's own original
+"schema-ready for when Orders can actually reserve stock" intent from
+when it was first added. Releasing a reservation when a supplier
+declines an order is real, separate, later work -- reserve_quantity
+already supports it (a negative delta), just not called from anywhere
+yet.
 
 InventorySettings is deliberately its OWN table, not columns bolted
 onto supplier_profiles -- confirmed during planning review: keeps

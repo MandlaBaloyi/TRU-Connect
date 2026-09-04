@@ -27,6 +27,9 @@ def create_app(env_name: str | None = None) -> Flask:
     from src.domains.security.audit.services import audit_service
     audit_service.register(app)
 
+    from src.domains.platform.notifications.services import notification_service
+    notification_service.register(app)
+
     # Media domain's own dispatch registration -- products "subscribes"
     # to scan results for its own folder prefix without shared/media
     # ever needing to know what a "product" is. See
@@ -92,6 +95,12 @@ def _register_blueprints(app: Flask) -> None:
 
     from src.domains.network.orders.api.orders_routes import orders_bp
     app.register_blueprint(orders_bp)
+
+    from src.domains.platform.notifications.api.notification_routes import notifications_bp
+    app.register_blueprint(notifications_bp)
+
+    from src.domains.supplier.stock_order_management.api.order_management_routes import order_management_bp
+    app.register_blueprint(order_management_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:

@@ -5,6 +5,7 @@ same discipline as every other repository in this codebase.
 from __future__ import annotations
 
 from typing import List, Optional
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -110,17 +111,27 @@ class StockOrderRepository:
         business_id: str | UUID, supplier_profile_id: str | UUID
     ) -> List[StockOrder]:
         """"Order History" -- every order this business has actually
-        SUBMITTED to this one supplier, most recent first. Scoped to a
+        placed with this one supplier, most recent first. Scoped to a
         single supplier, matching the real request: a business viewing
         history from that supplier's own catalogue menu wants THEIR
         own order record with THAT supplier, not a mixed feed across
-        every supplier they've ever ordered from."""
+        every supplier they've ever ordered from.
+
+        "Placed" means PENDING_SUPPLIER_APPROVAL, CONFIRMED, or
+        DECLINED -- any status reachable only by genuinely completing
+        checkout, never CART (still being built) or AWAITING_PAYMENT
+        (a real gateway attempt still in progress, not yet a real
+        order)."""
         return (
             StockOrder.query.filter_by(
                 business_id=business_id,
                 supplier_profile_id=supplier_profile_id,
-                status=StockOrderStatus.SUBMITTED,
                 is_deleted=False,
+            )
+            .filter(
+                StockOrder.status.in_(
+                    [StockOrderStatus.PENDING_SUPPLIER_APPROVAL, StockOrderStatus.CONFIRMED, StockOrderStatus.DECLINED]
+                )
             )
             .order_by(StockOrder.updated_at.desc())
             .all()
@@ -129,6 +140,113 @@ class StockOrderRepository:
     @staticmethod
     def get_by_id(stock_order_id: str | UUID) -> Optional[StockOrder]:
         return StockOrder.query.filter_by(id=stock_order_id, is_deleted=False).first()
+
+    @staticmethod
+    def get_by_id_for_business_and_supplier(
+        stock_order_id: str | UUID, business_id: str | UUID, supplier_profile_id: str | UUID
+    ) -> Optional[StockOrder]:
+        """The real "Order History" detail lookup -- deliberately
+        scoped by BOTH business_id and supplier_profile_id, not just
+        the order's own id. get_by_id above has no such scoping and
+        must never be used for anything business-facing; a business
+        guessing or otherwise obtaining another business's own order
+        id must never be able to view its contents. Same IDOR-safety
+        shape as every other domain's own get_by_id_and_<owner>
+        repository method."""
+        return StockOrder.query.filter_by(
+            id=stock_order_id, business_id=business_id, supplier_profile_id=supplier_profile_id, is_deleted=False
+        ).first()
+
+    @staticmethod
+    def get_by_id_for_supplier(stock_order_id: str | UUID, supplier_profile_id: str | UUID) -> Optional[StockOrder]:
+        """The supplier-side mirror of get_by_id_for_business_and_supplier
+        -- same IDOR-safety shape, just scoped from the other
+        direction: a supplier must never be able to view or act on an
+        order that belongs to a different supplier, even with a
+        genuinely valid order id."""
+        return StockOrder.query.filter_by(
+            id=stock_order_id, supplier_profile_id=supplier_profile_id, is_deleted=False
+        ).first()
+
+    @staticmethod
+    def list_pending_for_supplier(supplier_profile_id: str | UUID) -> List[StockOrder]:
+        """A supplier's own real "incoming orders" queue -- every
+        PENDING_SUPPLIER_APPROVAL order waiting on their decision,
+        most recently submitted first (oldest-waiting-last would bury
+        a supplier's most urgent, newest order under a long list of
+        already-seen ones)."""
+        return (
+            StockOrder.query.filter_by(
+                supplier_profile_id=supplier_profile_id,
+                status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+                is_deleted=False,
+            )
+            .order_by(StockOrder.submitted_at.desc())
+            .all()
+        )
+
+    @staticmethod
+    def list_by_status_for_supplier(
+        supplier_profile_id: str | UUID,
+        status: StockOrderStatus,
+        submitted_from: Optional[datetime] = None,
+        submitted_to: Optional[datetime] = None,
+    ) -> List[StockOrder]:
+        """The Approved/Declined tabs' own real query -- a supplier's
+        full history for one specific status, optionally narrowed to
+        a real date range. Deliberately a SEPARATE method from
+        list_pending_for_supplier above rather than one, more heavily
+        parameterized function: "New" has no date filter at all (it's
+        inherently "right now"), so forcing every caller through one
+        shared signature would mean list_pending_for_supplier's own
+        callers carrying two always-None parameters they never use."""
+        query = StockOrder.query.filter_by(
+            supplier_profile_id=supplier_profile_id, status=status, is_deleted=False
+        )
+        if submitted_from is not None:
+            query = query.filter(StockOrder.submitted_at >= submitted_from)
+        if submitted_to is not None:
+            query = query.filter(StockOrder.submitted_at <= submitted_to)
+        return query.order_by(StockOrder.submitted_at.desc()).all()
+
+    @staticmethod
+    def list_awaiting_first_reminder(older_than: datetime) -> List[StockOrder]:
+        """stock_order_reminder_sweep_job's own 24h query -- every
+        still-pending order submitted before the given cutoff that
+        has never been reminded about at all."""
+        return StockOrder.query.filter(
+            StockOrder.status == StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+            StockOrder.is_deleted == False,  # noqa: E712 -- SQLAlchemy requires == here, not `is`
+            StockOrder.submitted_at <= older_than,
+            StockOrder.first_reminder_sent_at.is_(None),
+        ).all()
+
+    @staticmethod
+    def list_awaiting_second_reminder(older_than: datetime) -> List[StockOrder]:
+        """stock_order_reminder_sweep_job's own 3-day query -- every
+        still-pending order that already got its first reminder, past
+        the given cutoff, that hasn't had its second one yet."""
+        return StockOrder.query.filter(
+            StockOrder.status == StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+            StockOrder.is_deleted == False,  # noqa: E712
+            StockOrder.submitted_at <= older_than,
+            StockOrder.first_reminder_sent_at.isnot(None),
+            StockOrder.second_reminder_sent_at.is_(None),
+        ).all()
+
+    @staticmethod
+    def list_awaiting_auto_decline(older_than: datetime) -> List[StockOrder]:
+        """stock_order_auto_decline_sweep_job's own final-timeout
+        query -- every still-pending order submitted before the given
+        cutoff, regardless of reminder state (an order that somehow
+        never got reminded still needs to be resolved, not left
+        pending forever just because the reminder step itself failed
+        or was skipped)."""
+        return StockOrder.query.filter(
+            StockOrder.status == StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+            StockOrder.is_deleted == False,  # noqa: E712
+            StockOrder.submitted_at <= older_than,
+        ).all()
 
     @staticmethod
     def get_item(stock_order_id: str | UUID, product_id: str | UUID) -> Optional[StockOrderItem]:

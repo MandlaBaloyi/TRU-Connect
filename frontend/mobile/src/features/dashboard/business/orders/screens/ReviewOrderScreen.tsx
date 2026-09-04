@@ -3,6 +3,8 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
+import { ApiError } from "@/services/api/apiClient";
+
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { formatCents } from "../../../supplier/products/services/productMapper";
@@ -53,13 +55,24 @@ export default function ReviewOrderScreen() {
         pathname: `/business/orders/${supplierId}/placed` as any,
         params: {
           orderId: result.id,
+          orderReference: result.orderReference,
           totalCents: String(result.totalCents),
           instructions: result.instructions ?? "",
           paymentMethod,
           supplierName: cart?.supplierName ?? "",
         },
       });
-    } catch {
+    } catch (error) {
+      // Real bug found and fixed after direct report: this used to
+      // show a generic "check your connection" message for EVERY
+      // failure, including real, specific backend rejections
+      // (StaleCartItemError, OrderLimitExceededError,
+      // CartAlreadySubmittedError, EmptyCartError) that already had
+      // clear, correct messages -- those were being thrown away.
+      if (error instanceof ApiError) {
+        Alert.alert("Couldn't place order", error.message);
+        return;
+      }
       Alert.alert("Couldn't place order", "Check your connection and try again.");
     }
   };

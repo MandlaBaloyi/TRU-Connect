@@ -33,29 +33,36 @@ from src.extensions import db
 
 
 class StockOrderStatus(str, enum.Enum):
-    """Deliberately minimal for THIS pass -- only the states this
-    build actually reaches. More will be added exactly when the
-    feature that needs them is built, same "model states only as far
-    ahead as genuinely known, not everything speculatively" discipline
-    ConnectionRequestStatus already established (PENDING/ACTIVE/
-    DECLINED first, ENDED added only once Disconnect was actually
-    built).
-
-    CART -- being built, freely editable (add/update/remove items),
+    """CART -- being built, freely editable (add/update/remove items),
     never shown to a supplier.
 
     AWAITING_PAYMENT -- reserved, not reachable by anything in this
     pass. A real digital payment (PayFast) genuinely needs an
     intermediate state: the business is redirected to PayFast, pays,
-    then returns -- the order isn't SUBMITTED until that payment
-    actually succeeds. CASH and PROOF_OF_PAYMENT skip this entirely
-    and go straight from CART to SUBMITTED, since neither involves a
-    real-time gateway redirect. Modelled now so wiring PayFast later
-    doesn't require a migration just to add this one state.
+    then returns -- the order isn't confirmed until that payment
+    actually succeeds. CASH and PROOF_OF_PAYMENT skip this entirely.
 
-    SUBMITTED -- checkout is complete; a real order now exists,
-    waiting on the supplier's own side (accept/decline/track -- a
-    separate, later feature, not built in this pass).
+    PENDING_SUPPLIER_APPROVAL -- REPLACES the old, single SUBMITTED
+    state, for CASH and PROOF_OF_PAYMENT specifically. Confirmed
+    directly after review: neither method is verified in real time,
+    so the order genuinely isn't settled the moment it's placed --
+    it's waiting on the supplier's own decision (approve/decline, a
+    separate, later feature). A business should see that real,
+    honest state, not a generic "submitted" that implies more
+    certainty than actually exists yet.
+
+    CONFIRMED -- where a real PAYFAST payment lands immediately (a
+    verified gateway payment needs no supplier approval at all -- the
+    fraud/reliability concern PENDING_SUPPLIER_APPROVAL exists for
+    doesn't apply to it), and where a PENDING_SUPPLIER_APPROVAL order
+    moves once the supplier actually approves it. Not reachable by
+    anything in this pass -- the approve action itself is real,
+    separate, later supplier-side work -- modelled now so that
+    feature lands as an additive change, not a status-model rework.
+
+    DECLINED -- a supplier rejects a PENDING_SUPPLIER_APPROVAL order.
+    Not reachable by anything in this pass, same reasoning as
+    CONFIRMED above.
 
     CANCELLED -- reserved, not reachable by anything in this pass.
     Either side cancelling before fulfilment is real, future work.
@@ -63,8 +70,31 @@ class StockOrderStatus(str, enum.Enum):
 
     CART = "CART"
     AWAITING_PAYMENT = "AWAITING_PAYMENT"
-    SUBMITTED = "SUBMITTED"
+    PENDING_SUPPLIER_APPROVAL = "PENDING_SUPPLIER_APPROVAL"
+    CONFIRMED = "CONFIRMED"
+    DECLINED = "DECLINED"
     CANCELLED = "CANCELLED"
+
+
+class StockOrderDeclineReason(str, enum.Enum):
+    """A supplier's own reason for declining a PENDING_SUPPLIER_APPROVAL
+    order. Mirrors SupplierReportReason exactly -- same "preset
+    reasons plus a genuine free-text escape hatch" shape, deliberately
+    reused rather than invented separately."""
+
+    OUT_OF_STOCK = "out_of_stock"
+    CANNOT_FULFIL_DELIVERY_AREA = "cannot_fulfil_delivery_area"
+    PRICING_ERROR = "pricing_error"
+    SUSPECTED_FRAUD = "suspected_fraud"
+    # NOT chosen by a supplier -- set only by
+    # stock_order_auto_decline_sweep_job.py when an order sat
+    # unanswered past the real, final timeout. Kept as a genuine enum
+    # member (not a bare string) so it's validated and displayed the
+    # exact same way as every other reason, and so the frontend's own
+    # DECLINE_REASON_LABELS can show it honestly rather than falling
+    # back to a raw, ugly enum value.
+    NO_RESPONSE = "no_response"
+    OTHER = "other"
 
 
 class StockOrderPaymentMethod(str, enum.Enum):
@@ -133,6 +163,55 @@ class StockOrder(BaseModel):
     # every time an item is added/updated/removed, so it's never
     # allowed to drift from the real sum of its own items.
     total_cents = db.Column(db.Integer, nullable=False, default=0)
+
+    # The real, human-facing order reference -- TRU-{supplier_code}-
+    # {6 chars}, see algorithms/order_reference_generator.py for the
+    # full reasoning. Assigned ONLY at submission, never at cart
+    # creation -- an abandoned cart should never consume one. Nullable
+    # at the schema level for exactly that reason: every CART row
+    # genuinely has none yet, this isn't a migration-backfill gap.
+    order_reference = db.Column(db.String(20), nullable=True, unique=True)
+
+    # A REAL, DEDICATED timestamp -- deliberately NOT reusing
+    # updated_at for this. A found-and-fixed latent bug: updated_at
+    # will also change the moment a future supplier-side approve/
+    # decline touches this same row, which would have silently
+    # shifted what "submitted at" appeared to mean. This column is
+    # set exactly once, at the real moment of submission, and never
+    # touched again.
+    submitted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # Buyer details, SNAPSHOTTED at submission -- same historical-fact
+    # reasoning as delivery_address_text and price_cents_at_add_time
+    # above: if a business updates their phone number next month, a
+    # supplier looking back at an old order should see what was true
+    # when it was actually placed, not a silently-changed current
+    # value pulled from a live join.
+    buyer_name = db.Column(db.String(200), nullable=True)
+    buyer_phone = db.Column(db.String(32), nullable=True)
+    buyer_email = db.Column(db.String(255), nullable=True)
+    buyer_business_name = db.Column(db.String(255), nullable=True)
+
+    # A supplier's own decision on a PENDING_SUPPLIER_APPROVAL order --
+    # nullable, since most orders never reach DECLINED at all.
+    # Structured reason + optional free-text details, mirroring
+    # SupplierReportReason/SupplierReport.details exactly (same
+    # "preset reasons plus a genuine free-text escape hatch" shape,
+    # not invented separately) -- a real supplier decision deserves
+    # the same discipline as a real report.
+    decline_reason = db.Column(db.String(50), nullable=True)
+    decline_details = db.Column(db.String(1000), nullable=True)
+
+    # Reminder tracking -- nullable, set once each reminder actually
+    # sends. Two separate columns, not one, since the 24h and 3-day
+    # reminders are genuinely two different real events a supplier
+    # receives -- a single "reminded" boolean couldn't tell
+    # stock_order_reminder_sweep_job.py which one still needs sending
+    # without re-sending the other. NULL on both is the normal state
+    # for the vast majority of orders, which get decided long before
+    # either threshold is ever reached.
+    first_reminder_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    second_reminder_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     items = db.relationship("StockOrderItem", backref="stock_order", lazy="selectin", cascade="all, delete-orphan")
 

@@ -40,7 +40,7 @@ export default function BusinessDiscovery() {
       <AppHeader
         variant="title-with-tabs"
         title="Discovery"
-        rightIcon={<Search size={20} color={theme.colors.onSurface} />}
+        rightIcon={<Search size={20} color={theme.colors.onSurface} strokeWidth={2.4} />}
         tabs={TABS}
         activeTab={activeTab}
         onTabChange={setActiveTab}

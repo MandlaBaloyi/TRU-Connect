@@ -27,9 +27,11 @@ from src.domains.network.orders.errors import (
     OutOfStockError,
     InvalidQuantityError,
     OrderLimitExceededError,
+    OrderNotFoundError,
     PaymentMethodNotAvailableError,
     ProductNotFoundError,
     StaleCartItemError,
+    SupplierNotConnectedError,
     SupplierNotFoundError,
 )
 from src.domains.network.orders.models.stock_order import StockOrder, StockOrderPaymentMethod, StockOrderStatus
@@ -253,10 +255,11 @@ def test_list_my_carts_returns_every_supplier_with_an_incomplete_cart(
 # --- checkout_service: core flow ------------------------------------------
 
 
-def test_submit_checkout_with_no_cart_raises(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_with_no_cart_raises(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="No Cart Checkout Co")
+    make_active_connection(business, profile)
 
     with pytest.raises(CartNotFoundError):
         checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -273,36 +276,44 @@ def test_submit_checkout_rejects_payfast_as_not_yet_available(make_business, mak
         checkout_service.submit_checkout(business.id, profile.id, "PAYFAST", "DELIVER")
 
 
-def test_submit_checkout_succeeds_with_cash(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_succeeds_with_cash(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Cash Checkout Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread", price_cents=1000)
     cart_service.add_item(business.id, profile.id, product.id, 2)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "COLLECT")
 
-    assert result["status"] == "SUBMITTED"
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
     assert result["totalCents"] == 2000
     assert result["instructions"] is not None
+    # THE REAL GAP FOUND AND FIXED: the reference must be present in
+    # the IMMEDIATE checkout response -- Order Placed needs to show it
+    # right away, not only once a business later checks history.
+    assert result["orderReference"] is not None
+    assert result["orderReference"].startswith("TRU-")
 
 
-def test_submit_checkout_succeeds_with_proof_of_payment(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_succeeds_with_proof_of_payment(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="POP Checkout Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread", price_cents=1000)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "PROOF_OF_PAYMENT", "DELIVER")
 
-    assert result["status"] == "SUBMITTED"
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
 
-def test_submit_checkout_leaves_no_active_cart_behind(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_leaves_no_active_cart_behind(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="No Active After Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
@@ -311,10 +322,11 @@ def test_submit_checkout_leaves_no_active_cart_behind(make_business, make_suppli
     assert cart_service.get_cart(business.id, profile.id) is None
 
 
-def test_cannot_resubmit_an_already_submitted_order(make_business, make_supplier, make_supplier_profile):
+def test_cannot_resubmit_an_already_submitted_order(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Resubmit Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
     checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -323,10 +335,11 @@ def test_cannot_resubmit_an_already_submitted_order(make_business, make_supplier
         checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
 
-def test_submit_checkout_rejects_an_empty_cart(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_rejects_an_empty_cart(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Empty Checkout Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
     cart_service.remove_item(business.id, profile.id, product.id)
@@ -336,11 +349,12 @@ def test_submit_checkout_rejects_an_empty_cart(make_business, make_supplier, mak
 
 
 def test_submit_checkout_rejects_a_stale_archived_item_and_names_it(
-    make_business, make_supplier, make_supplier_profile
+    make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Stale Item Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Milk")
     cart_service.add_item(business.id, profile.id, product.id, 1)
     product_service.archive_product(product.id, profile.id)
@@ -358,10 +372,11 @@ def test_submit_checkout_raises_for_a_genuinely_nonexistent_supplier(make_busine
         checkout_service.submit_checkout(business.id, uuid.uuid4(), "CASH", "DELIVER")
 
 
-def test_submit_checkout_creates_a_real_payment_record(make_business, make_supplier, make_supplier_profile):
+def test_submit_checkout_creates_a_real_payment_record(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Payment Record Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Item", price_cents=10000)
     cart_service.add_item(business.id, profile.id, product.id, 2)
 
@@ -386,12 +401,12 @@ def test_manual_checkout_works_with_zero_payfast_config(monkeypatch):
 
     cash_provider = get_payment_provider(StockOrderPaymentMethod.CASH)
     outcome = cash_provider.process_checkout(stock_order=None, payment_method=StockOrderPaymentMethod.CASH)
-    assert outcome.order_status == StockOrderStatus.SUBMITTED
+    assert outcome.order_status == StockOrderStatus.PENDING_SUPPLIER_APPROVAL
     assert outcome.instructions is not None
 
     pop_provider = get_payment_provider(StockOrderPaymentMethod.PROOF_OF_PAYMENT)
     outcome = pop_provider.process_checkout(stock_order=None, payment_method=StockOrderPaymentMethod.PROOF_OF_PAYMENT)
-    assert outcome.order_status == StockOrderStatus.SUBMITTED
+    assert outcome.order_status == StockOrderStatus.PENDING_SUPPLIER_APPROVAL
 
 
 def test_payfast_provider_raises_not_implemented(monkeypatch):
@@ -440,22 +455,24 @@ def test_calculate_platform_commission_cents_is_zero_for_proof_of_payment():
 # without needing to change too.
 
 
-def test_cash_order_within_the_per_transaction_cap_succeeds(make_business, make_supplier, make_supplier_profile):
+def test_cash_order_within_the_per_transaction_cap_succeeds(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Within Cash Cap Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
-    assert result["status"] == "SUBMITTED"
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
 
-def test_cash_order_over_the_per_transaction_cap_is_rejected(make_business, make_supplier, make_supplier_profile):
+def test_cash_order_over_the_per_transaction_cap_is_rejected(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Over Cash Cap Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents + 1)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
@@ -467,7 +484,7 @@ def test_cash_order_over_the_per_transaction_cap_is_rejected(make_business, make
 
 
 def test_proof_of_payment_has_its_own_higher_per_transaction_cap(
-    make_business, make_supplier, make_supplier_profile
+    make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
     """THE REAL DIFFERENTIATION -- proof-of-payment's own cap is
     genuinely different from cash's, matching the real tier numbers,
@@ -475,6 +492,7 @@ def test_proof_of_payment_has_its_own_higher_per_transaction_cap(
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="POP Higher Cap Co")
+    make_active_connection(business, profile)
     # Over the CASH cap, but within the POP cap.
     assert FREE_LIMITS.proof_of_payment_transaction_cap_cents > FREE_LIMITS.cash_transaction_cap_cents
     product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents + 1)
@@ -482,11 +500,11 @@ def test_proof_of_payment_has_its_own_higher_per_transaction_cap(
 
     result = checkout_service.submit_checkout(business.id, profile.id, "PROOF_OF_PAYMENT", "DELIVER")
 
-    assert result["status"] == "SUBMITTED"
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
 
 def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
-    make_business, make_supplier, make_supplier_profile
+    make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
     """THE REAL LOOPHOLE FIX, proven directly -- confirmed after
     review that a per-transaction cap alone can be defeated by simply
@@ -496,6 +514,7 @@ def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Monthly Cumulative Co")
+    make_active_connection(business, profile)
     # Each order individually under BOTH per-transaction caps, but
     # together they exceed the monthly cap.
     per_order_cents = FREE_LIMITS.cash_transaction_cap_cents
@@ -505,7 +524,7 @@ def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
     for _ in range(orders_to_hit_cap):
         cart_service.add_item(business.id, profile.id, product.id, 1)
         result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
-        assert result["status"] == "SUBMITTED"
+        assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
     # One more, individually still within the per-transaction cap, must
     # now be rejected on the CUMULATIVE total.
@@ -518,13 +537,14 @@ def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
 
 
 def test_monthly_cumulative_cap_is_shared_across_cash_and_proof_of_payment(
-    make_business, make_supplier, make_supplier_profile
+    make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
     """THE SECOND HALF OF THE SAME LOOPHOLE FIX -- switching payment
     METHOD between orders must not reset the running total either."""
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Shared Cap Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
 
     cart_service.add_item(business.id, profile.id, product.id, 1)
@@ -540,18 +560,19 @@ def test_monthly_cumulative_cap_is_shared_across_cash_and_proof_of_payment(
         assert exc_info.value.data["alreadySpentThisMonthCents"] == FREE_LIMITS.cash_transaction_cap_cents
 
 
-def test_order_at_exactly_the_per_transaction_cap_is_allowed(make_business, make_supplier, make_supplier_profile):
+def test_order_at_exactly_the_per_transaction_cap_is_allowed(make_business, make_supplier, make_supplier_profile, make_active_connection):
     """The cap is inclusive -- exactly at it succeeds, only strictly
     over it is rejected."""
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Exactly At Cap Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
-    assert result["status"] == "SUBMITTED"
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
 
 # --- out-of-stock rejection (real bug found and fixed) ---------------------
@@ -639,10 +660,11 @@ def test_order_history_is_empty_before_any_submission(make_business, make_suppli
     assert history == []
 
 
-def test_order_history_shows_a_real_submitted_order(make_business, make_supplier, make_supplier_profile):
+def test_order_history_shows_a_real_submitted_order(make_business, make_supplier, make_supplier_profile, make_active_connection):
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Real History Co")
+    make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread", price_cents=1000)
     cart_service.add_item(business.id, profile.id, product.id, 2)
     checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -650,7 +672,7 @@ def test_order_history_shows_a_real_submitted_order(make_business, make_supplier
     history = order_history_service.list_order_history(business.id, profile.id)
 
     assert len(history) == 1
-    assert history[0]["status"] == "SUBMITTED"
+    assert history[0]["status"] == "PENDING_SUPPLIER_APPROVAL"
     assert history[0]["paymentMethod"] == "CASH"
     assert history[0]["totalCents"] == 2000
     assert history[0]["itemCount"] == 1
@@ -668,12 +690,13 @@ def test_order_history_never_includes_an_unsubmitted_cart(make_business, make_su
     assert history == []
 
 
-def test_order_history_is_scoped_to_one_supplier(make_business, make_supplier, make_supplier_profile):
+def test_order_history_is_scoped_to_one_supplier(make_business, make_supplier, make_supplier_profile, make_active_connection):
     """A business's order from Supplier A must never appear in
     Supplier B's own history list."""
     business = make_business()
     supplier_a = make_supplier("history-scope-a@example.com")
     profile_a = make_supplier_profile(supplier_a, business_name="History Scope A")
+    make_active_connection(business, profile_a)
     supplier_b = make_supplier("history-scope-b@example.com")
     profile_b = make_supplier_profile(supplier_b, business_name="History Scope B")
     product_a = _make_product(profile_a.id, "A Product")
@@ -690,3 +713,337 @@ def test_order_history_raises_for_a_genuinely_nonexistent_supplier(make_business
 
     with pytest.raises(SupplierNotFoundError):
         order_history_service.list_order_history(business.id, uuid.uuid4())
+
+
+# --- inventory reservation --------------------------------------------
+
+
+def test_submit_checkout_reserves_real_inventory(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    """THE REAL WIRING of quantity_reserved, confirmed directly --
+    that field existed unused since Inventory was first built, with
+    its own comment saying explicitly it was waiting for exactly this
+    moment."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Reservation Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 0
+
+    cart_service.add_item(business.id, profile.id, product.id, 4)
+    checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    from src.extensions import db as _db
+    _db.session.expire_all()
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 4
+    assert inventory.quantity_on_hand == 100  # on_hand untouched -- only reserved changes
+
+
+def test_checkout_rejects_stock_consumed_between_add_and_checkout(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL, DIRECT PROOF this whole reservation system exists to
+    provide: two businesses racing for the same limited stock must
+    never both succeed. The second business's own add_item succeeded
+    (stock was genuinely available at that moment); by the time they
+    check out, the first business's own order has already reserved
+    everything -- confirmed rejected, not silently oversold."""
+    business_a = make_business("race-condition-a@example.com")
+    business_b = make_business("race-condition-b@example.com")
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Race Condition Co")
+    make_active_connection(business_a, profile)
+    make_active_connection(business_b, profile)
+    product = _make_product(profile.id, "Limited Stock Item", price_cents=1000, in_stock=False)
+    inventory = InventoryRepository.get_or_create_for_product(product.id, profile.id)
+    InventoryRepository.adjust_quantity(inventory, 5)  # only 5 available, total
+
+    # Both businesses add while 5 is genuinely available.
+    cart_service.add_item(business_a.id, profile.id, product.id, 5)
+    cart_service.add_item(business_b.id, profile.id, product.id, 5)
+
+    # A checks out first, reserving all 5.
+    result_a = checkout_service.submit_checkout(business_a.id, profile.id, "CASH", "DELIVER")
+    assert result_a["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+    # B's own cart still has 5 items (nothing removed it), but the
+    # real stock is now fully reserved by A -- B's checkout must fail.
+    with pytest.raises(StaleCartItemError) as exc_info:
+        checkout_service.submit_checkout(business_b.id, profile.id, "CASH", "DELIVER")
+
+    assert str(product.id) in exc_info.value.data["staleProductIds"]
+
+
+# --- order_history_service: get_order_detail --------------------------
+
+
+def test_get_order_detail_returns_full_line_item_information(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Detail Test Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 3)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    detail = order_history_service.get_order_detail(business.id, profile.id, result["id"])
+
+    assert detail["status"] == "PENDING_SUPPLIER_APPROVAL"
+    assert detail["totalCents"] == 3000
+    assert len(detail["items"]) == 1
+    assert detail["items"][0]["productName"] == "Bread"
+    assert detail["items"][0]["quantity"] == 3
+
+
+def test_get_order_detail_blocks_a_different_business(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    """THE REAL IDOR PROTECTION -- a business must never be able to
+    view another business's own order, even with a genuinely valid
+    order id."""
+    business = make_business()
+    other_business = make_business("idor-other-business@example.com")
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="IDOR Test Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    with pytest.raises(OrderNotFoundError):
+        order_history_service.get_order_detail(other_business.id, profile.id, result["id"])
+
+
+def test_get_order_detail_raises_for_a_genuinely_nonexistent_order(
+    make_business, make_supplier, make_supplier_profile
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Nonexistent Order Co")
+
+    with pytest.raises(OrderNotFoundError):
+        order_history_service.get_order_detail(business.id, profile.id, uuid.uuid4())
+
+
+def test_get_order_detail_rejection_is_audited(make_business, make_supplier, make_supplier_profile):
+    """THE REAL GAP FOUND AND FIXED -- get_order_detail's own IDOR
+    rejection used to leave zero trace. Confirmed it now publishes a
+    real, queryable audit record naming the exact requested order id."""
+    from src.domains.security.audit.models.audit_event import AuditEventRecord
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Audit Access Denied Co")
+    fake_order_id = uuid.uuid4()
+
+    with pytest.raises(OrderNotFoundError):
+        order_history_service.get_order_detail(business.id, profile.id, fake_order_id)
+
+    record = (
+        AuditEventRecord.query.filter_by(event_name="business.order_access_denied")
+        .order_by(AuditEventRecord.timestamp.desc())
+        .first()
+    )
+    assert record is not None
+    assert record.status == "failure"
+    assert record.event_metadata["requested_order_id"] == str(fake_order_id)
+
+
+# --- order reference and buyer snapshot ------------------------------
+
+
+def test_new_supplier_is_assigned_a_real_supplier_code(make_supplier, make_supplier_profile):
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Supplier Code Co")
+
+    assert profile.supplier_code is not None
+    assert len(profile.supplier_code) == 4
+
+
+def test_submit_checkout_assigns_a_real_order_reference(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Order Reference Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    order = StockOrder.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
+    assert order.order_reference is not None
+    assert order.order_reference.startswith(f"TRU-{profile.supplier_code}-")
+    assert len(order.order_reference) == len("TRU-") + 4 + 1 + 6
+
+
+def test_submit_checkout_sets_a_real_dedicated_submitted_at(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    """THE REAL BUG FIX -- submitted_at is its own column now, never
+    reused from updated_at, which a future supplier approve/decline
+    would otherwise silently shift."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Submitted At Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    order = StockOrder.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
+    assert order.submitted_at is not None
+
+
+def test_submit_checkout_snapshots_real_buyer_details(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Buyer Snapshot Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    order = StockOrder.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
+    assert order.buyer_email == business.email
+
+
+def test_order_history_shows_the_real_reference_not_a_placeholder(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="History Reference Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    history = order_history_service.list_order_history(business.id, profile.id)
+
+    assert history[0]["orderReference"] is not None
+    assert history[0]["orderReference"].startswith("TRU-")
+
+
+def test_order_detail_includes_real_buyer_information(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Detail Buyer Info Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    detail = order_history_service.get_order_detail(business.id, profile.id, result["id"])
+
+    assert detail["orderReference"] is not None
+    assert detail["buyerEmail"] == business.email
+
+
+# --- notification trigger on checkout ----------------------------------
+
+
+def test_submit_checkout_notifies_the_supplier(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    """THE REAL TRIGGER -- confirms checkout_service.py actually
+    publishes a real notification, all the way through the background
+    queue to a genuine database row, not just that the call compiles."""
+    from src.domains.platform.notifications.repositories.notification_repository import NotificationRepository
+    from src.shared.queue.queue import wait_until_idle
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Notify Trigger Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 2)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    wait_until_idle(timeout=5)
+
+    supplier_notifications = NotificationRepository.list_for_user(supplier_user.id, category="STOCK_ORDER")
+    assert len(supplier_notifications) == 1
+    assert supplier_notifications[0].category == "STOCK_ORDER"
+    assert result["orderReference"] in supplier_notifications[0].body
+    assert "R20.00" in supplier_notifications[0].body
+
+
+# --- the real, missing connection constraint (found and fixed) -------
+
+
+def test_checkout_rejects_with_no_connection_at_all(make_business, make_supplier, make_supplier_profile):
+    """THE REAL, CONFIRMED GAP found and fixed after direct report --
+    submit_checkout never verified an active connection existed at
+    all. Browsing and building a cart both stay allowed without one
+    (cart_service has no such check, unchanged); only the real
+    financial commitment does."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Connection Co")
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)  # still allowed, unchanged
+
+    with pytest.raises(SupplierNotConnectedError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+
+def test_checkout_rejects_a_still_pending_connection_request(
+    make_business, make_supplier, make_supplier_profile
+):
+    """A request that hasn't been approved yet is not the same as an
+    active connection -- checkout must still be rejected."""
+    from src.domains.network.connections.services import connections_service
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Pending Only Co")
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    connections_service.request_connection(business.id, profile.id)  # sent, never approved
+
+    with pytest.raises(SupplierNotConnectedError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+
+def test_checkout_rejects_after_a_real_disconnect_and_re_request(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE EXACT SCENARIO REPRODUCED FROM A REAL, REPORTED LOG:
+    connect, approve, checkout succeeds -- then disconnect, send a new
+    request (still pending), and checkout must be rejected again, not
+    silently still allowed from the old, now-ended connection."""
+    from src.domains.network.connections.services import connections_service
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Disconnect Reconnect Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+    connections_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", None)
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    connections_service.request_connection(business.id, profile.id)  # new, still pending
+
+    with pytest.raises(SupplierNotConnectedError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+
+def test_checkout_succeeds_once_the_connection_is_genuinely_active(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """The positive case, confirmed alongside the rejections above --
+    this constraint genuinely allows a real, active connection through,
+    not just rejects everything."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Active Allowed Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
