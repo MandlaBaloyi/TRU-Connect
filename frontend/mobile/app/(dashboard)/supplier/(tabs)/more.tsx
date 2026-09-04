@@ -37,7 +37,7 @@ export default function SupplierMore() {
 
   return (
     <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
-      <AppHeader variant="title" title="More" rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} />} />
+      <AppHeader variant="title" title="More" rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} strokeWidth={2.4} />} />
       <View style={styles.content}>
         <CardSection>
           {ROWS.map((row) => (

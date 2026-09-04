@@ -115,3 +115,26 @@ def make_business_profile(db_session):
         return profile
 
     return _make
+
+
+@pytest.fixture()
+def make_active_connection(db_session):
+    """THE REAL, MISSING PRECONDITION most existing checkout tests
+    never needed until now -- confirmed after direct report:
+    submit_checkout never actually verified an active connection
+    existed at all. Every test that submits a real checkout now needs
+    one established first; this fixture is the one, reusable way to
+    do that (request + immediate approval), rather than repeating the
+    same two-call sequence in every affected test."""
+    from src.domains.network.connections.repositories.connection_request_repository import (
+        ConnectionRequestRepository,
+    )
+    from src.domains.network.connections.services import connections_service
+
+    def _make(business, supplier_profile):
+        connections_service.request_connection(business.id, supplier_profile.id)
+        request = ConnectionRequestRepository.get_for_business_and_supplier(business.id, supplier_profile.id)
+        connections_service.approve_request(supplier_profile.supplier_id, request.id)
+        return request
+
+    return _make

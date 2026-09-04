@@ -44,6 +44,30 @@ def app():
         get_fake_provider().clear()
         cache.clear()
         yield application
+
+        # REAL RACE CONDITION FOUND AND FIXED: publish_notification()
+        # (src/shared/notifications/notifications.py) routes through
+        # shared.queue's own background thread pool -- completely
+        # independent of this fixture's own function-scoped lifecycle.
+        # A test that triggers one (checkout_service.py's
+        # submit_checkout, connections_service.py's request/approve
+        # functions) without explicitly waiting can finish before that
+        # background write actually completes. Since this fixture
+        # drops and recreates the schema after EVERY test, a
+        # straggling write from test N could land in test N+1's own
+        # freshly-created tables, referencing a user id that no
+        # longer exists there -- confirmed as the real cause of an
+        # intermittent duplicate-key failure in an entirely unrelated
+        # test, only reproducible in the FULL combined suite, exactly
+        # the signature of a genuine race, not a flaky test.
+        #
+        # Waiting here, once, centrally, fixes this for every current
+        # and future test -- nobody needs to remember to call
+        # wait_until_idle() themselves.
+        from src.shared.queue.queue import wait_until_idle
+
+        wait_until_idle(timeout=10)
+
         db.session.remove()
         db.drop_all()
 

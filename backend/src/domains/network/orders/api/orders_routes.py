@@ -120,6 +120,15 @@ def get_order_history(supplier_profile_id: uuid.UUID):
     return success_response(data={"orders": results})
 
 
+@orders_bp.route("/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/history/<uuid:order_id>", methods=["GET"])
+@fully_authenticated
+@role_required("business")
+def get_order_detail(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
+    """Tapping into one specific past order from the history list."""
+    result = order_history_service.get_order_detail(_business_id(), supplier_profile_id, order_id)
+    return success_response(data=result)
+
+
 @orders_bp.route("/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/submit", methods=["POST"])
 @fully_authenticated
 @role_required("business")

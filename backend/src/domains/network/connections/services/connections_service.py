@@ -43,6 +43,10 @@ from src.domains.network.connections.models.connection_request import (
     ConnectionInitiatorRole,
     ConnectionRequestStatus,
 )
+from src.domains.network.connections.notification_templates.connection_templates import (
+    build_connection_accepted_notification,
+    build_connection_request_notification,
+)
 from src.domains.network.connections.models.supplier_report import SupplierReportReason
 from src.domains.network.connections.repositories.connection_request_repository import (
     ConnectionRequestRepository,
@@ -63,9 +67,33 @@ from src.domains.supplier.supplier_profile.repositories.supplier_profile_reposit
 )
 from src.extensions import db
 from src.shared.helpers.helpers import mask_email, mask_phone
+from src.shared.notifications.notifications import publish_notification
 from src.shared.validation.identifiers import normalize_email
 
 MIN_QUERY_LENGTH = 2
+
+
+def _resolve_business_display_name(business_id: str | UUID) -> str:
+    """business_name if a BusinessProfile exists, falling back to the
+    account's own personal name -- same resolution order already
+    established in get_customer_request_detail's own owner_name logic
+    and checkout_service.py's own buyer_business_name/buyer_name
+    fallback, reused here rather than reinvented a third time."""
+    from src.domains.auth.repositories.user_repository import UserRepository
+    from src.domains.business.business_profile.repositories.business_profile_repository import (
+        BusinessProfileRepository,
+    )
+
+    profile = BusinessProfileRepository.get_for_business(business_id)
+    if profile and profile.business_name:
+        return profile.business_name
+
+    user = UserRepository.get_by_id(business_id)
+    if user:
+        name = " ".join(filter(None, [user.first_name, user.last_name]))
+        if name:
+            return name
+    return "A business"
 
 
 def _dispatch_search(query: str, repository, *, resolve_photo) -> List[dict]:
@@ -554,6 +582,13 @@ def request_connection(business_id: str | UUID, supplier_profile_id: str | UUID)
     request = ConnectionRequestRepository.create(
         business_id, supplier_profile_id, initiated_by_role=ConnectionInitiatorRole.BUSINESS
     )
+    publish_notification(
+        build_connection_request_notification(
+            recipient_user_id=str(supplier.supplier_id),
+            requester_name=_resolve_business_display_name(business_id),
+            related_entity_id=str(request.id),
+        )
+    )
     return {"connectionStatus": request.status.value.upper()}
 
 
@@ -633,6 +668,14 @@ def request_connection_to_business(supplier_id: str | UUID, business_profile_id:
 
     request = ConnectionRequestRepository.create(
         business_profile.business_id, supplier_profile_id, initiated_by_role=ConnectionInitiatorRole.SUPPLIER
+    )
+    supplier_profile = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    publish_notification(
+        build_connection_request_notification(
+            recipient_user_id=str(business_profile.business_id),
+            requester_name=supplier_profile.business_name if supplier_profile else "A supplier",
+            related_entity_id=str(request.id),
+        )
     )
     return {"connectionStatus": request.status.value.upper()}
 
@@ -724,6 +767,14 @@ def approve_request(supplier_id: str | UUID, request_id: str | UUID) -> dict:
 
     if request.status != ConnectionRequestStatus.ACTIVE:
         request = ConnectionRequestRepository.set_status(request, ConnectionRequestStatus.ACTIVE)
+        supplier_profile = SupplierProfileRepository.get_by_id(supplier_profile_id)
+        publish_notification(
+            build_connection_accepted_notification(
+                recipient_user_id=str(request.business_id),
+                accepter_name=supplier_profile.business_name if supplier_profile else "The supplier",
+                related_entity_id=str(request.id),
+            )
+        )
     return {"status": request.status.value.upper()}
 
 
@@ -806,6 +857,15 @@ def approve_supplier_request(business_id: str | UUID, request_id: str | UUID) ->
 
     if request.status != ConnectionRequestStatus.ACTIVE:
         request = ConnectionRequestRepository.set_status(request, ConnectionRequestStatus.ACTIVE)
+        requester_supplier_profile = SupplierProfileRepository.get_by_id(request.supplier_profile_id)
+        if requester_supplier_profile:
+            publish_notification(
+                build_connection_accepted_notification(
+                    recipient_user_id=str(requester_supplier_profile.supplier_id),
+                    accepter_name=_resolve_business_display_name(business_id),
+                    related_entity_id=str(request.id),
+                )
+            )
     return {"status": request.status.value.upper()}
 
 

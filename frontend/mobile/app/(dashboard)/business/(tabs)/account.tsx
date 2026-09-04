@@ -9,6 +9,7 @@ import { FeatureTile } from "@/components/cards/FeatureTile";
 import { LoanBookIcon } from "@/features/dashboard/business/loan-book/components/LoanBookIcon";
 import { OrderBookIcon } from "@/features/dashboard/business/order-book/components/OrderBookIcon";
 import { spacing } from "@/theme/spacing";
+import { useGridColumnWidth } from "@/hooks/useGridColumnWidth";
 
 /**
  * Business Account tab — the business OPERATIONS area. "Which business
@@ -35,6 +36,11 @@ import { spacing } from "@/theme/spacing";
 export default function BusinessAccount() {
   const router = useRouter();
   const theme = useTheme();
+  // THE REAL FIX for a genuine, confirmed bug -- see
+  // useGridColumnWidth's own docstring. 3 columns, matching the same
+  // "5-9 core features" scale this whole grid needs to support going
+  // forward, not just however many tiles happen to exist today.
+  const tileWidth = useGridColumnWidth(3, spacing.md, spacing.md);
 
   return (
     <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
@@ -42,10 +48,10 @@ export default function BusinessAccount() {
         variant="title"
         title="Account"
         subtitle="Your business tools"
-        rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} />}
+        rightIcon={<MoreVertical size={20} color={theme.colors.onSurface} strokeWidth={2.4} />}
       />
       <View style={styles.grid}>
-        <View style={styles.tileWrapper}>
+        <View style={{ width: tileWidth }}>
           <FeatureTile
             label="Loan Book"
             icon={<LoanBookIcon size={40} />}
@@ -53,7 +59,7 @@ export default function BusinessAccount() {
           />
         </View>
 
-        <View style={styles.tileWrapper}>
+        <View style={{ width: tileWidth }}>
           <FeatureTile
             label="Order Book"
             icon={<OrderBookIcon size={40} />}
@@ -74,8 +80,5 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.md,
     padding: spacing.md,
-  },
-  tileWrapper: {
-    width: "31%",
   },
 });

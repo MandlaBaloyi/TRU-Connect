@@ -29,3 +29,6 @@ class SupplierAuditEvent(str, enum.Enum):
     BULK_IMPORT_LOCKED_OUT = "supplier.bulk_import_locked_out"
     MEDIA_ORPHAN_ASSET_CLEANED = "media.orphan_asset_cleaned"
     MEDIA_DELETED_PRODUCT_ASSET_CLEANED = "media.deleted_product_asset_cleaned"
+    ORDER_APPROVED = "supplier.order_approved"
+    ORDER_DECLINED = "supplier.order_declined"
+    ORDER_AUTO_DECLINED = "supplier.order_auto_declined"

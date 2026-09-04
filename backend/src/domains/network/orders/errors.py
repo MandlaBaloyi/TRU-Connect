@@ -11,6 +11,29 @@ class SupplierNotFoundError(NotFoundError):
     code = "SUPPLIER_NOT_FOUND"
 
 
+class SupplierNotConnectedError(ConflictError):
+    """THE REAL, CONFIRMED CONSTRAINT this domain never actually
+    enforced -- found and fixed after direct report, reproduced
+    exactly from a real log: disconnect from a supplier, send a new
+    (still-pending) connection request, then submit_checkout still
+    succeeded. Browsing a supplier's catalogue and building a cart
+    are both genuinely allowed without an active connection -- that
+    part was correct and stays unchanged (cart_service.py has no
+    connection check, on purpose). Only the real financial commitment
+    -- actually submitting an order -- requires the connection to be
+    genuinely ACTIVE. A pending, declined, or ended connection all
+    raise this same error, deliberately indistinguishable, matching
+    the same "don't reveal the exact state of a relationship to the
+    other side" reasoning already established for
+    ConnectionNotActiveError in the connections domain itself (this
+    error is NOT that one, reused -- deliberately a new, orders-owned
+    class, since importing another domain's own error class directly
+    would create the same kind of cross-domain coupling this
+    codebase's error-per-domain discipline avoids everywhere else)."""
+
+    code = "SUPPLIER_NOT_CONNECTED"
+
+
 class ProductNotFoundError(NotFoundError):
     """Raised for a genuinely nonexistent product, one belonging to a
     DIFFERENT supplier than the cart itself is for, or an archived
@@ -45,6 +68,17 @@ class CartNotFoundError(NotFoundError):
     check out something that was never started" case."""
 
     code = "CART_NOT_FOUND"
+
+
+class OrderNotFoundError(NotFoundError):
+    """Raised for a genuinely nonexistent order, or one that exists
+    but belongs to a different business or a different supplier than
+    the one asked for -- deliberately indistinguishable from the
+    caller's perspective, same IDOR-safety reasoning as
+    StockOrderRepository.get_by_id_for_business_and_supplier's own
+    docstring."""
+
+    code = "ORDER_NOT_FOUND"
 
 
 class CartItemNotFoundError(NotFoundError):

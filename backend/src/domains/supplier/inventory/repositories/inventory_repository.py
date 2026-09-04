@@ -104,6 +104,34 @@ class InventoryRepository:
         return inventory
 
     @staticmethod
+    def reserve_quantity(inventory: Inventory, quantity_delta: int) -> Inventory:
+        """THE REAL WIRING quantity_reserved was always waiting for --
+        see this model's own module docstring: "EXISTS BUT NOTHING
+        SETS IT YET -- schema-ready for when Orders can actually
+        reserve stock against a real order." That moment is now
+        (checkout_service.py's own submit_checkout calls this once a
+        real order is placed).
+
+        Pure CRUD, deliberately -- whether the resulting reservation
+        is actually valid (doesn't exceed available stock) is the
+        CALLER's decision, already made before this is ever called
+        (checkout_service.py re-validates real availability at the
+        moment of submission, not just at add-to-cart time); this
+        method only performs the increment once that decision is
+        settled, same "repository never decides, only persists"
+        separation as every other repository in this codebase.
+
+        A negative quantity_delta releases a reservation -- the same
+        method handles both directions; there's no meaningful
+        difference in the operation itself, only in the sign of the
+        number. Releasing on a future supplier DECLINE is real,
+        separate, later work -- this method is already correct and
+        ready for that call the moment it exists."""
+        inventory.quantity_reserved = inventory.quantity_reserved + quantity_delta
+        db.session.commit()
+        return inventory
+
+    @staticmethod
     def set_threshold(inventory: Inventory, low_stock_threshold: int) -> Inventory:
         inventory.low_stock_threshold = low_stock_threshold
         db.session.commit()

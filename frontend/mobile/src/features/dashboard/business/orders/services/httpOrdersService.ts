@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/services/api/apiClient";
 
-import type { Cart, CheckoutResult, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
+import type { Cart, CheckoutResult, OrderDetail, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
 
 export async function getCart(supplierId: string): Promise<Cart | null> {
   const result = await apiGet<Cart>(`/checkout/suppliers/${supplierId}/cart`);
@@ -41,6 +41,10 @@ export async function clearCart(supplierId: string): Promise<Cart> {
 export async function getOrderHistory(supplierId: string): Promise<OrderHistoryEntry[]> {
   const data = await apiGet<{ orders: OrderHistoryEntry[] }>(`/checkout/suppliers/${supplierId}/history`);
   return data.orders;
+}
+
+export async function getOrderDetail(supplierId: string, orderId: string): Promise<OrderDetail> {
+  return apiGet<OrderDetail>(`/checkout/suppliers/${supplierId}/history/${orderId}`);
 }
 
 export async function submitCheckout(supplierId: string, request: SubmitCheckoutRequest): Promise<CheckoutResult> {

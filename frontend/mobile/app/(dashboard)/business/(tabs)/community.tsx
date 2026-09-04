@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ArrowLeft, Search, UserPlus, Users } from "lucide-react-native";
+import { ChevronLeft, Search, UserPlus, Users } from "lucide-react-native";
 import { TextInput, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -99,7 +99,7 @@ export default function BusinessCommunity() {
         <View style={[styles.searchHeaderBlock, { backgroundColor: theme.colors.surface, paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.searchHeaderRow}>
             <Pressable onPress={exitSearch} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close search">
-              <ArrowLeft size={22} color={theme.colors.onSurface} strokeWidth={2.4} />
+              <ChevronLeft size={26} color={theme.colors.onSurface} strokeWidth={2.8} />
             </Pressable>
             <TextInput
               mode="outlined"

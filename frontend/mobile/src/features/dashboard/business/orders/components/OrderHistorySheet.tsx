@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { X } from "lucide-react-native";
@@ -8,6 +8,8 @@ import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { useOrderHistory } from "../hooks/useOrderHistory";
+import { OrderDetailSheet } from "./OrderDetailSheet";
+import { getStatusLabel } from "../types";
 import type { OrderHistoryEntry } from "../types";
 
 interface Props {
@@ -33,19 +35,27 @@ function formatDate(iso: string | null): string {
 export function OrderHistorySheet({ visible, supplierId, onClose }: Props) {
   const theme = useTheme();
   const { orders, isLoading } = useOrderHistory(supplierId);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const renderItem = ({ item }: { item: OrderHistoryEntry }) => (
-    <View style={[styles.row, { borderColor: theme.colors.outlineVariant }]}>
+    <Pressable
+      onPress={() => setSelectedOrderId(item.id)}
+      style={[styles.row, { borderColor: theme.colors.outlineVariant }]}
+      accessibilityRole="button"
+      accessibilityLabel={`View order from ${formatDate(item.submittedAt)}`}
+    >
       <View style={styles.rowHeader}>
-        <Text style={[styles.date, { color: theme.colors.onSurface }]}>{formatDate(item.submittedAt)}</Text>
+        <Text style={[styles.reference, { color: theme.colors.onSurface }]}>{item.orderReference}</Text>
         <Text style={[styles.total, { color: theme.colors.onSurface }]}>{formatCents(item.totalCents)}</Text>
       </View>
+      <Text style={[styles.date, { color: theme.colors.onSurfaceVariant }]}>{formatDate(item.submittedAt)}</Text>
       <Text style={[styles.detail, { color: theme.colors.onSurfaceVariant }]}>
         {item.itemCount} {item.itemCount === 1 ? "item" : "items"} •{" "}
         {item.paymentMethod ? PAYMENT_METHOD_LABELS[item.paymentMethod] ?? item.paymentMethod : "—"} •{" "}
         {item.deliveryType === "COLLECT" ? "Collect" : "Deliver"}
       </Text>
-    </View>
+      <Text style={[styles.status, { color: theme.colors.primary }]}>{getStatusLabel(item.status)}</Text>
+    </Pressable>
   );
 
   return (
@@ -77,6 +87,13 @@ export function OrderHistorySheet({ visible, supplierId, onClose }: Props) {
           />
         )}
       </View>
+
+      <OrderDetailSheet
+        visible={selectedOrderId !== null}
+        supplierId={supplierId}
+        orderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+      />
     </Modal>
   );
 }
@@ -96,7 +113,9 @@ const styles = StyleSheet.create({
   list: { padding: spacing.md },
   row: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, gap: 4 },
   rowHeader: { flexDirection: "row", justifyContent: "space-between" },
-  date: { ...typography.body, fontWeight: "700" },
+  reference: { ...typography.body, fontWeight: "700" },
   total: { ...typography.body, fontWeight: "700" },
+  date: { ...typography.caption, marginTop: 2 },
   detail: { ...typography.bodySmall },
+  status: { ...typography.bodySmall, fontWeight: "700", marginTop: 4 },
 });

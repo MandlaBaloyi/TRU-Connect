@@ -1,6 +1,7 @@
 import logging
 from logging.config import fileConfig
 
+import sqlalchemy as sa
 from flask import current_app
 from alembic import context
 
@@ -99,6 +100,18 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
+        # THE REAL FIX for a genuinely fresh database -- version_table_schema
+        # below tells alembic to store ITS OWN bookkeeping table inside
+        # the "auth" schema, which happens BEFORE any migration file's
+        # own body ever runs. Nothing else in this codebase creates
+        # "auth" that early, so a brand-new database would fail here
+        # with "schema auth does not exist" before migration history
+        # even starts. Confirmed as a real, reproducible bootstrapping
+        # gap by rebuilding this project's entire environment from
+        # scratch and hitting exactly this error.
+        connection.execute(sa.text("CREATE SCHEMA IF NOT EXISTS auth"))
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=get_metadata(),

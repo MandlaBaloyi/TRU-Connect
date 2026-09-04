@@ -57,10 +57,19 @@ class SupplierProfileRepository:
     def get_or_create_for_supplier(supplier_id: str | uuid.UUID, default_name: str = "") -> SupplierProfile:
         profile = SupplierProfileRepository.get_by_supplier_id(supplier_id)
         if profile is None:
+            from src.domains.supplier.supplier_profile.algorithms.supplier_code_generator import (
+                generate_unique_supplier_code,
+            )
+
             profile = SupplierProfile(
                 id=uuid.uuid4(),
                 supplier_id=supplier_id,
                 business_name=default_name,
+                # A real, permanent identity assigned the moment a
+                # supplier profile is genuinely created, not something
+                # bolted on later -- see that generator's own docstring
+                # for the full reasoning.
+                supplier_code=generate_unique_supplier_code(),
             )
             db.session.add(profile)
             db.session.flush()

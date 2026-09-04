@@ -27,9 +27,10 @@ import type { PaymentMethod } from "../types";
  * it's coming.
  */
 export default function OrderPlacedScreen() {
-  const { supplierId, orderId, totalCents, instructions, paymentMethod, supplierName } = useLocalSearchParams<{
+  const { supplierId, orderId, orderReference, totalCents, instructions, paymentMethod, supplierName } = useLocalSearchParams<{
     supplierId: string;
     orderId: string;
+    orderReference: string;
     totalCents: string;
     instructions: string;
     paymentMethod: PaymentMethod;
@@ -44,13 +45,20 @@ export default function OrderPlacedScreen() {
       Alert.alert("No WhatsApp number", "This supplier hasn't added a WhatsApp number yet.");
       return;
     }
-    const message = `Hi, I've placed order ${orderId} for ${formatCents(Number(totalCents))} on TRU Connect. Here's my proof of payment.`;
+    const message = `Hi, I've placed order ${orderReference} for ${formatCents(Number(totalCents))} on TRU Connect. Here's my proof of payment.`;
     Linking.openURL(buildWhatsAppUrl(contact.whatsappNumber, message)).catch(() => {
       // Silently ignored -- same reasoning as every other WhatsApp
       // link in this app: wa.me degrades to a normal web page when
       // the app isn't installed, so a failure here means no route at
       // all, nothing more useful to do.
     });
+  };
+
+  const handleSendViaTruConnect = () => {
+    Alert.alert(
+      "Coming soon",
+      "Sending proof of payment directly in TRU Connect isn't available yet, but it's on the way."
+    );
   };
 
   return (
@@ -66,9 +74,9 @@ export default function OrderPlacedScreen() {
 
         <View style={[styles.card, { borderColor: theme.colors.outlineVariant }]}>
           <View style={styles.cardRow}>
-            <Text style={[styles.cardLabel, { color: theme.colors.onSurfaceVariant }]}>Order ID</Text>
+            <Text style={[styles.cardLabel, { color: theme.colors.onSurfaceVariant }]}>Order reference</Text>
             <Text style={[styles.cardValue, { color: theme.colors.onSurface }]} selectable>
-              {orderId}
+              {orderReference}
             </Text>
           </View>
           <View style={styles.cardRow}>
@@ -94,7 +102,7 @@ export default function OrderPlacedScreen() {
               <Text style={[styles.proofButtonLabel, { color: theme.colors.onSurface }]}>Send via WhatsApp</Text>
             </Pressable>
             <Pressable
-              onPress={() => Alert.alert("Coming soon", "Sending proof of payment directly in TRU Connect isn't available yet, but it's on the way.")}
+              onPress={handleSendViaTruConnect}
               style={[styles.proofButton, { backgroundColor: theme.colors.surfaceVariant }]}
               accessibilityRole="button"
               accessibilityLabel="Send via TRU Connect"

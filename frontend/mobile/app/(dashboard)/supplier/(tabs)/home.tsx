@@ -9,6 +9,7 @@ import { AppHeader } from "@/components/navigation/AppHeader";
 import { Card, CardSection, StatusPill } from "@/components/lists/CardListUI";
 import { spacing } from "@/theme/spacing";
 import { useCustomerRequests } from "@/features/dashboard/supplier/customer-requests/hooks/useCustomerRequests";
+import { useUnreadCount } from "@/features/dashboard/shared/notifications/hooks/useUnreadCount";
 
 /**
  * Home — architecture-only pass everywhere except Customer Requests
@@ -26,10 +27,15 @@ export default function SupplierDashboardHome() {
   const router = useRouter();
   const theme = useTheme();
   const { requests } = useCustomerRequests();
+  const { count } = useUnreadCount();
 
   return (
     <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
-      <AppHeader variant="brand" />
+      <AppHeader
+        variant="brand"
+        notificationCount={count}
+        onNotificationsPress={() => router.push("/supplier/notifications" as any)}
+      />
       {requests.length > 0 && (
         <View style={styles.section}>
           <CardSection>

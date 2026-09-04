@@ -26,6 +26,9 @@ from src.domains.business.order_book.schedulers.order_book_scheduler import JOB_
 from src.domains.network.connections.schedulers.connections_scheduler import JOB_SPECS as CONNECTIONS_JOB_SPECS
 from src.domains.platform.schedulers.platform_scheduler import JOB_SPECS as PLATFORM_JOB_SPECS
 from src.domains.supplier.products.schedulers.products_scheduler import JOB_SPECS as PRODUCTS_JOB_SPECS
+from src.domains.supplier.stock_order_management.schedulers.stock_order_scheduler import (
+    JOB_SPECS as STOCK_ORDER_JOB_SPECS,
+)
 from src.shared.media.schedulers.media_scheduler import JOB_SPECS as MEDIA_JOB_SPECS
 from src.master_scheduler import runner
 from src.master_scheduler.interfaces import JobSpec, SchedulerEngine
@@ -39,9 +42,10 @@ ALL_JOB_SPECS: list[JobSpec] = [
     *CONNECTIONS_JOB_SPECS,
     *MEDIA_JOB_SPECS,
     *PRODUCTS_JOB_SPECS,
+    *STOCK_ORDER_JOB_SPECS,
     # Future domains' own JOB_SPECS get concatenated here the same way,
-    # e.g.: *LOAN_BOOK_JOB_SPECS, *SUPPLIER_JOB_SPECS, *WALLET_JOB_SPECS,
-    # each imported from that domain's own schedulers/<domain>_scheduler.py.
+    # e.g.: *LOAN_BOOK_JOB_SPECS, *WALLET_JOB_SPECS, each imported from
+    # that domain's own schedulers/<domain>_scheduler.py.
 ]
 
 

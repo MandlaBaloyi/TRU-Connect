@@ -22,6 +22,16 @@ depends_on = None
 
 
 def upgrade():
+    # REAL, PRE-EXISTING GAP FIXED -- confirmed by checking every
+    # migration in this project: every other domain schema (supplier,
+    # network, media, security, checkout) creates itself explicitly in
+    # its own genuinely first migration; "business" never did. This is
+    # that genuinely first one in the real dependency chain (confirmed
+    # directly: business_profile_table, which runs LATER, was my
+    # initial guess and was wrong -- this migration is what actually
+    # fails first against a truly empty database).
+    op.execute("CREATE SCHEMA IF NOT EXISTS business")
+
     op.create_table(
         "customers",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),

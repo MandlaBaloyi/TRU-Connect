@@ -6,7 +6,7 @@
 
 import React, { useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { History, Trash2 } from "lucide-react-native";
 
@@ -18,12 +18,18 @@ import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import { PlaceholderMenuButton } from "@/components/navigation/PlaceholderMenuButton";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
 
 export default function OrderBookScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ headerRight: () => <PlaceholderMenuButton /> });
+  }, [navigation]);
 
   // Runs the auto-clear check for as long as the queue screen is open —
   // see useAutoClearSweepRunner's docstring for why this is a mock-mode

@@ -17,7 +17,7 @@ class ManualPaymentProvider(PaymentProvider):
     def process_checkout(self, stock_order, payment_method: StockOrderPaymentMethod) -> CheckoutOutcome:
         if payment_method == StockOrderPaymentMethod.CASH:
             return CheckoutOutcome(
-                order_status=StockOrderStatus.SUBMITTED,
+                order_status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
                 instructions=(
                     "Pay in cash on delivery or collection. The supplier will confirm your order shortly."
                 ),
@@ -25,7 +25,7 @@ class ManualPaymentProvider(PaymentProvider):
 
         if payment_method == StockOrderPaymentMethod.PROOF_OF_PAYMENT:
             return CheckoutOutcome(
-                order_status=StockOrderStatus.SUBMITTED,
+                order_status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
                 instructions=(
                     "Make your payment directly to the supplier, then send them your proof of payment. "
                     "Sending proof through TRU Connect directly is coming soon -- for now, send it to the "

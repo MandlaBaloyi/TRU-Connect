@@ -8,68 +8,101 @@
  * here specifically so the two never drift into two different
  * versions of the same legal document.
  *
- * REAL screen with real content — but see the "Draft — pending legal
- * review" entry below. Written in plain language describing what the
- * application ACTUALLY does today, rather than boilerplate copied from
- * elsewhere that might describe practices TruConnect doesn't follow.
- * MUST be reviewed by a legal professional before public release —
- * flagged in the content itself rather than hidden.
+ * REWRITTEN, grounded in POPIA (South Africa's own Protection of
+ * Personal Information Act), to reflect the platform as actually
+ * built. The previous version said business records were "not visible
+ * to other businesses or suppliers" -- genuinely no longer true, given
+ * the real, connection-gated contact-sharing model this platform
+ * actually has (see entry 3 below). Mirrors
+ * TRU_Connect_Privacy_Policy.docx -- see TERMS_DOWNLOAD_URL's own
+ * comment in termsContent.tsx for why the formal document isn't
+ * linked from here yet.
  */
 import React from "react";
-import { Database, Target, Users, Clock, Lock, ScrollText, Baby, RefreshCw, Mail } from "lucide-react-native";
+import {
+  ScrollText, Database, MapPin, Package, Target, Scale, Link2, Lock,
+  Clock, ShieldCheck, Bell, Baby, Globe, RefreshCw, Mail,
+} from "lucide-react-native";
 import type { InfoParagraph } from "@/features/dashboard/business/settings/components/InfoScreen";
 
-export const PRIVACY_POLICY_META_LINE = "Last updated 10 August 2026 · Version 1.0 (draft)";
+export const PRIVACY_POLICY_META_LINE = "Last updated 1 September 2026 · Version 2.0 (draft)";
+
+export const PRIVACY_POLICY_DOWNLOAD_URL: string | undefined = undefined;
 
 export const PRIVACY_POLICY_PARAGRAPHS: InfoParagraph[] = [
   {
     heading: "Draft — pending legal review",
-    body: "This policy describes how TruConnect currently handles information. It has not yet been reviewed by a legal professional and will be finalised before public release. Once finalised, it will govern how TruConnect collects, uses, and protects your information.",
+    body: "This Policy describes how TRU Connect currently handles information, prepared with reference to South Africa's Protection of Personal Information Act (POPIA). It has not yet been reviewed by a legal professional and will be finalised, and published as a signed PDF and a permanent web page, before the platform goes live.",
     icon: (c) => <ScrollText size={16} color={c} />,
   },
   {
     heading: "1. Information we collect",
-    body: "Account details you provide at sign-up (name, phone number, email, password), your business or supplier profile as you complete it, and the operational records you create while using TruConnect — customers, amounts owed, orders, and payment history.",
+    body: "Account details you provide at sign-up (name, email, phone number, password, and your role), your business or supplier profile as you complete it, product listings and inventory (Supplier Users), and the records you create in your own Loan Book and Order Book (Business Users).",
     icon: (c) => <Database size={16} color={c} />,
   },
   {
-    heading: "2. How we use it",
-    body: "Solely to provide and improve the tools in TruConnect: authenticating your account, running Loan Book and Order Book, keeping your business profile, and communicating with you about your account. We do not use your information for purposes unrelated to the service.",
+    heading: "2. Location — general only",
+    body: "We collect general location (such as suburb or city) to help Business Users discover nearby suppliers. We deliberately do not require or store a precise street address for this purpose — only what a Supplier User chooses to share for delivery once a real Connection and order exist.",
+    icon: (c) => <MapPin size={16} color={c} />,
+  },
+  {
+    heading: "3. Stock Order and transaction information",
+    body: "Details of every Stock Order you place or receive — items, price, payment method, delivery method, and status — plus, for a Business User's own order, the buyer information snapshotted onto it at the moment it's submitted, so the Supplier User can fulfil it.",
+    icon: (c) => <Package size={16} color={c} />,
+  },
+  {
+    heading: "4. How we use it",
+    body: "Solely to provide and improve TRU Connect's own tools: authenticating your account, running Connections, Stock Orders, the Loan Book, and Order Book, enforcing spending limits, detecting fraud, and communicating with you about your own account.",
     icon: (c) => <Target size={16} color={c} />,
   },
   {
-    heading: "3. Who can see your information",
-    body: "Your business records are yours. They are not visible to other businesses or suppliers on TruConnect, and are never sold to advertisers or data brokers. A limited number of authorised TruConnect staff may access data strictly to operate, secure, and support the platform.",
-    icon: (c) => <Users size={16} color={c} />,
+    heading: "5. Our legal basis (POPIA)",
+    body: "We process your information based on consent (where given), contractual necessity (providing the Platform you signed up for), legitimate interest (such as fraud prevention, balanced against your own rights), and legal obligation where South African law requires it.",
+    icon: (c) => <Scale size={16} color={c} />,
   },
   {
-    heading: "4. How long we keep it",
-    body: "Your records are retained for as long as your account remains active. Items you delete are held in Trash for 7 days so you can restore them, then permanently removed. You may request full account and data deletion at any time by contacting us — see Help & support.",
-    icon: (c) => <Clock size={16} color={c} />,
+    heading: "6. Who can see your information",
+    body: "Contact information is shared between a Business User and a Supplier User ONLY once a real Connection is genuinely active between them — never before, and never with anyone else. Ending a Connection stops any further sharing going forward. We never sell your information to advertisers or data brokers.",
+    icon: (c) => <Link2 size={16} color={c} />,
   },
   {
-    heading: "5. Security",
-    body: "Your account is protected by your password and phone verification, and data in transit is encrypted. TruConnect follows standard industry practice for securing access to production systems.",
+    heading: "7. Security",
+    body: "Your password is stored encrypted, never in plain text. We keep a real, internal security log of sensitive account actions to protect you and detect misuse — this log is for our own internal security purposes and is never shared with other users. No system is perfectly secure, but we treat this as an ongoing responsibility.",
     icon: (c) => <Lock size={16} color={c} />,
   },
   {
-    heading: "6. Your rights under POPIA",
-    body: "Under South Africa's Protection of Personal Information Act, you have the right to access the personal information we hold about you, request that it be corrected, object to certain processing, and request its deletion.",
-    icon: (c) => <ScrollText size={16} color={c} />,
+    heading: "8. How long we keep it",
+    body: "Your records are retained for as long as your account remains active, and for a reasonable period afterward where we have a genuine legal or business reason to. Some features, like the Loan Book, let you move a record to Trash before it's permanently deleted, giving you a real chance to restore it.",
+    icon: (c) => <Clock size={16} color={c} />,
   },
   {
-    heading: "7. Children's privacy",
-    body: "TruConnect is a business platform intended for adults operating or supplying a business. It is not directed at, and should not be used by, children.",
+    heading: "9. Your rights under POPIA",
+    body: "You have the right to access the personal information we hold about you, request correction, request deletion (subject to our own legal retention obligations), object to processing based on legitimate interest, withdraw consent, and lodge a complaint with the Information Regulator of South Africa.",
+    icon: (c) => <ShieldCheck size={16} color={c} />,
+  },
+  {
+    heading: "10. Notifications",
+    body: "We send real, in-app notifications about your own account activity — a new Stock Order, a decision on one you placed, a connection request. These are core to how the Platform works and can't be fully disabled while keeping your account functional. We don't sell your contact information for marketing.",
+    icon: (c) => <Bell size={16} color={c} />,
+  },
+  {
+    heading: "11. Children's privacy",
+    body: "TRU Connect is a business platform intended for adults operating or supplying a business. It is not directed at, and should not be used by, anyone under 18.",
     icon: (c) => <Baby size={16} color={c} />,
   },
   {
-    heading: "8. Changes to this policy",
-    body: 'TruConnect reserves the right to update this policy as the platform evolves. Where a change is material, we will take reasonable steps to notify you in the app before it takes effect. The "Last updated" date above always reflects the current version.',
+    heading: "12. Cross-border transfers",
+    body: "Where TRU Connect uses a service provider whose own infrastructure is located outside South Africa, we take reasonable steps to ensure your information continues to receive a level of protection consistent with POPIA.",
+    icon: (c) => <Globe size={16} color={c} />,
+  },
+  {
+    heading: "13. Changes to this policy",
+    body: 'TRU Connect may update this Policy as the platform evolves. Material changes will be communicated in the app before they take effect. The "Last updated" date above always reflects the current version.',
     icon: (c) => <RefreshCw size={16} color={c} />,
   },
   {
-    heading: "9. Contact us",
-    body: "Questions about this policy or your information can be sent to the contact details under Help & support.",
+    heading: "14. Contact us",
+    body: "Questions, requests, or complaints about this Policy or your personal information can be sent to the contact details under Help & support, addressed to TRU Connect's own designated Information Officer.",
     icon: (c) => <Mail size={16} color={c} />,
   },
 ];

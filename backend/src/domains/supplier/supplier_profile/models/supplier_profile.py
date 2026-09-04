@@ -96,6 +96,17 @@ class SupplierProfile(BaseModel):
 
     supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey("auth.users.id"), nullable=False)
 
+    # 4-character random code (see algorithms/supplier_code_generator.py
+    # for the full generation reasoning) -- a real, permanent identity
+    # assigned once, on creation. Never guessable, never sequential --
+    # scopes an order reference lookup to this one supplier's own
+    # namespace, and carries no information about how many orders this
+    # supplier has ever received (that stays hidden, on purpose).
+    # Nullable at the schema level only because existing rows need a
+    # migration-time backfill before this can be made NOT NULL; every
+    # NEW supplier gets one immediately, see the creation repository.
+    supplier_code = db.Column(db.String(4), nullable=True, unique=True)
+
     business_name = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(120), nullable=True)
     # General only (suburb/city) -- file.txt §4's privacy framing

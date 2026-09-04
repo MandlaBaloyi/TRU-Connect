@@ -48,7 +48,7 @@ WHAT THIS FILE WILL EVENTUALLY NEED, not built now:
   redirect_url the business is sent to in order to actually pay.
 - A companion itn_service.py (in shared/checkout/webhooks/) that
   verifies the ITN callback and transitions the order from
-  AWAITING_PAYMENT to SUBMITTED once payment is genuinely confirmed --
+  AWAITING_PAYMENT to CONFIRMED once payment is genuinely confirmed --
   never on the redirect alone, only on a verified server-to-server
   notification, exactly like Cloudinary's own webhook is the only
   trusted source for a scan result, never the client's own claim.

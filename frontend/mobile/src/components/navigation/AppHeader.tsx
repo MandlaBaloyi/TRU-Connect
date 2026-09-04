@@ -2,7 +2,8 @@ import React from "react";
 import { Pressable, StyleSheet, Text as RNText, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, MoreVertical } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Bell, ChevronLeft, MoreVertical } from "lucide-react-native";
 
 import { getWordmarkColors } from "@/theme/wordmark";
 import { palette } from "@/theme/colors";
@@ -38,6 +39,14 @@ type AppHeaderProps =
       variant: "title";
       title: string;
       subtitle?: string;
+      /** Real, generic, reusable -- a screen reached by PUSH
+       *  navigation (not a top-level tab) needs a way back; every
+       *  existing "title"/"title-with-tabs" consumer is a top-level
+       *  tab screen and never needed this until Notifications, the
+       *  first pushed screen to use either variant. Renders a real
+       *  ChevronLeft calling router.back(), placed before the title
+       *  text itself. */
+      showBackButton?: boolean;
       rightIcon?: React.ReactNode;
       onRightIconPress?: () => void;
       secondaryRightIcon?: React.ReactNode;
@@ -73,6 +82,9 @@ type AppHeaderProps =
        */
       variant: "title-with-tabs";
       title: string;
+      /** Same real, generic addition as "title"'s own showBackButton
+       *  -- see that prop's own comment for the full reasoning. */
+      showBackButton?: boolean;
       rightIcon?: React.ReactNode;
       onRightIconPress?: () => void;
       tabs: AppHeaderTab[];
@@ -114,6 +126,7 @@ type AppHeaderProps =
  */
 export function AppHeader(props: AppHeaderProps) {
   const theme = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const suppressBorder = props.variant === "title" && props.showBottomBorder === false;
   const wrapperStyle = [
@@ -133,13 +146,17 @@ export function AppHeader(props: AppHeaderProps) {
           </RNText>
           <View style={styles.actions}>
             <Pressable onPress={props.onNotificationsPress} hitSlop={10} style={styles.iconButton}>
-              <Bell size={20} color={theme.colors.onSurface} />
+              <Bell size={20} color={theme.colors.onSurface} strokeWidth={2.4} />
               {Boolean(props.notificationCount) && (
-                <View style={[styles.badge, { backgroundColor: palette.danger }]} />
+                <View style={[styles.badge, { backgroundColor: palette.danger }]}>
+                  <RNText style={styles.badgeText}>
+                    {props.notificationCount! > 9 ? "9+" : props.notificationCount}
+                  </RNText>
+                </View>
               )}
             </Pressable>
             <Pressable onPress={props.onMenuPress} hitSlop={10} style={styles.iconButton}>
-              <MoreVertical size={20} color={theme.colors.onSurface} />
+              <MoreVertical size={20} color={theme.colors.onSurface} strokeWidth={2.4} />
             </Pressable>
           </View>
         </View>
@@ -159,6 +176,17 @@ export function AppHeader(props: AppHeaderProps) {
         },
       ]}
     >
+      {(props.variant === "title" || props.variant === "title-with-tabs") && props.showBackButton && (
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <ChevronLeft size={26} color={theme.colors.onSurface} strokeWidth={2.8} />
+        </Pressable>
+      )}
       <View style={styles.textWrap}>
         <RNText style={[styles.title, { color: theme.colors.onSurface }]}>{props.title}</RNText>
         {props.variant === "title" && props.subtitle && (
@@ -225,6 +253,7 @@ const styles = StyleSheet.create({
   wrapperNoBorder: { borderBottomWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md },
   titleRow: { alignItems: "flex-start", paddingTop: spacing.sm },
+  backButton: { marginRight: spacing.xs, marginTop: 2 },
   titleRowCompact: { alignItems: "center", paddingTop: 0 },
   textWrap: { gap: 2, flexShrink: 1 },
   tru: { fontSize: 20, letterSpacing: -0.3, fontWeight: "700" },
@@ -234,7 +263,18 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", alignItems: "center" },
   actionsGroup: { flexDirection: "row", alignItems: "center" },
   iconButton: { padding: spacing.xs, marginLeft: spacing.xs },
-  badge: { position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: 4 },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   // "fill" (default): natural-width labels, equal GAPS between them
   // (space-between) -- NOT flex:1 equal-width columns. With very
   // different label lengths ("All" vs "Opportunities"), equal-width
