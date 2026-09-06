@@ -13,6 +13,24 @@ import { queryClient } from "@/services/api/queryClient";
 import { OfflineBanner } from "@/components/feedback/OfflineBanner";
 
 /**
+ * initialWindowMetrics IS reliable at the root -- confirmed directly
+ * from device logs (top: 23.47, bottom: 14.93, both correct). An
+ * earlier version of this file second-guessed that value based on a
+ * wrong diagnosis; kept here as plain, unconditional usage since the
+ * root value was never the problem.
+ *
+ * THE REAL BUG lived one level down: react-native-screens 4.26 (new
+ * in SDK 57) wraps each screen in its own nested SafeAreaProvider, so
+ * useSafeAreaInsets() inside AppHeader/DashboardTabBar resolved to
+ * THAT nested provider instead of this root one, and read a
+ * correct-for-its-own-coordinate-space top:0. See
+ * src/hooks/useRootSafeAreaInsets.ts and AppHeader.tsx's own
+ * docstring for the full diagnosis and the actual fix -- this file's
+ * job is only to provide a genuinely correct root value, which it
+ * already did.
+ */
+
+/**
  * Root layout: wires up theming, safe areas, React Query, and gesture
  * handling for the whole app.
  *
@@ -26,26 +44,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/*
         EXPLICIT SafeAreaProvider with initialMetrics, rather than
-        relying on Expo Router's own internal provider.
-
-        ROOT CAUSE OF THE HEADER-HEIGHT BUG: react-native-screens'
-        NATIVE header (used by every feature screen's Stack --
-        Loan Book, Order Book, Settings, My Business, My Account,
-        Security) measures its own height using native code, not JS.
-        On Android, with edge-to-edge enabled, the real status-bar
-        inset isn't always available to native code on the very FIRST
-        layout pass -- a well-documented timing gap, not something
-        specific to this app. Crucially, that native header does NOT
-        automatically re-measure when a JS-side safe-area value updates
-        later; it only re-applies its geometry when React Navigation
-        gives it a genuinely new screenOptions object. That's exactly
-        why changing the system theme "fixed" it: an unrelated theme
-        change caused headerStyle's object identity to change,
-        incidentally forcing a re-measure once the real inset value had
-        settled. Passing initialWindowMetrics here gives the FIRST
-        render the real, already-known inset synchronously (no async
-        gap to race), so the header is correct from frame one and
-        doesn't depend on an unrelated re-render ever happening.
+        relying on Expo Router's own internal provider. This root
+        value is genuinely correct (see the module-level comment
+        above) -- the black-status-bar bug was never here, it was a
+        nested provider one level down. See AppHeader.tsx and
+        src/hooks/useRootSafeAreaInsets.ts for the actual fix.
       */}
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <QueryClientProvider client={queryClient}>

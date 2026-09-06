@@ -102,6 +102,9 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.supplier.stock_order_management.api.order_management_routes import order_management_bp
     app.register_blueprint(order_management_bp)
 
+    from src.domains.network.geocoding.api.geocoding_routes import geocoding_bp
+    app.register_blueprint(geocoding_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """

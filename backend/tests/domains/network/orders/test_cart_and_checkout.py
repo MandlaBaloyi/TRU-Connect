@@ -12,7 +12,6 @@ import uuid
 
 import pytest
 
-from src.domains.network.orders.services import cart_service, checkout_service, order_history_service
 from src.domains.network.orders.services.commission import calculate_platform_commission_cents
 from src.domains.business.order_limits.tiers.free import LIMITS as FREE_LIMITS
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
@@ -27,6 +26,7 @@ from src.domains.network.orders.errors import (
     OutOfStockError,
     InvalidQuantityError,
     OrderLimitExceededError,
+    OrderNotCancellableError,
     OrderNotFoundError,
     PaymentMethodNotAvailableError,
     ProductNotFoundError,
@@ -34,6 +34,7 @@ from src.domains.network.orders.errors import (
     SupplierNotConnectedError,
     SupplierNotFoundError,
 )
+from src.domains.network.orders.services import cancellation_service, cart_service, checkout_service, order_history_service
 from src.domains.network.orders.models.stock_order import StockOrder, StockOrderPaymentMethod, StockOrderStatus
 from src.domains.network.orders.models.stock_order_payment import StockOrderPayment, StockOrderPaymentStatus
 from src.domains.network.orders.providers.composition import get_payment_provider, reset_payment_providers
@@ -799,6 +800,51 @@ def test_get_order_detail_returns_full_line_item_information(
     assert detail["items"][0]["quantity"] == 3
 
 
+def test_get_order_detail_decline_fields_are_null_when_not_declined(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Not Declined Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    detail = order_history_service.get_order_detail(business.id, profile.id, result["id"])
+
+    assert detail["declineReason"] is None
+    assert detail["declineDetails"] is None
+
+
+def test_get_order_detail_returns_real_decline_reason_and_details(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """Goes through the REAL decline_order flow, not a hand-set model
+    attribute -- confirms the business's own order-detail view
+    genuinely reflects a supplier's real decision, not just that the
+    two fields exist on the model."""
+    from src.domains.supplier.stock_order_management.services import order_management_service
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Declined Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    order_management_service.decline_order(
+        profile.id, result["id"], "out_of_stock", "Sold out this week, restocking Friday."
+    )
+
+    detail = order_history_service.get_order_detail(business.id, profile.id, result["id"])
+
+    assert detail["status"] == "DECLINED"
+    assert detail["declineReason"] == "out_of_stock"
+    assert detail["declineDetails"] == "Sold out this week, restocking Friday."
+
+
 def test_get_order_detail_blocks_a_different_business(make_business, make_supplier, make_supplier_profile, make_active_connection):
     """THE REAL IDOR PROTECTION -- a business must never be able to
     view another business's own order, even with a genuinely valid
@@ -1047,3 +1093,245 @@ def test_checkout_succeeds_once_the_connection_is_genuinely_active(
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
     assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+# --- delivery location fields (Mapbox pin-drop feature) --------------------
+
+
+def test_deliver_order_persists_structured_delivery_fields(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """The real point of the whole feature: a DELIVER order's pin
+    coordinates and structured address actually land on the row, not
+    just delivery_address_text."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Pin Drop Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(
+        business.id,
+        profile.id,
+        "CASH",
+        "DELIVER",
+        "12 Church Street, Westenburg, Polokwane, Limpopo, 0699",
+        None,
+        "Church Street",
+        "Westenburg",
+        "Polokwane",
+        "Limpopo",
+        "0699",
+        -23.9045,
+        29.4587,
+    )
+
+    stock_order = db.session.get(StockOrder, uuid.UUID(result["id"]))
+    assert stock_order.delivery_street == "Church Street"
+    assert stock_order.delivery_suburb == "Westenburg"
+    assert stock_order.delivery_city == "Polokwane"
+    assert stock_order.delivery_province == "Limpopo"
+    assert stock_order.delivery_postal_code == "0699"
+    # Numeric columns come back as Decimal -- compare via float rather
+    # than assuming exact type equality with the plain float passed in.
+    assert float(stock_order.delivery_latitude) == pytest.approx(-23.9045)
+    assert float(stock_order.delivery_longitude) == pytest.approx(29.4587)
+
+
+def test_collect_order_never_persists_structured_delivery_fields(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL GUARD this test exists to confirm: a COLLECT order
+    shows the SUPPLIER's own address, never something the business
+    entered -- so even if a buggy or malicious client sends delivery
+    coordinates alongside a COLLECT submission, none of it is ever
+    written. Only delivery_type itself is meaningful for COLLECT."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Collect Only Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(
+        business.id,
+        profile.id,
+        "CASH",
+        "COLLECT",
+        None,
+        "Suspicious building",
+        "Suspicious street",
+        "Suspicious suburb",
+        "Suspicious city",
+        "Suspicious province",
+        "0000",
+        -1.0,
+        1.0,
+    )
+
+    stock_order = db.session.get(StockOrder, uuid.UUID(result["id"]))
+    assert stock_order.delivery_building is None
+    assert stock_order.delivery_street is None
+    assert stock_order.delivery_suburb is None
+    assert stock_order.delivery_city is None
+    assert stock_order.delivery_province is None
+    assert stock_order.delivery_postal_code is None
+    assert stock_order.delivery_latitude is None
+    assert stock_order.delivery_longitude is None
+
+
+def test_deliver_order_without_any_delivery_fields_still_works(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """Backward compatibility: a DELIVER checkout that only sends the
+    old delivery_address_text (e.g. before the frontend adopts the
+    map picker) must keep working exactly as before -- every new
+    field is optional, defaulting to None, never required."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Old Client Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(
+        business.id, profile.id, "CASH", "DELIVER", "Just some typed text address"
+    )
+
+    stock_order = db.session.get(StockOrder, uuid.UUID(result["id"]))
+    assert stock_order.delivery_address_text == "Just some typed text address"
+    assert stock_order.delivery_latitude is None
+    assert stock_order.delivery_longitude is None
+
+
+# --- cancellation_service: business's own self-service cancel --------------
+
+
+def test_cancel_order_by_business_releases_reservation_and_notifies_supplier(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL PROOF -- a business cancelling their own still-PENDING
+    order releases the held stock, same mechanism decline already
+    uses on the supplier's side, and the supplier is told so they
+    don't waste time reviewing an order that's already gone."""
+    from src.domains.platform.notifications.repositories.notification_repository import NotificationRepository
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Business Cancel Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Tomatoes", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 3)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 3
+
+    cancelled = cancellation_service.cancel_order_by_business(
+        business.id, profile.id, result["id"], reason="changed_mind", details="Found it cheaper elsewhere."
+    )
+
+    assert cancelled["status"] == "CANCELLED"
+    db.session.expire_all()
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 0
+
+    supplier_notifs = NotificationRepository.list_for_user(supplier_user.id, category="STOCK_ORDER")
+    cancel_notifs = [n for n in supplier_notifs if "cancelled" in n.body]
+    assert len(cancel_notifs) == 1
+
+
+def test_cancel_order_by_business_sets_the_real_fields(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Cancel Fields Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    cancellation_service.cancel_order_by_business(
+        business.id, profile.id, result["id"], reason="ordered_by_mistake"
+    )
+
+    stock_order = db.session.get(StockOrder, uuid.UUID(result["id"]))
+    assert stock_order.status == StockOrderStatus.CANCELLED
+    assert stock_order.cancelled_by == "business"
+    assert stock_order.cancel_reason == "ordered_by_mistake"
+    assert stock_order.cancelled_at is not None
+    # Never touched -- the supplier never decided anything here.
+    assert stock_order.decided_at is None
+
+
+def test_cancel_order_by_business_only_works_while_pending(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL GUARD -- once a supplier has confirmed an order, the
+    business can no longer self-cancel through this action at all;
+    they have to contact the supplier directly."""
+    from src.domains.supplier.stock_order_management.services import order_management_service
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Already Confirmed Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    order_management_service.approve_order(profile.id, result["id"])
+
+    with pytest.raises(OrderNotCancellableError):
+        cancellation_service.cancel_order_by_business(business.id, profile.id, result["id"], reason="changed_mind")
+
+
+def test_cancel_order_by_business_rejects_a_reason_only_a_supplier_would_use(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL SPLIT, mirrored -- "out_of_stock" is a supplier's own
+    reason, nonsensical coming from a business."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Wrong Reason Set Business Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    with pytest.raises(ValueError):
+        cancellation_service.cancel_order_by_business(business.id, profile.id, result["id"], reason="out_of_stock")
+
+
+def test_cancel_order_by_business_blocks_a_different_business(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL IDOR PROTECTION -- a business must never be able to
+    cancel another business's own order, even a genuinely PENDING one
+    with a real, valid order id."""
+    business = make_business()
+    other_business = make_business("cancel-idor-other@example.com")
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="IDOR Cancel Co")
+    make_active_connection(business, profile)
+    make_active_connection(other_business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    with pytest.raises(OrderNotFoundError):
+        cancellation_service.cancel_order_by_business(
+            other_business.id, profile.id, result["id"], reason="changed_mind"
+        )
+
+
+def test_cancel_order_by_business_raises_for_a_genuinely_nonexistent_order(
+    make_business, make_supplier, make_supplier_profile
+):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Order Here Business Co")
+
+    with pytest.raises(OrderNotFoundError):
+        cancellation_service.cancel_order_by_business(business.id, profile.id, uuid.uuid4(), reason="changed_mind")

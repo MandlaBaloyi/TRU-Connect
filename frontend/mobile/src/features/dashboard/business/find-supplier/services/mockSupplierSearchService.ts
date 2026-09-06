@@ -135,6 +135,12 @@ export async function getSupplierProfile(id: string): Promise<SupplierProfilePre
     connectionStatus: connectionState.get(id) ?? "NOT_REQUESTED",
     photoUrl: supplier.photoUrl,
     productCount: supplier.productCount,
+    // sup_001 is the mock's own "already connected" supplier
+    // (connectionState defaults matter here) -- giving it real
+    // contact info lets the CONFIRMED-order "contact your supplier"
+    // UI be exercised in mock mode, not just PENDING/DECLINED.
+    contact:
+      id === "sup_001" ? { whatsappNumber: "+27821234567", email: "sales@abcwholesale.example", tiktokHandle: null } : null,
   };
 }
 

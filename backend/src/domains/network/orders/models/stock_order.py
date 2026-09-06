@@ -64,8 +64,11 @@ class StockOrderStatus(str, enum.Enum):
     Not reachable by anything in this pass, same reasoning as
     CONFIRMED above.
 
-    CANCELLED -- reserved, not reachable by anything in this pass.
-    Either side cancelling before fulfilment is real, future work.
+    CANCELLED -- now real, reachable work (see cancellation_service.py
+    in both orders/ and stock_order_management/). Reachable two ways:
+    a business cancelling their own still-PENDING order, or a
+    supplier cancelling an already-CONFIRMED one. See
+    StockOrderCancelledBy below for how the two are told apart.
     """
 
     CART = "CART"
@@ -94,6 +97,51 @@ class StockOrderDeclineReason(str, enum.Enum):
     # DECLINE_REASON_LABELS can show it honestly rather than falling
     # back to a raw, ugly enum value.
     NO_RESPONSE = "no_response"
+    OTHER = "other"
+
+
+class StockOrderCancelledBy(str, enum.Enum):
+    """WHO triggered a CANCELLED order -- the two paths are genuinely
+    different actors at different points in the lifecycle (see
+    cancellation_service.py's own module docstring for the full
+    architecture), and the business/supplier UIs each need to know
+    which one happened to show "Cancelled by you" vs "Cancelled by
+    supplier" honestly."""
+
+    BUSINESS = "business"
+    SUPPLIER = "supplier"
+
+
+class StockOrderCancelReason(str, enum.Enum):
+    """ONE shared reason enum for BOTH cancellation directions,
+    deliberately not two separate enums -- cancelled_by already tells
+    you which actor cancelled, so the UI on each side only ever
+    presents the subset of these that makes sense for it (see
+    cancellation_service.py's own BUSINESS_CANCEL_REASONS /
+    SUPPLIER_CANCEL_REASONS constants for the real, enforced split).
+    A genuinely different vocabulary from StockOrderDeclineReason --
+    that one is exclusively "the supplier's own reason for saying no
+    before ever confirming"; this one covers a business changing
+    their mind AND a supplier backing out of something already
+    confirmed, two different situations from decline entirely.
+    """
+
+    # Business-initiated (while still PENDING_SUPPLIER_APPROVAL)
+    CHANGED_MIND = "changed_mind"
+    FOUND_ALTERNATIVE = "found_alternative"
+    ORDERED_BY_MISTAKE = "ordered_by_mistake"
+    # Supplier-initiated (an already-CONFIRMED order) -- the same real
+    # underlying reasons as StockOrderDeclineReason, discovered later
+    # rather than before ever confirming. Deliberately NOT reusing
+    # that enum directly: a shared vocabulary would blur two
+    # genuinely different lifecycle events (never confirmed vs.
+    # confirmed then walked back) into one, making a stored reason
+    # value ambiguous about which actually happened without also
+    # checking the order's own history.
+    OUT_OF_STOCK = "out_of_stock"
+    CANNOT_FULFIL_DELIVERY_AREA = "cannot_fulfil_delivery_area"
+    PRICING_ERROR = "pricing_error"
+    # Available to either side
     OTHER = "other"
 
 
@@ -156,6 +204,28 @@ class StockOrder(BaseModel):
     # was delivered to; a real order's own delivery details are a
     # historical fact, not a live reference.
     delivery_address_text = db.Column(db.Text, nullable=True)
+    # Structured companions to delivery_address_text above -- same
+    # historical-snapshot reasoning (never a live reference to some
+    # other table), added alongside it rather than replacing it so
+    # every existing reader of delivery_address_text keeps working
+    # unchanged. Pre-filled from a reverse-geocode lookup but always
+    # business-confirmed/edited text, never a provider's raw response
+    # -- see src/domains/network/geocoding's own module docstring.
+    delivery_building = db.Column(db.Text, nullable=True)
+    delivery_street = db.Column(db.Text, nullable=True)
+    delivery_suburb = db.Column(db.Text, nullable=True)
+    delivery_city = db.Column(db.Text, nullable=True)
+    delivery_province = db.Column(db.Text, nullable=True)
+    delivery_postal_code = db.Column(db.Text, nullable=True)
+    # The pin's REAL coordinates -- captured straight from the map
+    # widget the business dragged, never from a geocoding response
+    # (see geocoding module docstring for why that distinction is
+    # what keeps this feature inside Mapbox's free tier by design).
+    # This is the genuinely valuable part: a delivery person who's
+    # never been to this business before can open this exact point
+    # directly in their own phone's maps app.
+    delivery_latitude = db.Column(db.Numeric(9, 6), nullable=True)
+    delivery_longitude = db.Column(db.Numeric(9, 6), nullable=True)
     # Cached, not computed on every read -- same reasoning as any
     # denormalised total: recalculating from every line item on every
     # list-view render doesn't scale once a business has many
@@ -180,6 +250,12 @@ class StockOrder(BaseModel):
     # set exactly once, at the real moment of submission, and never
     # touched again.
     submitted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # When the supplier actually approved or declined -- null while
+    # still PENDING_SUPPLIER_APPROVAL. Deliberately separate from
+    # submitted_at: the gap between the two is real, meaningful
+    # information (how long a business waited on a decision), not
+    # something either timestamp alone can show.
+    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # Buyer details, SNAPSHOTTED at submission -- same historical-fact
     # reasoning as delivery_address_text and price_cents_at_add_time
@@ -201,6 +277,22 @@ class StockOrder(BaseModel):
     # the same discipline as a real report.
     decline_reason = db.Column(db.String(50), nullable=True)
     decline_details = db.Column(db.String(1000), nullable=True)
+
+    # Only meaningful when status is CANCELLED -- see
+    # StockOrderCancelledBy/StockOrderCancelReason's own docstrings
+    # for the full reasoning on why these are separate from
+    # decline_reason/decline_details above, not reused.
+    cancelled_by = db.Column(db.String(20), nullable=True)
+    cancel_reason = db.Column(db.String(50), nullable=True)
+    cancel_details = db.Column(db.String(1000), nullable=True)
+    # Separate from decided_at above on purpose -- decided_at is
+    # specifically the supplier's own approve/decline moment. A
+    # supplier cancelling an already-CONFIRMED order later is a
+    # genuinely different event in time; overwriting decided_at would
+    # silently lose the real fact that this order WAS confirmed once,
+    # and when. A business cancelling a still-PENDING order never
+    # touches decided_at at all (the supplier never decided anything).
+    cancelled_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # Reminder tracking -- nullable, set once each reminder actually
     # sends. Two separate columns, not one, since the 24h and 3-day

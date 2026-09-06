@@ -71,7 +71,7 @@ export function ScanCodeTab() {
   return (
     <View style={styles.cameraWrap}>
       <CameraView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
         onBarcodeScanned={handleScan}
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   resultCard: { borderRadius: radius.lg, padding: spacing.md },
   resultValue: { ...typography.bodySmall },
   cameraWrap: { flex: 1, backgroundColor: "#000000" },
-  frameOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  frameOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   frame: { width: 220, height: 220, borderRadius: radius.lg, borderWidth: 2 },
   hint: { ...typography.body, position: "absolute", bottom: spacing.xxl, alignSelf: "center", fontWeight: "600" },
 });

@@ -35,3 +35,20 @@ class SubmitCheckoutSchema(Schema):
     delivery_address_text = fields.Str(
         required=False, allow_none=True, load_default=None, data_key="deliveryAddressText"
     )
+    # Structured companions to delivery_address_text -- all optional,
+    # same reasoning as that field itself: COLLECT orders never send
+    # any of these (the supplier's own address applies instead), and
+    # even a DELIVER order predating this feature's frontend rollout
+    # should keep working with only the free-text field populated.
+    delivery_building = fields.Str(required=False, allow_none=True, load_default=None, data_key="deliveryBuilding")
+    delivery_street = fields.Str(required=False, allow_none=True, load_default=None, data_key="deliveryStreet")
+    delivery_suburb = fields.Str(required=False, allow_none=True, load_default=None, data_key="deliverySuburb")
+    delivery_city = fields.Str(required=False, allow_none=True, load_default=None, data_key="deliveryCity")
+    delivery_province = fields.Str(required=False, allow_none=True, load_default=None, data_key="deliveryProvince")
+    delivery_postal_code = fields.Str(
+        required=False, allow_none=True, load_default=None, data_key="deliveryPostalCode"
+    )
+    delivery_latitude = fields.Float(required=False, allow_none=True, load_default=None, data_key="deliveryLatitude")
+    delivery_longitude = fields.Float(
+        required=False, allow_none=True, load_default=None, data_key="deliveryLongitude"
+    )

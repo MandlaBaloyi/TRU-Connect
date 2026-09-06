@@ -214,6 +214,39 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
 
     profile = supplier.to_profile_preview_dict(connection_status, visible_photo_url)
     profile["productCount"] = ProductRepository.count_for_supplier(supplier_profile_id)
+
+    # Same gate as list_supplier_products'/get_supplier_product's own
+    # contact block -- is_active AND the supplier's own opt-in. Added
+    # here specifically so a business viewing an order they can no
+    # longer self-cancel (already CONFIRMED) has a real way to
+    # actually reach the supplier, not a dead-end message.
+    profile["contact"] = None
+    if is_active and supplier.share_contact_details:
+        profile["contact"] = {
+            "whatsappNumber": supplier.whatsapp_number,
+            "email": supplier.contact_email,
+            "tiktokHandle": supplier.tiktok_handle,
+        }
+
+    # Gated by is_active ONLY -- deliberately NOT also behind
+    # share_contact_details like whatsapp/email above. Those are
+    # optional extra communication channels a supplier might not want
+    # to hand out; a collection address is core functional
+    # information an actively-connected business needs to actually
+    # complete a COLLECT order, not a discretionary opt-in.
+    profile["collectionAddress"] = None
+    if is_active and (supplier.collection_street or supplier.collection_suburb):
+        profile["collectionAddress"] = {
+            "building": supplier.collection_building,
+            "street": supplier.collection_street,
+            "suburb": supplier.collection_suburb,
+            "city": supplier.collection_city,
+            "province": supplier.collection_province,
+            "postalCode": supplier.collection_postal_code,
+            "latitude": float(supplier.collection_latitude) if supplier.collection_latitude is not None else None,
+            "longitude": float(supplier.collection_longitude) if supplier.collection_longitude is not None else None,
+        }
+
     return profile
 
 

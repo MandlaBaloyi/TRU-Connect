@@ -55,6 +55,36 @@ def test_update_my_profile_via_http_persists_real_changes(client, make_supplier)
     assert refetched.get_json()["data"]["businessName"] == "Real Wholesale Co"
 
 
+def test_update_my_profile_via_http_persists_collection_address(client, make_supplier):
+    supplier = make_supplier()
+
+    response = client.patch(
+        "/api/v1/supplier-discovery/my-profile",
+        json={
+            "business_name": "Fresh Foods Wholesale",
+            "collection_building": "Warehouse 3",
+            "collection_street": "Market Street",
+            "collection_suburb": "Seshego",
+            "collection_city": "Polokwane",
+            "collection_province": "Limpopo",
+            "collection_postal_code": "0742",
+            "collection_latitude": -23.85,
+            "collection_longitude": 29.40,
+        },
+        headers=_auth(supplier, "supplier"),
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["collectionBuilding"] == "Warehouse 3"
+    assert data["collectionStreet"] == "Market Street"
+    assert data["collectionLatitude"] == -23.85
+    assert data["collectionLongitude"] == 29.40
+
+    refetched = client.get("/api/v1/supplier-discovery/my-profile", headers=_auth(supplier, "supplier"))
+    assert refetched.get_json()["data"]["collectionSuburb"] == "Seshego"
+
+
 def test_update_my_profile_via_http_rejects_blank_business_name(client, make_supplier):
     supplier = make_supplier()
 

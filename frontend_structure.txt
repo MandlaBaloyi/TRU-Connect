@@ -55,6 +55,12 @@ frontend
 │   │   │   │   │   ├── operating-history.tsx
 │   │   │   │   │   ├── suppliers.tsx
 │   │   │   │   │   └── trading-details.tsx
+│   │   │   │   ├── my-suppliers
+│   │   │   │   │   ├── [supplierId]
+│   │   │   │   │   │   └── products
+│   │   │   │   │   │       └── [productId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── disconnected.tsx
 │   │   │   │   ├── order-book
 │   │   │   │   │   ├── [orderId].tsx
 │   │   │   │   │   ├── _layout.tsx
@@ -64,6 +70,14 @@ frontend
 │   │   │   │   │   ├── index.tsx
 │   │   │   │   │   ├── performance.tsx
 │   │   │   │   │   └── trash.tsx
+│   │   │   │   ├── orders
+│   │   │   │   │   ├── [supplierId]
+│   │   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   │   ├── delivery-payment.tsx
+│   │   │   │   │   │   ├── index.tsx
+│   │   │   │   │   │   ├── placed.tsx
+│   │   │   │   │   │   └── review.tsx
+│   │   │   │   │   └── _layout.tsx
 │   │   │   │   ├── security
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   ├── active-sessions.tsx
@@ -105,7 +119,8 @@ frontend
 │   │   │   │   │   ├── [requestId].tsx
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   └── index.tsx
-│   │   │   │   └── _layout.tsx
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   └── notifications.tsx
 │   │   │   ├── supplier
 │   │   │   │   ├── (tabs)
 │   │   │   │   │   ├── _layout.tsx
@@ -158,7 +173,12 @@ frontend
 │   │   │   │   │   ├── _layout.tsx
 │   │   │   │   │   ├── add.tsx
 │   │   │   │   │   └── index.tsx
-│   │   │   │   └── _layout.tsx
+│   │   │   │   ├── stock-orders
+│   │   │   │   │   ├── [orderId].tsx
+│   │   │   │   │   ├── _layout.tsx
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── _layout.tsx
+│   │   │   │   └── notifications.tsx
 │   │   │   ├── _layout.tsx
 │   │   │   └── index.tsx
 │   │   ├── (legal)
@@ -201,6 +221,7 @@ frontend
 │   │   │   │   ├── AppHeader.tsx
 │   │   │   │   ├── DashboardTabBar.tsx
 │   │   │   │   ├── FeatureHeader.tsx
+│   │   │   │   ├── PlaceholderMenuButton.tsx
 │   │   │   │   └── ScreenHeader.tsx
 │   │   │   └── ui
 │   │   │       ├── PrimaryButton.tsx
@@ -277,14 +298,18 @@ frontend
 │   │   │       │   │   │   └── SupplierResultCard.tsx
 │   │   │       │   │   ├── hooks
 │   │   │       │   │   │   ├── useConnectionRequest.ts
+│   │   │       │   │   │   ├── useEndConnection.ts
 │   │   │       │   │   │   ├── useInviteSupplier.ts
 │   │   │       │   │   │   ├── useRecentSearches.ts
+│   │   │       │   │   │   ├── useRelatedProducts.ts
+│   │   │       │   │   │   ├── useReportSupplier.ts
+│   │   │       │   │   │   ├── useSupplierProductCategories.ts
+│   │   │       │   │   │   ├── useSupplierProductDetail.ts
 │   │   │       │   │   │   ├── useSupplierProducts.ts
 │   │   │       │   │   │   └── useSupplierSearch.ts
 │   │   │       │   │   ├── screens
 │   │   │       │   │   │   ├── index.ts
 │   │   │       │   │   │   ├── InviteSupplierScreen.tsx
-│   │   │       │   │   │   ├── SupplierProductsScreen.tsx
 │   │   │       │   │   │   └── SupplierProfileScreen.tsx
 │   │   │       │   │   ├── services
 │   │   │       │   │   │   ├── httpSupplierSearchService.ts
@@ -399,6 +424,27 @@ frontend
 │   │   │       │   │   │   ├── accountService.ts
 │   │   │       │   │   │   └── fileRepository.ts
 │   │   │       │   │   └── types.ts
+│   │   │       │   ├── my-suppliers
+│   │   │       │   │   ├── algorithms
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── AccordionSection.tsx
+│   │   │       │   │   │   ├── CatalogCategoryFilterSheet.tsx
+│   │   │       │   │   │   ├── CatalogControlsRow.tsx
+│   │   │       │   │   │   ├── CatalogPager.tsx
+│   │   │       │   │   │   ├── CatalogSortSheet.tsx
+│   │   │       │   │   │   ├── ContactSupplierSheet.tsx
+│   │   │       │   │   │   ├── DisconnectSupplierSheet.tsx
+│   │   │       │   │   │   ├── ProductDetailMenu.tsx
+│   │   │       │   │   │   ├── RelatedProductsRow.tsx
+│   │   │       │   │   │   ├── ReportSupplierSheet.tsx
+│   │   │       │   │   │   ├── SupplierCatalogMenu.tsx
+│   │   │       │   │   │   └── SupplierCatalogProductCard.tsx
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── SupplierCatalogScreen.tsx
+│   │   │       │   │   │   └── SupplierProductDetailScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   └── contactActions.ts
+│   │   │       │   │   └── types.ts
 │   │   │       │   ├── nearby-suppliers
 │   │   │       │   │   ├── algorithms
 │   │   │       │   │   ├── api
@@ -465,9 +511,40 @@ frontend
 │   │   │       │   │   ├── algorithms
 │   │   │       │   │   ├── api
 │   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── location-picker
+│   │   │       │   │   │   │   ├── components
+│   │   │       │   │   │   │   │   └── AddressFieldsForm.tsx
+│   │   │       │   │   │   │   ├── hooks
+│   │   │       │   │   │   │   │   └── useReverseGeocode.ts
+│   │   │       │   │   │   │   ├── services
+│   │   │       │   │   │   │   │   ├── geocodingService.ts
+│   │   │       │   │   │   │   │   ├── httpGeocodingService.ts
+│   │   │       │   │   │   │   │   └── mockGeocodingService.ts
+│   │   │       │   │   │   │   ├── formatDeliveryAddress.ts
+│   │   │       │   │   │   │   ├── mapPickerHtml.ts
+│   │   │       │   │   │   │   ├── MapPickerModal.tsx
+│   │   │       │   │   │   │   └── types.ts
+│   │   │       │   │   │   ├── CartItemRow.tsx
+│   │   │       │   │   │   ├── CartMenu.tsx
+│   │   │       │   │   │   ├── OrderDetailSheet.tsx
+│   │   │       │   │   │   └── OrderHistorySheet.tsx
 │   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── useAddToCart.ts
+│   │   │       │   │   │   ├── useCart.ts
+│   │   │       │   │   │   ├── useCheckout.ts
+│   │   │       │   │   │   ├── useClearCart.ts
+│   │   │       │   │   │   ├── useOrderDetail.ts
+│   │   │       │   │   │   ├── useOrderHistory.ts
+│   │   │       │   │   │   └── useSavedDeliveryAddress.ts
 │   │   │       │   │   ├── screens
+│   │   │       │   │   │   ├── CartScreen.tsx
+│   │   │       │   │   │   ├── DeliveryPaymentScreen.tsx
+│   │   │       │   │   │   ├── OrderPlacedScreen.tsx
+│   │   │       │   │   │   └── ReviewOrderScreen.tsx
 │   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── httpOrdersService.ts
+│   │   │       │   │   │   ├── mockOrdersService.ts
+│   │   │       │   │   │   └── ordersService.ts
 │   │   │       │   │   └── types.ts
 │   │   │       │   ├── recommended-products
 │   │   │       │   │   ├── algorithms
@@ -567,9 +644,13 @@ frontend
 │   │   │       │   │   └── StatCard.tsx
 │   │   │       │   ├── connections
 │   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── CommunityOverflowMenu.tsx
 │   │   │       │   │   │   └── MyConnectionsList.tsx
 │   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── useEndedConnections.ts
 │   │   │       │   │   │   └── useMyConnections.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   └── DisconnectedSuppliersScreen.tsx
 │   │   │       │   │   ├── services
 │   │   │       │   │   │   ├── connectionsService.ts
 │   │   │       │   │   │   ├── httpConnectionsService.ts
@@ -577,6 +658,22 @@ frontend
 │   │   │       │   │   └── types.ts
 │   │   │       │   ├── hooks
 │   │   │       │   │   └── useDashboardNotifications.ts
+│   │   │       │   ├── notifications
+│   │   │       │   │   ├── components
+│   │   │       │   │   │   ├── NotificationDetailSheet.tsx
+│   │   │       │   │   │   ├── NotificationRow.tsx
+│   │   │       │   │   │   └── NotificationsMenu.tsx
+│   │   │       │   │   ├── hooks
+│   │   │       │   │   │   ├── useMarkAsRead.ts
+│   │   │       │   │   │   ├── useNotifications.ts
+│   │   │       │   │   │   └── useUnreadCount.ts
+│   │   │       │   │   ├── screens
+│   │   │       │   │   │   └── NotificationsScreen.tsx
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── httpNotificationsService.ts
+│   │   │       │   │   │   ├── mockNotificationsService.ts
+│   │   │       │   │   │   └── notificationsService.ts
+│   │   │       │   │   └── types.ts
 │   │   │       │   ├── types
 │   │   │       │   │   └── index.ts
 │   │   │       │   └── utils
@@ -598,7 +695,12 @@ frontend
 │   │   │           │   ├── algorithms
 │   │   │           │   │   ├── importCrossReference.ts
 │   │   │           │   │   └── priceAdjustment.ts
+│   │   │           │   ├── api
+│   │   │           │   │   ├── bulkImportApi.ts
+│   │   │           │   │   ├── httpBulkImportApi.ts
+│   │   │           │   │   └── mockBulkImportApi.ts
 │   │   │           │   ├── components
+│   │   │           │   │   ├── BulkDiscountModal.tsx
 │   │   │           │   │   ├── BulkPriceModal.tsx
 │   │   │           │   │   ├── ImportPreviewRow.tsx
 │   │   │           │   │   ├── ImportSummaryCard.tsx
@@ -718,15 +820,14 @@ frontend
 │   │   │           │   ├── hooks
 │   │   │           │   │   ├── useAccountLifecycle.ts
 │   │   │           │   │   ├── useAccountProfile.ts
-│   │   │           │   │   ├── useBio.ts
-│   │   │           │   │   ├── useBusinessName.ts
 │   │   │           │   │   ├── useConnectCode.ts
 │   │   │           │   │   ├── useContactDetails.ts
 │   │   │           │   │   ├── useDisplayName.ts
 │   │   │           │   │   ├── useFileUpload.ts
 │   │   │           │   │   ├── usePaymentMethods.ts
 │   │   │           │   │   ├── useProfileImage.ts
-│   │   │           │   │   └── useSubscription.ts
+│   │   │           │   │   ├── useSubscription.ts
+│   │   │           │   │   └── useSupplierProfile.ts
 │   │   │           │   ├── screens
 │   │   │           │   │   ├── AccountStatusScreen.tsx
 │   │   │           │   │   ├── AddPaymentMethodScreen.tsx
@@ -749,8 +850,10 @@ frontend
 │   │   │           │   └── types.ts
 │   │   │           ├── products
 │   │   │           │   ├── algorithms
+│   │   │           │   │   ├── discount.ts
 │   │   │           │   │   ├── photoLimits.ts
 │   │   │           │   │   ├── sortProducts.ts
+│   │   │           │   │   ├── textSanitizers.ts
 │   │   │           │   │   └── unitPricing.ts
 │   │   │           │   ├── api
 │   │   │           │   │   ├── httpProductsApi.ts
@@ -772,12 +875,15 @@ frontend
 │   │   │           │   │   └── SortOptionsSheet.tsx
 │   │   │           │   ├── hooks
 │   │   │           │   │   ├── index.ts
+│   │   │           │   │   ├── pendingPhotoPolling.ts
 │   │   │           │   │   ├── productsKeys.ts
 │   │   │           │   │   ├── useArchiveProduct.ts
 │   │   │           │   │   ├── useCreateProduct.ts
 │   │   │           │   │   ├── useCurrentUserId.ts
+│   │   │           │   │   ├── useDeleteProduct.ts
 │   │   │           │   │   ├── useProduct.ts
 │   │   │           │   │   ├── useProducts.ts
+│   │   │           │   │   ├── useUnarchiveProduct.ts
 │   │   │           │   │   └── useUpdateProduct.ts
 │   │   │           │   ├── screens
 │   │   │           │   │   ├── AddProductScreen.tsx
@@ -785,8 +891,27 @@ frontend
 │   │   │           │   │   ├── ProductDetailScreen.tsx
 │   │   │           │   │   └── ProductsScreen.tsx
 │   │   │           │   ├── services
+│   │   │           │   │   ├── cloudinaryUpload.ts
 │   │   │           │   │   ├── exportProducts.ts
 │   │   │           │   │   └── productMapper.ts
+│   │   │           │   └── types.ts
+│   │   │           ├── stock-orders
+│   │   │           │   ├── components
+│   │   │           │   │   ├── DeclineReasonSheet.tsx
+│   │   │           │   │   ├── OrderCard.tsx
+│   │   │           │   │   ├── SortMenu.tsx
+│   │   │           │   │   └── StockOrdersIcon.tsx
+│   │   │           │   ├── hooks
+│   │   │           │   │   ├── useOrderDecision.ts
+│   │   │           │   │   ├── useOrderDetail.ts
+│   │   │           │   │   └── useOrders.ts
+│   │   │           │   ├── screens
+│   │   │           │   │   ├── StockOrderDetailScreen.tsx
+│   │   │           │   │   └── StockOrdersListScreen.tsx
+│   │   │           │   ├── services
+│   │   │           │   │   ├── httpStockOrdersService.ts
+│   │   │           │   │   ├── mockStockOrdersService.ts
+│   │   │           │   │   └── stockOrdersService.ts
 │   │   │           │   └── types.ts
 │   │   │           └── verify-business
 │   │   │               ├── algorithms
@@ -799,6 +924,7 @@ frontend
 │   │   ├── hooks
 │   │   │   ├── useColorScheme.ts
 │   │   │   ├── useCountdown.ts
+│   │   │   ├── useGridColumnWidth.ts
 │   │   │   └── useNetworkStatus.ts
 │   │   ├── navigation
 │   │   │   └── routeGuards.ts
@@ -823,6 +949,7 @@ frontend
 │   │   │   ├── env.d.ts
 │   │   │   └── index.ts
 │   │   └── utils
+│   │       ├── formatRelativeTime.ts
 │   │       └── validators.ts
 │   ├── .env
 │   ├── .npmrc

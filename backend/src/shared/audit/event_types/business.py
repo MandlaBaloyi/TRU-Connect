@@ -35,3 +35,4 @@ class BusinessAuditEvent(str, enum.Enum):
     ORDER_LIMIT_EXCEEDED = "business.order_limit_exceeded"
     CHECKOUT_RATE_LIMITED = "business.checkout_rate_limited"
     ORDER_ACCESS_DENIED = "business.order_access_denied"
+    ORDER_CANCELLED = "business.order_cancelled"

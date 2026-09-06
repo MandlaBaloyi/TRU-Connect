@@ -9,3 +9,4 @@ export const getOrders = impl.getOrders;
 export const getOrderDetail = impl.getOrderDetail;
 export const approveOrder = impl.approveOrder;
 export const declineOrder = impl.declineOrder;
+export const cancelOrder = impl.cancelOrder;

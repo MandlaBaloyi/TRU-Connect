@@ -16,7 +16,11 @@ from src.domains.supplier.products.models.product import ProductCategory, Produc
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.network.orders.models.stock_order import StockOrder
 from src.domains.network.orders.services import cart_service, checkout_service
-from src.domains.supplier.stock_order_management.errors import OrderNotFoundError, OrderNotPendingError
+from src.domains.supplier.stock_order_management.errors import (
+    OrderNotConfirmedError,
+    OrderNotFoundError,
+    OrderNotPendingError,
+)
 from src.domains.supplier.stock_order_management.services import order_management_service
 from src.domains.platform.notifications.repositories.notification_repository import NotificationRepository
 from src.extensions import db
@@ -60,6 +64,37 @@ def test_approve_order_confirms_it_and_notifies_the_business(
     confirmed = [n for n in notifs if "confirmed" in n.body]
     assert len(confirmed) == 1
     assert result["orderReference"] in confirmed[0].body
+
+
+def test_approve_order_sets_decided_at(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Decided At Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    pending_detail = order_management_service.get_order_detail(profile.id, result["id"])
+    assert pending_detail["decidedAt"] is None
+
+    approved = order_management_service.approve_order(profile.id, result["id"])
+
+    assert approved["decidedAt"] is not None
+
+
+def test_decline_order_sets_decided_at(make_business, make_supplier, make_supplier_profile, make_active_connection):
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Decided At Decline Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    declined = order_management_service.decline_order(profile.id, result["id"], "out_of_stock")
+
+    assert declined["decidedAt"] is not None
 
 
 def test_cannot_approve_an_order_that_is_not_pending(
@@ -129,6 +164,120 @@ def test_decline_order_requires_a_real_reason(
 
     with pytest.raises(ValueError):
         order_management_service.decline_order(profile.id, result["id"], reason="not_a_real_reason")
+
+
+# --- supplier cancel_order: CONFIRMED -> CANCELLED, the OTHER cancel door --
+
+
+def test_cancel_order_only_works_on_a_confirmed_order(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL GUARD -- decline_order is the door for a still-PENDING
+    order; this is specifically for one already CONFIRMED. A supplier
+    must not be able to cancel an order that's still pending through
+    this action (that's what decline is for), nor one already
+    declined/cancelled."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Not Confirmed Yet Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    with pytest.raises(OrderNotConfirmedError):
+        order_management_service.cancel_order(profile.id, result["id"], reason="out_of_stock")
+
+
+def test_cancel_order_releases_the_reservation_and_notifies_the_business(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL PROOF a CONFIRMED order's reservation genuinely gets
+    released -- confirming an order never releases the reservation
+    (it's still held stock, waiting to actually be fulfilled), so
+    cancelling one afterward must release it explicitly, same
+    mechanism as decline."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Cancel Release Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Tomatoes")
+    cart_service.add_item(business.id, profile.id, product.id, 5)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    order_management_service.approve_order(profile.id, result["id"])
+    wait_until_idle(timeout=5)
+
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 5
+
+    cancelled = order_management_service.cancel_order(
+        profile.id, result["id"], reason="out_of_stock", details="Discovered we're short after approving."
+    )
+    wait_until_idle(timeout=5)
+
+    assert cancelled["status"] == "CANCELLED"
+    assert cancelled["cancelledBy"] == "supplier"
+    assert cancelled["cancelReason"] == "out_of_stock"
+    from src.extensions import db as _db
+
+    _db.session.expire_all()
+    inventory = InventoryRepository.get_by_product_id(product.id)
+    assert inventory.quantity_reserved == 0
+
+    notifs = NotificationRepository.list_for_user(business.id, category="STOCK_ORDER")
+    cancelled_notifs = [n for n in notifs if "cancelled" in n.body]
+    assert len(cancelled_notifs) == 1
+
+
+def test_cancel_order_preserves_the_original_confirmation_time(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """decidedAt (when it was first confirmed) must NOT be silently
+    overwritten by a later cancellation -- that would lose the real
+    fact that this order WAS confirmed once, and when. cancelledAt is
+    its own, separate timestamp for exactly this reason."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Preserve Decided At Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    approved = order_management_service.approve_order(profile.id, result["id"])
+    original_decided_at = approved["decidedAt"]
+
+    cancelled = order_management_service.cancel_order(profile.id, result["id"], reason="out_of_stock")
+
+    assert cancelled["decidedAt"] == original_decided_at
+    detail = order_management_service.get_order_detail(profile.id, result["id"])
+    assert detail["cancelledAt"] is not None
+
+
+def test_cancel_order_rejects_a_reason_only_a_business_would_use(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL SPLIT -- "changed_mind" is a business's own reason,
+    nonsensical coming from a supplier. Confirms the two reason sets
+    are genuinely enforced, not just documented."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Wrong Reason Set Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    order_management_service.approve_order(profile.id, result["id"])
+
+    with pytest.raises(ValueError):
+        order_management_service.cancel_order(profile.id, result["id"], reason="changed_mind")
+
+
+def test_cancel_order_raises_for_a_genuinely_nonexistent_order(make_supplier, make_supplier_profile):
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Order Here Co")
+
+    with pytest.raises(OrderNotFoundError):
+        order_management_service.cancel_order(profile.id, uuid.uuid4(), reason="out_of_stock")
 
 
 def test_get_order_detail_shows_the_real_decline_reason(

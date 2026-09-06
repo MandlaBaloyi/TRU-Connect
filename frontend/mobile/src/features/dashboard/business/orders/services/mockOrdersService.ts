@@ -1,7 +1,7 @@
 import { ApiError } from "@/services/api/apiClient";
 import { getSupplierProduct } from "../../find-supplier/services/supplierSearchService";
 
-import type { Cart, CartItem, CheckoutResult, OrderDetail, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
+import type { CancelReason, Cart, CartItem, CheckoutResult, OrderDetail, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
 
 const latency = (ms = 300) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -148,6 +148,28 @@ export async function getOrderDetail(supplierId: string, orderId: string): Promi
   return detail;
 }
 
+/** PENDING_SUPPLIER_APPROVAL -> CANCELLED only -- mirrors the real
+ *  backend's own cancel_order_by_business. */
+export async function cancelOrder(
+  supplierId: string,
+  orderId: string,
+  reason: CancelReason,
+  details?: string
+): Promise<{ id: string; orderReference: string; status: string }> {
+  await latency(400);
+  const detail = orderDetails.get(orderId);
+  if (!detail) throw new Error("Order not found.");
+  if (detail.status !== "PENDING_SUPPLIER_APPROVAL") {
+    throw new Error("This order has already been processed -- contact your supplier directly to cancel it.");
+  }
+  detail.status = "CANCELLED";
+  detail.cancelledBy = "business";
+  detail.cancelReason = reason;
+  detail.cancelDetails = details ?? null;
+  detail.cancelledAt = new Date().toISOString();
+  return { id: detail.id, orderReference: detail.orderReference, status: detail.status };
+}
+
 export async function submitCheckout(supplierId: string, request: SubmitCheckoutRequest): Promise<CheckoutResult> {
   await latency(500);
   const cart = carts.get(supplierId);
@@ -195,6 +217,14 @@ export async function submitCheckout(supplierId: string, request: SubmitCheckout
     deliveryType: request.deliveryType,
     deliveryAddressText: request.deliveryAddressText ?? null,
     submittedAt,
+    // Freshly submitted -- never decided yet, same as a real order
+    // would be the instant it's created.
+    decidedAt: null,
+    // Not cancelled -- freshly submitted.
+    cancelledBy: null,
+    cancelReason: null,
+    cancelDetails: null,
+    cancelledAt: null,
     // Real, mock-realistic buyer details -- this app's own established
     // mock business identity, matching what a real submission would
     // snapshot from the signed-in account.
@@ -202,6 +232,11 @@ export async function submitCheckout(supplierId: string, request: SubmitCheckout
     buyerPhone: "+27 82 123 4567",
     buyerEmail: "mandla@example.com",
     buyerBusinessName: "Mandla's Spaza Shop",
+    // A freshly-submitted mock order is never pre-declined -- these
+    // stay null here, same as a real PENDING_SUPPLIER_APPROVAL order
+    // would return from the backend.
+    declineReason: null,
+    declineDetails: null,
     items: cart.items.map((item) => ({
       productId: item.productId,
       productName: item.productName,

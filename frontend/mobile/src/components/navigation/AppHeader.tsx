@@ -1,10 +1,10 @@
 import React from "react";
-import { Pressable, StyleSheet, Text as RNText, View } from "react-native";
+import { Platform, Pressable, StatusBar, StyleSheet, Text as RNText, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Bell, ChevronLeft, MoreVertical } from "lucide-react-native";
 
+import { useRootSafeAreaInsets } from "@/hooks/useRootSafeAreaInsets";
 import { getWordmarkColors } from "@/theme/wordmark";
 import { palette } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -104,8 +104,8 @@ type AppHeaderProps =
  * theme.colors.outlineVariant divider) so the top and bottom chrome
  * read as one consistent shell, not two different surfaces.
  *
- * OWNS THE STATUS-BAR SAFE-AREA REGION ITSELF: paddingTop is
- * useSafeAreaInsets().top (a real per-device measurement, never a
+ * OWNS THE STATUS-BAR SAFE-AREA REGION ITSELF: paddingTop comes from
+ * useRootSafeAreaInsets().top (a real per-device measurement, never a
  * hardcoded number), added directly to THIS component's own
  * background — not left to an outer SafeAreaView to pad separately.
  * That's what actually fixes the "white strip above the header" seam:
@@ -123,16 +123,43 @@ type AppHeaderProps =
  * (It previously also depended on translucent/backgroundColor props on
  * the root <StatusBar>; those were removed as redundant under
  * edge-to-edge — see app/_layout.tsx for the full reasoning.)
+ *
+ * ANDROID PADS FROM StatusBar.currentHeight DIRECTLY, NOT FROM A
+ * SAFE-AREA PROVIDER. Diagnosed from real device logs across several
+ * rounds: react-native-screens 4.26 (new in SDK 57) wraps each screen
+ * in its own nested SafeAreaProvider that begins BELOW the status
+ * bar, so useSafeAreaInsets() — even the root-aware version — could
+ * still read a provider that correctly reports top:0 for ITS OWN
+ * coordinate space, while a DIFFERENT screen's nesting depth read
+ * correctly. That's real, version-specific behaviour of a library
+ * this app doesn't control, not something worth continuing to chase
+ * through provider layers. StatusBar.currentHeight is a single direct
+ * native measurement with no provider involved at all, and it
+ * reported the correct value (23.47 on the real test device) in
+ * every diagnostic round regardless of what the provider chain
+ * returned. iOS has no equivalent constant, so it keeps using
+ * useRootSafeAreaInsets there, where this specific regression doesn't
+ * apply.
  */
 export function AppHeader(props: AppHeaderProps) {
   const theme = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const rootInsets = useRootSafeAreaInsets();
+  // ANDROID: StatusBar.currentHeight is a direct native measurement,
+  // not read through ANY SafeAreaProvider -- proven reliable across
+  // every diagnostic in this investigation (always 23.47 on the test
+  // device, regardless of how many nested providers react-native-
+  // screens inserted). Using it directly means this header's top
+  // padding can never again be wrong because of a provider-nesting
+  // change in a library we don't control. iOS has no equivalent
+  // native constant, so it keeps using the safe-area value there,
+  // where this specific nested-provider regression doesn't apply.
+  const topInset = Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : rootInsets.top;
   const suppressBorder = props.variant === "title" && props.showBottomBorder === false;
   const wrapperStyle = [
     styles.wrapper,
     suppressBorder && styles.wrapperNoBorder,
-    { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outlineVariant, paddingTop: insets.top },
+    { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outlineVariant, paddingTop: topInset },
   ];
 
   if (props.variant === "brand") {

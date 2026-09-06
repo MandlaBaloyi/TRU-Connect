@@ -210,6 +210,14 @@ def submit_checkout(
     payment_method: str,
     delivery_type: str,
     delivery_address_text: Optional[str] = None,
+    delivery_building: Optional[str] = None,
+    delivery_street: Optional[str] = None,
+    delivery_suburb: Optional[str] = None,
+    delivery_city: Optional[str] = None,
+    delivery_province: Optional[str] = None,
+    delivery_postal_code: Optional[str] = None,
+    delivery_latitude: Optional[float] = None,
+    delivery_longitude: Optional[float] = None,
 ) -> dict:
     """The real "Checkout" action. Validates everything BEFORE ever
     calling a payment provider -- a provider's own job is only ever to
@@ -286,6 +294,20 @@ def submit_checkout(
     stock_order.payment_method = method_enum
     stock_order.delivery_type = StockOrderDeliveryType(delivery_type)
     stock_order.delivery_address_text = delivery_address_text
+    # Structured fields are only ever meaningful for DELIVER -- a
+    # COLLECT order has no business-entered address at all (it shows
+    # the supplier's own, read straight from their profile), so these
+    # simply stay None for COLLECT regardless of what was passed in,
+    # rather than trusting the caller not to send stale values.
+    if stock_order.delivery_type == StockOrderDeliveryType.DELIVER:
+        stock_order.delivery_building = delivery_building
+        stock_order.delivery_street = delivery_street
+        stock_order.delivery_suburb = delivery_suburb
+        stock_order.delivery_city = delivery_city
+        stock_order.delivery_province = delivery_province
+        stock_order.delivery_postal_code = delivery_postal_code
+        stock_order.delivery_latitude = delivery_latitude
+        stock_order.delivery_longitude = delivery_longitude
     stock_order.status = outcome.order_status
     # THE REAL, HUMAN-FACING ORDER REFERENCE -- assigned exactly once,
     # here, at the real moment of submission -- never at cart creation,

@@ -17,6 +17,16 @@
  * TRU_Connect_Privacy_Policy.docx -- see TERMS_DOWNLOAD_URL's own
  * comment in termsContent.tsx for why the formal document isn't
  * linked from here yet.
+ *
+ * REVISED AGAIN (v2.1) once the real delivery map-picker shipped --
+ * entry 2 previously said no precise address was ever required or
+ * stored, which stopped being true the moment a Business User could
+ * drop a pin for their own Delivery order. Rewritten to describe what
+ * actually happens now: the pin's coordinates are the Business User's
+ * own map interaction, never a geocoding provider's output; a
+ * background mapping service only ever suggests address TEXT to
+ * speed up the form, and that suggestion itself is never the thing
+ * stored -- only what the Business User confirms is.
  */
 import React from "react";
 import {
@@ -25,7 +35,7 @@ import {
 } from "lucide-react-native";
 import type { InfoParagraph } from "@/features/dashboard/business/settings/components/InfoScreen";
 
-export const PRIVACY_POLICY_META_LINE = "Last updated 1 September 2026 · Version 2.0 (draft)";
+export const PRIVACY_POLICY_META_LINE = "Last updated 5 September 2026 · Version 2.1 (draft)";
 
 export const PRIVACY_POLICY_DOWNLOAD_URL: string | undefined = undefined;
 
@@ -41,8 +51,8 @@ export const PRIVACY_POLICY_PARAGRAPHS: InfoParagraph[] = [
     icon: (c) => <Database size={16} color={c} />,
   },
   {
-    heading: "2. Location — general only",
-    body: "We collect general location (such as suburb or city) to help Business Users discover nearby suppliers. We deliberately do not require or store a precise street address for this purpose — only what a Supplier User chooses to share for delivery once a real Connection and order exist.",
+    heading: "2. Location — general for discovery, precise for delivery",
+    body: "We collect general location (such as suburb or city) shown on a Supplier User's public profile, to help Business Users discover nearby suppliers — this alone never requires a precise address. Separately, when a Business User places a Delivery order, they choose a precise delivery location themselves on a map they control, either by dropping a pin or searching for an address. That location's exact coordinates always come directly from the map, never from a third-party lookup; a background mapping service is used only to suggest address text to speed up filling in the form, and its own suggestion is never stored as-is — only the address the Business User confirms is saved, attached to that one order. A Supplier User's own precise collection address, once they set one up, is shared only with a Business User who has an active Connection with them.",
     icon: (c) => <MapPin size={16} color={c} />,
   },
   {

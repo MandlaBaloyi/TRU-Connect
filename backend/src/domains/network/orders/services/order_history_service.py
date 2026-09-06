@@ -135,9 +135,21 @@ def get_order_detail(business_id: str | UUID, supplier_profile_id: str | UUID, o
         "deliveryType": order.delivery_type.value if order.delivery_type else None,
         "deliveryAddressText": order.delivery_address_text,
         "submittedAt": order.submitted_at.isoformat() if order.submitted_at else None,
+        "decidedAt": order.decided_at.isoformat() if order.decided_at else None,
         "buyerName": order.buyer_name,
         "buyerPhone": order.buyer_phone,
         "buyerEmail": order.buyer_email,
         "buyerBusinessName": order.buyer_business_name,
+        # Only meaningful when status is DECLINED -- present (as None)
+        # regardless of status rather than omitted, so the frontend's
+        # type doesn't need an extra "was this key even sent" check on
+        # top of "is it null".
+        "declineReason": order.decline_reason,
+        "declineDetails": order.decline_details,
+        # Only meaningful when status is CANCELLED.
+        "cancelledBy": order.cancelled_by,
+        "cancelReason": order.cancel_reason,
+        "cancelDetails": order.cancel_details,
+        "cancelledAt": order.cancelled_at.isoformat() if order.cancelled_at else None,
         "items": items,
     }

@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/services/api/apiClient";
 
-import type { Cart, CheckoutResult, OrderDetail, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
+import type { CancelReason, Cart, CheckoutResult, OrderDetail, OrderHistoryEntry, SubmitCheckoutRequest } from "../types";
 
 export async function getCart(supplierId: string): Promise<Cart | null> {
   const result = await apiGet<Cart>(`/checkout/suppliers/${supplierId}/cart`);
@@ -47,10 +47,30 @@ export async function getOrderDetail(supplierId: string, orderId: string): Promi
   return apiGet<OrderDetail>(`/checkout/suppliers/${supplierId}/history/${orderId}`);
 }
 
+/** PENDING_SUPPLIER_APPROVAL -> CANCELLED only -- see the backend's
+ *  own cancellation_service.cancel_order_by_business for why a
+ *  CONFIRMED order can't be self-cancelled here at all. */
+export async function cancelOrder(
+  supplierId: string,
+  orderId: string,
+  reason: CancelReason,
+  details?: string
+): Promise<{ id: string; orderReference: string; status: string }> {
+  return apiPost(`/checkout/suppliers/${supplierId}/history/${orderId}/cancel`, { reason, details });
+}
+
 export async function submitCheckout(supplierId: string, request: SubmitCheckoutRequest): Promise<CheckoutResult> {
   return apiPost<CheckoutResult>(`/checkout/suppliers/${supplierId}/submit`, {
     paymentMethod: request.paymentMethod,
     deliveryType: request.deliveryType,
     deliveryAddressText: request.deliveryAddressText ?? null,
+    deliveryBuilding: request.deliveryBuilding ?? null,
+    deliveryStreet: request.deliveryStreet ?? null,
+    deliverySuburb: request.deliverySuburb ?? null,
+    deliveryCity: request.deliveryCity ?? null,
+    deliveryProvince: request.deliveryProvince ?? null,
+    deliveryPostalCode: request.deliveryPostalCode ?? null,
+    deliveryLatitude: request.deliveryLatitude ?? null,
+    deliveryLongitude: request.deliveryLongitude ?? null,
   });
 }

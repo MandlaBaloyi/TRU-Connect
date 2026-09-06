@@ -116,6 +116,28 @@ class SupplierProfile(BaseModel):
     location = db.Column(db.String(120), nullable=True)
     description = db.Column(db.String(500), nullable=True)
 
+    # The supplier's own fixed premises -- set ONCE by the supplier
+    # via the same MapPickerModal the business's DELIVER flow uses
+    # (dashboard/shared/location-picker/), not per order. Deliberately
+    # SEPARATE columns from `location` above, never merged into it:
+    # `location` is the general suburb/city shown in wide, un-connected
+    # search results (see its own comment on the privacy framing that
+    # applies), while these are a real, precise street address --
+    # exposed ONLY to businesses with an ACTIVE connection, same
+    # connected-only gate as whatsapp_number/contact_email below (see
+    # connections_service.py's own `contact` block for the identical
+    # pattern this mirrors). Building is the one field never populated
+    # by reverse-geocoding -- Mapbox has no such concept -- always
+    # supplier-typed.
+    collection_building = db.Column(db.Text, nullable=True)
+    collection_street = db.Column(db.Text, nullable=True)
+    collection_suburb = db.Column(db.Text, nullable=True)
+    collection_city = db.Column(db.Text, nullable=True)
+    collection_province = db.Column(db.Text, nullable=True)
+    collection_postal_code = db.Column(db.Text, nullable=True)
+    collection_latitude = db.Column(db.Numeric(9, 6), nullable=True)
+    collection_longitude = db.Column(db.Numeric(9, 6), nullable=True)
+
     verification_status = db.Column(
         db.Enum(SupplierVerificationStatus, name="supplier_verification_status", schema="supplier"),
         nullable=False,

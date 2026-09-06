@@ -71,6 +71,18 @@ export interface SubmitCheckoutRequest {
   paymentMethod: PaymentMethod;
   deliveryType: DeliveryType;
   deliveryAddressText?: string | null;
+  /** All optional -- COLLECT never sends any of these (the backend
+   *  ignores them for COLLECT regardless), and an old client that
+   *  predates the map picker can still submit with only
+   *  deliveryAddressText, same as before. */
+  deliveryBuilding?: string | null;
+  deliveryStreet?: string | null;
+  deliverySuburb?: string | null;
+  deliveryCity?: string | null;
+  deliveryProvince?: string | null;
+  deliveryPostalCode?: string | null;
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
 }
 
 export interface CheckoutResult {
@@ -107,6 +119,51 @@ export interface OrderDetailItem {
   lineTotalCents: number;
 }
 
+export type DeclineReason = "out_of_stock" | "cannot_fulfil_delivery_area" | "pricing_error" | "suspected_fraud" | "no_response" | "other";
+
+/** Mirrors supplier/stock-orders/types.ts's own DECLINE_REASON_LABELS
+ *  intentionally, not imported from it -- these are two genuinely
+ *  separate features (a supplier deciding to decline vs. a business
+ *  reading why), and a tiny static lookup table is cheap enough to
+ *  duplicate rather than reach across a domain boundary for. */
+export const DECLINE_REASON_LABELS: Record<DeclineReason, string> = {
+  out_of_stock: "Out of stock",
+  cannot_fulfil_delivery_area: "Can't fulfil this delivery area",
+  pricing_error: "Pricing error",
+  suspected_fraud: "Suspected fraud",
+  no_response: "No response in time",
+  other: "Other reason",
+};
+
+/** The real, enforced subset a BUSINESS can choose from when
+ *  cancelling their own still-PENDING order -- matches the backend's
+ *  own BUSINESS_CANCEL_REASONS in cancellation_service.py exactly.
+ *  Supplier-side reasons (out_of_stock etc.) live in
+ *  supplier/stock-orders/types.ts's own CancelReason -- genuinely
+ *  different vocabulary for a genuinely different actor, not the
+ *  same list reused. */
+export type CancelReason = "changed_mind" | "found_alternative" | "ordered_by_mistake" | "other";
+
+export const CANCEL_REASON_LABELS: Record<CancelReason, string> = {
+  changed_mind: "Changed my mind",
+  found_alternative: "Found it elsewhere",
+  ordered_by_mistake: "Ordered by mistake",
+  other: "Other reason",
+};
+
+/** For DISPLAYING a cancel reason regardless of which side set it --
+ *  a business's own Order Details view might show an order THEY
+ *  cancelled (CANCEL_REASON_LABELS above covers that) or one the
+ *  SUPPLIER cancelled after confirming (their own reason vocabulary:
+ *  out_of_stock etc.) -- this superset covers both so the label
+ *  lookup never comes back empty regardless of who acted. */
+export const ANY_CANCEL_REASON_LABELS: Record<string, string> = {
+  ...CANCEL_REASON_LABELS,
+  out_of_stock: "Out of stock",
+  cannot_fulfil_delivery_area: "Can't fulfil this delivery area",
+  pricing_error: "Pricing error",
+};
+
 export interface OrderDetail {
   id: string;
   orderReference: string;
@@ -116,6 +173,9 @@ export interface OrderDetail {
   deliveryType: DeliveryType | null;
   deliveryAddressText: string | null;
   submittedAt: string | null;
+  /** Null while still PENDING_SUPPLIER_APPROVAL -- when the supplier
+   *  actually approved or declined. */
+  decidedAt: string | null;
   /** Snapshotted at the real moment of submission -- what was true
    *  about this business then, not a live value that could have
    *  silently changed since. See the backend's own StockOrder model
@@ -124,6 +184,14 @@ export interface OrderDetail {
   buyerPhone: string | null;
   buyerEmail: string | null;
   buyerBusinessName: string | null;
+  /** Only meaningful when status is "DECLINED" -- null otherwise. */
+  declineReason: DeclineReason | null;
+  declineDetails: string | null;
+  /** Only meaningful when status is "CANCELLED". */
+  cancelledBy: "business" | "supplier" | null;
+  cancelReason: CancelReason | "out_of_stock" | "cannot_fulfil_delivery_area" | "pricing_error" | null;
+  cancelDetails: string | null;
+  cancelledAt: string | null;
   items: OrderDetailItem[];
 }
 

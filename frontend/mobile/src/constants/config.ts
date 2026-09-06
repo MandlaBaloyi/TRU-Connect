@@ -25,6 +25,18 @@ export const API_BASE_URL: string =
  */
 export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API !== "false";
 
+/**
+ * Mapbox's DEFAULT PUBLIC token -- safe to embed client-side by design
+ * (Mapbox's own public tokens are read-only, meant for exactly this).
+ * Used only to render the interactive map inside MapPickerModal's
+ * WebView -- the SEPARATE backend token (MAPBOX_BACKEND_TOKEN) that
+ * does the actual reverse-geocode lookup never reaches this app at
+ * all, let alone the client bundle.
+ */
+export const MAPBOX_PUBLIC_TOKEN: string =
+  process.env.EXPO_PUBLIC_MAPBOX_TOKEN || (Constants.expoConfig?.extra?.mapboxPublicToken as string) || "";
+
+
 export const OTP_LENGTH = 6;
 export const OTP_RESEND_SECONDS = 60;
 
