@@ -16,6 +16,8 @@ export function useSupplierProducts(supplierId: string, query: SupplierProductsQ
 
   return {
     supplierName: result.data?.supplierName ?? null,
+    supplierBusinessImageUrl: result.data?.supplierBusinessImageUrl ?? null,
+    supplierVerificationStatus: result.data?.supplierVerificationStatus ?? null,
     contact: result.data?.contact ?? null,
     products: result.data?.products ?? [],
     page: result.data?.page ?? 1,

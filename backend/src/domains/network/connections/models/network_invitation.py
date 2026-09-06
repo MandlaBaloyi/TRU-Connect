@@ -20,7 +20,7 @@ TICKET STORAGE: ticket_hash is produced by src.shared.tickets.tickets
 (hash_ticket) -- see that module's own docstring. Same reasoning as
 PasswordResetToken: never store the raw ticket, only its hash.
 
-TWO-STAGE LINKING, not one -- see services/connections_service.py's
+TWO-STAGE LINKING, not one -- see services/invitation_service.py's
 own docstring for the full reasoning, but in short: PENDING ->
 REGISTERED happens at registration (someone used the ticket),
 REGISTERED -> COMPLETED happens at OTP verification success. An

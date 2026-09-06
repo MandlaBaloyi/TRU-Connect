@@ -81,8 +81,8 @@ export interface BusinessRegisterPayload {
 
 export interface SupplierRegisterPayload {
   role: "supplier";
-  businessName?: string;
-  ownerName: string;
+  businessName: string;
+  ownerName?: string;
   email: string;
   password: string;
   confirmPassword: string;

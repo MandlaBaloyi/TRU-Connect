@@ -54,7 +54,9 @@ export interface BusinessProfilePreview {
 // Supplier's own ConnectionStatus models, since this is genuinely the
 // same underlying ConnectionRequest row, just reached from the other
 // side (see network/supplier_discovery's own initiated_by_role note).
-export type ConnectionStatus = "NOT_REQUESTED" | "PENDING" | "ACTIVE" | "DECLINED" | "SUSPENDED" | "TERMINATED";
+/** Same real backend values as the business-side mirror — see
+ *  business/find-supplier/types.ts for the bug this corrected. */
+export type ConnectionStatus = "NOT_REQUESTED" | "PENDING" | "ACTIVE" | "DECLINED" | "ENDED";
 
 export interface InviteBusinessResult {
   status: "SENT";

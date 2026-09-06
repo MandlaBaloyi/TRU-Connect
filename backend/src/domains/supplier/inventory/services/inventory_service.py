@@ -9,7 +9,7 @@ CROSS-DOMAIN READ, NOT A CIRCULAR IMPORT -- this service reads
 ProductRepository directly (inventory depends on products), but
 products/services/product_service.py never imports anything from
 here. That's a one-directional dependency, the same shape
-connections_service.py already has on products (reads it for the
+connections' catalog_service already has on products (reads it for the
 ordering gate), not a cycle -- confirmed during the media-architecture
 planning discussion as the deliberate reason product_media ended up
 living inside products/ rather than shared/media owning a table:

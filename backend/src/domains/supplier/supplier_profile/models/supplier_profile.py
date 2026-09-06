@@ -125,7 +125,7 @@ class SupplierProfile(BaseModel):
     # applies), while these are a real, precise street address --
     # exposed ONLY to businesses with an ACTIVE connection, same
     # connected-only gate as whatsapp_number/contact_email below (see
-    # connections_service.py's own `contact` block for the identical
+    # connections' catalog_service `contact` block for the identical
     # pattern this mirrors). Building is the one field never populated
     # by reverse-geocoding -- Mapbox has no such concept -- always
     # supplier-typed.
@@ -137,6 +137,45 @@ class SupplierProfile(BaseModel):
     collection_postal_code = db.Column(db.Text, nullable=True)
     collection_latitude = db.Column(db.Numeric(9, 6), nullable=True)
     collection_longitude = db.Column(db.Numeric(9, 6), nullable=True)
+
+    # FULFILMENT TERMS -- the two facts an informal business needs
+    # before it can decide whether it can buy here at all: "will you
+    # bring it to me, or must I fetch it", and "how much must I spend
+    # to order". Neither existed before: delivery was only ever chosen
+    # per-order by the BUSINESS (StockOrderDeliveryType), with the
+    # supplier able to decline afterwards
+    # (CANNOT_FULFIL_DELIVERY_AREA) -- which meant a business could
+    # build a whole cart before discovering the supplier doesn't
+    # deliver to them. These state it up front, on the profile.
+    #
+    # DELIBERATELY UNGATED (shown before any connection exists, like
+    # business_image_url/cover_image_url above): these are shopfront
+    # terms a business needs while DECIDING whether to connect, not
+    # private contact details. Contrast the collection_* columns
+    # above, which are a real street address and stay connection-only.
+    #
+    # THREE STATES, NOT TWO -- NULL means "hasn't said yet", which is
+    # genuinely different from False ("says they don't deliver").
+    #
+    # This started as NOT NULL DEFAULT FALSE and that was WRONG, caught
+    # by 31 checkout tests failing at once: a boolean conflates "said
+    # no" with "hasn't said", and both halves of that conflation cause
+    # a real bug. On DISPLAY, it made the profile assert "Collection
+    # only" for a supplier who had never touched the setting -- stating
+    # something on their behalf that they never said, exactly what this
+    # codebase's own "never show what isn't real" rule exists to
+    # prevent. On CHECKOUT, it blocked delivery orders to every
+    # existing supplier, removing functionality that worked the day
+    # before, on the strength of an answer none of them had given.
+    #
+    # So: only an EXPLICIT False blocks a DELIVER order
+    # (checkout_service._validate_supplier_fulfilment_terms), and only
+    # a non-NULL value renders a delivery row at all.
+    offers_delivery = db.Column(db.Boolean, nullable=True)
+    # NULL means "no minimum", which is genuinely different from 0 --
+    # cents, matching every other money column in this codebase (never
+    # a float; see shared/finance for the rule).
+    minimum_order_cents = db.Column(db.Integer, nullable=True)
 
     verification_status = db.Column(
         db.Enum(SupplierVerificationStatus, name="supplier_verification_status", schema="supplier"),
@@ -152,6 +191,17 @@ class SupplierProfile(BaseModel):
     # auth.users -- a supplier can be shown as themselves or as their
     # business, their choice (visible_image_source below).
     business_image_url = db.Column(db.String(500), nullable=True)
+    # A SEPARATE, wide/banner-style image -- deliberately its own
+    # column, not a second use of business_image_url. These are two
+    # different UI concepts (a square/circular identity photo vs. a
+    # wide brand-showcase banner shown at the top of the profile) --
+    # reuse was considered and explicitly rejected in favour of a
+    # genuinely separate field during the Relationship Intelligence
+    # planning round. Same real/mock boundary as business_image_url --
+    # the column exists now, the frontend upload flow is mock-backed
+    # until a real upload-session backend exists (see
+    # fileRepository.ts's own docstring on that discipline).
+    cover_image_url = db.Column(db.String(500), nullable=True)
     visible_image_source = db.Column(
         db.Enum(VisibleImageSource, name="visible_image_source", schema="supplier"),
         nullable=False,
@@ -201,7 +251,7 @@ class SupplierProfile(BaseModel):
 
         No longer takes matched_field/masked_identifier -- search is
         name/business-name only now (phone/email exact-match search
-        was removed, see connections_service.py's own _dispatch_search
+        was removed, see connections' _common._dispatch_search
         docstring for the full reasoning). Those two fields would only
         ever have been "NAME"/"" once that was true, so rather than
         keep two permanently-constant fields around, the shape was
@@ -233,7 +283,13 @@ class SupplierProfile(BaseModel):
             "category": self.category,
             "location": self.location,
             "verificationStatus": self.verification_status.value if self.verification_status else None,
-            "memberSinceYear": self.created_at.year if self.created_at else None,
+            # Month + year, e.g. "March 2026" -- the business-facing
+            # brand profile shows "On TruConnect since <this>". Month
+            # precision, deliberately never the day: enough to signal
+            # "established, not brand new" without fingerprinting the
+            # exact signup moment (file.txt §4's privacy framing still
+            # applies -- it just lands at month, not year, now).
+            "memberSince": self.created_at.strftime("%B %Y") if self.created_at else None,
             "description": self.description,
             "connectionStatus": connection_status,
             "photoUrl": visible_photo_url,

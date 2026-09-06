@@ -11,7 +11,7 @@ directions).
 
 search_by_phone/search_by_email were REMOVED -- previously present
 here (mirroring SupplierProfileRepository's own, since deleted), used
-only by connections_service.py's own _dispatch_search. Search is
+only by connections/services _common._dispatch_search. Search is
 name/business-name only now; see that function's own docstring for the
 full reasoning. normalized_phone/normalized_email columns stay on the
 model -- they're unrelated to search (kept in sync by

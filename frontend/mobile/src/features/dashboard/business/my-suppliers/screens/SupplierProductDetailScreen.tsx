@@ -1,16 +1,18 @@
 import React, { useLayoutEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { Heart, Mail, MessageCircle, Music2, ShoppingCart } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { productDetailHref } from "../../routes";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { ImageCarousel } from "../../../supplier/products/components";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { CATEGORY_OPTIONS, UNIT_OPTIONS } from "../../../supplier/products/types";
-import { buildWhatsAppUrl } from "../../loan-book/services/contactActions";
+import { buildTikTokUrl, buildWhatsAppUrl, openUrl } from "@/services/contact/contactLinks";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { palette } from "@/theme/colors";
@@ -23,27 +25,13 @@ import { ApiError } from "@/services/api/apiClient";
 import { ProductDetailMenu } from "../components/ProductDetailMenu";
 import { ReportSupplierSheet } from "../components/ReportSupplierSheet";
 import { RelatedProductsRow } from "../components/RelatedProductsRow";
-import { AccordionSection } from "../components/AccordionSection";
+import { AccordionSection } from "@/components/ui/AccordionSection";
 import type { ReportReason } from "../../find-supplier/types";
 
 const DESCRIPTION_COLLAPSED_LINES = 4;
 
 function labelFor(options: { value: string; label: string }[], value: string): string {
   return options.find((o) => o.value === value)?.label ?? value;
-}
-
-function buildTikTokUrl(handle: string): string {
-  return `https://www.tiktok.com/@${handle}`;
-}
-
-function openUrl(url: string) {
-  Linking.openURL(url).catch(() => {
-    // Silently ignored, same reasoning as ContactActionsRow.tsx's own
-    // handlers: wa.me and tiktok.com both degrade to a normal web page
-    // when the native app isn't installed, so a failure here means no
-    // URL at all could be opened (no network route) -- nothing more
-    // useful to do than leave the screen as it was.
-  });
 }
 
 /**
@@ -90,7 +78,13 @@ function openUrl(url: string) {
  * always shows visual confirmation of which product you're on.
  */
 export default function SupplierProductDetailScreen() {
-  const { supplierId, productId } = useLocalSearchParams<{ supplierId: string; productId: string }>();
+  const { supplierId, productId, productName: productNameParam, supplierName: supplierNameParam } =
+    useLocalSearchParams<{
+      supplierId: string;
+      productId: string;
+      productName?: string;
+      supplierName?: string;
+    }>();
   const navigation = useNavigation();
   const router = useRouter();
   const theme = useTheme();
@@ -134,13 +128,37 @@ export default function SupplierProductDetailScreen() {
     }
   };
 
+  // Both halves prefer the fetched value and fall back to the route
+  // param the caller already had -- see business/routes.ts's own
+  // docstring on the header-flash fix.
+  const headerSupplierName = product?.supplierName ?? supplierNameParam ?? null;
+  const headerProductName = product?.name ?? productNameParam ?? null;
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: product?.name ?? "Product",
+      title: headerProductName ?? "Product",
+      // SAME SOCIAL TOP BAR AS THE CATALOGUE AND CART, per direct
+      // product feedback: the identity line is always the SUPPLIER
+      // (avatar + business name) and the second line says which screen
+      // of theirs you're on -- "Stock catalogue", "Cart", "Supplier
+      // profile", or here the product's own name. Showing the product
+      // name alone meant a business three taps deep had nothing on
+      // screen confirming whose product they were looking at.
+      ...(headerSupplierName
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={headerSupplierName}
+                subtitle={headerProductName ?? undefined}
+                photoUrl={product?.supplierBusinessImageUrl}
+              />
+            ),
+          }
+        : {}),
       headerRight: () => <ProductDetailMenu onReport={() => setReportSheetOpen(true)} />,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, product?.name]);
+  }, [navigation, headerSupplierName, headerProductName, product?.supplierBusinessImageUrl]);
 
   if (isLoading) {
     return (
@@ -334,7 +352,7 @@ export default function SupplierProductDetailScreen() {
             supplierName={product.supplierName}
             products={relatedProducts}
             onPressProduct={(related) =>
-              router.push(`/business/my-suppliers/${supplierId}/products/${related.id}` as any)
+              router.push(productDetailHref(supplierId, related.id, related.name, headerSupplierName) as any)
             }
           />
 

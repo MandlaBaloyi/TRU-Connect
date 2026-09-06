@@ -70,7 +70,32 @@ def _recalculate_and_save_total(stock_order: StockOrder) -> StockOrder:
     return StockOrderRepository.save_total(stock_order, total)
 
 
-def _build_cart_dict(stock_order: StockOrder, supplier_name: str) -> dict:
+def _collection_address_dict(supplier) -> Optional[dict]:
+    """None unless the supplier has genuinely set a street-level
+    address -- a dict of all-None fields would render as an empty
+    address block, which reads as broken rather than as "not set yet"."""
+    if supplier is None or not (supplier.collection_street or supplier.collection_suburb):
+        return None
+    return {
+        "building": supplier.collection_building,
+        "street": supplier.collection_street,
+        "suburb": supplier.collection_suburb,
+        "city": supplier.collection_city,
+        "province": supplier.collection_province,
+        "postalCode": supplier.collection_postal_code,
+        "latitude": float(supplier.collection_latitude) if supplier.collection_latitude is not None else None,
+        "longitude": float(supplier.collection_longitude) if supplier.collection_longitude is not None else None,
+    }
+
+
+def _build_cart_dict(stock_order: StockOrder, supplier) -> dict:
+    """`supplier` is the SupplierProfile row, or None in the one case a
+    cart can outlive its supplier (list_my_carts). Takes the ROW rather
+    than a pre-extracted name so the "unknown supplier" fallback lives
+    in exactly one place, and so the cart screen's own social top bar
+    (EntityHeaderTitle: avatar + name) can read the brand image from
+    the same lookup the name already came from -- ungated, same public
+    shopfront reasoning as discovery_service's businessImageUrl."""
     db.session.refresh(stock_order)  # items relationship may be stale after a sibling write in this same request
     items = []
     for item in stock_order.items:
@@ -91,7 +116,22 @@ def _build_cart_dict(stock_order: StockOrder, supplier_name: str) -> dict:
     return {
         "id": str(stock_order.id),
         "supplierProfileId": str(stock_order.supplier_profile_id),
-        "supplierName": supplier_name,
+        "supplierName": supplier.business_name if supplier else "Unknown supplier",
+        "supplierBusinessImageUrl": supplier.business_image_url if supplier else None,
+        # THE SUPPLIER'S OWN FULFILMENT TERMS, carried on the cart so
+        # the checkout screen can honour them without a second request:
+        # default to Collect when they don't deliver, and block/explain
+        # under the minimum. checkout_service enforces both for real
+        # (_validate_supplier_fulfilment_terms) -- these exist so the UI
+        # can be honest BEFORE the business fills in a whole form.
+        "supplierOffersDelivery": supplier.offers_delivery if supplier else False,
+        "supplierMinimumOrderCents": supplier.minimum_order_cents if supplier else None,
+        # Where to collect, for the checkout screen's COLLECT branch,
+        # which until now could only say "will appear here once they've
+        # added one". Reaching checkout requires an ACTIVE connection
+        # (checkout_service's own gate), which is the same condition
+        # the profile endpoint gates this address behind.
+        "supplierCollectionAddress": _collection_address_dict(supplier),
         "status": stock_order.status.value,
         "totalCents": stock_order.total_cents,
         "itemCount": len(items),
@@ -120,7 +160,7 @@ def add_item(business_id: str | UUID, supplier_profile_id: str | UUID, product_i
     StockOrderRepository.add_or_increment_item(stock_order.id, product.id, quantity, product.price_cents)
     stock_order = _recalculate_and_save_total(stock_order)
 
-    return _build_cart_dict(stock_order, supplier.business_name)
+    return _build_cart_dict(stock_order, supplier)
 
 
 def update_item_quantity(
@@ -145,7 +185,7 @@ def update_item_quantity(
     StockOrderRepository.set_item_quantity(item, quantity)
     stock_order = _recalculate_and_save_total(stock_order)
 
-    return _build_cart_dict(stock_order, supplier.business_name)
+    return _build_cart_dict(stock_order, supplier)
 
 
 def remove_item(business_id: str | UUID, supplier_profile_id: str | UUID, product_id: str | UUID) -> dict:
@@ -165,7 +205,7 @@ def remove_item(business_id: str | UUID, supplier_profile_id: str | UUID, produc
     StockOrderRepository.delete_item(item)
     stock_order = _recalculate_and_save_total(stock_order)
 
-    return _build_cart_dict(stock_order, supplier.business_name)
+    return _build_cart_dict(stock_order, supplier)
 
 
 def clear_cart(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
@@ -186,7 +226,7 @@ def clear_cart(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict
     StockOrderRepository.delete_all_items(stock_order.id)
     stock_order = _recalculate_and_save_total(stock_order)
 
-    return _build_cart_dict(stock_order, supplier.business_name)
+    return _build_cart_dict(stock_order, supplier)
 
 
 def get_cart(business_id: str | UUID, supplier_profile_id: str | UUID) -> Optional[dict]:
@@ -198,7 +238,7 @@ def get_cart(business_id: str | UUID, supplier_profile_id: str | UUID) -> Option
     if not stock_order:
         return None
 
-    return _build_cart_dict(stock_order, supplier.business_name)
+    return _build_cart_dict(stock_order, supplier)
 
 
 def list_my_carts(business_id: str | UUID) -> List[dict]:
@@ -209,6 +249,5 @@ def list_my_carts(business_id: str | UUID) -> List[dict]:
     results = []
     for cart in carts:
         supplier = SupplierProfileRepository.get_by_id(cart.supplier_profile_id)
-        supplier_name = supplier.business_name if supplier else "Unknown supplier"
-        results.append(_build_cart_dict(cart, supplier_name))
+        results.append(_build_cart_dict(cart, supplier))
     return results

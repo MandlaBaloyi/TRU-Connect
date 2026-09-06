@@ -73,10 +73,37 @@ export interface SupplierProfileData {
   description: string | null;
   photoVisibility: string;
   visibleImageSource: string;
+  /** Currently-approved profile photo / cover banner, or null. Written
+   *  by the real image-upload flow (services/profileImageUpload.ts) and
+   *  returned by GET /my-profile -- the displayed image is always
+   *  whatever the profile says, never local device state. */
+  businessImageUrl: string | null;
+  coverImageUrl: string | null;
   whatsappNumber: string | null;
   contactEmail: string | null;
   tiktokHandle: string | null;
   shareContactDetails: boolean;
+  /** Fulfilment terms shown UNGATED on the business-facing profile --
+   *  "do you deliver" and "what's your minimum order" are what a
+   *  business needs while deciding whether to connect at all.
+   *  minimumOrderCents null means no minimum (never 0). */
+  /** TRI-STATE: null until the supplier actually chooses. */
+  offersDelivery: boolean | null;
+  minimumOrderCents: number | null;
+  /** The supplier's own fixed premises -- what a connected business
+   *  sees as "Collect from" on the profile, and at checkout when they
+   *  choose COLLECT. Structured (not one text blob) because the
+   *  business-facing screens format it themselves, and because the
+   *  coordinates make a future "open in maps" real rather than a
+   *  re-geocode. */
+  collectionBuilding: string | null;
+  collectionStreet: string | null;
+  collectionSuburb: string | null;
+  collectionCity: string | null;
+  collectionProvince: string | null;
+  collectionPostalCode: string | null;
+  collectionLatitude: number | null;
+  collectionLongitude: number | null;
 }
 
 let mockProfile: SupplierProfileData = {
@@ -86,10 +113,22 @@ let mockProfile: SupplierProfileData = {
   description: null,
   photoVisibility: "connections",
   visibleImageSource: "none",
+  businessImageUrl: null,
+  coverImageUrl: null,
   whatsappNumber: null,
   contactEmail: null,
   tiktokHandle: null,
   shareContactDetails: false,
+  offersDelivery: null,
+  minimumOrderCents: null,
+  collectionBuilding: null,
+  collectionStreet: null,
+  collectionSuburb: null,
+  collectionCity: null,
+  collectionProvince: null,
+  collectionPostalCode: null,
+  collectionLatitude: null,
+  collectionLongitude: null,
 };
 
 export async function getMyProfile(): Promise<SupplierProfileData> {
@@ -121,6 +160,16 @@ export async function updateMyProfile(input: SupplierProfileData): Promise<Suppl
     contact_email: input.contactEmail,
     tiktok_handle: input.tiktokHandle,
     share_contact_details: input.shareContactDetails,
+    offers_delivery: input.offersDelivery,
+    minimum_order_cents: input.minimumOrderCents,
+    collection_building: input.collectionBuilding,
+    collection_street: input.collectionStreet,
+    collection_suburb: input.collectionSuburb,
+    collection_city: input.collectionCity,
+    collection_province: input.collectionProvince,
+    collection_postal_code: input.collectionPostalCode,
+    collection_latitude: input.collectionLatitude,
+    collection_longitude: input.collectionLongitude,
   });
 }
 

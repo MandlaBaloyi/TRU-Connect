@@ -40,6 +40,15 @@ def create_app(env_name: str | None = None) -> Flask:
 
     register_scan_result_handler(folder_naming.is_supplier_product_asset, product_media_service.apply_scan_result)
 
+    # Supplier profile/cover images subscribe the same way -- their own
+    # folder branch (tru_connect/suppliers/{id}/profile/) is disjoint
+    # from the product one, so match order doesn't matter.
+    from src.domains.supplier.supplier_profile.services import supplier_profile_image_service
+
+    register_scan_result_handler(
+        folder_naming.is_supplier_profile_asset, supplier_profile_image_service.apply_scan_result
+    )
+
     from src.master_scheduler import trigger
     trigger.start(app)
 

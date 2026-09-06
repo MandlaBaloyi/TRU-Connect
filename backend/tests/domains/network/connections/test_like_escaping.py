@@ -5,7 +5,9 @@ interpreted as a SQL wildcard instead of a literal character.
 """
 from __future__ import annotations
 
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+)
 
 
 def test_literal_percent_does_not_wildcard_match_everything(
@@ -23,7 +25,7 @@ def test_literal_percent_does_not_wildcard_match_everything(
     supplier_user = make_supplier()
     make_supplier_profile(supplier_user, business_name="Normal Wholesale")
 
-    results = connections_service.search_suppliers("%%", business.id)
+    results = discovery_service.search_suppliers("%%", business.id)
     assert results == []
 
 
@@ -34,7 +36,7 @@ def test_literal_percent_matches_a_name_that_actually_contains_it(
     supplier_user = make_supplier()
     make_supplier_profile(supplier_user, business_name="50% Off Traders")
 
-    results = connections_service.search_suppliers("50%", business.id)
+    results = discovery_service.search_suppliers("50%", business.id)
     assert len(results) == 1
     assert results[0]["businessName"] == "50% Off Traders"
 
@@ -48,5 +50,5 @@ def test_literal_underscore_does_not_wildcard_match_any_single_character(
     supplier_user = make_supplier()
     make_supplier_profile(supplier_user, business_name="Xa Traders")
 
-    results = connections_service.search_suppliers("X_", business.id)
+    results = discovery_service.search_suppliers("X_", business.id)
     assert results == []

@@ -10,7 +10,11 @@ import uuid
 import pytest
 
 from src.domains.network.connections.models.connection_request import ConnectionRequest, ConnectionRequestStatus
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+    request_service,
+)
+from src.domains.network.connections.services.storefront import catalog_service, ordering_gate
 from src.domains.network.connections.services.errors import InvalidCatalogQueryError, ProductNotFoundError, SupplierNotFoundError
 from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
@@ -18,7 +22,7 @@ from src.extensions import db
 
 
 def _make_active_connection(business, supplier_profile):
-    connections_service.request_connection(business.id, supplier_profile.id)
+    request_service.request_connection(business.id, supplier_profile.id)
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=supplier_profile.id).first()
     request.status = ConnectionRequestStatus.ACTIVE
     db.session.commit()
@@ -39,7 +43,7 @@ def test_cannot_order_with_no_connection_and_no_products(make_business, make_sup
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Nothing Yet Co")
 
-    result = connections_service.can_place_order(business.id, profile.id)
+    result = ordering_gate.can_place_order(business.id, profile.id)
 
     assert result["canOrder"] is False
     assert result["isConnected"] is False
@@ -55,7 +59,7 @@ def test_cannot_order_when_connected_but_supplier_has_no_products(
     profile = make_supplier_profile(supplier_user, business_name="Empty Catalogue Co")
     _make_active_connection(business, profile)
 
-    result = connections_service.can_place_order(business.id, profile.id)
+    result = ordering_gate.can_place_order(business.id, profile.id)
 
     assert result["canOrder"] is False
     assert result["isConnected"] is True
@@ -71,7 +75,7 @@ def test_cannot_order_when_supplier_has_products_but_not_connected(
     profile = make_supplier_profile(supplier_user, business_name="Has Stock No Connection Co")
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.can_place_order(business.id, profile.id)
+    result = ordering_gate.can_place_order(business.id, profile.id)
 
     assert result["canOrder"] is False
     assert result["isConnected"] is False
@@ -86,7 +90,7 @@ def test_can_order_when_both_conditions_are_met(make_business, make_supplier, ma
     _make_active_connection(business, profile)
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.can_place_order(business.id, profile.id)
+    result = ordering_gate.can_place_order(business.id, profile.id)
 
     assert result["canOrder"] is True
     assert result["reason"] is None
@@ -98,10 +102,10 @@ def test_pending_connection_is_not_sufficient(make_business, make_supplier, make
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Still Pending Co")
-    connections_service.request_connection(business.id, profile.id)  # stays PENDING
+    request_service.request_connection(business.id, profile.id)  # stays PENDING
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.can_place_order(business.id, profile.id)
+    result = ordering_gate.can_place_order(business.id, profile.id)
 
     assert result["canOrder"] is False
     assert result["reason"] == "NOT_CONNECTED"
@@ -114,7 +118,8 @@ def test_list_supplier_products_includes_contact_when_connected_and_opted_in(
     at the catalogue level, for the "Contact Supplier" menu item, gated
     exactly like get_supplier_product's own version: active connection
     AND the supplier's own opt-in, both required."""
-    from src.domains.network.connections.services import connections_service as svc
+    from src.domains.network.connections.services import discovery_service, request_service
+    from src.domains.network.connections.services.storefront import catalog_service, ordering_gate
 
     business = make_business()
     supplier_user = make_supplier()
@@ -124,7 +129,7 @@ def test_list_supplier_products_includes_contact_when_connected_and_opted_in(
         whatsapp_number="27821234567",
         share_contact_details=True,
     )
-    svc.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
     from src.domains.network.connections.models.connection_request import ConnectionRequest, ConnectionRequestStatus
     from src.extensions import db
 
@@ -132,7 +137,7 @@ def test_list_supplier_products_includes_contact_when_connected_and_opted_in(
     req.status = ConnectionRequestStatus.ACTIVE
     db.session.commit()
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["contact"] == {"whatsappNumber": "27821234567", "email": None, "tiktokHandle": None}
 
@@ -146,7 +151,7 @@ def test_list_supplier_products_contact_is_null_when_not_connected(
         supplier_user, business_name="Unreachable Co", whatsapp_number="27821234567", share_contact_details=True
     )
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["contact"] is None
 
@@ -158,7 +163,7 @@ def test_list_supplier_products_returns_real_products(make_business, make_suppli
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
     _make_product(profile.id, "Milk 2L", ProductCategory.DAIRY_CHILLED, 3200, ProductUnit.EACH)
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["supplierName"] == "Listable Co"
     products = result["products"]
@@ -193,7 +198,7 @@ def test_list_supplier_products_includes_compare_at_price_when_a_product_has_a_r
         sku=generate_sku(profile.id), product_code=generate_product_code(), compare_at_price_cents=31250,
     )
 
-    products = connections_service.list_supplier_products(business.id, profile.id)["products"]
+    products = catalog_service.list_supplier_products(business.id, profile.id)["products"]
 
     assert products[0]["priceCents"] == 25000
     assert products[0]["compareAtPriceCents"] == 31250
@@ -207,7 +212,7 @@ def test_list_supplier_products_excludes_archived(make_business, make_supplier, 
     archived = _make_product(profile.id, "Old Stock", ProductCategory.OTHER, 100, ProductUnit.EACH)
     ProductRepository.archive(archived)
 
-    products = connections_service.list_supplier_products(business.id, profile.id)["products"]
+    products = catalog_service.list_supplier_products(business.id, profile.id)["products"]
 
     names = {p["name"] for p in products}
     assert names == {"Bread loaves"}
@@ -219,7 +224,7 @@ def test_get_supplier_profile_includes_real_product_count(make_business, make_su
     profile = make_supplier_profile(supplier_user, business_name="Counted Co")
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["productCount"] == 1
 
@@ -237,7 +242,7 @@ def test_get_supplier_profile_collection_address_is_null_when_not_connected(
     profile.collection_suburb = "Seshego"
     db.session.commit()
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["collectionAddress"] is None
 
@@ -264,7 +269,7 @@ def test_get_supplier_profile_collection_address_returned_when_active(
     db.session.commit()
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["collectionAddress"] == {
         "building": "Warehouse 3",
@@ -289,7 +294,7 @@ def test_get_supplier_profile_collection_address_null_when_supplier_hasnt_set_on
     profile = make_supplier_profile(supplier_user, business_name="No Address Set Co")
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["collectionAddress"] is None
 
@@ -309,13 +314,13 @@ def test_get_supplier_profile_contact_requires_active_and_opt_in(
     db.session.commit()
     _make_active_connection(business, profile)
 
-    not_opted_in = connections_service.get_supplier_profile(business.id, profile.id)
+    not_opted_in = discovery_service.get_supplier_profile(business.id, profile.id)
     assert not_opted_in["contact"] is None
 
     profile.share_contact_details = True
     db.session.commit()
 
-    opted_in = connections_service.get_supplier_profile(business.id, profile.id)
+    opted_in = discovery_service.get_supplier_profile(business.id, profile.id)
     assert opted_in["contact"] == {"whatsappNumber": "+27821234567", "email": None, "tiktokHandle": None}
 
 
@@ -334,7 +339,7 @@ def test_list_supplier_products_marks_a_product_with_real_stock_as_in_stock(
     inventory = InventoryRepository.get_or_create_for_product(product.id, profile.id)
     InventoryRepository.adjust_quantity(inventory, 10)
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["products"][0]["inStock"] is True
 
@@ -350,7 +355,7 @@ def test_list_supplier_products_marks_a_zero_quantity_product_as_out_of_stock(
     product = _make_product(profile.id, "Bread", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
     InventoryRepository.get_or_create_for_product(product.id, profile.id)  # row exists, zero quantity
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["products"][0]["inStock"] is False
 
@@ -367,7 +372,7 @@ def test_list_supplier_products_marks_a_product_with_no_inventory_row_as_out_of_
     _make_product(profile.id, "Bread", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
     # Deliberately no InventoryRepository call at all.
 
-    result = connections_service.list_supplier_products(business.id, profile.id)
+    result = catalog_service.list_supplier_products(business.id, profile.id)
 
     assert result["products"][0]["inStock"] is False
 
@@ -385,7 +390,7 @@ def test_list_supplier_products_browsing_never_creates_an_inventory_row(
     profile = make_supplier_profile(supplier_user, business_name="Untouched Co")
     product = _make_product(profile.id, "Bread", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
 
-    connections_service.list_supplier_products(business.id, profile.id)
+    catalog_service.list_supplier_products(business.id, profile.id)
 
     assert Inventory.query.filter_by(product_id=product.id).first() is None
 
@@ -396,7 +401,7 @@ def test_get_supplier_product_returns_full_detail(make_business, make_supplier, 
     profile = make_supplier_profile(supplier_user, business_name="Detail Co")
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["id"] == str(product.id)
     assert result["name"] == "Bread loaves"
@@ -419,7 +424,7 @@ def test_get_supplier_product_marks_a_product_with_real_stock_as_in_stock(
     inventory = InventoryRepository.get_or_create_for_product(product.id, profile.id)
     InventoryRepository.adjust_quantity(inventory, 5)
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["inStock"] is True
 
@@ -432,7 +437,7 @@ def test_get_supplier_product_raises_for_a_genuinely_nonexistent_product(
     profile = make_supplier_profile(supplier_user, business_name="Empty Co")
 
     with pytest.raises(ProductNotFoundError):
-        connections_service.get_supplier_product(business.id, profile.id, uuid.uuid4())
+        catalog_service.get_supplier_product(business.id, profile.id, uuid.uuid4())
 
 
 def test_get_supplier_product_raises_for_a_product_belonging_to_a_different_supplier(
@@ -449,7 +454,7 @@ def test_get_supplier_product_raises_for_a_product_belonging_to_a_different_supp
     product = _make_product(owner_profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
     with pytest.raises(ProductNotFoundError):
-        connections_service.get_supplier_product(business.id, other_profile.id, product.id)
+        catalog_service.get_supplier_product(business.id, other_profile.id, product.id)
 
 
 def test_get_supplier_product_raises_for_an_archived_product(make_business, make_supplier, make_supplier_profile):
@@ -465,7 +470,7 @@ def test_get_supplier_product_raises_for_an_archived_product(make_business, make
     product_service.archive_product(product.id, profile.id)
 
     with pytest.raises(ProductNotFoundError):
-        connections_service.get_supplier_product(business.id, profile.id, product.id)
+        catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
 
 def test_get_supplier_product_always_includes_the_suppliers_real_name(
@@ -480,7 +485,7 @@ def test_get_supplier_product_always_includes_the_suppliers_real_name(
     profile = make_supplier_profile(supplier_user, business_name="Certainty Co")
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["supplierName"] == "Certainty Co"
 
@@ -503,7 +508,7 @@ def test_get_supplier_product_contact_is_null_when_not_connected(
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
     # Deliberately NO connection made between business and profile.
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["contact"] is None
 
@@ -525,7 +530,7 @@ def test_get_supplier_product_contact_is_null_when_connected_but_supplier_has_no
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["contact"] is None
 
@@ -549,7 +554,7 @@ def test_get_supplier_product_contact_is_returned_when_both_conditions_are_met(
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["contact"] == {
         "whatsappNumber": "27821234567",
@@ -570,9 +575,9 @@ def test_get_supplier_product_contact_is_null_when_a_pending_connection_only(
         supplier_user, business_name="Pending Co", whatsapp_number="27821234567", share_contact_details=True
     )
     product = _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
-    connections_service.request_connection(business.id, profile.id)  # stays PENDING, never approved
+    request_service.request_connection(business.id, profile.id)  # stays PENDING, never approved
 
-    result = connections_service.get_supplier_product(business.id, profile.id, product.id)
+    result = catalog_service.get_supplier_product(business.id, profile.id, product.id)
 
     assert result["contact"] is None
 
@@ -581,7 +586,7 @@ def test_get_supplier_product_raises_supplier_not_found_for_a_genuinely_nonexist
     business = make_business()
 
     with pytest.raises(SupplierNotFoundError):
-        connections_service.get_supplier_product(business.id, uuid.uuid4(), uuid.uuid4())
+        catalog_service.get_supplier_product(business.id, uuid.uuid4(), uuid.uuid4())
 
 
 # --- list_supplier_products: pagination, sort, category filter ----------
@@ -597,9 +602,9 @@ def test_list_supplier_products_paginates_correctly(make_business, make_supplier
     for i in range(5):
         _make_product(profile.id, f"Product {i}", ProductCategory.OTHER, 1000 + i, ProductUnit.EACH)
 
-    page1 = connections_service.list_supplier_products(business.id, profile.id, page=1, limit=2)
-    page2 = connections_service.list_supplier_products(business.id, profile.id, page=2, limit=2)
-    page3 = connections_service.list_supplier_products(business.id, profile.id, page=3, limit=2)
+    page1 = catalog_service.list_supplier_products(business.id, profile.id, page=1, limit=2)
+    page2 = catalog_service.list_supplier_products(business.id, profile.id, page=2, limit=2)
+    page3 = catalog_service.list_supplier_products(business.id, profile.id, page=3, limit=2)
 
     assert len(page1["products"]) == 2
     assert len(page2["products"]) == 2
@@ -626,13 +631,12 @@ def test_list_supplier_products_limit_is_hard_capped(make_business, make_supplie
     for i in range(3):
         _make_product(profile.id, f"Product {i}", ProductCategory.OTHER, 1000 + i, ProductUnit.EACH)
 
-    result = connections_service.list_supplier_products(business.id, profile.id, page=1, limit=10000)
+    result = catalog_service.list_supplier_products(business.id, profile.id, page=1, limit=10000)
 
     assert len(result["products"]) == 3  # only 3 exist, capping doesn't matter here
     # Confirm the CAP itself, not just that 3 happens to be under it --
     # check totalPages math used the capped limit.
-    from src.domains.network.connections.services.connections_service import MAX_CATALOG_PAGE_SIZE
-
+    from src.domains.network.connections.services.storefront.catalog_service import MAX_CATALOG_PAGE_SIZE
     assert MAX_CATALOG_PAGE_SIZE == 50
 
 
@@ -644,7 +648,7 @@ def test_list_supplier_products_sorts_by_price_ascending(make_business, make_sup
     _make_product(profile.id, "Cheap", ProductCategory.OTHER, 1000, ProductUnit.EACH)
     _make_product(profile.id, "Middle", ProductCategory.OTHER, 3000, ProductUnit.EACH)
 
-    result = connections_service.list_supplier_products(business.id, profile.id, sort="PRICE_ASC")
+    result = catalog_service.list_supplier_products(business.id, profile.id, sort="PRICE_ASC")
 
     prices = [p["priceCents"] for p in result["products"]]
     assert prices == [1000, 3000, 5000]
@@ -657,7 +661,7 @@ def test_list_supplier_products_sorts_by_name_ascending(make_business, make_supp
     _make_product(profile.id, "Zebra", ProductCategory.OTHER, 1000, ProductUnit.EACH)
     _make_product(profile.id, "Apple", ProductCategory.OTHER, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_supplier_products(business.id, profile.id, sort="NAME_ASC")
+    result = catalog_service.list_supplier_products(business.id, profile.id, sort="NAME_ASC")
 
     names = [p["name"] for p in result["products"]]
     assert names == ["Apple", "Zebra"]
@@ -670,7 +674,7 @@ def test_list_supplier_products_filters_by_category(make_business, make_supplier
     _make_product(profile.id, "Bread", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
     _make_product(profile.id, "Milk", ProductCategory.DAIRY_CHILLED, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_supplier_products(business.id, profile.id, category="BAKERY")
+    result = catalog_service.list_supplier_products(business.id, profile.id, category="BAKERY")
 
     assert result["totalCount"] == 1
     assert result["products"][0]["name"] == "Bread"
@@ -682,7 +686,7 @@ def test_list_supplier_products_rejects_a_page_below_one(make_business, make_sup
     profile = make_supplier_profile(supplier_user, business_name="Co")
 
     with pytest.raises(InvalidCatalogQueryError):
-        connections_service.list_supplier_products(business.id, profile.id, page=0)
+        catalog_service.list_supplier_products(business.id, profile.id, page=0)
 
 
 def test_list_supplier_products_rejects_an_invalid_sort_value(make_business, make_supplier, make_supplier_profile):
@@ -691,7 +695,7 @@ def test_list_supplier_products_rejects_an_invalid_sort_value(make_business, mak
     profile = make_supplier_profile(supplier_user, business_name="Co")
 
     with pytest.raises(InvalidCatalogQueryError):
-        connections_service.list_supplier_products(business.id, profile.id, sort="NOT_A_REAL_SORT")
+        catalog_service.list_supplier_products(business.id, profile.id, sort="NOT_A_REAL_SORT")
 
 
 def test_list_supplier_products_rejects_an_invalid_category(make_business, make_supplier, make_supplier_profile):
@@ -700,7 +704,7 @@ def test_list_supplier_products_rejects_an_invalid_category(make_business, make_
     profile = make_supplier_profile(supplier_user, business_name="Co")
 
     with pytest.raises(InvalidCatalogQueryError):
-        connections_service.list_supplier_products(business.id, profile.id, category="NOT_A_REAL_CATEGORY")
+        catalog_service.list_supplier_products(business.id, profile.id, category="NOT_A_REAL_CATEGORY")
 
 
 # --- get_supplier_product_categories --------------------------------------
@@ -717,7 +721,7 @@ def test_get_supplier_product_categories_returns_real_distinct_categories(
     _make_product(profile.id, "Bread rolls", ProductCategory.BAKERY, 900, ProductUnit.EACH)
     _make_product(profile.id, "Milk", ProductCategory.DAIRY_CHILLED, 1500, ProductUnit.EACH)
 
-    categories = connections_service.get_supplier_product_categories(profile.id)
+    categories = catalog_service.get_supplier_product_categories(profile.id)
 
     assert sorted(categories) == ["BAKERY", "DAIRY_CHILLED"]
 
@@ -733,7 +737,7 @@ def test_get_supplier_product_categories_excludes_archived_products_categories(
     _make_product(profile.id, "Milk", ProductCategory.DAIRY_CHILLED, 1500, ProductUnit.EACH)
     product_service.archive_product(bread.id, profile.id)
 
-    categories = connections_service.get_supplier_product_categories(profile.id)
+    categories = catalog_service.get_supplier_product_categories(profile.id)
 
     assert categories == ["DAIRY_CHILLED"]
 
@@ -744,14 +748,14 @@ def test_get_supplier_product_categories_returns_empty_list_for_a_supplier_with_
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Empty Co")
 
-    categories = connections_service.get_supplier_product_categories(profile.id)
+    categories = catalog_service.get_supplier_product_categories(profile.id)
 
     assert categories == []
 
 
 def test_get_supplier_product_categories_raises_for_a_genuinely_nonexistent_supplier(db_session):
     with pytest.raises(SupplierNotFoundError):
-        connections_service.get_supplier_product_categories(uuid.uuid4())
+        catalog_service.get_supplier_product_categories(uuid.uuid4())
 
 
 # --- list_related_products -------------------------------------------------
@@ -769,7 +773,7 @@ def test_list_related_products_prioritises_genuine_same_category_matches(
     related1 = _make_product(profile.id, "Eternity Fragrance", ProductCategory.PERSONAL_CARE, 25000, ProductUnit.EACH)
     related2 = _make_product(profile.id, "Coach Fragrance", ProductCategory.PERSONAL_CARE, 35000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     result_ids = {p["id"] for p in result["products"]}
     assert {str(related1.id), str(related2.id)}.issubset(result_ids)
@@ -790,7 +794,7 @@ def test_list_related_products_backfills_with_a_different_category_when_related_
     related = _make_product(profile.id, "Eternity Fragrance", ProductCategory.PERSONAL_CARE, 25000, ProductUnit.EACH)
     unrelated = _make_product(profile.id, "Bread", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     result_ids = {p["id"] for p in result["products"]}
     assert result_ids == {str(related.id), str(unrelated.id)}
@@ -807,7 +811,7 @@ def test_list_related_products_backfill_never_duplicates_a_related_product(
     viewed = _make_product(profile.id, "Viewed Item", ProductCategory.PERSONAL_CARE, 1000, ProductUnit.EACH)
     _make_product(profile.id, "Related Item", ProductCategory.PERSONAL_CARE, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     result_ids = [p["id"] for p in result["products"]]
     assert len(result_ids) == len(set(result_ids))  # no duplicates at all
@@ -827,7 +831,7 @@ def test_list_related_products_backfill_never_includes_a_different_suppliers_pro
     viewed = _make_product(owner_profile.id, "Ferrari Red", ProductCategory.PERSONAL_CARE, 30000, ProductUnit.EACH)
     _make_product(other_profile.id, "Not Theirs", ProductCategory.BAKERY, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, owner_profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, owner_profile.id, viewed.id)
 
     assert result["products"] == []
 
@@ -840,7 +844,7 @@ def test_list_related_products_excludes_the_viewed_product_itself(
     profile = make_supplier_profile(supplier_user, business_name="Self Excluded Co")
     viewed = _make_product(profile.id, "Ferrari Red", ProductCategory.PERSONAL_CARE, 30000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     assert result["products"] == []
 
@@ -856,7 +860,7 @@ def test_list_related_products_excludes_products_from_a_different_supplier(
     viewed = _make_product(owner_profile.id, "Ferrari Red", ProductCategory.PERSONAL_CARE, 30000, ProductUnit.EACH)
     _make_product(other_profile.id, "Eternity Fragrance", ProductCategory.PERSONAL_CARE, 25000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, owner_profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, owner_profile.id, viewed.id)
 
     assert result["products"] == []
 
@@ -869,7 +873,7 @@ def test_list_related_products_caps_at_five(make_business, make_supplier, make_s
     for i in range(7):
         _make_product(profile.id, f"Related {i}", ProductCategory.PERSONAL_CARE, 1000 + i, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     assert len(result["products"]) == 5
 
@@ -883,7 +887,7 @@ def test_list_related_products_includes_out_of_stock_products(make_business, mak
     viewed = _make_product(profile.id, "Viewed Item", ProductCategory.PERSONAL_CARE, 1000, ProductUnit.EACH)
     _make_product(profile.id, "Never Stocked", ProductCategory.PERSONAL_CARE, 1000, ProductUnit.EACH)
 
-    result = connections_service.list_related_products(business.id, profile.id, viewed.id)
+    result = catalog_service.list_related_products(business.id, profile.id, viewed.id)
 
     assert len(result["products"]) == 1
     assert result["products"][0]["inStock"] is False
@@ -897,4 +901,4 @@ def test_list_related_products_raises_for_a_genuinely_nonexistent_product(
     profile = make_supplier_profile(supplier_user, business_name="Co")
 
     with pytest.raises(ProductNotFoundError):
-        connections_service.list_related_products(business.id, profile.id, uuid.uuid4())
+        catalog_service.list_related_products(business.id, profile.id, uuid.uuid4())

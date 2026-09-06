@@ -36,10 +36,21 @@ export const businessRegisterSchema = z
   });
 export type BusinessRegisterFormValues = z.infer<typeof businessRegisterSchema>;
 
+/** Mirrors backend shared.validation.business_name exactly: 2–50 chars,
+ *  at least one letter, and not a single repeated character. Owner name
+ *  is the optional field now. */
+const businessNameField = z
+  .string()
+  .trim()
+  .min(2, "Business name must be at least 2 characters")
+  .max(50, "Business name must be 50 characters or fewer")
+  .refine((v) => /[^\W\d_]/u.test(v), "Business name must contain at least one letter")
+  .refine((v) => new Set(v.replace(/\s/g, "")).size > 1, "Enter a real business name");
+
 export const supplierRegisterSchema = z
   .object({
-    businessName: z.string().optional(),
-    ownerName: z.string().min(1, "Owner name is required"),
+    businessName: businessNameField,
+    ownerName: z.string().max(200).optional(),
     email: z.string().email("Enter a valid email address"),
     password: z
       .string()

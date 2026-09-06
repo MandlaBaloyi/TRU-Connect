@@ -7,6 +7,8 @@ import { ChevronUp, ShoppingCart } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { productDetailHref } from "../../routes";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -58,10 +60,26 @@ export default function CartScreen() {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       title: cart?.supplierName ?? "Cart",
+      // Same social top bar as the catalogue this screen is reached
+      // from -- the supplier's avatar + name, with "Cart" as the quiet
+      // second line. Without the avatar, stepping catalogue -> cart
+      // dropped the visual identity mid-flow and the header became a
+      // bare name again.
+      ...(cart?.supplierName
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={cart.supplierName}
+                subtitle="Cart"
+                photoUrl={cart.supplierBusinessImageUrl}
+              />
+            ),
+          }
+        : {}),
       headerRight: () => <CartMenu onOrderHistory={() => setHistoryOpen(true)} onClearCart={handleClearCart} />,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, cart?.supplierName]);
+  }, [navigation, cart?.supplierName, cart?.supplierBusinessImageUrl]);
 
   if (isLoading) {
     return (
@@ -127,7 +145,7 @@ export default function CartScreen() {
         renderItem={({ item }) => (
           <CartItemRow
             item={item}
-            onPress={() => router.push(`/business/my-suppliers/${supplierId}/products/${item.productId}` as any)}
+            onPress={() => router.push(productDetailHref(supplierId, item.productId, item.productName, cart.supplierName) as any)}
             onIncrement={() => handleIncrement(item)}
             onDecrement={() => handleDecrement(item)}
             onRemove={() => removeItem(item.productId)}

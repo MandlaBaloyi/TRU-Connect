@@ -21,7 +21,7 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { Archive, Check, Package } from "lucide-react-native";
+import { Archive, Check, Package, Pin } from "lucide-react-native";
 
 import type { Product } from "../types";
 import type { InventoryStatus } from "../../inventory/types";
@@ -44,6 +44,12 @@ interface Props {
    *  it only reflects `selected` and calls `onPress`. */
   selectable?: boolean;
   selected?: boolean;
+  /** Featured on the supplier's business profile — shows a small pin
+   *  in the meta row. */
+  pinned?: boolean;
+  /** Right-aligned slot, e.g. the ⋮ pin menu. Not shown in selection
+   *  mode. */
+  trailing?: React.ReactNode;
 }
 
 export function ProductCard({
@@ -53,6 +59,8 @@ export function ProductCard({
   onLongPress,
   selectable = false,
   selected = false,
+  pinned = false,
+  trailing,
 }: Props) {
   const theme = useTheme();
   const interactive = Boolean(onPress) || selectable;
@@ -100,9 +108,12 @@ export function ProductCard({
       </View>
 
       <View style={styles.body}>
-        <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={1}>
-          {product.name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={1}>
+            {product.name}
+          </Text>
+          {pinned && <Pin size={13} color={theme.colors.primary} strokeWidth={2.4} />}
+        </View>
         <View style={styles.metaRow}>
           <Text style={[styles.price, { color: theme.colors.onSurface }]} numberOfLines={1}>
             {formatCents(product.priceCents)}
@@ -123,6 +134,8 @@ export function ProductCard({
           )}
         </View>
       </View>
+
+      {!selectable && trailing}
     </Pressable>
   );
 }
@@ -165,7 +178,8 @@ const styles = StyleSheet.create({
   },
   saleBadgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "700" },
   body: { flex: 1, gap: 4 },
-  name: { ...typography.h2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  name: { ...typography.h2, flexShrink: 1 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   price: { ...typography.body, fontWeight: "700" },
   compareAtPrice: { ...typography.bodySmall, textDecorationLine: "line-through" },

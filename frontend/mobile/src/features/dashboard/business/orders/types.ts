@@ -23,10 +23,37 @@ export interface Cart {
   id: string;
   supplierProfileId: string;
   supplierName: string;
+  /** The supplier's public brand image, for the cart's own social top
+   *  bar (avatar + name). Same ungated asset the catalogue and brand
+   *  profile use; null when they haven't uploaded one. */
+  supplierBusinessImageUrl: string | null;
+  /** The supplier's own stated terms, carried on the cart so checkout
+   *  can honour them without a second request. checkout_service
+   *  enforces both for real; these let the UI be honest BEFORE the
+   *  business fills in a whole form. */
+  /** TRI-STATE — null means unstated; only an explicit false blocks
+   *  a DELIVER order. */
+  supplierOffersDelivery: boolean | null;
+  /** null means no minimum — never 0. */
+  supplierMinimumOrderCents: number | null;
+  /** Where to collect. Null when the supplier hasn't set one. */
+  supplierCollectionAddress: CartCollectionAddress | null;
   status: string;
   totalCents: number;
   itemCount: number;
   items: CartItem[];
+}
+
+/** Mirrors cart_service._collection_address_dict exactly. */
+export interface CartCollectionAddress {
+  building: string | null;
+  street: string | null;
+  suburb: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export type PaymentMethod = "CASH" | "PROOF_OF_PAYMENT" | "PAYFAST";

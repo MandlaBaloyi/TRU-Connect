@@ -257,3 +257,19 @@ class ConnectionRequestRepository:
             .order_by(ConnectionRequest.updated_at.desc())
             .all()
         )
+
+    @staticmethod
+    def count_active_for_supplier_profile(supplier_profile_id: str | UUID) -> int:
+        """How many businesses currently buy from this supplier -- the
+        social-proof number on their brand profile.
+
+        A COUNT, deliberately, not len(list_active_for_supplier_profile):
+        the profile needs the number, not the rows, and loading every
+        ConnectionRequest object to discard all but the count would
+        scale badly for exactly the successful suppliers this number
+        matters most for."""
+        return ConnectionRequest.query.filter_by(
+            supplier_profile_id=supplier_profile_id,
+            status=ConnectionRequestStatus.ACTIVE,
+            is_deleted=False,
+        ).count()

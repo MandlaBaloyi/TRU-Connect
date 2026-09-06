@@ -15,6 +15,8 @@ interface ApiConnectionSummary {
   name: string;
   other_party_id: string | null;
   connectedSince: string | null;
+  photoUrl: string | null;
+  ownerName: string | null;
 }
 
 /**
@@ -34,6 +36,8 @@ function fromApiConnectionSummary(dto: ApiConnectionSummary): ConnectionSummary 
     name: dto.name,
     otherPartyId: dto.other_party_id,
     connectedSince: dto.connectedSince,
+    photoUrl: dto.photoUrl,
+    ownerName: dto.ownerName,
   };
 }
 

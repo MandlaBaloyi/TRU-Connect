@@ -16,7 +16,8 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { MessageCircle, Phone } from "lucide-react-native";
 
-import { buildDefaultLoanMessage, buildTelUrl, buildWhatsAppUrl } from "../services/contactActions";
+import { buildDefaultLoanMessage } from "../services/contactActions";
+import { buildTelUrl, buildWhatsAppUrl } from "@/services/contact/contactLinks";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 

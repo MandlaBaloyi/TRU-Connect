@@ -1038,14 +1038,17 @@ def test_checkout_rejects_a_still_pending_connection_request(
 ):
     """A request that hasn't been approved yet is not the same as an
     active connection -- checkout must still be rejected."""
-    from src.domains.network.connections.services import connections_service
+    from src.domains.network.connections.services import (
+        connection_list_service,
+        request_service,
+    )
 
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Pending Only Co")
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
-    connections_service.request_connection(business.id, profile.id)  # sent, never approved
+    request_service.request_connection(business.id, profile.id)  # sent, never approved
 
     with pytest.raises(SupplierNotConnectedError):
         checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -1058,7 +1061,10 @@ def test_checkout_rejects_after_a_real_disconnect_and_re_request(
     connect, approve, checkout succeeds -- then disconnect, send a new
     request (still pending), and checkout must be rejected again, not
     silently still allowed from the old, now-ended connection."""
-    from src.domains.network.connections.services import connections_service
+    from src.domains.network.connections.services import (
+        connection_list_service,
+        request_service,
+    )
 
     business = make_business()
     supplier_user = make_supplier()
@@ -1069,9 +1075,9 @@ def test_checkout_rejects_after_a_real_disconnect_and_re_request(
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
     assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
 
-    connections_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", None)
+    connection_list_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", None)
     cart_service.add_item(business.id, profile.id, product.id, 1)
-    connections_service.request_connection(business.id, profile.id)  # new, still pending
+    request_service.request_connection(business.id, profile.id)  # new, still pending
 
     with pytest.raises(SupplierNotConnectedError):
         checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -1107,6 +1113,11 @@ def test_deliver_order_persists_structured_delivery_fields(
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Pin Drop Co")
+    # This test submits a DELIVER order, so the supplier must be one
+    # that actually delivers -- offers_delivery defaults False (the
+    # cautious default) and checkout now genuinely enforces it.
+    profile.offers_delivery = True
+    db.session.commit()
     make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
@@ -1191,6 +1202,9 @@ def test_deliver_order_without_any_delivery_fields_still_works(
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Old Client Co")
+    # Submits a DELIVER order -- see the same note on the test above.
+    profile.offers_delivery = True
+    db.session.commit()
     make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
@@ -1335,3 +1349,164 @@ def test_cancel_order_by_business_raises_for_a_genuinely_nonexistent_order(
 
     with pytest.raises(OrderNotFoundError):
         cancellation_service.cancel_order_by_business(business.id, profile.id, uuid.uuid4(), reason="changed_mind")
+
+
+# --- The supplier's own fulfilment terms, enforced at checkout ------------
+#
+# Both are ALSO applied in the checkout UI, but a client is never the
+# gate: a stale screen, a resumed session, or a direct API call all
+# reach the service, and the supplier can change either term after the
+# cart was built. See checkout_service._validate_supplier_fulfilment_terms.
+
+
+def test_checkout_rejects_deliver_when_the_supplier_does_not_deliver(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    from src.domains.network.orders.errors import DeliveryNotOfferedError
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Collect Only Co")
+    profile.offers_delivery = False
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    with pytest.raises(DeliveryNotOfferedError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+
+def test_checkout_allows_deliver_when_the_supplier_has_not_stated_terms(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """offers_delivery is TRI-STATE: NULL means "hasn't said", and must
+    never be read as "doesn't deliver". This is the regression that a
+    plain boolean caused -- 31 checkout tests failed at once because
+    every supplier predating the field silently became non-delivering."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Never Said Co")
+    assert profile.offers_delivery is None  # the real default: unstated
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_checkout_allows_collect_when_the_supplier_does_not_deliver(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """The same supplier, the same cart -- COLLECT goes through. The
+    gate is on the delivery TYPE, never on ordering itself."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Collect Only Co 2")
+    profile.offers_delivery = False
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "COLLECT")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_checkout_rejects_an_order_below_the_suppliers_minimum(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    from src.domains.network.orders.errors import BelowMinimumOrderError
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Minimum Co")
+    profile.offers_delivery = True
+    profile.minimum_order_cents = 50_000  # R500
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)  # R10
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    with pytest.raises(BelowMinimumOrderError) as exc:
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    # The shortfall rides along so the frontend can say "add R490 more"
+    # rather than making the business do the arithmetic.
+    assert exc.value.data["shortfallCents"] == 49_000
+
+
+def test_checkout_allows_an_order_that_meets_the_minimum_exactly(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """Boundary: the minimum is inclusive -- reaching it exactly is
+    enough, it isn't "more than"."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Exact Minimum Co")
+    profile.offers_delivery = True
+    profile.minimum_order_cents = 2000
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=1000)
+    cart_service.add_item(business.id, profile.id, product.id, 2)  # exactly R20
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_no_minimum_set_means_any_amount_can_check_out(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """NULL minimum genuinely means "no minimum" -- never zero, and
+    never a block."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Minimum Co")
+    profile.offers_delivery = True
+    profile.minimum_order_cents = None
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread", price_cents=100)
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_cart_carries_the_suppliers_fulfilment_terms(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """The checkout SCREEN reads these off the cart so it can default to
+    Collect and explain the minimum before a business fills in a form."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Terms Co")
+    profile.offers_delivery = False
+    profile.minimum_order_cents = 25_000
+    profile.collection_street = "12 Main Road"
+    profile.collection_suburb = "Elim"
+    db.session.commit()
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart = cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    assert cart["supplierOffersDelivery"] is False
+    assert cart["supplierMinimumOrderCents"] == 25_000
+    assert cart["supplierCollectionAddress"]["street"] == "12 Main Road"
+
+
+def test_cart_collection_address_is_none_when_the_supplier_never_set_one(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """A dict of all-None fields would render as an empty address block,
+    which reads as broken rather than as "not set yet"."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Address Co")
+    make_active_connection(business, profile)
+    product = _make_product(profile.id, "Bread")
+    cart = cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    assert cart["supplierCollectionAddress"] is None

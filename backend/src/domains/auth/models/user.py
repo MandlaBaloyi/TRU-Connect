@@ -82,6 +82,19 @@ class User(BaseModel):
 
     first_name = db.Column(db.String(100), nullable=True)
     last_name = db.Column(db.String(100), nullable=True)
+    # Captured at SUPPLIER registration, where it's mandatory (the owner
+    # name is the optional one) -- carried here rather than seeded
+    # straight onto SupplierProfile because that row is deliberately not
+    # created until email verification (supplier_profile_repository.py's
+    # docstring on the FK-no-cascade / hard-delete hazard). Same
+    # lifecycle as first_name/last_name: staged on the users row,
+    # consumed by otp_service._seed_supplier_profile at verification,
+    # hard-deleted cleanly with the user if they never verify. Validated
+    # to shared.validation.business_name's 50-char limit at the API
+    # boundary; 120 here is headroom, matching sibling columns. Nullable
+    # so business-role rows (which don't collect it) and pre-existing
+    # rows are valid.
+    business_name = db.Column(db.String(120), nullable=True)
     phone_number = db.Column(db.String(32), nullable=True)
     # The ONE personal photo, shared across roles -- a person only has
     # one face regardless of whether they're viewed as a business or

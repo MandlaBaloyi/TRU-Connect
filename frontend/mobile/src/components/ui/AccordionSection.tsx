@@ -15,18 +15,30 @@ interface Props {
    *  don't need rather than starting collapsed and hiding real
    *  information behind an extra tap. */
   defaultExpanded?: boolean;
+  /** Rendered between the title and the chevron -- an InfoHint, in
+   *  practice. Its own Pressable, so tapping the ⓘ opens the
+   *  explanation without also toggling the section. */
+  titleAccessory?: React.ReactNode;
 }
 
 /**
- * Shared by Product Codes, Shipping, and Returns -- one real
- * expand/collapse implementation rather than three copies. "Product
- * details" (the renamed top section: Supplier, Name, Price, Discount,
- * Availability, Sold as) deliberately does NOT use this -- that
- * section stays always visible, no arrows, since it's the decision-
- * making information a business needs immediately, not something to
- * tuck away.
+ * Shared by the product screen's Product Codes / Shipping / Returns
+ * and the brand profile's fulfilment terms -- one real expand/collapse
+ * implementation rather than a copy per screen.
+ *
+ * MOVED HERE from my-suppliers/components once find-supplier needed it
+ * too: my-suppliers depends on find-supplier, not the reverse, so
+ * importing it the other way would have pointed that arrow backwards.
+ * Neutral ground, same reasoning as services/contact/contactLinks.ts.
+ *
+ * NOT EVERYTHING SHOULD COLLAPSE. The product screen's "Product
+ * details" (Supplier, Name, Price, Discount, Availability, Sold as)
+ * deliberately does NOT use this -- that's the decision-making
+ * information a business needs immediately, not something to tuck
+ * behind a tap. Use this for supporting detail, never for the answer
+ * the screen exists to give.
  */
-export function AccordionSection({ title, children, defaultExpanded = true }: Props) {
+export function AccordionSection({ title, children, defaultExpanded = true, titleAccessory }: Props) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -39,7 +51,10 @@ export function AccordionSection({ title, children, defaultExpanded = true }: Pr
         accessibilityState={{ expanded }}
         accessibilityLabel={title}
       >
-        <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
+          {titleAccessory}
+        </View>
         {expanded ? (
           <ChevronUp size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
         ) : (
@@ -52,6 +67,7 @@ export function AccordionSection({ title, children, defaultExpanded = true }: Pr
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flexShrink: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",

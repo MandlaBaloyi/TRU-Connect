@@ -113,6 +113,7 @@ class TestSupplierRegisterSchema:
     def test_accepts_valid_payload(self):
         data = SupplierRegisterSchema().load(
             {
+                "businessName": "Dlamini Distributors",
                 "ownerName": "Naledi Dlamini",
                 "email": "naledi@example.com",
                 "password": "Abcd1234!",
@@ -121,6 +122,31 @@ class TestSupplierRegisterSchema:
             }
         )
         assert data["owner_name"] == "Naledi Dlamini"
+        assert data["business_name"] == "Dlamini Distributors"
+
+    def test_rejects_missing_business_name(self):
+        with pytest.raises(Exception):
+            SupplierRegisterSchema().load(
+                {
+                    "ownerName": "Naledi Dlamini",
+                    "email": "naledi2@example.com",
+                    "password": "Abcd1234!",
+                    "confirmPassword": "Abcd1234!",
+                    "acceptTerms": True,
+                }
+            )
+
+    def test_accepts_missing_owner_name(self):
+        data = SupplierRegisterSchema().load(
+            {
+                "businessName": "Solo Trader Supplies",
+                "email": "solo-schema@example.com",
+                "password": "Abcd1234!",
+                "confirmPassword": "Abcd1234!",
+                "acceptTerms": True,
+            }
+        )
+        assert data.get("owner_name") in (None, "")
 
 
 class TestLoginSchema:
@@ -235,6 +261,7 @@ class TestRegistrationIntegration:
             "/api/v1/auth/register",
             json={
                 "role": "supplier",
+                "businessName": "Someone Supplies",
                 "ownerName": "Someone",
                 "email": "roleflip@example.com",
                 "password": "Abcd1234!",
@@ -265,6 +292,7 @@ class TestRegistrationIntegration:
             "/api/v1/auth/register",
             json={
                 "role": "supplier",
+                "businessName": "Fresh Start Trading",
                 "ownerName": "Fresh Start",
                 "email": "stale@example.com",
                 "password": "NewPass123!",

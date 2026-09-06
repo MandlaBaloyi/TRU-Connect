@@ -54,6 +54,7 @@ let mockProducts: Product[] = [
       "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300&h=300&fit=crop",
     ],
     isArchived: false,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   },
@@ -75,6 +76,7 @@ let mockProducts: Product[] = [
     stockStatus: "IN_STOCK",
     images: [],
     isArchived: false,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   },
@@ -94,6 +96,7 @@ let mockProducts: Product[] = [
     stockStatus: "IN_STOCK",
     images: ["https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=300&h=300&fit=crop"],
     isArchived: false,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   },
@@ -115,6 +118,7 @@ let mockProducts: Product[] = [
     stockStatus: "OUT_OF_STOCK",
     images: [],
     isArchived: false,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   },
@@ -136,6 +140,7 @@ let mockProducts: Product[] = [
     // Seeded already-archived so the Archived filter has something
     // real to show without needing to archive one manually first.
     isArchived: true,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   },
@@ -267,11 +272,41 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
     // one session for reviewing the create flow.
     images: input.localImageUris,
     isArchived: false,
+    isPinned: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
   mockProducts = [product, ...mockProducts];
   return product;
+}
+
+const MAX_PINNED = 6;
+
+function setPinned(id: string, pinned: boolean): Product {
+  const index = mockProducts.findIndex((p) => p.id === id);
+  if (index === -1) throw new ProductsError("Product not found.", "PRODUCT_NOT_FOUND");
+  if (pinned) {
+    if (mockProducts[index].isArchived) {
+      throw new ProductsError("You can't feature an archived product.", "VALIDATION_ERROR");
+    }
+    const pinnedCount = mockProducts.filter((p) => p.isPinned).length;
+    if (!mockProducts[index].isPinned && pinnedCount >= MAX_PINNED) {
+      throw new ProductsError(`You can feature up to ${MAX_PINNED} products on your profile.`, "VALIDATION_ERROR");
+    }
+  }
+  const next: Product = { ...mockProducts[index], isPinned: pinned, updatedAt: nowIso() };
+  mockProducts = [...mockProducts.slice(0, index), next, ...mockProducts.slice(index + 1)];
+  return next;
+}
+
+export async function pinProduct(id: string): Promise<Product> {
+  await latency(250);
+  return setPinned(id, true);
+}
+
+export async function unpinProduct(id: string): Promise<Product> {
+  await latency(250);
+  return setPinned(id, false);
 }
 
 export async function archiveProduct(id: string): Promise<Product> {

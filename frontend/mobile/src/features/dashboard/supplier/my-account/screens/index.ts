@@ -1,7 +1,6 @@
 export { default as SupplierMyAccountScreen } from "./SupplierMyAccountScreen";
 export { default as ProfileScreen } from "./ProfileScreen";
 export { default as QRCodeScreen } from "./QRCodeScreen";
-export { default as ProfileImageScreen } from "./ProfileImageScreen";
 export { default as PaymentMethodsScreen } from "./PaymentMethodsScreen";
 export { default as AddPaymentMethodScreen } from "./AddPaymentMethodScreen";
 export { default as CardPaymentsScreen } from "./CardPaymentsScreen";

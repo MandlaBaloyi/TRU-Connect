@@ -42,6 +42,7 @@ from src.domains.supplier.products.schemas.product_schemas import (
 )
 from src.domains.supplier.products.services import product_media_service, product_service
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import SupplierProfileRepository
+from src.domains.supplier.supplier_profile.services import pinned_products_service
 
 products_bp = Blueprint("products", __name__)
 
@@ -74,10 +75,17 @@ def _flatten_marshmallow_errors(exc: MarshmallowValidationError) -> list[str]:
     ]
 
 
-def _to_dto(product) -> dict:
+def _to_dto(product, pinned_ids: set | None = None) -> dict:
     return {
         "id": str(product.id),
         "supplier_profile_id": str(product.supplier_profile_id),
+        # Whether this product is "featured" on the supplier's
+        # business profile (SupplierPinnedProduct). Callers that don't
+        # pass pinned_ids get False -- the supplier's Products LIST
+        # route threads the real set through; the single-product and
+        # bulk responses don't (the list is the source of truth the
+        # pin UI reads from).
+        "is_pinned": pinned_ids is not None and product.id in pinned_ids,
         "name": product.name,
         "category": product.category.value,
         "price_cents": product.price_cents,
@@ -142,18 +150,45 @@ def list_products():
     # build has always shown.
     is_archived = True if filter_param == "ARCHIVED" else False
     search_term = request.args.get("q") or None
+    supplier_profile_id = _supplier_profile_id()
     products = product_service.list_products(
-        _supplier_profile_id(), is_archived=is_archived, search_term=search_term
+        supplier_profile_id, is_archived=is_archived, search_term=search_term
     )
-    return success_response(data={"results": [_to_dto(p) for p in products]})
+    pinned_ids = pinned_products_service.list_pinned_product_ids(supplier_profile_id)
+    return success_response(data={"results": [_to_dto(p, pinned_ids) for p in products]})
 
 
 @products_bp.route("/api/v1/supplier-discovery/products/<product_id>", methods=["GET"])
 @fully_authenticated
 @role_required("supplier")
 def get_product(product_id: str):
-    product = product_service.get_product(product_id, _supplier_profile_id())
-    return success_response(data=_to_dto(product))
+    supplier_profile_id = _supplier_profile_id()
+    product = product_service.get_product(product_id, supplier_profile_id)
+    pinned_ids = {product.id} if pinned_products_service.is_pinned(supplier_profile_id, product.id) else set()
+    return success_response(data=_to_dto(product, pinned_ids))
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/<product_id>/pin", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+def pin_product(product_id: str):
+    """Feature this product on the supplier's business profile. Max 6;
+    ProfileValidationError (already-archived, or over the limit) is
+    converted to a 422 by the global handler, same as create_product."""
+    supplier_profile_id = _supplier_profile_id()
+    pinned_products_service.pin(supplier_profile_id, product_id)
+    product = product_service.get_product(product_id, supplier_profile_id)
+    return success_response(data=_to_dto(product, {product.id}))
+
+
+@products_bp.route("/api/v1/supplier-discovery/products/<product_id>/pin", methods=["DELETE"])
+@fully_authenticated
+@role_required("supplier")
+def unpin_product(product_id: str):
+    supplier_profile_id = _supplier_profile_id()
+    pinned_products_service.unpin(supplier_profile_id, product_id)
+    product = product_service.get_product(product_id, supplier_profile_id)
+    return success_response(data=_to_dto(product, set()))
 
 
 @products_bp.route("/api/v1/supplier-discovery/products/<product_id>", methods=["PATCH"])

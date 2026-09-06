@@ -314,3 +314,63 @@ class StockOrderRepository:
         stock_order.total_cents = total_cents
         db.session.commit()
         return stock_order
+
+    @staticmethod
+    def reliability_stats_for_supplier(supplier_profile_id: str | UUID) -> dict:
+        """Real fulfilment history for a supplier's brand profile:
+        how many decided orders they've had, how many they accepted,
+        and how long they typically took to decide.
+
+        DECIDED ORDERS ONLY -- an order still sitting in
+        PENDING_SUPPLIER_APPROVAL hasn't been accepted OR refused yet,
+        so counting it either way would be a guess. CANCELLED is
+        excluded too: a business cancelling their own order says
+        nothing about the supplier.
+
+        MEDIAN, not mean, for the response time -- one supplier who
+        went on holiday for three weeks once shouldn't define what
+        "usually" means for them.
+
+        Returns raw numbers only. Whether there's ENOUGH history to
+        show any of this to a business is a judgement the service makes
+        (see showcase-side MIN_ORDERS_FOR_RELIABILITY), not something a
+        repository should decide.
+        """
+        from src.domains.network.orders.models.stock_order import StockOrder, StockOrderStatus
+
+        decided = (
+            StockOrder.query.filter(
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.is_deleted.is_(False),
+                StockOrder.decided_at.isnot(None),
+                StockOrder.status.in_([StockOrderStatus.CONFIRMED, StockOrderStatus.DECLINED]),
+            )
+            .with_entities(StockOrder.status, StockOrder.submitted_at, StockOrder.decided_at)
+            .all()
+        )
+
+        if not decided:
+            return {"decidedCount": 0, "acceptedCount": 0, "medianResponseHours": None}
+
+        accepted = sum(1 for row in decided if row.status == StockOrderStatus.CONFIRMED)
+
+        durations = [
+            (row.decided_at - row.submitted_at).total_seconds() / 3600
+            for row in decided
+            if row.submitted_at is not None and row.decided_at is not None
+        ]
+        median_hours = None
+        if durations:
+            durations.sort()
+            middle = len(durations) // 2
+            median_hours = (
+                durations[middle]
+                if len(durations) % 2
+                else (durations[middle - 1] + durations[middle]) / 2
+            )
+
+        return {
+            "decidedCount": len(decided),
+            "acceptedCount": accepted,
+            "medianResponseHours": median_hours,
+        }

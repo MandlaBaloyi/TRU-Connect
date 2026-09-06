@@ -1,9 +1,11 @@
 import React from "react";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { Heart, MessagesSquare, Package, Share2 } from "lucide-react-native";
+import { Package } from "lucide-react-native";
 
+import { ProductActionsRow } from "@/components/products/ProductActionsRow";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
+import { sellingUnitLabel } from "@/components/products/sellingUnitLabel";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { spacing, radius } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -60,10 +62,7 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Prop
   const theme = useTheme();
   const discount = calculateDiscount(product.priceCents, product.compareAtPriceCents);
   const photoUrl = product.images[0] ?? null;
-
-  const comingSoon = (feature: string) => {
-    Alert.alert("Coming soon", `${feature} isn't available yet, but it's on the way.`);
-  };
+  const unitLabel = sellingUnitLabel(product.sellingUnit);
 
   return (
     <Pressable
@@ -117,42 +116,20 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Prop
             </Text>
           )}
         </View>
+        {/* The unit the price is quoted in -- see sellingUnitLabel on
+            why a bare price is unusable for a wholesale decision. */}
+        {unitLabel && (
+          <Text style={[styles.unitLabel, { color: theme.colors.onSurfaceVariant }]}>{unitLabel}</Text>
+        )}
 
-        <View style={styles.actionsRow}>
-          <Pressable
-            onPress={() => comingSoon("Likes")}
-            hitSlop={8}
-            style={styles.actionButton}
-            accessibilityRole="button"
-            accessibilityLabel={`Like ${product.name}`}
-          >
-            <Heart size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2.5} />
-          </Pressable>
-          <Pressable
-            onPress={() => comingSoon("Comments")}
-            hitSlop={8}
-            style={styles.actionButton}
-            accessibilityRole="button"
-            accessibilityLabel={`Comment on ${product.name}`}
-          >
-            <MessagesSquare size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2.5} />
-          </Pressable>
-          <Pressable
-            onPress={() => comingSoon("Sharing")}
-            hitSlop={8}
-            style={styles.actionButton}
-            accessibilityRole="button"
-            accessibilityLabel={`Share ${product.name}`}
-          >
-            <Share2 size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2.5} />
-          </Pressable>
-        </View>
+        <ProductActionsRow productName={product.name} />
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  unitLabel: { ...typography.bodySmall, fontSize: 11, marginTop: 1 },
   card: {
     width: "48%",
     borderWidth: 1,
@@ -187,6 +164,4 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 2 },
   price: { ...typography.body, fontWeight: "700" },
   compareAtPrice: { ...typography.bodySmall, textDecorationLine: "line-through" },
-  actionsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xs },
-  actionButton: { padding: 2 },
 });

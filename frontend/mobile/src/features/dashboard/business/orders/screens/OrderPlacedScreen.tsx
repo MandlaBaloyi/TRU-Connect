@@ -5,8 +5,9 @@ import { useTheme } from "react-native-paper";
 import { CheckCircle2, MessageCircle } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { supplierProfileHref } from "../../routes";
 import { formatCents } from "../../../supplier/products/services/productMapper";
-import { buildWhatsAppUrl } from "../../loan-book/services/contactActions";
+import { buildWhatsAppUrl } from "@/services/contact/contactLinks";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -114,7 +115,7 @@ export default function OrderPlacedScreen() {
         )}
 
         <Pressable
-          onPress={() => router.push(`/business/find-supplier/${supplierId}` as any)}
+          onPress={() => router.push(supplierProfileHref(supplierId, supplierName) as any)}
           style={[styles.continueButton, { borderColor: theme.colors.outline }]}
           accessibilityRole="button"
           accessibilityLabel="Continue browsing"

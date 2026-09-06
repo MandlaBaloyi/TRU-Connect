@@ -7,9 +7,13 @@ import { Package, ShoppingCart } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { showsAsVerified } from "@/constants/config";
+import { productDetailHref, supplierProfileHref } from "../../routes";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
+import { CATEGORY_OPTIONS } from "../../../supplier/products/types";
 import { useSupplierProducts } from "../../find-supplier/hooks/useSupplierProducts";
 import { useSupplierProductCategories } from "../../find-supplier/hooks/useSupplierProductCategories";
 import { useEndConnection } from "../../find-supplier/hooks/useEndConnection";
@@ -60,22 +64,56 @@ import type { CatalogCategoryFilter, CatalogSortOption } from "../types";
  * scrolled on the last one.
  */
 export default function SupplierCatalogScreen() {
-  const { supplierId } = useLocalSearchParams<{ supplierId: string }>();
+  const { supplierId, category, supplierName: supplierNameParam } = useLocalSearchParams<{
+    supplierId: string;
+    category?: string;
+    supplierName?: string;
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const theme = useTheme();
   const flatListRef = useRef<FlatList<SupplierProduct>>(null);
 
+  // "See all in <category>" from the brand profile lands here already
+  // filtered -- but only trust a value that's a real TruConnect
+  // category, never whatever a deep link happens to carry.
+  const initialCategory: CatalogCategoryFilter =
+    category && CATEGORY_OPTIONS.some((o) => o.value === category) ? category : null;
+
   const [page, setPage] = useState(1);
   const [sortOption, setSortOption] = useState<CatalogSortOption>("NEWEST");
-  const [categoryFilter, setCategoryFilter] = useState<CatalogCategoryFilter>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CatalogCategoryFilter>(initialCategory);
 
-  const { supplierName, contact, products, totalPages, totalCount, isLoading, isError, refetch } =
-    useSupplierProducts(supplierId ?? "", {
-      page,
-      sort: sortOption,
-      category: categoryFilter,
-    });
+  const {
+    supplierName,
+    supplierBusinessImageUrl,
+    supplierVerificationStatus,
+    contact,
+    products,
+    totalPages,
+    totalCount,
+    isLoading,
+    isError,
+    refetch,
+  } = useSupplierProducts(supplierId ?? "", {
+    page,
+    sort: sortOption,
+    category: categoryFilter,
+  });
+  // THE HEADER FLASH FIX, reported directly: opening this screen cold
+  // showed "Stock Catalogue" for a beat and then swapped to the real
+  // supplier name, because the title could only become real once the
+  // products request resolved. Every caller ALREADY knows the name
+  // when it navigates here (My Connections has connection.name, the
+  // brand profile has supplier.businessName), so it's passed through
+  // as a route param and read synchronously -- the exact same fix, for
+  // the exact same class of bug, that create-account.tsx documents in
+  // its own docstring (point 6: re-fetching a value the caller already
+  // had in hand is what produced the visible gap). The fetched name
+  // still wins once it arrives, so a stale/absent param self-corrects
+  // rather than sticking.
+  const headerSupplierName = supplierName ?? supplierNameParam ?? null;
+
   const { categories: availableCategories } = useSupplierProductCategories(supplierId ?? "");
   const { endConnection, isEnding } = useEndConnection(supplierId ?? "");
   const { reportSupplier, isReporting } = useReportSupplier(supplierId ?? "");
@@ -90,7 +128,17 @@ export default function SupplierCatalogScreen() {
 
   const [scrollY, setScrollY] = useState(0);
   const [controlsRowY, setControlsRowY] = useState<number | null>(null);
-  const isSticky = controlsRowY !== null && scrollY >= controlsRowY;
+  // STRICTLY GREATER THAN, not >=. This used to be >=, which was
+  // correct only while the supplier's name sat above the controls row
+  // in the list header (so controlsRowY was always a positive offset).
+  // Once the name moved up into the top bar (EntityHeaderTitle), the
+  // controls row became the FIRST thing in the header -- controlsRowY
+  // is now 0, so `scrollY >= 0` was true at rest and the pinned copy
+  // rendered on top of the inline one permanently: two identical
+  // "26 items / Sort / Filter" rows, visible without scrolling at all.
+  // `>` is the honest test either way -- "have we actually scrolled
+  // past it", which at offset 0 we plainly have not.
+  const isSticky = controlsRowY !== null && scrollY > controlsRowY;
 
   // THE REAL FIX for the sticky-header duplicate bug -- see this
   // screen's own docstring for the full trace. Every page change
@@ -141,6 +189,25 @@ export default function SupplierCatalogScreen() {
   // need to call handlers/state defined here.
   useLayoutEffect(() => {
     navigation.setOptions({
+      // Social-style top bar: the supplier's avatar + business name,
+      // with "Stock catalogue" as the quiet second line, so a business
+      // is certain whose stock this is. Two lines rather than one
+      // "<name> Stock" string -- see EntityHeaderTitle's own docstring
+      // on why that truncated the name away. Falls back to the
+      // _layout.tsx "Stock Catalogue" string while still loading.
+      ...(headerSupplierName
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={headerSupplierName}
+                subtitle="Stock catalogue"
+                photoUrl={supplierBusinessImageUrl}
+                verified={showsAsVerified(supplierVerificationStatus)}
+                onPress={() => router.push(supplierProfileHref(supplierId, headerSupplierName) as any)}
+              />
+            ),
+          }
+        : {}),
       headerRight: () => (
         <View style={styles.headerRightRow}>
           <Pressable
@@ -158,7 +225,7 @@ export default function SupplierCatalogScreen() {
             )}
           </Pressable>
           <SupplierCatalogMenu
-            onViewProfile={() => router.push(`/business/find-supplier/${supplierId}` as any)}
+            onViewProfile={() => router.push(supplierProfileHref(supplierId, headerSupplierName) as any)}
             onContactSupplier={() => setContactSheetOpen(true)}
             onReport={() => setReportSheetOpen(true)}
             onDisconnect={() => setDisconnectSheetOpen(true)}
@@ -167,7 +234,7 @@ export default function SupplierCatalogScreen() {
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, supplierId, cartItemCount]);
+  }, [navigation, supplierId, cartItemCount, headerSupplierName, supplierBusinessImageUrl, supplierVerificationStatus]);
 
   if (isLoading) {
     return (
@@ -193,7 +260,9 @@ export default function SupplierCatalogScreen() {
         <EmptyState
           icon={<Package size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}
           message={
-            supplierName ? `${supplierName} hasn't listed any products yet.` : "This supplier hasn't listed any products yet."
+            headerSupplierName
+              ? `${headerSupplierName} hasn't listed any products yet.`
+              : "This supplier hasn't listed any products yet."
           }
         />
       </ScreenContainer>
@@ -227,12 +296,9 @@ export default function SupplierCatalogScreen() {
         onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
         ListHeaderComponent={
-          <View>
-            {supplierName && (
-              <Text style={[styles.supplierName, { color: theme.colors.onSurface }]}>{supplierName}</Text>
-            )}
-            <View onLayout={(event) => setControlsRowY(event.nativeEvent.layout.y)}>{controlsRow}</View>
-          </View>
+          // The supplier's name now lives in the top bar
+          // (EntityHeaderTitle), so it's no longer repeated here.
+          <View onLayout={(event) => setControlsRowY(event.nativeEvent.layout.y)}>{controlsRow}</View>
         }
         ListEmptyComponent={
           <Text style={[styles.noMatches, { color: theme.colors.onSurfaceVariant }]}>
@@ -243,7 +309,7 @@ export default function SupplierCatalogScreen() {
         renderItem={({ item }) => (
           <SupplierCatalogProductCard
             product={item}
-            onPress={() => router.push(`/business/my-suppliers/${supplierId}/products/${item.id}` as any)}
+            onPress={() => router.push(productDetailHref(supplierId, item.id, item.name, headerSupplierName) as any)}
           />
         )}
       />
@@ -303,7 +369,6 @@ const styles = StyleSheet.create({
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: spacing.md, gap: spacing.md },
   row: { justifyContent: "space-between" },
-  supplierName: { ...typography.h1, marginBottom: spacing.sm },
   noMatches: { ...typography.body, textAlign: "center", paddingTop: spacing.xl },
   pinned: {
     position: "absolute",

@@ -108,7 +108,7 @@ class AuthService:
         ticket = data.get("invitation_ticket")
         if ticket:
             try:
-                from src.domains.network.connections.services.connections_service import (
+                from src.domains.network.connections.services.invitation_service import (
                     link_invitation_at_registration,
                 )
 
@@ -120,13 +120,24 @@ class AuthService:
 
     @staticmethod
     def register_supplier(data: dict) -> User:
+        from src.shared.validation.business_name import normalize_business_name
+
+        # owner_name is optional now; business_name is mandatory and is
+        # the identity that seeds SupplierProfile at verification (see
+        # otp_service._seed_supplier_profile). Schema already validated
+        # the name's shape; normalize once here so the stored value is
+        # trimmed / whitespace-collapsed.
         user = AuthService._create_or_resume(
-            data=data, role=UserRole.SUPPLIER, first_name=data["owner_name"], last_name=None
+            data=data,
+            role=UserRole.SUPPLIER,
+            first_name=data.get("owner_name") or None,
+            last_name=None,
+            business_name=normalize_business_name(data["business_name"]),
         )
         AuthService._send_verification_otp(user)
 
         # Supplier Invitation (file.txt Phase 2) -- registration-time
-        # half of the two-stage link; see connections_service.py's
+        # half of the two-stage link; see invitation_service.py's
         # own docstring on why this ONLY links, never creates the real
         # ConnectionRequest (that happens at verification success,
         # OTPService.verify_otp). Resilient the same way the seed
@@ -135,7 +146,7 @@ class AuthService:
         ticket = data.get("invitation_ticket")
         if ticket:
             try:
-                from src.domains.network.connections.services.connections_service import (
+                from src.domains.network.connections.services.invitation_service import (
                     link_invitation_at_registration,
                 )
 
@@ -153,7 +164,13 @@ class AuthService:
         return (utcnow() - user.created_at).total_seconds() > expiry_hours * 3600
 
     @staticmethod
-    def _create_or_resume(data: dict, role: UserRole, first_name: str, last_name: Optional[str]) -> User:
+    def _create_or_resume(
+        data: dict,
+        role: UserRole,
+        first_name: Optional[str],
+        last_name: Optional[str],
+        business_name: Optional[str] = None,
+    ) -> User:
         existing = UserRepository.get_by_email(data["email"])
 
         if existing is not None:
@@ -181,6 +198,7 @@ class AuthService:
                 existing.password_hash = hash_password(data["password"])
                 existing.first_name = first_name
                 existing.last_name = last_name
+                existing.business_name = business_name
                 from src.extensions import db
 
                 db.session.commit()
@@ -196,6 +214,7 @@ class AuthService:
             role=role,
             first_name=first_name,
             last_name=last_name,
+            business_name=business_name,
         )
         # AUDIT: logged here specifically (not in register_business/
         # register_supplier) so it can never double-fire alongside

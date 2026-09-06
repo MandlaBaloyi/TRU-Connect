@@ -33,7 +33,20 @@ from flask import Blueprint, request
 from src.core.decorators import fully_authenticated, role_required
 from src.core.responses import success_response
 from src.domains.network.connections.rate_limit import policies as rate_limit_policies
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    connection_list_service,
+    discovery_service,
+    invitation_service,
+    report_service,
+    request_service,
+)
+# Everything a BUSINESS sees of a supplier lives in its own package --
+# see services/storefront/__init__.py for why the old single
+# catalog_service.py was split.
+from src.domains.network.connections.services.storefront import (
+    catalog_service,
+    showcase_service,
+)
 from src.domains.security.rate_limit.limiter import limiter
 
 connections_bp = Blueprint("connections", __name__)
@@ -57,7 +70,7 @@ def _supplier_id() -> uuid.UUID:
 @limiter.limit(rate_limit_policies.SEARCH, key_func=rate_limit_policies.business_key_func)
 def search():
     query = request.args.get("q", "")
-    results = connections_service.search_suppliers(query, _business_id())
+    results = discovery_service.search_suppliers(query, _business_id())
     return success_response(data={"results": results})
 
 
@@ -65,7 +78,7 @@ def search():
 @fully_authenticated
 @role_required("business")
 def get_supplier_profile(supplier_profile_id: uuid.UUID):
-    profile = connections_service.get_supplier_profile(_business_id(), supplier_profile_id)
+    profile = discovery_service.get_supplier_profile(_business_id(), supplier_profile_id)
     return success_response(data=profile)
 
 
@@ -75,8 +88,20 @@ def get_supplier_profile(supplier_profile_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def get_supplier_product_categories(supplier_profile_id: uuid.UUID):
-    categories = connections_service.get_supplier_product_categories(supplier_profile_id)
+    categories = catalog_service.get_supplier_product_categories(supplier_profile_id)
     return success_response(data={"categories": categories})
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/profile-products", methods=["GET"]
+)
+@fully_authenticated
+@role_required("business")
+def list_supplier_profile_products(supplier_profile_id: uuid.UUID):
+    """The small pinned/featured strip on the supplier's brand profile
+    -- distinct from the paginated /products catalogue below."""
+    result = showcase_service.list_profile_products(_business_id(), supplier_profile_id)
+    return success_response(data=result)
 
 
 @connections_bp.route("/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/products", methods=["GET"])
@@ -88,11 +113,11 @@ def list_supplier_products(supplier_profile_id: uuid.UUID):
     # real validation (range/allowed-values checks) happens in the
     # service layer, not here.
     page = request.args.get("page", default=1, type=int)
-    limit = request.args.get("limit", default=connections_service.DEFAULT_CATALOG_PAGE_SIZE, type=int)
+    limit = request.args.get("limit", default=catalog_service.DEFAULT_CATALOG_PAGE_SIZE, type=int)
     sort = request.args.get("sort", default="NEWEST")
     category = request.args.get("category")
 
-    result = connections_service.list_supplier_products(
+    result = catalog_service.list_supplier_products(
         _business_id(), supplier_profile_id, page=page, limit=limit, sort=sort, category=category
     )
     return success_response(data=result)
@@ -105,7 +130,7 @@ def list_supplier_products(supplier_profile_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def get_supplier_product(supplier_profile_id: uuid.UUID, product_id: uuid.UUID):
-    product = connections_service.get_supplier_product(_business_id(), supplier_profile_id, product_id)
+    product = catalog_service.get_supplier_product(_business_id(), supplier_profile_id, product_id)
     return success_response(data=product)
 
 
@@ -116,7 +141,7 @@ def get_supplier_product(supplier_profile_id: uuid.UUID, product_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def list_related_products(supplier_profile_id: uuid.UUID, product_id: uuid.UUID):
-    result = connections_service.list_related_products(_business_id(), supplier_profile_id, product_id)
+    result = catalog_service.list_related_products(_business_id(), supplier_profile_id, product_id)
     return success_response(data=result)
 
 
@@ -127,7 +152,7 @@ def list_related_products(supplier_profile_id: uuid.UUID, product_id: uuid.UUID)
 @role_required("business")
 @limiter.limit(rate_limit_policies.CONNECTION_REQUEST, key_func=rate_limit_policies.business_key_func)
 def request_connection(supplier_profile_id: uuid.UUID):
-    result = connections_service.request_connection(_business_id(), supplier_profile_id)
+    result = request_service.request_connection(_business_id(), supplier_profile_id)
     return success_response(data=result)
 
 
@@ -143,7 +168,7 @@ def request_connection(supplier_profile_id: uuid.UUID):
 @limiter.limit(rate_limit_policies.SEARCH, key_func=rate_limit_policies.business_key_func)
 def search_businesses():
     query = request.args.get("q", "")
-    results = connections_service.search_businesses(query, _supplier_id())
+    results = discovery_service.search_businesses(query, _supplier_id())
     return success_response(data={"results": results})
 
 
@@ -151,7 +176,7 @@ def search_businesses():
 @fully_authenticated
 @role_required("supplier")
 def get_business_profile(business_profile_id: uuid.UUID):
-    profile = connections_service.get_business_profile(_supplier_id(), business_profile_id)
+    profile = discovery_service.get_business_profile(_supplier_id(), business_profile_id)
     return success_response(data=profile)
 
 
@@ -162,7 +187,7 @@ def get_business_profile(business_profile_id: uuid.UUID):
 @role_required("supplier")
 @limiter.limit(rate_limit_policies.CONNECTION_REQUEST, key_func=rate_limit_policies.business_key_func)
 def request_connection_to_business(business_profile_id: uuid.UUID):
-    result = connections_service.request_connection_to_business(_supplier_id(), business_profile_id)
+    result = request_service.request_connection_to_business(_supplier_id(), business_profile_id)
     return success_response(data=result)
 
 
@@ -178,7 +203,7 @@ def request_connection_to_business(business_profile_id: uuid.UUID):
 @fully_authenticated
 @role_required("supplier")
 def get_customer_requests():
-    results = connections_service.get_customer_requests(_supplier_id())
+    results = request_service.get_customer_requests(_supplier_id())
     return success_response(data={"requests": results})
 
 
@@ -186,7 +211,7 @@ def get_customer_requests():
 @fully_authenticated
 @role_required("supplier")
 def get_customer_request_detail(request_id: uuid.UUID):
-    detail = connections_service.get_customer_request_detail(_supplier_id(), request_id)
+    detail = request_service.get_customer_request_detail(_supplier_id(), request_id)
     return success_response(data=detail)
 
 
@@ -196,7 +221,7 @@ def get_customer_request_detail(request_id: uuid.UUID):
 @fully_authenticated
 @role_required("supplier")
 def approve_customer_request(request_id: uuid.UUID):
-    result = connections_service.approve_request(_supplier_id(), request_id)
+    result = request_service.approve_request(_supplier_id(), request_id)
     return success_response(data=result)
 
 
@@ -206,7 +231,7 @@ def approve_customer_request(request_id: uuid.UUID):
 @fully_authenticated
 @role_required("supplier")
 def decline_customer_request(request_id: uuid.UUID):
-    result = connections_service.decline_request(_supplier_id(), request_id)
+    result = request_service.decline_request(_supplier_id(), request_id)
     return success_response(data=result)
 
 
@@ -222,7 +247,7 @@ def decline_customer_request(request_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def get_supplier_requests():
-    results = connections_service.get_supplier_requests(_business_id())
+    results = request_service.get_supplier_requests(_business_id())
     return success_response(data={"requests": results})
 
 
@@ -230,7 +255,7 @@ def get_supplier_requests():
 @fully_authenticated
 @role_required("business")
 def get_supplier_request_detail(request_id: uuid.UUID):
-    detail = connections_service.get_supplier_request_detail(_business_id(), request_id)
+    detail = request_service.get_supplier_request_detail(_business_id(), request_id)
     return success_response(data=detail)
 
 
@@ -240,7 +265,7 @@ def get_supplier_request_detail(request_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def approve_supplier_request(request_id: uuid.UUID):
-    result = connections_service.approve_supplier_request(_business_id(), request_id)
+    result = request_service.approve_supplier_request(_business_id(), request_id)
     return success_response(data=result)
 
 
@@ -250,7 +275,7 @@ def approve_supplier_request(request_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 def decline_supplier_request(request_id: uuid.UUID):
-    result = connections_service.decline_supplier_request(_business_id(), request_id)
+    result = request_service.decline_supplier_request(_business_id(), request_id)
     return success_response(data=result)
 
 
@@ -290,7 +315,7 @@ def invite_supplier():
         ]
         return error_response(message="Validation failed", errors=flat_errors, status_code=422)
 
-    result = connections_service.invite_supplier(_business_id(), data["email"])
+    result = invitation_service.invite_supplier(_business_id(), data["email"])
     return success_response(data=result)
 
 
@@ -314,14 +339,14 @@ def invite_business():
         ]
         return error_response(message="Validation failed", errors=flat_errors, status_code=422)
 
-    result = connections_service.invite_business(_supplier_id(), data["email"])
+    result = invitation_service.invite_business(_supplier_id(), data["email"])
     return success_response(data=result)
 
 
 @connections_bp.route("/api/v1/supplier-discovery/invitations/validate", methods=["GET"])
 def validate_invitation():
     ticket = request.args.get("ticket", "")
-    is_valid = connections_service.validate_invitation(ticket) if ticket else False
+    is_valid = invitation_service.validate_invitation(ticket) if ticket else False
     return success_response(data={"valid": is_valid})
 
 
@@ -330,14 +355,14 @@ def validate_invitation():
 def get_my_connections():
     """My Connections -- Community tab, both roles. Deliberately NOT
     role_required("business") or role_required("supplier") like every
-    other route in this file -- see connections_service.py's own
+    other route in this file -- see connection_list_service.py's own
     get_my_connections docstring on why one shared route branching on
     the caller's own role is the honest design here, not a shortcut."""
     from flask_jwt_extended import get_jwt, get_jwt_identity
 
     role = get_jwt().get("role")
     user_id = uuid.UUID(get_jwt_identity())
-    results = connections_service.get_my_connections(user_id, role)
+    results = connection_list_service.get_my_connections(user_id, role)
     return success_response(data={"connections": results})
 
 
@@ -350,7 +375,7 @@ def update_my_photo_settings():
     role = get_jwt().get("role")
     user_id = uuid.UUID(get_jwt_identity())
     payload = request.get_json(silent=True) or {}
-    result = connections_service.update_my_photo_settings(
+    result = discovery_service.update_my_photo_settings(
         user_id,
         role,
         visible_image_source=payload.get("visibleImageSource"),
@@ -381,7 +406,7 @@ def end_connection(supplier_profile_id: uuid.UUID):
     # caught here -- same as every other route in this file, a
     # global error handler already converts them to the real status
     # code.
-    result = connections_service.end_connection(_business_id(), supplier_profile_id, data["reason"], data["details"])
+    result = connection_list_service.end_connection(_business_id(), supplier_profile_id, data["reason"], data["details"])
     return success_response(data=result)
 
 
@@ -394,7 +419,7 @@ def list_ended_connections():
     relationship isn't a flow this pass builds), so unlike
     get_my_connections above, this one doesn't need to branch on
     role."""
-    results = connections_service.list_ended_connections(_business_id())
+    results = connection_list_service.list_ended_connections(_business_id())
     return success_response(data={"connections": results})
 
 
@@ -414,7 +439,7 @@ def report_supplier(supplier_profile_id: uuid.UUID):
         errors = [str(msg) for field_errors in exc.messages.values() for msg in field_errors]
         return error_response(message="Validation failed", errors=errors, status_code=422)
 
-    result = connections_service.report_supplier(
+    result = report_service.report_supplier(
         _business_id(), supplier_profile_id, data["reason"], data["details"], product_id=data["product_id"]
     )
     return success_response(data=result)

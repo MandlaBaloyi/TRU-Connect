@@ -190,7 +190,15 @@ export default function BusinessCommunity() {
           {activeTab === "MY_CONNECTIONS" ? (
             <MyConnectionsList
               onPressConnection={(connection) =>
-                router.push(`/business/find-supplier/products/${connection.otherPartyId}` as any)
+                // supplierName is carried through so the catalogue's
+                // top bar is right on its very first frame instead of
+                // showing "Stock Catalogue" and then swapping -- see
+                // SupplierCatalogScreen's own headerSupplierName note.
+                router.push(
+                  `/business/find-supplier/products/${connection.otherPartyId}?supplierName=${encodeURIComponent(
+                    connection.name
+                  )}` as any
+                )
               }
             />
           ) : (

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "mobile",
-    "slug": "truconnect",
+    "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/tru-connect-logo.png",
@@ -26,13 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile",
-      "permissions": [
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      "package": "com.anonymous.mobile"
     },
     "web": {
       "favicon": "./assets/images/tru-connect-logo.png"
@@ -51,12 +45,7 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://api.truconnect.dev/api/v1",
-      "router": {},
-      "eas": {
-        "projectId": "271d39ae-7caa-48d0-99c9-5f466913a933"
-      }
-    },
-    "owner": "truconnect-team"
+      "apiBaseUrl": "https://api.truconnect.dev/api/v1"
+    }
   }
 }

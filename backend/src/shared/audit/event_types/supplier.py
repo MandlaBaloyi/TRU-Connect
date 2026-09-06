@@ -24,6 +24,7 @@ class SupplierAuditEvent(str, enum.Enum):
     INVENTORY_ADJUST_RATE_LIMITED = "supplier.inventory_adjust_rate_limited"
     MEDIA_SIGN_RATE_LIMITED = "supplier.media_sign_rate_limited"
     PRODUCT_MEDIA_REJECTED = "supplier.product_media_rejected"
+    SUPPLIER_PROFILE_IMAGE_REJECTED = "supplier.profile_image_rejected"
     BULK_IMPORT_SUBMIT_RATE_LIMITED = "supplier.bulk_import_submit_rate_limited"
     BULK_IMPORT_SUSPICIOUS_FILE_DETECTED = "supplier.bulk_import_suspicious_file_detected"
     BULK_IMPORT_LOCKED_OUT = "supplier.bulk_import_locked_out"
