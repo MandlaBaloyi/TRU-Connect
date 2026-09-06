@@ -11,6 +11,8 @@ const MOCK_CONNECTIONS: ConnectionSummary[] = [
     // populated mock product catalogue, not a dead end.
     otherPartyId: "mock-supplier-001",
     connectedSince: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    photoUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+    ownerName: "Mandla Baloyi",
   },
 ];
 

@@ -117,7 +117,7 @@ class ProductRepository:
         if search_term:
             # Substring, not prefix -- this is a supplier browsing their
             # OWN catalogue, not the public supplier-search endpoint
-            # (connections_service.search_suppliers), which deliberately
+            # (connections' discovery_service.search_suppliers), which deliberately
             # uses prefix-only matching for the enumeration-vector
             # reasons documented there. That reasoning doesn't apply to
             # a supplier searching their own products.
@@ -138,7 +138,7 @@ class ProductRepository:
         pagination directly to it would force every existing caller to
         start handling pages it never asked for. This one exists
         specifically for the business-facing catalogue view
-        (connections_service.py's own list_supplier_products), where a
+        (connections' catalog_service.list_supplier_products), where a
         supplier with hundreds of products genuinely needs to be
         fetched a page at a time, not all at once -- REAL "protect the
         API, and scale" concern, not a cosmetic one: without this, one

@@ -22,6 +22,7 @@
 import { API_BASE_URL, STORAGE_KEYS } from "@/constants/config";
 import { apiGet, ApiError } from "@/services/api/apiClient";
 import { secureStorage } from "@/services/storage/secureStorage";
+import { formDataFilePart } from "@/services/media/formDataFile";
 
 import type { ImportJob, ImportJobError, ImportJobStatus, ParsedImportFile } from "../types";
 import type { PickedFile } from "../services/importSession";
@@ -79,34 +80,31 @@ export async function submitImport(
   _parsedFile: ParsedImportFile
 ): Promise<ImportJob> {
   const formData = new FormData();
-  // Same {uri, name, type} shape cloudinaryUpload.ts uses -- React
-  // Native's networking layer streams the file at `uri` directly
-  // rather than loading it into JS memory first.
-  formData.append("spreadsheet", {
-    uri: spreadsheetFile.uri,
-    name: spreadsheetFile.name,
-    type: mimeTypeFor(spreadsheetFile.name),
-  } as unknown as Blob);
+  // NOT the classic RN `{ uri, name, type }` shape -- Expo SDK 54+'s
+  // WinterCG FormData/fetch rejects it with "Unsupported FormDataPart
+  // implementation" (see @/services/media/formDataFile.ts). This helper
+  // returns the `{ name, type, bytes() }` shape the WinterCG multipart
+  // serializer accepts; the file is read off disk by expo-file-system.
+  // A single-file Cloudinary upload uses the native streaming
+  // File.upload() instead, but this request carries TWO files
+  // (spreadsheet + optional ZIP), so it needs a hand-built body.
+  formData.append(
+    "spreadsheet",
+    formDataFilePart(spreadsheetFile.uri, spreadsheetFile.name, mimeTypeFor(spreadsheetFile.name)) as unknown as Blob
+  );
 
   if (zipFile) {
-    formData.append("zip", {
-      uri: zipFile.uri,
-      name: zipFile.name,
-      type: mimeTypeFor(zipFile.name),
-    } as unknown as Blob);
+    formData.append(
+      "zip",
+      formDataFilePart(zipFile.uri, zipFile.name, mimeTypeFor(zipFile.name)) as unknown as Blob
+    );
   }
 
-  // REAL BUG FOUND DURING DEVICE TESTING: this used to go through
-  // apiPost (axios). A confirmed, long-standing axios bug
-  // (axios/axios#1321 -- "Axios don't send form data in react-native")
-  // silently drops a FormData file appended with React Native's own
-  // {uri, name, type} shape -- the request still goes through and
-  // looks fine, but the backend's own request.files.get("spreadsheet")
-  // comes back empty. cloudinaryUpload.ts's own direct-to-Cloudinary
-  // upload has always used raw fetch() instead, and has worked
-  // correctly every single time it's been tested -- this switches to
-  // that same proven mechanism rather than trying to work around
-  // axios's own bug.
+  // Raw fetch(), NOT apiPost (axios) -- a confirmed, long-standing
+  // axios bug (axios/axios#1321) silently drops a React-Native
+  // FormData file part: the request still goes through and looks fine,
+  // but the backend's request.files.get("spreadsheet") comes back
+  // empty.
   //
   // Auth and the response envelope are normally handled automatically
   // by apiClient's own interceptors -- both are done by hand here

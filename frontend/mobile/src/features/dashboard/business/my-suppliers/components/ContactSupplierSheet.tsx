@@ -3,8 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { Mail, MessageCircle, Music2 } from "lucide-react-native";
 
-import { buildWhatsAppUrl } from "../../loan-book/services/contactActions";
-import { buildTikTokUrl, openUrl } from "../services/contactActions";
+import { buildTikTokUrl, buildWhatsAppUrl, openUrl } from "@/services/contact/contactLinks";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 

@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+)
 from src.domains.network.connections.services.errors import InvalidSearchQueryError
 from src.shared.validation.identifiers import normalize_email, normalize_phone
 
@@ -56,13 +58,13 @@ def viewer_business(make_business):
 
 
 def test_search_by_name_prefix(abc_wholesale, viewer_business):
-    results = connections_service.search_suppliers("ABC", viewer_business.id)
+    results = discovery_service.search_suppliers("ABC", viewer_business.id)
     assert len(results) == 1
     assert results[0]["businessName"] == "ABC Wholesale"
 
 
 def test_search_by_name_prefix_is_case_insensitive(abc_wholesale, viewer_business):
-    results = connections_service.search_suppliers("abc", viewer_business.id)
+    results = discovery_service.search_suppliers("abc", viewer_business.id)
     assert len(results) == 1
     assert results[0]["businessName"] == "ABC Wholesale"
 
@@ -72,7 +74,7 @@ def test_name_search_is_prefix_only_not_substring(abc_wholesale, viewer_business
     only appears mid-name must NOT match. Confirmed against a real DB:
     a `contains` match here would also silently defeat
     ix_supplier_profiles_business_name's own usability at scale."""
-    results = connections_service.search_suppliers("Wholesale", viewer_business.id)
+    results = discovery_service.search_suppliers("Wholesale", viewer_business.id)
     assert results == []
 
 
@@ -81,7 +83,7 @@ def test_search_result_shape_has_no_matched_field_or_identifier(abc_wholesale, v
     matchedField/maskedMatchedIdentifier must be genuinely GONE, not
     just always "NAME"/"" -- see SupplierProfile.to_search_result_dict's
     own docstring for why they were removed rather than left constant."""
-    results = connections_service.search_suppliers("ABC", viewer_business.id)
+    results = discovery_service.search_suppliers("ABC", viewer_business.id)
     assert "matchedField" not in results[0]
     assert "maskedMatchedIdentifier" not in results[0]
     assert set(results[0].keys()) == {
@@ -102,15 +104,15 @@ def test_searching_by_a_real_registered_phone_or_email_no_longer_matches(abc_who
     the old phone/email code branches were deleted. Before this
     redesign, both of these queries would have returned exactly this
     supplier."""
-    assert connections_service.search_suppliers("071 234 5678", viewer_business.id) == []
-    assert connections_service.search_suppliers("orders@abcwholesale.co.za", viewer_business.id) == []
+    assert discovery_service.search_suppliers("071 234 5678", viewer_business.id) == []
+    assert discovery_service.search_suppliers("orders@abcwholesale.co.za", viewer_business.id) == []
 
 
 def test_query_below_minimum_length_raises(viewer_business):
     with pytest.raises(InvalidSearchQueryError):
-        connections_service.search_suppliers("A", viewer_business.id)
+        discovery_service.search_suppliers("A", viewer_business.id)
 
 
 def test_no_match_returns_empty_not_an_error(abc_wholesale, viewer_business):
-    results = connections_service.search_suppliers("Zzz Nonexistent", viewer_business.id)
+    results = discovery_service.search_suppliers("Zzz Nonexistent", viewer_business.id)
     assert results == []

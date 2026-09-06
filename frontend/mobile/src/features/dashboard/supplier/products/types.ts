@@ -214,6 +214,12 @@ export interface Product {
    *  at CreateProductInput and the Archive flow in ProductDetailScreen.
    *  Historical orders must keep referencing a real product row. */
   isArchived: boolean;
+  /** Whether this product is "featured" on the supplier's business
+   *  profile (SupplierPinnedProduct, max 6). Toggled from the ⋮ menu on
+   *  each product card. The backend's list endpoint sends the real
+   *  value; single-product / bulk responses default it false, so treat
+   *  the list as the source of truth. */
+  isPinned: boolean;
   createdAt: string;
   updatedAt: string;
 }

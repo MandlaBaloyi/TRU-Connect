@@ -13,15 +13,14 @@
  *    been designed yet — better to add it once there's something real
  *    to point at.
  *
- * 2. NO business-details editing (business name / category /
- *    location) here. Those fields live on SupplierProfile, but
- *    editing them is deliberately OUT of this feature's scope — they
- *    get their own dedicated feature later, specifically because
- *    they'll double as verification-relevant data (file.txt's later
- *    "verification wall" phase). This screen only ever READS the
- *    business name, as a subtitle, the exact same read-only-peek
- *    pattern business/my-account's own useAccountProfile.ts already
- *    established for the identical situation on the business side.
+ * 2. NO business-details editing on the LANDING screen — it only ever
+ *    READS the business name as a subtitle. Business name, bio, and
+ *    the contact channels ARE editable, but on the dedicated Profile
+ *    screen (screens/ProfileScreen.tsx), inline per-field, through the
+ *    real PATCH /supplier-discovery/my-profile write path. category /
+ *    location stay out of scope for now (reserved for the later
+ *    "verification wall" phase) and are passed through untouched on
+ *    every profile save.
  *
  * ============================================================
  * WHAT IS REAL VS MOCK RIGHT NOW
@@ -81,14 +80,66 @@ export interface AccountProfileSummary {
   lastName: string | null;
   email: string;
   phoneNumber: string | null;
-  /** Read-only, from SupplierProfile — see this file's header. */
+  /** Read-only here, from SupplierProfile — edited on the Profile
+   *  screen. See this file's header. */
   businessName: string | null;
   /** Also from SupplierProfile — genuinely SupplierProfile.description,
    *  see accountService.ts's own note on why this and businessName
    *  are the same real profile, not two separate reads. */
   bio: string | null;
+  /** Currently-approved profile photo url (SupplierProfile
+   *  .business_image_url), or null. Real — uploaded straight to
+   *  Cloudinary, see services/profileImageUpload.ts. */
+  businessImageUrl: string | null;
+  /** Currently-approved cover banner url (SupplierProfile
+   *  .cover_image_url), or null. Same real upload flow. */
+  coverImageUrl: string | null;
   verification: TrustVerificationStatus;
   accountStatus: AccountStatus | null;
+}
+
+// ---------------------------------------------------------------------------
+// File upload — direct counterpart to business/my-account/types.ts's own
+// FileAsset/UploadStatus/UploadSession. GENUINELY MISSING until now —
+// fileRepository.ts and useFileUpload.ts on this supplier side already
+// imported these three names from this file, but they were never
+// actually defined here, only on the business side. This was a real,
+// pre-existing compile error (confirmed present in the original v51
+// upload, before any work in this session), not something introduced
+// by the cover-image work that surfaced it. Fixed here by mirroring
+// business/my-account/types.ts's own definitions exactly rather than
+// diverging — see that file for the full reasoning behind each field
+// (file.txt §3, §7, §9, §10, §24 references there).
+// ---------------------------------------------------------------------------
+
+export type UploadStatus =
+  | "idle"
+  | "selecting"
+  | "selected"
+  | "uploading"
+  | "processing"
+  | "approved"
+  | "rejected"
+  | "failed"
+  | "cancelled";
+
+export type FileKind = "IMAGE" | "PDF" | "OTHER";
+
+export interface FileAsset {
+  id: string | null;
+  localUri: string | null;
+  kind: FileKind;
+  fileName: string;
+  sizeBytes: number | null;
+  status: UploadStatus;
+  statusMessage: string | null;
+  createdAt: string;
+}
+
+export interface UploadSession {
+  sessionId: string;
+  asset: FileAsset;
+  progressPercent: number;
 }
 
 // ---------------------------------------------------------------------------

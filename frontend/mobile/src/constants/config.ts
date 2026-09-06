@@ -37,6 +37,30 @@ export const MAPBOX_PUBLIC_TOKEN: string =
   process.env.EXPO_PUBLIC_MAPBOX_TOKEN || (Constants.expoConfig?.extra?.mapboxPublicToken as string) || "";
 
 
+/**
+ * Whether the "verified supplier" tick is shown at all.
+ *
+ * OFF BY DEFAULT, AND THAT IS THE POINT. Nothing in the backend ever
+ * SETS verification_status -- there is no review flow, no admin action,
+ * no service that awards it; the column defaults to UNVERIFIED and only
+ * a manual SQL update has ever changed it. A verification badge is the
+ * strongest trust signal on a supplier's profile, and a business may
+ * part with real money partly because of it, so showing one the
+ * platform cannot actually stand behind is not a cosmetic stub.
+ *
+ * Set EXPO_PUBLIC_SHOW_VERIFICATION_BADGE=true locally to demo it.
+ * DELETE this flag (and this comment) once a real verification flow
+ * exists -- at that point the tick means something and should always
+ * show.
+ */
+export const SHOW_VERIFICATION_BADGE = process.env.EXPO_PUBLIC_SHOW_VERIFICATION_BADGE === "true";
+
+/** The one place "should this look verified" is decided, so the flag
+ *  can't be honoured in three places and forgotten in a fourth. */
+export function showsAsVerified(verificationStatus: string | null | undefined): boolean {
+  return SHOW_VERIFICATION_BADGE && verificationStatus === "verified";
+}
+
 export const OTP_LENGTH = 6;
 export const OTP_RESEND_SECONDS = 60;
 

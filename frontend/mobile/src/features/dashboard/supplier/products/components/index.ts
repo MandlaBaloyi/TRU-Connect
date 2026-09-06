@@ -10,4 +10,5 @@ export { SelectFieldRow } from "./SelectFieldRow";
 export { SelectFieldModal } from "./SelectFieldModal";
 export { ProductForm, type ProductFormValues } from "./ProductForm";
 export { ProductsOverflowMenu } from "./ProductsOverflowMenu";
+export { ProductPinMenu } from "./ProductPinMenu";
 export { SortOptionsSheet } from "./SortOptionsSheet";

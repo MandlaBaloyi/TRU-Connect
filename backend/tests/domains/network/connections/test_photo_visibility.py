@@ -8,12 +8,15 @@ every permutation.
 from __future__ import annotations
 
 from src.domains.network.connections.models.connection_request import ConnectionRequest, ConnectionRequestStatus
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+    request_service,
+)
 from src.extensions import db
 
 
 def _make_active_connection(business, supplier_profile):
-    connections_service.request_connection(business.id, supplier_profile.id)
+    request_service.request_connection(business.id, supplier_profile.id)
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=supplier_profile.id).first()
     request.status = ConnectionRequestStatus.ACTIVE
     db.session.commit()
@@ -38,7 +41,7 @@ def test_new_profile_defaults_to_no_photo_shown(make_business, make_supplier, ma
     profile = make_supplier_profile(supplier_user, business_name="Default State Co")
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] is None
 
@@ -52,7 +55,7 @@ def test_nobody_visibility_hides_photo_even_when_connected(make_business, make_s
     _make_active_connection(business, profile)
     db.session.commit()
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] is None
 
@@ -66,7 +69,7 @@ def test_connections_visibility_hides_photo_when_not_active(make_business, make_
     db.session.commit()
     # No connection made at all -- NOT_REQUESTED.
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] is None
 
@@ -80,7 +83,7 @@ def test_connections_visibility_shows_photo_once_active(make_business, make_supp
     db.session.commit()
     _make_active_connection(business, profile)
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] == "https://example.com/personal.jpg"
 
@@ -94,7 +97,7 @@ def test_everyone_visibility_shows_photo_without_any_connection(make_business, m
     db.session.commit()
     # No connection at all.
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] == "https://example.com/personal.jpg"
 
@@ -110,7 +113,7 @@ def test_none_source_hides_photo_even_under_everyone_visibility(make_business, m
     _set_supplier_photo(supplier_user, profile, photo_visibility="everyone")  # source stays default NONE
     db.session.commit()
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] is None
 
@@ -124,7 +127,7 @@ def test_business_source_resolves_to_business_image_not_personal(make_business, 
     _set_supplier_photo(supplier_user, profile, visible_image_source="business", photo_visibility="everyone")
     db.session.commit()
 
-    result = connections_service.get_supplier_profile(business.id, profile.id)
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
 
     assert result["photoUrl"] == "https://example.com/business-logo.jpg"
 
@@ -145,12 +148,12 @@ def test_business_side_photo_resolution_mirrors_supplier_side(
     db.session.commit()
 
     supplier_user = make_supplier()
-    connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    request_service.request_connection_to_business(supplier_user.id, business_profile.id)
     request = ConnectionRequest.query.filter_by(business_id=business.id).first()
     request.status = ConnectionRequestStatus.ACTIVE
     db.session.commit()
 
-    result = connections_service.get_business_profile(supplier_user.id, business_profile.id)
+    result = discovery_service.get_business_profile(supplier_user.id, business_profile.id)
 
     assert result["photoUrl"] == "https://example.com/business-owner.jpg"
 
@@ -161,7 +164,7 @@ def test_update_my_photo_settings_only_changes_provided_fields(make_supplier, ma
     _set_supplier_photo(supplier_user, profile, visible_image_source="personal", photo_visibility="everyone")
 
     # Only update photo_visibility -- visible_image_source must stay "personal".
-    result = connections_service.update_my_photo_settings(supplier_user.id, "supplier", photo_visibility="nobody")
+    result = discovery_service.update_my_photo_settings(supplier_user.id, "supplier", photo_visibility="nobody")
 
     assert result["photoVisibility"] == "nobody"
     assert result["visibleImageSource"] == "personal"
@@ -171,7 +174,7 @@ def test_update_my_photo_settings_works_for_business_role(make_business, make_bu
     business = make_business()
     make_business_profile(business, business_name="Settings Update Biz")
 
-    result = connections_service.update_my_photo_settings(
+    result = discovery_service.update_my_photo_settings(
         business.id, "business", visible_image_source="business", photo_visibility="everyone"
     )
 

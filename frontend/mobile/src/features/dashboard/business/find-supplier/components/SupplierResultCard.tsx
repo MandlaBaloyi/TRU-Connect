@@ -1,27 +1,13 @@
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
 
 import { ListCard, StatusPill } from "@/components/lists/CardListUI";
-import { palette } from "@/theme/colors";
+import { EntityAvatar } from "@/components/ui/EntityAvatar";
+import { SHOW_VERIFICATION_BADGE } from "@/constants/config";
 
 import type { SupplierSearchResult } from "../types";
 
 const VERIFICATION_TONE = { verified: "on", pending: "warning", unverified: "off" } as const;
 const VERIFICATION_LABEL = { verified: "Verified", pending: "Pending", unverified: "Unverified" } as const;
-const TILE_COLOURS = [palette.truePointBlue, palette.emeraldGreenDark, "#6B4E9E", "#B45309"];
-
-function colourFor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return TILE_COLOURS[hash % TILE_COLOURS.length];
-}
-
-function initialsFor(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 interface Props {
   result: SupplierSearchResult;
@@ -48,7 +34,7 @@ interface Props {
  *
  * photoUrl is real (see this feature's own types.ts) -- genuinely null
  * unless the supplier has actively chosen to show one AND this
- * business is allowed to see it; the initials-avatar fallback below is
+ * business is allowed to see it; EntityAvatar's initials fallback is
  * the normal, expected state for most suppliers, not an error state.
  */
 export function SupplierResultCard({ result, onPress }: Props) {
@@ -58,10 +44,15 @@ export function SupplierResultCard({ result, onPress }: Props) {
     <ListCard
       title={result.businessName}
       badge={
-        <StatusPill
-          label={VERIFICATION_LABEL[result.verificationStatus]}
-          tone={VERIFICATION_TONE[result.verificationStatus]}
-        />
+        // Gated for the same reason as the tick -- "Unverified" is as
+        // much a claim about a supplier as "Verified" is, and neither
+        // is backed by any real process yet. See SHOW_VERIFICATION_BADGE.
+        SHOW_VERIFICATION_BADGE ? (
+          <StatusPill
+            label={VERIFICATION_LABEL[result.verificationStatus]}
+            tone={VERIFICATION_TONE[result.verificationStatus]}
+          />
+        ) : undefined
       }
       // A single combined line ("Food & Beverages · Elim") rather than
       // two stacked ones -- reads as one fact ("what and where"), and
@@ -71,21 +62,7 @@ export function SupplierResultCard({ result, onPress }: Props) {
       // category/location blocks could.
       subtitle={metaParts.length > 0 ? metaParts.join(" · ") : undefined}
       onPress={onPress}
-      icon={() =>
-        result.photoUrl ? (
-          <Image source={{ uri: result.photoUrl }} style={styles.avatarImage} />
-        ) : (
-          <View style={[styles.avatarImage, styles.fallback, { backgroundColor: colourFor(result.businessName) }]}>
-            <Text style={styles.fallbackText}>{initialsFor(result.businessName)}</Text>
-          </View>
-        )
-      }
+      icon={() => <EntityAvatar name={result.businessName} photoUrl={result.photoUrl} size={44} />}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  avatarImage: { width: 44, height: 44, borderRadius: 22 },
-  fallback: { alignItems: "center", justifyContent: "center" },
-  fallbackText: { color: palette.white, fontWeight: "700", fontSize: 15 },
-});

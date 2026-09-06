@@ -509,3 +509,49 @@ def test_bulk_archive_rejects_empty_product_ids(client, make_supplier, make_supp
     )
 
     assert response.status_code == 422
+
+
+# --- Pin to business profile -----------------------------------------------
+
+
+def test_pin_and_unpin_flips_is_pinned_in_the_list(client, make_supplier, make_supplier_profile):
+    supplier = make_supplier()
+    profile = make_supplier_profile(supplier)
+    product = _make_product(profile.id, name="Feature me")
+
+    def list_is_pinned():
+        resp = client.get("/api/v1/supplier-discovery/products", headers=_auth(supplier, "supplier"))
+        return resp.get_json()["data"]["results"][0]["is_pinned"]
+
+    assert list_is_pinned() is False
+
+    pin_resp = client.post(
+        f"/api/v1/supplier-discovery/products/{product.id}/pin", headers=_auth(supplier, "supplier")
+    )
+    assert pin_resp.status_code == 200
+    assert pin_resp.get_json()["data"]["is_pinned"] is True
+    assert list_is_pinned() is True
+
+    unpin_resp = client.delete(
+        f"/api/v1/supplier-discovery/products/{product.id}/pin", headers=_auth(supplier, "supplier")
+    )
+    assert unpin_resp.status_code == 200
+    assert unpin_resp.get_json()["data"]["is_pinned"] is False
+    assert list_is_pinned() is False
+
+
+def test_pin_seventh_product_returns_422(client, make_supplier, make_supplier_profile):
+    supplier = make_supplier()
+    profile = make_supplier_profile(supplier)
+    products = [_make_product(profile.id, name=f"Item {i}") for i in range(7)]
+
+    for product in products[:6]:
+        resp = client.post(
+            f"/api/v1/supplier-discovery/products/{product.id}/pin", headers=_auth(supplier, "supplier")
+        )
+        assert resp.status_code == 200
+
+    over = client.post(
+        f"/api/v1/supplier-discovery/products/{products[6].id}/pin", headers=_auth(supplier, "supplier")
+    )
+    assert over.status_code == 422

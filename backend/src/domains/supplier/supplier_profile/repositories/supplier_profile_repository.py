@@ -12,7 +12,7 @@ so this restriction is a genuine production-grade concern (FILE2.txt's
 own framing), not just a privacy one.
 
 search_by_phone/search_by_email were REMOVED (previously present here,
-used only by connections_service.py's own _dispatch_search) -- search
+used only by connections' _common._dispatch_search) -- search
 is name/business-name only now; see that function's own docstring for
 the full reasoning (exact-match phone/email search is an enumeration
 vector). normalized_phone/normalized_email columns themselves stay on

@@ -11,7 +11,9 @@ from __future__ import annotations
 from src.domains.network.connections.repositories.connection_request_repository import (
     ConnectionRequestRepository,
 )
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    request_service,
+)
 from src.domains.platform.notifications.repositories.notification_repository import NotificationRepository
 from src.shared.queue.queue import wait_until_idle
 
@@ -21,7 +23,7 @@ def test_business_initiated_request_notifies_the_supplier(make_business, make_su
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Notify Supplier Co")
 
-    connections_service.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
     wait_until_idle(timeout=5)
 
     results = NotificationRepository.list_for_user(supplier_user.id)
@@ -38,7 +40,7 @@ def test_supplier_initiated_request_notifies_the_business(
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Requesting Supplier Co")
 
-    connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    request_service.request_connection_to_business(supplier_user.id, business_profile.id)
     wait_until_idle(timeout=5)
 
     results = NotificationRepository.list_for_user(business.id)
@@ -51,10 +53,10 @@ def test_supplier_approving_a_request_notifies_the_business(make_business, make_
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Approving Supplier Co")
-    connections_service.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
     request = ConnectionRequestRepository.get_for_business_and_supplier(business.id, profile.id)
 
-    connections_service.approve_request(supplier_user.id, request.id)
+    request_service.approve_request(supplier_user.id, request.id)
     wait_until_idle(timeout=5)
 
     results = NotificationRepository.list_for_user(business.id)
@@ -70,10 +72,10 @@ def test_business_approving_a_request_notifies_the_supplier(
     business_profile = make_business_profile(business, business_name="Approving Business Co")
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Waiting Supplier Co")
-    connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    request_service.request_connection_to_business(supplier_user.id, business_profile.id)
     request = ConnectionRequestRepository.get_for_business_and_supplier(business.id, profile.id)
 
-    connections_service.approve_supplier_request(business.id, request.id)
+    request_service.approve_supplier_request(business.id, request.id)
     wait_until_idle(timeout=5)
 
     results = NotificationRepository.list_for_user(supplier_user.id)
@@ -91,14 +93,14 @@ def test_declining_a_request_does_not_notify_anyone(make_business, make_supplier
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Declining Supplier Co")
-    connections_service.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
     request = ConnectionRequestRepository.get_for_business_and_supplier(business.id, profile.id)
 
     # Clear the "new request" notification the supplier already got,
     # so this test only looks at what decline itself does.
     NotificationRepository.mark_all_read(supplier_user.id)
 
-    connections_service.decline_request(supplier_user.id, request.id)
+    request_service.decline_request(supplier_user.id, request.id)
     wait_until_idle(timeout=5)
 
     business_results = NotificationRepository.list_for_user(business.id)

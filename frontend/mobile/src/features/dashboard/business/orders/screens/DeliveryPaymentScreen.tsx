@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
@@ -13,6 +13,8 @@ import { MapPickerModal } from "@/features/dashboard/shared/location-picker/MapP
 import { SearchAddressModal } from "@/features/dashboard/shared/location-picker/SearchAddressModal";
 import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import type { DeliveryType, PaymentMethod } from "../types";
+import { useCart } from "../hooks/useCart";
+import { formatCents } from "../../../supplier/products/services/productMapper";
 
 const DELIVERY_OPTIONS: { value: DeliveryType; label: string }[] = [
   { value: "DELIVER", label: "Deliver" },
@@ -64,7 +66,28 @@ export default function DeliveryPaymentScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>("DELIVER");
+  const { cart } = useCart(supplierId ?? "");
+  const offersDelivery = cart?.supplierOffersDelivery ?? true;
+  const minimumOrderCents = cart?.supplierMinimumOrderCents ?? null;
+  const collectionAddress = cart?.supplierCollectionAddress ?? null;
+  const supplierName = cart?.supplierName ?? "This supplier";
+  const shortfallCents =
+    minimumOrderCents !== null && cart ? Math.max(0, minimumOrderCents - cart.totalCents) : 0;
+  const isBelowMinimum = shortfallCents > 0;
+
+  // DEFAULTS TO THE OPTION THAT ACTUALLY EXISTS. A supplier who
+  // doesn't deliver used to still get a screen defaulted to "Deliver",
+  // so the business filled in a whole address before being rejected at
+  // submit. Now the screen opens on Collect for them.
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>(offersDelivery ? "DELIVER" : "COLLECT");
+
+  // The cart loads after first render, so the default above can be
+  // computed from a stale `true`. Correct it once the real answer
+  // arrives -- but only away from an impossible choice, never
+  // overriding a deliberate one the business made themselves.
+  useEffect(() => {
+    if (!offersDelivery) setDeliveryType("COLLECT");
+  }, [offersDelivery]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation | null>(null);
   const [isMapPickerVisible, setIsMapPickerVisible] = useState(false);
@@ -78,6 +101,21 @@ export default function DeliveryPaymentScreen() {
 
   const handleContinue = () => {
     if (!paymentMethod) return;
+    // Both are enforced for real in checkout_service; these stop the
+    // business walking two more screens to be told no.
+    if (deliveryType === "DELIVER" && !offersDelivery) {
+      Alert.alert("Collection only", `${supplierName} only accepts collection orders. Choose Collect to continue.`);
+      return;
+    }
+    if (isBelowMinimum) {
+      Alert.alert(
+        "Order is below the minimum",
+        `${supplierName} has a minimum order of ${formatCents(minimumOrderCents ?? 0)}. Add ${formatCents(
+          shortfallCents
+        )} more to your cart to continue.`
+      );
+      return;
+    }
     if (deliveryType === "DELIVER" && !deliveryLocation) {
       Alert.alert("Address needed", "Choose your delivery location on the map to continue.");
       return;
@@ -118,6 +156,19 @@ export default function DeliveryPaymentScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
+        {/* THE MINIMUM, STATED UP FRONT. Finding out only on Continue
+            means filling in an address and picking a payment method
+            first -- this says it before any of that, and names the
+            exact shortfall so the business doesn't do the arithmetic. */}
+        {isBelowMinimum && (
+          <View style={[styles.minimumBanner, { backgroundColor: theme.colors.errorContainer }]}>
+            <Text style={[styles.minimumBannerText, { color: theme.colors.error }]}>
+              {supplierName} has a minimum order of {formatCents(minimumOrderCents ?? 0)}. Add{" "}
+              {formatCents(shortfallCents)} more to your cart to place this order.
+            </Text>
+          </View>
+        )}
+
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Deliver or collect?</Text>
         <View style={styles.segmentRow}>
           {DELIVERY_OPTIONS.map((option) => {
@@ -145,7 +196,17 @@ export default function DeliveryPaymentScreen() {
         <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: theme.colors.onSurface }]}>
           {deliveryType === "COLLECT" ? "Collection address" : "Delivery address"}
         </Text>
-        {deliveryType === "DELIVER" ? (
+        {deliveryType === "DELIVER" && !offersDelivery ? (
+          // NO SEARCH, NO MAP -- just the supplier's own answer. Showing
+          // address pickers here would invite a business to fill in a
+          // delivery address for an order that can never be delivered.
+          <View style={[styles.collectNotice, { borderColor: theme.colors.error, backgroundColor: theme.colors.errorContainer }]}>
+            <MapPin size={18} color={theme.colors.error} strokeWidth={2} />
+            <Text style={[styles.collectNoticeText, { color: theme.colors.error }]}>
+              {supplierName} only accepts collection orders. Choose Collect above to continue.
+            </Text>
+          </View>
+        ) : deliveryType === "DELIVER" ? (
           deliveryLocation ? (
             <Pressable
               onPress={() => setIsMapPickerVisible(true)}
@@ -188,7 +249,21 @@ export default function DeliveryPaymentScreen() {
           <View style={[styles.collectNotice, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}>
             <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
             <Text style={[styles.collectNoticeText, { color: theme.colors.onSurfaceVariant }]}>
-              Your supplier's collection address will appear here once they've added one.
+              {/* Real now -- suppliers can finally set this (My Account ->
+                  Profile -> Collection address). The old copy was the
+                  only thing this branch could say when nothing anywhere
+                  let them enter one. */}
+              {collectionAddress
+                ? [
+                    collectionAddress.building,
+                    collectionAddress.street,
+                    collectionAddress.suburb,
+                    [collectionAddress.city, collectionAddress.province].filter(Boolean).join(", "),
+                    collectionAddress.postalCode,
+                  ]
+                    .filter((part) => Boolean(part && part.trim()))
+                    .join(", ")
+                : `${supplierName} hasn't added a collection address yet — they'll confirm where to collect when they accept your order.`}
             </Text>
           </View>
         )}
@@ -268,6 +343,8 @@ export default function DeliveryPaymentScreen() {
 }
 
 const styles = StyleSheet.create({
+  minimumBanner: { borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md },
+  minimumBannerText: { ...typography.bodySmall, fontWeight: "600", lineHeight: 19 },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   sectionTitle: { ...typography.h2, fontWeight: "700", marginBottom: spacing.sm },
   sectionSpacing: { marginTop: spacing.lg },

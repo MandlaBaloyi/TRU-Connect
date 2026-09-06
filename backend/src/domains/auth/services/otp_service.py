@@ -183,7 +183,7 @@ class OTPService:
     def _complete_network_invitations(user: User) -> None:
         """Network Invitation (file.txt Phase 2), GENERALIZED to both
         directions -- the verification-success half of the two-stage
-        link; see connections_service.py's own docstring for
+        link; see invitation_service.py's own docstring for
         the full reasoning (registration only links; THIS is where the
         real, durable ConnectionRequest actually gets created, same
         timing rule as _seed_supplier_profile/_seed_business_profile
@@ -193,7 +193,7 @@ class OTPService:
         same resilience pattern.
         """
         try:
-            from src.domains.network.connections.services.connections_service import (
+            from src.domains.network.connections.services.invitation_service import (
                 complete_invitations_for_user,
             )
 
@@ -209,20 +209,20 @@ class OTPService:
         docstring on why this fires HERE (verification success) and
         not at raw registration.
 
-        default_name uses user.first_name (== the "ownerName" the
-        supplier gave at registration -- register_supplier maps it
-        there, auth_service.py) as a readable placeholder. KNOWN GAP,
-        not fixed here: SupplierRegisterSchema also collects a
-        `business_name` field that Marshmallow validates but
-        auth_service.py's _create_or_resume never actually persists
-        anywhere -- by the time this hook runs (verification can
-        happen minutes or hours after registration), that original
-        request body is long gone, so there's nothing left to seed
-        with here. The right fix is upstream (persist business_name
-        somewhere at registration time, e.g. directly onto this
-        profile via a get_or_create call in _create_or_resume itself);
-        flagging it rather than reaching further than this fix's own
-        scope to patch it.
+        default_name prefers user.business_name -- the mandatory field
+        SupplierRegisterSchema now collects, persisted onto the users
+        row by auth_service._create_or_resume (see that column's own
+        docstring on why it's staged there rather than seeded straight
+        onto SupplierProfile before verification). Falls back to
+        user.first_name (the now-OPTIONAL owner name) and finally a
+        placeholder, so a row created for a supplier who predates this
+        column, or one reached via the invitation flow, still gets a
+        readable name.
+
+        (Historical note: business_name used to be an optional field
+        Marshmallow validated but nothing persisted, so this hook could
+        only ever seed with the owner name -- the exact confusion the
+        Community redesign fixed.)
 
         Never raises: matches _send_welcome_email's own reasoning
         exactly -- a seeding failure must not block the supplier's
@@ -234,7 +234,7 @@ class OTPService:
             )
 
             SupplierProfileRepository.get_or_create_for_supplier(
-                user.id, default_name=user.first_name or "New supplier"
+                user.id, default_name=user.business_name or user.first_name or "New supplier"
             )
         except Exception:  # noqa: BLE001
             current_app.logger.exception("Failed to seed supplier profile for user %s", user.id)
@@ -244,7 +244,9 @@ class OTPService:
         try:
             if user.role == UserRole.SUPPLIER:
                 template_name = "supplier/welcome_supplier.html"
-                context = {"owner_name": user.first_name}
+                # owner name is optional now -- fall back to the business
+                # name so the greeting is never blank.
+                context = {"owner_name": user.first_name or user.business_name or "there"}
             else:
                 template_name = "business/welcome_business.html"
                 context = {"first_name": user.first_name}

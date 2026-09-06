@@ -10,7 +10,11 @@ import pytest
 
 from src.domains.network.connections.models.connection_request import ConnectionRequest, ConnectionRequestStatus
 from src.domains.network.connections.models.supplier_report import SupplierReport
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    connection_list_service,
+    report_service,
+    request_service,
+)
 from src.domains.network.connections.services.errors import (
     ConnectionNotActiveError,
     ConnectionRequestNotFoundError,
@@ -32,7 +36,7 @@ def _make_product(profile_id, name, category, price_cents, selling_unit):
 
 
 def _make_active_connection(business, supplier_profile):
-    connections_service.request_connection(business.id, supplier_profile.id)
+    request_service.request_connection(business.id, supplier_profile.id)
     request = ConnectionRequest.query.filter_by(
         business_id=business.id, supplier_profile_id=supplier_profile.id
     ).first()
@@ -49,7 +53,7 @@ def test_end_connection_transitions_the_same_row_to_ended(make_business, make_su
     profile = make_supplier_profile(supplier_user, business_name="Ending Co")
     _make_active_connection(business, profile)
 
-    result = connections_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", "Switched suppliers")
+    result = connection_list_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", "Switched suppliers")
 
     assert result["connectionStatus"] == "ENDED"
     row = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
@@ -65,9 +69,9 @@ def test_end_connection_disappears_from_active_connections(make_business, make_s
     profile = make_supplier_profile(supplier_user, business_name="Vanishing Co")
     _make_active_connection(business, profile)
 
-    connections_service.end_connection(business.id, profile.id, "BAD_EXPERIENCE", None)
+    connection_list_service.end_connection(business.id, profile.id, "BAD_EXPERIENCE", None)
 
-    active = connections_service.get_my_connections(business.id, "business")
+    active = connection_list_service.get_my_connections(business.id, "business")
     assert active == []
 
 
@@ -77,7 +81,7 @@ def test_end_connection_raises_for_no_connection_at_all(make_business, make_supp
     profile = make_supplier_profile(supplier_user, business_name="Never Connected Co")
 
     with pytest.raises(ConnectionRequestNotFoundError):
-        connections_service.end_connection(business.id, profile.id, "OTHER", None)
+        connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
 
 
 def test_end_connection_raises_for_a_pending_connection(make_business, make_supplier, make_supplier_profile):
@@ -87,10 +91,10 @@ def test_end_connection_raises_for_a_pending_connection(make_business, make_supp
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Still Pending Co")
-    connections_service.request_connection(business.id, profile.id)  # stays PENDING
+    request_service.request_connection(business.id, profile.id)  # stays PENDING
 
     with pytest.raises(ConnectionNotActiveError):
-        connections_service.end_connection(business.id, profile.id, "OTHER", None)
+        connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
 
 
 def test_end_connection_raises_for_an_already_ended_connection(make_business, make_supplier, make_supplier_profile):
@@ -98,10 +102,10 @@ def test_end_connection_raises_for_an_already_ended_connection(make_business, ma
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Twice Ended Co")
     _make_active_connection(business, profile)
-    connections_service.end_connection(business.id, profile.id, "OTHER", None)
+    connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
 
     with pytest.raises(ConnectionNotActiveError):
-        connections_service.end_connection(business.id, profile.id, "OTHER", None)
+        connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
 
 
 # --- list_ended_connections ----------------------------------------------
@@ -112,9 +116,9 @@ def test_list_ended_connections_returns_real_ended_ones(make_business, make_supp
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Listed Ended Co")
     _make_active_connection(business, profile)
-    connections_service.end_connection(business.id, profile.id, "FOUND_BETTER_SUPPLIER", "Found a cheaper one")
+    connection_list_service.end_connection(business.id, profile.id, "FOUND_BETTER_SUPPLIER", "Found a cheaper one")
 
-    results = connections_service.list_ended_connections(business.id)
+    results = connection_list_service.list_ended_connections(business.id)
 
     assert len(results) == 1
     assert results[0]["name"] == "Listed Ended Co"
@@ -129,7 +133,7 @@ def test_list_ended_connections_excludes_still_active_ones(make_business, make_s
     profile = make_supplier_profile(supplier_user, business_name="Still Active Co")
     _make_active_connection(business, profile)
 
-    results = connections_service.list_ended_connections(business.id)
+    results = connection_list_service.list_ended_connections(business.id)
 
     assert results == []
 
@@ -150,9 +154,9 @@ def test_reconnecting_after_ended_resets_to_pending(make_business, make_supplier
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Reconnect Co")
     _make_active_connection(business, profile)
-    connections_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", None)
+    connection_list_service.end_connection(business.id, profile.id, "NO_LONGER_NEEDED", None)
 
-    result = connections_service.request_connection(business.id, profile.id)
+    result = request_service.request_connection(business.id, profile.id)
 
     assert result["connectionStatus"] == "PENDING"
     row = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
@@ -166,9 +170,9 @@ def test_reconnecting_after_ended_clears_the_old_end_reason(make_business, make_
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Cleared Reason Co")
     _make_active_connection(business, profile)
-    connections_service.end_connection(business.id, profile.id, "BAD_EXPERIENCE", "It was bad")
+    connection_list_service.end_connection(business.id, profile.id, "BAD_EXPERIENCE", "It was bad")
 
-    connections_service.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
 
     row = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     assert row.ended_reason is None
@@ -185,8 +189,8 @@ def test_reconnecting_after_ended_is_not_rate_limited(make_business, make_suppli
 
     for _ in range(10):
         _make_active_connection(business, profile)
-        connections_service.end_connection(business.id, profile.id, "OTHER", None)
-        result = connections_service.request_connection(business.id, profile.id)
+        connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
+        result = request_service.request_connection(business.id, profile.id)
         assert result["connectionStatus"] == "PENDING"
         row = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
         row.status = ConnectionRequestStatus.ACTIVE
@@ -205,9 +209,9 @@ def test_reconnecting_after_ended_also_works_from_the_supplier_initiated_directi
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Supplier Side Reconnect Co")
     _make_active_connection(business, profile)
-    connections_service.end_connection(business.id, profile.id, "OTHER", None)
+    connection_list_service.end_connection(business.id, profile.id, "OTHER", None)
 
-    result = connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    result = request_service.request_connection_to_business(supplier_user.id, business_profile.id)
 
     assert result["connectionStatus"] == "PENDING"
 
@@ -223,7 +227,7 @@ def test_report_supplier_creates_a_real_persisted_record(make_business, make_sup
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Reported Co")
 
-    result = connections_service.report_supplier(
+    result = report_service.report_supplier(
         business.id, profile.id, "SUSPECTED_SCAM", "Asked for payment upfront then vanished"
     )
 
@@ -243,7 +247,7 @@ def test_report_supplier_never_requires_a_connection(make_business, make_supplie
     profile = make_supplier_profile(supplier_user, business_name="Never Connected Reported Co")
     # No connection made at all.
 
-    result = connections_service.report_supplier(business.id, profile.id, "OTHER", "Suspicious listing")
+    result = report_service.report_supplier(business.id, profile.id, "OTHER", "Suspicious listing")
 
     assert result["status"] == "SUBMITTED"
 
@@ -253,7 +257,7 @@ def test_report_supplier_raises_for_a_genuinely_nonexistent_supplier(make_busine
     import uuid
 
     with pytest.raises(SupplierNotFoundError):
-        connections_service.report_supplier(business.id, uuid.uuid4(), "OTHER", None)
+        report_service.report_supplier(business.id, uuid.uuid4(), "OTHER", None)
 
 
 # --- report_supplier: product-level reports ------------------------------
@@ -268,7 +272,7 @@ def test_report_supplier_with_a_real_product_id_records_it(make_business, make_s
     profile = make_supplier_profile(supplier_user, business_name="Product Reported Co")
     product = _make_product(profile.id, "Suspicious Item", ProductCategory.OTHER, 1000, ProductUnit.EACH)
 
-    connections_service.report_supplier(business.id, profile.id, "FAKE_PRODUCTS", "Looks counterfeit", product_id=product.id)
+    report_service.report_supplier(business.id, profile.id, "FAKE_PRODUCTS", "Looks counterfeit", product_id=product.id)
 
     report = SupplierReport.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     assert report.product_id == product.id
@@ -281,7 +285,7 @@ def test_report_supplier_without_a_product_id_leaves_it_null(make_business, make
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Supplier Reported Co")
 
-    connections_service.report_supplier(business.id, profile.id, "SUSPECTED_SCAM", None)
+    report_service.report_supplier(business.id, profile.id, "SUSPECTED_SCAM", None)
 
     report = SupplierReport.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     assert report.product_id is None
@@ -302,7 +306,7 @@ def test_report_supplier_silently_drops_a_product_id_belonging_to_a_different_su
     reported_profile = make_supplier_profile(reported, business_name="Actually Reported Co")
     other_suppliers_product = _make_product(owner_profile.id, "Not Theirs", ProductCategory.OTHER, 1000, ProductUnit.EACH)
 
-    connections_service.report_supplier(
+    report_service.report_supplier(
         business.id, reported_profile.id, "OTHER", None, product_id=other_suppliers_product.id
     )
 
@@ -320,6 +324,6 @@ def test_report_supplier_silently_drops_a_genuinely_nonexistent_product_id(
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Fake Product Id Co")
 
-    result = connections_service.report_supplier(business.id, profile.id, "OTHER", None, product_id=uuid.uuid4())
+    result = report_service.report_supplier(business.id, profile.id, "OTHER", None, product_id=uuid.uuid4())
 
     assert result["status"] == "SUBMITTED"

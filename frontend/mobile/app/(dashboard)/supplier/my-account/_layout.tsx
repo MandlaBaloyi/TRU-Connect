@@ -29,7 +29,6 @@ export default function SupplierMyAccountLayout() {
       />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="qr-code" options={{ title: "My QR code" }} />
-      <Stack.Screen name="profile-image" options={{ title: "Profile photo" }} />
       <Stack.Screen name="payment-methods" options={{ title: "Payment methods" }} />
       <Stack.Screen name="add-payment-method" options={{ title: "Add payment method" }} />
       <Stack.Screen name="card-payments" options={{ title: "Card & gateway payments" }} />

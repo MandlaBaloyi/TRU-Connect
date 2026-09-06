@@ -34,6 +34,16 @@ export interface ConnectionSummary {
    *  useful for routing to a profile). */
   otherPartyId: string | null;
   connectedSince: string | null;
+  /** The other party's resolved avatar — a supplier's brand/personal
+   *  photo when viewed by a business, a business's photo when viewed by
+   *  a supplier. Null is the normal case (nobody uploaded one, or it's
+   *  not shared); the list falls back to an initials avatar. */
+  photoUrl: string | null;
+  /** The PERSON behind the business, shown under the business name in
+   *  the connection row. Null whenever no person name exists — owner
+   *  name is optional at supplier sign-up — in which case the row shows
+   *  one line, never a blank second one. */
+  ownerName: string | null;
 }
 
 /**

@@ -103,6 +103,33 @@ class EmptyCartError(ConflictError):
     code = "EMPTY_CART"
 
 
+class DeliveryNotOfferedError(ValidationError):
+    """Raised when a DELIVER order is submitted to a supplier who has
+    said they don't deliver (SupplierProfile.offers_delivery is False).
+
+    A real, separate error from the generic validation ones: the
+    business didn't get anything WRONG, the supplier simply doesn't
+    offer that option, so the message names the supplier rather than
+    blaming the input. Enforced here and not only in the UI -- the
+    frontend already defaults these carts to COLLECT and hides the
+    address pickers, but a client is never the gate."""
+
+    code = "DELIVERY_NOT_OFFERED"
+
+
+class BelowMinimumOrderError(ConflictError):
+    """Raised when a cart total is under the supplier's own
+    minimum_order_cents.
+
+    ConflictError, not ValidationError -- nothing about the request is
+    malformed; the cart is simply in a state that can't be submitted
+    yet, exactly like EmptyCartError above. Carries the shortfall in
+    `data` so the frontend can say "add R120 more" rather than making
+    the business do the arithmetic."""
+
+    code = "BELOW_MINIMUM_ORDER"
+
+
 class PaymentMethodNotAvailableError(ValidationError):
     """Raised for a payment method that exists on the enum (see
     StockOrderPaymentMethod's own docstring on why PAYFAST is modelled

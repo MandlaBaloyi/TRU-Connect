@@ -66,7 +66,7 @@ class InvalidCatalogQueryError(ValidationError):
 class ConnectionAlreadyRequestedError(ConflictError):
     """Raised only for a genuine attempted duplicate the idempotent
     request-connection path didn't already absorb -- see
-    connections_service.py's own docstring on why the normal
+    request_service.py's own docstring on why the normal
     double-tap case returns the existing status instead of raising
     this."""
 

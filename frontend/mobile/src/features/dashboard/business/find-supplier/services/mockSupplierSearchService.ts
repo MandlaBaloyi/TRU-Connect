@@ -29,6 +29,7 @@ import type {
   SupplierProductsQuery,
   SupplierProfilePreview,
   SupplierSearchResult,
+  SupplierShowcase,
   SupplierVerificationStatus,
 } from "../types";
 import { recordRecentlyViewed } from "./recentSearchesStore";
@@ -41,13 +42,18 @@ interface MockSupplier {
   category: string;
   location: string;
   verificationStatus: SupplierVerificationStatus;
-  memberSinceYear: number;
+  memberSince: string;
   description: string;
   /** null for most mock suppliers on purpose — mirrors the real
    *  default (visible_image_source=NONE) so the UI's no-photo
    *  fallback state gets exercised too, not just the happy path. */
   photoUrl: string | null;
+  /** Public brand assets — see SupplierProfilePreview's own doc. */
+  businessImageUrl: string | null;
+  coverImageUrl: string | null;
   productCount: number;
+  offersDelivery: boolean | null;
+  minimumOrderCents: number | null;
 }
 
 // Mock "database" — deliberately includes messy real-world input
@@ -60,10 +66,14 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     category: "Wholesale beverages",
     location: "Polokwane",
     verificationStatus: "verified",
-    memberSinceYear: 2023,
+    memberSince: "March 2023",
     description: "Bulk soft drinks, water, and snacks for spaza shops and small retailers.",
     photoUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+    businessImageUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+    coverImageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop",
     productCount: 3,
+    offersDelivery: true,
+    minimumOrderCents: 50000,
   },
   {
     id: "sup_002",
@@ -71,10 +81,14 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     category: "Fresh produce",
     location: "Polokwane",
     verificationStatus: "pending",
-    memberSinceYear: 2024,
+    memberSince: "July 2024",
     description: "Fruit and vegetables, delivered twice a week.",
     photoUrl: null,
+    businessImageUrl: null,
+    coverImageUrl: null,
     productCount: 0,
+    offersDelivery: false,
+    minimumOrderCents: null,
   },
   {
     id: "sup_003",
@@ -82,10 +96,14 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     category: "Bakery ingredients",
     location: "Tzaneen",
     verificationStatus: "unverified",
-    memberSinceYear: 2025,
+    memberSince: "January 2025",
     description: "",
     photoUrl: null,
+    businessImageUrl: null,
+    coverImageUrl: null,
     productCount: 0,
+    offersDelivery: null,
+    minimumOrderCents: null,
   },
 ];
 
@@ -130,10 +148,12 @@ export async function getSupplierProfile(id: string): Promise<SupplierProfilePre
     category: supplier.category,
     location: supplier.location,
     verificationStatus: supplier.verificationStatus,
-    memberSinceYear: supplier.memberSinceYear,
+    memberSince: supplier.memberSince,
     description: supplier.description || null,
     connectionStatus: connectionState.get(id) ?? "NOT_REQUESTED",
     photoUrl: supplier.photoUrl,
+    businessImageUrl: supplier.businessImageUrl,
+    coverImageUrl: supplier.coverImageUrl,
     productCount: supplier.productCount,
     // sup_001 is the mock's own "already connected" supplier
     // (connectionState defaults matter here) -- giving it real
@@ -141,6 +161,34 @@ export async function getSupplierProfile(id: string): Promise<SupplierProfilePre
     // UI be exercised in mock mode, not just PENDING/DECLINED.
     contact:
       id === "sup_001" ? { whatsappNumber: "+27821234567", email: "sales@abcwholesale.example", tiktokHandle: null } : null,
+    // Same connected-only gate as the real backend -- only sup_001 has
+    // one here, so the profile's "Collect from" block is exercised in
+    // mock mode without every supplier claiming an address.
+    collectionAddress:
+      id === "sup_001"
+        ? {
+            building: "Unit 4, Riverside Park",
+            street: "12 Main Road",
+            suburb: "Elim",
+            city: "Makhado",
+            province: "Limpopo",
+            postalCode: "0960",
+            latitude: null,
+            longitude: null,
+          }
+        : null,
+    offersDelivery: supplier.offersDelivery,
+    minimumOrderCents: supplier.minimumOrderCents,
+    // Mock mode only ever produces business-initiated requests (there's
+    // no supplier-side mock that sends one), so this mirrors that
+    // honestly rather than inventing a state the mock can't reach.
+    connectionInitiatedBy: connectionState.get(id) ? "BUSINESS" : null,
+    connectedBusinessCount: supplier.productCount > 0 ? 8 : 0,
+    // sup_001 has enough history to show; the others deliberately don't,
+    // so the "too new to say" path gets exercised too.
+    reliability:
+      id === "sup_001" ? { decidedCount: 14, acceptedCount: 12, medianResponseHours: 5 } : null,
+    stockedCategories: id === "sup_001" ? ["BEVERAGES", "SNACKS_CONFECTIONERY", "FOOD_GROCERY"] : [],
   };
 }
 
@@ -163,10 +211,10 @@ export async function endConnection(
   // Mirrors the real backend: the SAME connection state transitions
   // away from ACTIVE -- a subsequent getMyConnections() call in mock
   // mode correctly stops showing this supplier, matching the real
-  // "vanishes from My Connections" behaviour. TERMINATED, not a
+  // "vanishes from My Connections" behaviour. ENDED, not a
   // made-up "DISCONNECTED" string -- ConnectionStatus's own real type
   // already has this exact value for precisely this case.
-  connectionState.set(supplierId, "TERMINATED");
+  connectionState.set(supplierId, "ENDED");
 }
 
 export async function reportSupplier(
@@ -240,7 +288,13 @@ const MOCK_PRODUCTS: Record<string, SupplierProduct[]> = {
       // genuinely exercise both states across a real page, not every
       // single item looking identical.
       inStock: i % 6 !== 0,
-      images: [] as string[],
+      // ~2/3 carry an image -- exercises both the brand-profile
+      // showcase (imageless products excluded) and the full catalogue's
+      // placeholder path.
+      images:
+        i % 3 === 0
+          ? []
+          : (["https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=400&h=400&fit=crop"] as string[]),
     })),
   ],
   sup_002: [],
@@ -257,6 +311,28 @@ export async function getSupplierProductCategories(supplierId: string): Promise<
   await latency(200);
   const all = MOCK_PRODUCTS[supplierId] ?? [];
   return Array.from(new Set(all.map((p) => p.category)));
+}
+
+/** The brand-profile category showcase -- groups the supplier's imaged
+ *  products by category, biggest 5, <=6 each (the real backend also
+ *  floats pinned products first; the mock has no pin state to model). */
+export async function getSupplierProfileProducts(supplierId: string): Promise<SupplierShowcase> {
+  await latency(250);
+  const imaged = (MOCK_PRODUCTS[supplierId] ?? []).filter((p) => p.images.length > 0);
+
+  const buckets = new Map<string, SupplierProduct[]>();
+  for (const product of imaged) {
+    const list = buckets.get(product.category) ?? [];
+    list.push(product);
+    buckets.set(product.category, list);
+  }
+
+  const categories = [...buckets.entries()]
+    .sort(([, a], [, b]) => b.length - a.length)
+    .slice(0, 5)
+    .map(([category, products]) => ({ category, products: products.slice(0, 6) }));
+
+  return { categories };
 }
 
 export async function getSupplierProducts(
@@ -294,6 +370,8 @@ export async function getSupplierProducts(
 
   return {
     supplierName: supplier?.businessName ?? "Unknown supplier",
+    supplierBusinessImageUrl: supplier?.businessImageUrl ?? null,
+    supplierVerificationStatus: supplier?.verificationStatus ?? null,
     // Same gate as getSupplierProduct's own mock below -- connected
     // AND sup_001 (the one mock supplier seeded with real contact
     // details).
@@ -319,6 +397,7 @@ export async function getSupplierProduct(
   return {
     ...product,
     supplierName: supplier.businessName,
+    supplierBusinessImageUrl: supplier.businessImageUrl,
     // Mirrors the real gate exactly: connected (mock connection
     // state, same module as requestConnection below) AND the
     // supplier having "opted in" -- sup_001 is the one mock supplier

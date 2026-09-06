@@ -25,6 +25,7 @@ export const endConnection = impl.endConnection;
 export const reportSupplier = impl.reportSupplier;
 export const inviteSupplier = impl.inviteSupplier;
 export const getSupplierProducts = impl.getSupplierProducts;
+export const getSupplierProfileProducts = impl.getSupplierProfileProducts;
 export const getSupplierProductCategories = impl.getSupplierProductCategories;
 export const getSupplierProduct = impl.getSupplierProduct;
 export const getRelatedProducts = impl.getRelatedProducts;

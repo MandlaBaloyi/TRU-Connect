@@ -44,8 +44,10 @@ from src.domains.network.connections.repositories.connection_request_repository 
     ConnectionRequestRepository,
 )
 from src.domains.network.orders.errors import (
+    BelowMinimumOrderError,
     CartAlreadySubmittedError,
     CartNotFoundError,
+    DeliveryNotOfferedError,
     EmptyCartError,
     OrderLimitExceededError,
     PaymentMethodNotAvailableError,
@@ -204,6 +206,51 @@ def _validate_spending_limits(business_id: str | UUID, stock_order, method_enum:
         )
 
 
+def _validate_supplier_fulfilment_terms(supplier, stock_order, delivery_type: str) -> None:
+    """The supplier's own two stated terms, enforced at the last
+    possible moment -- right before a payment provider is called.
+
+    Both are ALSO applied in the UI (the checkout screen defaults to
+    COLLECT for a non-delivering supplier and blocks Continue under the
+    minimum), but a client is never the gate: a stale screen, a resumed
+    session, or a direct API call all reach here, and the supplier may
+    have changed either term after the cart was built.
+
+    Delivery is checked before the minimum on purpose -- "they don't
+    deliver at all" is a more fundamental answer than "your order is
+    too small", and being told to add stock to an order that could
+    never be delivered would be actively misleading.
+
+    offers_delivery IS TRI-STATE: only an EXPLICIT False blocks. NULL
+    means the supplier hasn't stated their terms, and refusing delivery
+    on the strength of an answer they never gave would remove working
+    functionality from every supplier who predates the field -- which
+    is exactly what happened when this was a plain boolean (31 checkout
+    tests failed at once). See the column's own comment.
+    """
+    if (
+        StockOrderDeliveryType(delivery_type) == StockOrderDeliveryType.DELIVER
+        and supplier.offers_delivery is False
+    ):
+        raise DeliveryNotOfferedError(
+            f"{supplier.business_name} only accepts collection orders. "
+            "Choose Collect to place this order."
+        )
+
+    minimum = supplier.minimum_order_cents
+    if minimum and stock_order.total_cents < minimum:
+        shortfall = minimum - stock_order.total_cents
+        raise BelowMinimumOrderError(
+            f"{supplier.business_name} has a minimum order of R{minimum / 100:,.2f}. "
+            f"Add R{shortfall / 100:,.2f} more to place this order.",
+            data={
+                "minimumOrderCents": minimum,
+                "orderTotalCents": stock_order.total_cents,
+                "shortfallCents": shortfall,
+            },
+        )
+
+
 def submit_checkout(
     business_id: str | UUID,
     supplier_profile_id: str | UUID,
@@ -266,6 +313,7 @@ def submit_checkout(
         raise EmptyCartError("Your cart is empty.")
 
     _validate_cart_is_fresh(stock_order)
+    _validate_supplier_fulfilment_terms(supplier, stock_order, delivery_type)
 
     method_enum = StockOrderPaymentMethod(payment_method)
 

@@ -192,24 +192,11 @@ export async function getDownloadUrl(asset: FileAsset): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Profile image — the single CURRENT avatar, session-scoped mock state
-// (not AsyncStorage — same reasoning as accountService's bio: this is
-// account data the future backend will own, not a local preference).
-// Kept here rather than accountService.ts since it's specifically a
-// FileAsset lifecycle concern.
+// The supplier profile photo / cover banner USED to be mocked here
+// (getProfileImage/setProfileImage/getCoverImage/setCoverImage). They
+// are now REAL — uploaded straight to Cloudinary via a backend-signed
+// upload and stored on SupplierProfile. See
+// services/profileImageUpload.ts and hooks/useProfileImageUpload.ts.
+// selectFile/uploadFile above stay: the future stock-order
+// proof-of-payment flow reuses this same provider-neutral boundary.
 // ---------------------------------------------------------------------------
-
-let currentProfileImage: FileAsset | null = null;
-
-export async function getProfileImage(): Promise<FileAsset | null> {
-  await latency(100);
-  return currentProfileImage;
-}
-
-/** Only an APPROVED asset should ever become the displayed avatar —
- *  callers are expected to pass an approved FileAsset (or null to
- *  clear it), never one still mid-flight. */
-export async function setProfileImage(asset: FileAsset | null): Promise<void> {
-  await latency(100);
-  currentProfileImage = asset;
-}

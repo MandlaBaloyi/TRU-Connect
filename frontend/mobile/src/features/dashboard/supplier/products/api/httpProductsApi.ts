@@ -29,7 +29,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/services/api/a
 import type { CreateProductInput, Product, ProductFilters, UpdateProductInput } from "../types";
 import type { PriceAdjustment } from "../../bulk-products/types";
 import { ProductsError } from "../types";
-import { uploadToCloudinary, type CloudinarySignedUpload } from "../services/cloudinaryUpload";
+import { uploadToCloudinary, type CloudinarySignedUpload } from "@/services/media/cloudinaryUpload";
 
 /**
  * Maps the backend's flat errors[] list (src/core/responses.py's own
@@ -96,6 +96,7 @@ interface ApiProduct {
   product_code: string;
   images: string[];
   is_archived: boolean;
+  is_pinned?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +124,7 @@ function fromApiProduct(dto: ApiProduct): Product {
     stockStatus: "IN_STOCK",
     images: dto.images,
     isArchived: dto.is_archived,
+    isPinned: dto.is_pinned ?? false,
     createdAt: dto.created_at,
     updatedAt: dto.updated_at,
   };
@@ -255,6 +257,20 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   }
 
   return product;
+}
+
+/** Feature / unfeature a product on the supplier's business profile.
+ *  The backend rejects a 7th pin (max 6) and an archived product with a
+ *  422 -- surfaced to the caller as an ApiError with `code:
+ *  "VALIDATION_ERROR"`. */
+export async function pinProduct(id: string): Promise<Product> {
+  const data = await apiPost<ApiProduct>(`/supplier-discovery/products/${id}/pin`, {});
+  return fromApiProduct(data);
+}
+
+export async function unpinProduct(id: string): Promise<Product> {
+  const data = await apiDelete<ApiProduct>(`/supplier-discovery/products/${id}/pin`);
+  return fromApiProduct(data);
 }
 
 export async function archiveProduct(id: string): Promise<Product> {

@@ -10,7 +10,10 @@ verification run before being written down as a permanent test.
 """
 from __future__ import annotations
 
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+    request_service,
+)
 
 
 def test_connection_status_is_isolated_per_business(make_business, make_supplier, make_supplier_profile):
@@ -19,10 +22,10 @@ def test_connection_status_is_isolated_per_business(make_business, make_supplier
     supplier_user = make_supplier("supplier@example.com")
     profile = make_supplier_profile(supplier_user, business_name="Shared Supplier")
 
-    connections_service.request_connection(business_a.id, profile.id)
+    request_service.request_connection(business_a.id, profile.id)
 
-    preview_for_a = connections_service.get_supplier_profile(business_a.id, profile.id)
-    preview_for_b = connections_service.get_supplier_profile(business_b.id, profile.id)
+    preview_for_a = discovery_service.get_supplier_profile(business_a.id, profile.id)
+    preview_for_b = discovery_service.get_supplier_profile(business_b.id, profile.id)
 
     assert preview_for_a["connectionStatus"] == "PENDING"
     assert preview_for_b["connectionStatus"] == "NOT_REQUESTED"

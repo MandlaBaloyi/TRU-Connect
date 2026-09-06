@@ -16,6 +16,7 @@ from marshmallow import Schema, fields, validate, validates, validates_schema
 from marshmallow import ValidationError as MarshmallowValidationError
 
 from src.shared.security.security import validate_password_complexity
+from src.shared.validation.business_name import normalize_business_name
 
 
 class BusinessRegisterSchema(Schema):
@@ -51,10 +52,16 @@ class BusinessRegisterSchema(Schema):
 
 
 class SupplierRegisterSchema(Schema):
-    owner_name = fields.String(required=True, data_key="ownerName", validate=validate.Length(min=1, max=200))
-    business_name = fields.String(
-        required=False, allow_none=True, data_key="businessName", validate=validate.Length(max=255)
+    # Owner name is now the OPTIONAL one -- a sole trader may just be
+    # "MacMan Businesses" with no separate person name to give. Business
+    # name is the mandatory, real identity every business-facing screen
+    # shows (the brand profile header, the catalogue title, My
+    # Connections). See shared.validation.business_name for the rule,
+    # and otp_service._seed_supplier_profile for where it lands.
+    owner_name = fields.String(
+        required=False, allow_none=True, data_key="ownerName", validate=validate.Length(max=200)
     )
+    business_name = fields.String(required=True, data_key="businessName")
     email = fields.Email(required=True)
     password = fields.String(required=True, load_only=True)
     confirm_password = fields.String(required=True, load_only=True, data_key="confirmPassword")
@@ -63,9 +70,16 @@ class SupplierRegisterSchema(Schema):
     # registration was reached via an invitation link/deep link.
     # Optional and load_only-adjacent (never echoed back): a missing or
     # invalid ticket never blocks registration itself, see
-    # connections_service.link_invitation_at_registration's own
+    # invitation_service.link_invitation_at_registration's own
     # docstring for why that's a silent no-op, not a validation error.
     invitation_ticket = fields.String(required=False, allow_none=True, data_key="invitationTicket")
+
+    @validates("business_name")
+    def validate_business_name(self, value, **kwargs):
+        try:
+            normalize_business_name(value)
+        except ValueError as exc:
+            raise MarshmallowValidationError(exc.args[0])
 
     @validates("password")
     def validate_password_strength(self, value, **kwargs):

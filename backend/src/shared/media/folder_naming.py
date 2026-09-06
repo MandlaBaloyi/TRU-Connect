@@ -91,3 +91,23 @@ def is_supplier_product_asset(public_id: str) -> bool:
     "/profile/" path) without needing to know or care about the
     variable supplier_profile_id in between."""
     return "/products/" in public_id
+
+
+def supplier_profile_folder(supplier_profile_id) -> str:
+    """The tru_connect/suppliers/{id}/profile/ branch this module's own
+    docstring reserved -- now a real caller: a supplier's profile photo
+    and cover banner (see supplier_profile/services/
+    supplier_profile_image_service.py). Both slots share this one
+    folder; the slot is a prefix on the asset's own name, not a
+    subfolder."""
+    obscured_supplier = _obscure(supplier_profile_id)
+    return f"{ROOT}/suppliers/{obscured_supplier}/profile"
+
+
+def is_supplier_profile_asset(public_id: str) -> bool:
+    """Webhook dispatch predicate for a supplier's own profile/cover
+    image -- disjoint from is_supplier_product_asset above ("/products/"
+    vs "/profile/"). Both segments are checked so this never matches a
+    future tru_connect/businesses/{id}/profile/ asset, which shares the
+    "/profile/" segment but not "/suppliers/"."""
+    return "/suppliers/" in public_id and "/profile/" in public_id

@@ -1,35 +1,81 @@
-import React from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useLayoutEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { CalendarDays, ChevronRight, MapPin, Package, Store } from "lucide-react-native";
+import { Boxes, ChevronRight } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { PrimaryButton } from "@/components/ui/PrimaryButton";
-import { Note, StatusPill } from "@/components/lists/CardListUI";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { showsAsVerified } from "@/constants/config";
+import { productDetailHref, supplierCatalogHref } from "../../routes";
 import { spacing, radius } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { useSupplierProfile, useRequestConnection } from "../hooks/useConnectionRequest";
-
-const VERIFICATION_TONE = { verified: "on", pending: "warning", unverified: "off" } as const;
-const VERIFICATION_LABEL = { verified: "Verified", pending: "Pending", unverified: "Unverified" } as const;
+import { useSupplierProfileProducts } from "../hooks/useSupplierProfileProducts";
+import { SupplierBrandHeader } from "../components/SupplierBrandHeader";
+import { SupplierShowcase } from "../components/SupplierShowcase";
+import { SupplierProfileMenu } from "../components/SupplierProfileMenu";
+import { SupplierConnectionInfoSheet } from "../components/SupplierConnectionInfoSheet";
+import { SupplierContactRow } from "../components/SupplierContactRow";
+import { SupplierTrustSignals } from "../components/SupplierTrustSignals";
+import { SupplierFulfilmentBlock } from "../components/SupplierFulfilmentBlock";
+import { SupplierConnectionStatus } from "../components/SupplierConnectionStatus";
 
 /**
- * file.txt Phase 1/2 boundary: this is still the narrow discovery
- * preview (file.txt §4), not the supplier's full relationship-gated
- * profile — that richer view is what unlocks once
- * connectionStatus === "ACTIVE" (Phase 3, not built yet). Request
- * Connection here only ever produces PENDING in this mock — approval
- * itself is Phase 3, someone else's screen, not this one.
+ * The supplier's brand profile, seen by a business -- the conversion
+ * moment (Relationship Intelligence plan, Phase 2). A brand header
+ * (cover + business photo + name + "on TruConnect since ..."), a
+ * category showcase of the supplier's real products with "See all in
+ * <category>", then the connection CTA. The "how connecting works"
+ * explainer lives behind the header ⋮ ("About connections") so the
+ * screen leads with brand and products, not process copy.
+ *
+ * Verification shows ONLY as a tick + "Verified supplier" when the
+ * supplier is genuinely verified -- never an "Unverified"/"Pending"
+ * label. Browsing is open regardless of connection status; only
+ * ORDERING is gated. Request Connection here still only ever produces
+ * PENDING; Approve/Decline is the supplier's own screen.
  */
 export default function SupplierProfileScreen() {
-  const { supplierId } = useLocalSearchParams<{ supplierId: string }>();
+  const { supplierId, supplierName: supplierNameParam } = useLocalSearchParams<{
+    supplierId: string;
+    supplierName?: string;
+  }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
+
   const { data: supplier, isLoading, isError, refetch } = useSupplierProfile(supplierId ?? "");
+  const { data: showcase, isLoading: isShowcaseLoading } = useSupplierProfileProducts(supplierId ?? "");
   const requestConnection = useRequestConnection(supplierId ?? "");
+
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <SupplierProfileMenu onAbout={() => setInfoOpen(true)} />,
+      // Social-style top bar: the supplier's own avatar + business name
+      // (+ tick when verified), replacing the generic "Supplier" title.
+      // Named from the ROUTE PARAM until the real profile lands, so the
+      // bar never flashes the layout's generic "Supplier" first -- see
+      // routes.ts's own docstring on that fix. Deliberately no onPress:
+      // this screen IS the profile the header would otherwise link to.
+      ...(supplier || supplierNameParam
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={supplier?.businessName ?? supplierNameParam ?? ""}
+                subtitle="Supplier profile"
+                photoUrl={supplier?.businessImageUrl ?? supplier?.photoUrl}
+                verified={showsAsVerified(supplier?.verificationStatus)}
+              />
+            ),
+          }
+        : {}),
+    });
+  }, [navigation, supplier, supplierNameParam]);
 
   if (isLoading) {
     return (
@@ -49,154 +95,123 @@ export default function SupplierProfileScreen() {
     );
   }
 
-  const connectionStatus = supplier.connectionStatus;
-
   return (
-    <ScreenContainer hasNativeHeader>
+    <ScreenContainer hasNativeHeader paddingHorizontal={0}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          {supplier.photoUrl ? (
-            <Image source={{ uri: supplier.photoUrl }} style={styles.photo} />
-          ) : (
-            <View style={[styles.iconWrap, { backgroundColor: theme.colors.primaryContainer }]}>
-              <Store size={32} color={theme.colors.primary} strokeWidth={1.8} />
-            </View>
-          )}
-          <Text style={[styles.name, { color: theme.colors.onSurface }]}>{supplier.businessName}</Text>
-          <StatusPill
-            label={VERIFICATION_LABEL[supplier.verificationStatus]}
-            tone={VERIFICATION_TONE[supplier.verificationStatus]}
-          />
-        </View>
-
-        <View style={styles.metaBlock}>
-          {supplier.category && (
-            <View style={styles.metaRow}>
-              <Store size={16} color={theme.colors.onSurfaceVariant} />
-              <Text style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>{supplier.category}</Text>
-            </View>
-          )}
-          {supplier.location && (
-            <View style={styles.metaRow}>
-              <MapPin size={16} color={theme.colors.onSurfaceVariant} />
-              <Text style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>{supplier.location}</Text>
-            </View>
-          )}
-          {supplier.memberSinceYear && (
-            <View style={styles.metaRow}>
-              <CalendarDays size={16} color={theme.colors.onSurfaceVariant} />
-              <Text style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>
-                On TruConnect since {supplier.memberSinceYear}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {supplier.description && (
-          <Text style={[styles.description, { color: theme.colors.onSurface }]}>{supplier.description}</Text>
-        )}
-
-        <Pressable
-          onPress={() => router.push(`/business/find-supplier/products/${supplierId}` as any)}
-          style={[styles.productsRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
-          accessibilityRole="button"
-          accessibilityLabel="View products"
-        >
-          <Package size={20} color={theme.colors.primary} />
-          <View style={styles.productsRowBody}>
-            <Text style={[styles.productsRowTitle, { color: theme.colors.onSurface }]}>View Products</Text>
-            <Text style={[styles.productsRowMeta, { color: theme.colors.onSurfaceVariant }]}>
-              {supplier.productCount} product{supplier.productCount === 1 ? "" : "s"} listed
-            </Text>
-          </View>
-          <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
-        </Pressable>
-
-        <ConnectionAction
-          status={connectionStatus}
-          onRequest={() => requestConnection.mutate()}
-          isSubmitting={requestConnection.isPending}
+        <SupplierBrandHeader
+          businessName={supplier.businessName}
+          category={supplier.category}
+          location={supplier.location}
+          verificationStatus={supplier.verificationStatus}
+          memberSince={supplier.memberSince}
+          description={supplier.description}
+          businessImageUrl={supplier.businessImageUrl}
+          coverImageUrl={supplier.coverImageUrl}
+          photoUrl={supplier.photoUrl}
+          stockedCategories={supplier.stockedCategories}
         />
 
-        <Note>
-          Requesting a connection lets {supplier.businessName} know you'd like to order from them. They'll need to
-          approve the request before you can place a stock order.
-        </Note>
+        {/* TRUST BEFORE PRODUCTS. An informal business deciding whether
+            to send money to a supplier it has never traded with weighs
+            "do other businesses buy here, and do orders go through"
+            before it weighs any individual price -- so these sit
+            directly under the brand header, above everything else. */}
+        <SupplierTrustSignals
+          connectedBusinessCount={supplier.connectedBusinessCount}
+          reliability={supplier.reliability}
+        />
+
+        <View style={styles.body}>
+          {/* CONNECTION STATUS FIRST, not last -- it used to sit below
+              every product strip, so a business had to scroll the whole
+              profile to learn whether they could actually order. "Can I
+              buy from these people" is the question the screen exists to
+              answer; it belongs directly under the brand header. */}
+          <View style={styles.actions}>
+            <SupplierConnectionStatus
+              status={supplier.connectionStatus}
+              initiatedBy={supplier.connectionInitiatedBy}
+              supplierName={supplier.businessName}
+              onRequest={() => requestConnection.mutate()}
+              isSubmitting={requestConnection.isPending}
+            />
+          </View>
+
+          {/* Contact renders nothing without a channel to show; the
+              fulfilment block always renders (delivery is answerable
+              either way) but hides the rows that have no real data. */}
+          <SupplierContactRow contact={supplier.contact} />
+          <SupplierFulfilmentBlock
+            offersDelivery={supplier.offersDelivery}
+            minimumOrderCents={supplier.minimumOrderCents}
+            address={supplier.collectionAddress}
+          />
+
+          <SupplierShowcase
+            categories={showcase?.categories ?? []}
+            isLoading={isShowcaseLoading}
+            onSeeAll={(category) =>
+              router.push(supplierCatalogHref(supplierId, supplier.businessName, category) as any)
+            }
+            onProductPress={(productId, productName) =>
+              router.push(productDetailHref(supplierId, productId, productName, supplier.businessName) as any)
+            }
+          />
+
+          {/* THE WHOLE-CATALOGUE ENTRY POINT. Until now the only way in
+              was "See all" on one arbitrary category strip -- a business
+              wanting to just browse everything had to pick a category
+              first, and never saw how much this supplier actually
+              stocks. productCount is real (backend counts it); the row
+              is hidden entirely at zero rather than offering a link to
+              an empty catalogue. */}
+          {supplier.productCount > 0 && (
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => router.push(supplierCatalogHref(supplierId, supplier.businessName) as any)}
+                style={({ pressed }) => [
+                  styles.shopAll,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outlineVariant,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Shop all ${supplier.productCount} products`}
+              >
+                <Boxes size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+                <Text style={[styles.shopAllLabel, { color: theme.colors.onSurface }]}>
+                  Shop all {supplier.productCount} {supplier.productCount === 1 ? "product" : "products"}
+                </Text>
+                <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
+              </Pressable>
+            </View>
+          )}
+        </View>
       </ScrollView>
+
+      <SupplierConnectionInfoSheet
+        visible={infoOpen}
+        supplierName={supplier.businessName}
+        onClose={() => setInfoOpen(false)}
+      />
     </ScreenContainer>
   );
 }
 
-function ConnectionAction({
-  status,
-  onRequest,
-  isSubmitting,
-}: {
-  status: string;
-  onRequest: () => void;
-  isSubmitting: boolean;
-}) {
-  const theme = useTheme();
-
-  if (status === "ACTIVE") {
-    return (
-      <View style={[styles.statusBanner, { backgroundColor: theme.colors.secondaryContainer }]}>
-        <Text style={[styles.statusBannerText, { color: theme.colors.secondary }]}>
-          You're connected — you can place stock orders with this supplier.
-        </Text>
-      </View>
-    );
-  }
-
-  if (status === "PENDING") {
-    return (
-      <View style={[styles.statusBanner, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <Text style={[styles.statusBannerText, { color: theme.colors.onSurfaceVariant }]}>
-          Connection request sent — waiting for the supplier to approve it.
-        </Text>
-      </View>
-    );
-  }
-
-  if (status === "DECLINED") {
-    return (
-      <View style={[styles.statusBanner, { backgroundColor: theme.colors.errorContainer }]}>
-        <Text style={[styles.statusBannerText, { color: theme.colors.error }]}>
-          This supplier declined your connection request.
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <PrimaryButton onPress={onRequest} loading={isSubmitting} disabled={isSubmitting}>
-      Request Connection
-    </PrimaryButton>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { paddingVertical: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl, gap: spacing.lg },
+  content: { paddingBottom: spacing.xxl },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { alignItems: "center", gap: spacing.sm },
-  iconWrap: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center" },
-  photo: { width: 72, height: 72, borderRadius: 36 },
-  name: { ...typography.h1, textAlign: "center" },
-  metaBlock: { gap: spacing.xs },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  metaText: { ...typography.body },
-  description: { ...typography.body, lineHeight: 21 },
-  productsRow: {
+  body: { paddingTop: spacing.md, gap: spacing.lg },
+  actions: { paddingHorizontal: spacing.md },
+  shopAll: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
-  productsRowBody: { flex: 1, gap: 2 },
-  productsRowTitle: { ...typography.body, fontWeight: "700" },
-  productsRowMeta: { ...typography.bodySmall },
-  statusBanner: { borderRadius: radius.lg, padding: spacing.md },
-  statusBannerText: { ...typography.bodySmall, fontWeight: "600", textAlign: "center" },
+  shopAllLabel: { ...typography.body, fontWeight: "700", flex: 1 },
 });

@@ -38,6 +38,8 @@ export function useAccountProfile() {
         phoneNumber: user.phoneNumber,
         businessName: profileQuery.data?.businessName ?? null,
         bio: profileQuery.data?.description ?? null,
+        businessImageUrl: profileQuery.data?.businessImageUrl ?? null,
+        coverImageUrl: profileQuery.data?.coverImageUrl ?? null,
         verification: "NOT_VERIFIED",
         accountStatus: user.accountStatus,
       }

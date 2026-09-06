@@ -129,12 +129,14 @@ def make_active_connection(db_session):
     from src.domains.network.connections.repositories.connection_request_repository import (
         ConnectionRequestRepository,
     )
-    from src.domains.network.connections.services import connections_service
+    from src.domains.network.connections.services import (
+        request_service,
+    )
 
     def _make(business, supplier_profile):
-        connections_service.request_connection(business.id, supplier_profile.id)
+        request_service.request_connection(business.id, supplier_profile.id)
         request = ConnectionRequestRepository.get_for_business_and_supplier(business.id, supplier_profile.id)
-        connections_service.approve_request(supplier_profile.supplier_id, request.id)
+        request_service.approve_request(supplier_profile.supplier_id, request.id)
         return request
 
     return _make

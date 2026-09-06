@@ -32,6 +32,7 @@ import type { Product, ProductListFilter, SortOption } from "../types";
 import {
   EmptyProducts,
   ProductCard,
+  ProductPinMenu,
   ProductSearchBar,
   ProductsOverflowMenu,
   ProductStatusFilterBar,
@@ -216,7 +217,15 @@ export default function ProductsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <ProductCard product={item} inventoryStatus={statusByProductId.get(item.id)} onPress={() => goToProduct(item.id)} />
+          <ProductCard
+            product={item}
+            inventoryStatus={statusByProductId.get(item.id)}
+            onPress={() => goToProduct(item.id)}
+            pinned={item.isPinned}
+            trailing={
+              <ProductPinMenu productId={item.id} isPinned={item.isPinned} disabled={item.isArchived} />
+            }
+          />
         )}
         ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: theme.colors.outline }]} />}
         ListEmptyComponent={

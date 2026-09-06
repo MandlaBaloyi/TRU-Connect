@@ -84,17 +84,26 @@ export interface SupplierProfilePreview {
   category: string | null;
   location: string | null;
   verificationStatus: SupplierVerificationStatus;
-  /** Year only, deliberately not an exact date — file.txt's own
-   *  privacy framing applied consistently: enough to build trust,
-   *  not enough to fingerprint. */
-  memberSinceYear: number | null;
+  /** Month + year, e.g. "March 2026" — the brand profile shows "On
+   *  TruConnect since <this>". Month precision, never the day (still
+   *  file.txt §4's privacy framing, just landing at month now). Null
+   *  only if the row somehow has no created_at. */
+  memberSince: string | null;
   /** Short, supplier-authored description — optional, may be null if
    *  the supplier hasn't written one. */
   description: string | null;
   connectionStatus: ConnectionStatus;
-  /** Same resolution rule as the search result's own photoUrl —
-   *  see that field's doc comment. */
+  /** The PERSONAL photo — same connection-gated resolution rule as the
+   *  search result's own photoUrl. Usually null for a supplier a
+   *  business isn't connected to. Prefer businessImageUrl for the
+   *  brand header. */
   photoUrl: string | null;
+  /** The supplier's business identity photo and cover banner — public
+   *  BRAND assets, returned to any browsing business regardless of
+   *  connection (unlike photoUrl above). Null when the supplier hasn't
+   *  uploaded one. */
+  businessImageUrl: string | null;
+  coverImageUrl: string | null;
   /** Real — how many products this supplier has actually listed.
    *  Drives the profile screen's "View Products" entry point: an
    *  honest empty state when 0, a real (if minimal) list otherwise. */
@@ -106,6 +115,61 @@ export interface SupplierProfilePreview {
    *  viewing a CONFIRMED order (which they can no longer self-cancel)
    *  has a real way to reach the supplier directly. */
   contact: SupplierContactDetails | null;
+  /** The supplier's own fixed premises, for the profile's "Collect
+   *  from" block. Gated by an ACTIVE connection ONLY -- deliberately
+   *  NOT also behind share_contact_details like `contact` above, since
+   *  a collection address is core functional information an actively-
+   *  connected business needs to complete a COLLECT order, not a
+   *  discretionary channel (see the backend's own comment on that
+   *  distinction). Null when not connected, or when the supplier
+   *  hasn't set one. */
+  collectionAddress: SupplierCollectionAddress | null;
+  /** Fulfilment terms — UNGATED, shown before any connection exists,
+   *  because "do you deliver" and "what's the minimum order" are
+   *  exactly what a business needs while deciding whether to connect.
+   *  minimumOrderCents null means no minimum (never 0). */
+  /** TRI-STATE: null means the supplier hasn't stated their terms
+   *  — never render that as "collection only". */
+  offersDelivery: boolean | null;
+  minimumOrderCents: number | null;
+  /** Who sent the connection request — null when there isn't one. */
+  connectionInitiatedBy: ConnectionInitiator | null;
+  /** How many businesses currently buy from this supplier. The social
+   *  proof an informal business actually decides on — real ACTIVE
+   *  connections, not a self-reported claim. 0 for a new supplier. */
+  connectedBusinessCount: number;
+  /** Real fulfilment history, or NULL until there's enough of it to
+   *  mean anything (backend: MIN_DECIDED_ORDERS_FOR_RELIABILITY).
+   *  Null renders nothing at all — never a zeroed block, which would
+   *  read as "bad" rather than "new". */
+  reliability: SupplierReliability | null;
+  /** The categories this supplier ACTUALLY stocks, from their real
+   *  products — not a self-described category. */
+  stockedCategories: string[];
+}
+
+export interface SupplierReliability {
+  /** Orders they've genuinely decided on (accepted or declined).
+   *  Excludes still-pending and business-cancelled orders. */
+  decidedCount: number;
+  acceptedCount: number;
+  /** MEDIAN hours from submitted to decided, so one holiday doesn't
+   *  define "usually". Null if no order had both timestamps. */
+  medianResponseHours: number | null;
+}
+
+/** Mirrors discovery_service.get_supplier_profile's own
+ *  collectionAddress block exactly. Every field is individually
+ *  nullable -- a supplier may have set only a suburb and city. */
+export interface SupplierCollectionAddress {
+  building: string | null;
+  street: string | null;
+  suburb: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,7 +180,26 @@ export interface SupplierProfilePreview {
 // (Phase 3) is built — it'll just start receiving ACTIVE/DECLINED too.
 // ---------------------------------------------------------------------------
 
-export type ConnectionStatus = "NOT_REQUESTED" | "PENDING" | "ACTIVE" | "DECLINED" | "SUSPENDED" | "TERMINATED";
+/**
+ * Matches the backend's ConnectionRequestStatus EXACTLY, plus the
+ * synthetic NOT_REQUESTED the service returns when no request row
+ * exists at all.
+ *
+ * REAL BUG FIXED HERE: this used to declare "SUSPENDED" | "TERMINATED",
+ * neither of which the backend has ever emitted, while omitting
+ * "ENDED", which it emits on every disconnect
+ * (connection_list_service.end_connection returns exactly that). The
+ * result was that a genuinely disconnected supplier matched none of
+ * the profile screen's status branches and silently fell through to
+ * the "Request Connection" button -- right outcome, wrong reason, and
+ * impossible to render an honest status label from.
+ */
+export type ConnectionStatus = "NOT_REQUESTED" | "PENDING" | "ACTIVE" | "DECLINED" | "ENDED";
+
+/** Which side created the connection request — decides whether a
+ *  PENDING state means "waiting for them" or "waiting for you". Null
+ *  when no request exists. Mirrors ConnectionInitiatorRole. */
+export type ConnectionInitiator = "BUSINESS" | "SUPPLIER";
 
 // ---------------------------------------------------------------------------
 // Supplier Invitation — file.txt Phase 2 (the "supplier isn't on
@@ -203,6 +286,23 @@ export interface SupplierProduct {
 }
 
 /**
+ * The supplier's brand-profile product showcase -- their real product
+ * categories (biggest first, max 5 server-side), each a small strip.
+ * Products with no approved image are excluded server-side; pinned
+ * products come first within their category. `category` is a raw
+ * ProductCategory value (e.g. "BEVERAGES") -- resolve to a label via
+ * supplier/products/types' CATEGORY_OPTIONS.
+ */
+export interface SupplierShowcaseCategory {
+  category: string;
+  products: SupplierProduct[];
+}
+
+export interface SupplierShowcase {
+  categories: SupplierShowcaseCategory[];
+}
+
+/**
  * The real response shape for the catalogue list -- supplierName sits
  * at the top level (same value for every product, so the backend
  * deliberately doesn't repeat it into each one). This is the actual
@@ -217,6 +317,11 @@ export interface SupplierProduct {
  */
 export interface SupplierProductsCatalog {
   supplierName: string;
+  /** Public brand image + verification, for the social-style catalogue
+   *  header (avatar + "<name> Stock" + tick). Same ungated brand asset
+   *  as SupplierProfilePreview.businessImageUrl. */
+  supplierBusinessImageUrl: string | null;
+  supplierVerificationStatus: SupplierVerificationStatus | null;
   contact: SupplierContactDetails | null;
   page: number;
   totalPages: number;
@@ -274,6 +379,9 @@ export interface SupplierProductDetail {
   id: string;
   name: string;
   supplierName: string;
+  /** For the product screen's own social top bar (avatar + business
+   *  name, product name beneath). Ungated brand asset. */
+  supplierBusinessImageUrl: string | null;
   contact: SupplierContactDetails | null;
   category: string;
   priceCents: number;

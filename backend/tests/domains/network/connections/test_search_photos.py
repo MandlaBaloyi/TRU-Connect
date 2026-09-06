@@ -6,7 +6,9 @@ rule as profile previews, just proven at the search layer too.
 """
 from __future__ import annotations
 
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    discovery_service,
+)
 
 
 def _set_supplier_photo(supplier_user, profile, *, visible_image_source=None, photo_visibility=None):
@@ -27,7 +29,7 @@ def test_everyone_visibility_shows_photo_in_search_results(make_business, make_s
     profile = make_supplier_profile(supplier_user, business_name="Search Visible Co")
     _set_supplier_photo(supplier_user, profile, visible_image_source="personal", photo_visibility="everyone")
 
-    results = connections_service.search_suppliers("Search Visible", business.id)
+    results = discovery_service.search_suppliers("Search Visible", business.id)
 
     assert len(results) == 1
     assert results[0]["photoUrl"] == "https://example.com/personal.jpg"
@@ -45,7 +47,7 @@ def test_connections_visibility_hides_photo_in_search_before_connecting(
     profile = make_supplier_profile(supplier_user, business_name="Search Hidden Co")
     _set_supplier_photo(supplier_user, profile, visible_image_source="personal", photo_visibility="connections")
 
-    results = connections_service.search_suppliers("Search Hidden", business.id)
+    results = discovery_service.search_suppliers("Search Hidden", business.id)
 
     assert len(results) == 1
     assert results[0]["photoUrl"] is None
@@ -58,7 +60,7 @@ def test_default_settings_show_no_photo_in_search(make_business, make_supplier, 
     make_supplier_profile(supplier_user, business_name="Default Search Co")
     # No photo settings configured -- defaults (NONE source, CONNECTIONS visibility).
 
-    results = connections_service.search_suppliers("Default Search", business.id)
+    results = discovery_service.search_suppliers("Default Search", business.id)
 
     assert results[0]["photoUrl"] is None
 
@@ -82,7 +84,7 @@ def test_multiple_name_matches_each_resolve_their_own_photo(make_business, make_
     hidden_profile = make_supplier_profile(hidden_user, business_name="Photo Match Hidden Co")
     _set_supplier_photo(hidden_user, hidden_profile, visible_image_source="personal", photo_visibility="connections")
 
-    results = connections_service.search_suppliers("Photo Match", business.id)
+    results = discovery_service.search_suppliers("Photo Match", business.id)
 
     by_name = {r["businessName"]: r for r in results}
     assert len(results) == 2
@@ -105,7 +107,7 @@ def test_reverse_direction_search_also_resolves_photo(make_business, make_busine
 
     supplier_user = make_supplier()
 
-    results = connections_service.search_businesses("Reverse Search Photo", supplier_user.id)
+    results = discovery_service.search_businesses("Reverse Search Photo", supplier_user.id)
 
     assert len(results) == 1
     assert results[0]["photoUrl"] == "https://example.com/business-owner.jpg"

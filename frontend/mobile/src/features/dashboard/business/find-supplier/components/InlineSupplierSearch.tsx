@@ -12,6 +12,7 @@ import { typography } from "@/theme/typography";
 import { useSupplierSearch } from "../hooks/useSupplierSearch";
 import { useRecentSearches } from "../hooks/useRecentSearches";
 import { SupplierResultCard } from "./SupplierResultCard";
+import { supplierProfileHref } from "../../routes";
 
 /**
  * Everything FindSupplierScreen.tsx used to own BELOW its own search
@@ -43,7 +44,7 @@ export function InlineSupplierSearch({ query }: { query: string }) {
             {recentSearches.map((recent) => (
               <Pressable
                 key={recent.id}
-                onPress={() => router.push(`/business/find-supplier/${recent.id}` as any)}
+                onPress={() => router.push(supplierProfileHref(recent.id, recent.businessName) as any)}
                 style={({ pressed }) => [
                   styles.recentRow,
                   { borderColor: theme.colors.outlineVariant, opacity: pressed ? 0.7 : 1 },
@@ -124,7 +125,7 @@ export function InlineSupplierSearch({ query }: { query: string }) {
       renderItem={({ item }) => (
         <SupplierResultCard
           result={item}
-          onPress={() => router.push(`/business/find-supplier/${item.id}` as any)}
+          onPress={() => router.push(supplierProfileHref(item.id, item.businessName) as any)}
         />
       )}
     />

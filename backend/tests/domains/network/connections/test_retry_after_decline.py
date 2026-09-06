@@ -16,12 +16,14 @@ from src.domains.network.connections.models.connection_request import (
     ConnectionRequest,
     ConnectionRequestStatus,
 )
-from src.domains.network.connections.services import connections_service
+from src.domains.network.connections.services import (
+    request_service,
+)
 from src.domains.network.connections.services.errors import RetryLimitExceededError
 
 
 def _decline(business, supplier_profile):
-    connections_service.request_connection(business.id, supplier_profile.id)
+    request_service.request_connection(business.id, supplier_profile.id)
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=supplier_profile.id).first()
     request.status = ConnectionRequestStatus.DECLINED
     from src.extensions import db
@@ -36,7 +38,7 @@ def test_first_retry_after_decline_succeeds(make_business, make_supplier, make_s
     profile = make_supplier_profile(supplier_user, business_name="Retry Test Co")
     _decline(business, profile)
 
-    result = connections_service.request_connection(business.id, profile.id)
+    result = request_service.request_connection(business.id, profile.id)
 
     assert result["connectionStatus"] == "PENDING"
 
@@ -47,7 +49,7 @@ def test_retry_records_a_timestamp_in_retry_history(make_business, make_supplier
     profile = make_supplier_profile(supplier_user, business_name="History Test Co")
     _decline(business, profile)
 
-    connections_service.request_connection(business.id, profile.id)
+    request_service.request_connection(business.id, profile.id)
 
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     assert len(request.retry_history) == 1
@@ -61,7 +63,7 @@ def test_second_retry_same_day_exceeds_daily_limit(make_business, make_supplier,
     profile = make_supplier_profile(supplier_user, business_name="Daily Limit Co")
     _decline(business, profile)
 
-    connections_service.request_connection(business.id, profile.id)  # 1st retry — succeeds
+    request_service.request_connection(business.id, profile.id)  # 1st retry — succeeds
     # Decline it again so there's something to retry a second time.
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     request.status = ConnectionRequestStatus.DECLINED
@@ -70,7 +72,7 @@ def test_second_retry_same_day_exceeds_daily_limit(make_business, make_supplier,
     db.session.commit()
 
     with pytest.raises(RetryLimitExceededError) as exc_info:
-        connections_service.request_connection(business.id, profile.id)  # 2nd retry, same day — blocked
+        request_service.request_connection(business.id, profile.id)  # 2nd retry, same day — blocked
 
     assert exc_info.value.data is not None
     assert "nextRetryAt" in exc_info.value.data
@@ -89,7 +91,7 @@ def test_retry_allowed_again_after_a_day_passes(make_business, make_supplier, ma
     request.retry_history = [datetime.now(timezone.utc) - timedelta(days=2)]
     db.session.commit()
 
-    result = connections_service.request_connection(business.id, profile.id)
+    result = request_service.request_connection(business.id, profile.id)
     assert result["connectionStatus"] == "PENDING"
 
 
@@ -110,7 +112,7 @@ def test_weekly_limit_blocks_even_when_daily_would_allow(make_business, make_sup
     db.session.commit()
 
     with pytest.raises(RetryLimitExceededError):
-        connections_service.request_connection(business.id, profile.id)
+        request_service.request_connection(business.id, profile.id)
 
 
 def test_retry_no_longer_counts_once_outside_the_weekly_window(make_business, make_supplier, make_supplier_profile):
@@ -127,7 +129,7 @@ def test_retry_no_longer_counts_once_outside_the_weekly_window(make_business, ma
     request.retry_history = [now - timedelta(days=20), now - timedelta(days=15), now - timedelta(days=10)]
     db.session.commit()
 
-    result = connections_service.request_connection(business.id, profile.id)
+    result = request_service.request_connection(business.id, profile.id)
     assert result["connectionStatus"] == "PENDING"
 
 
@@ -139,14 +141,14 @@ def test_reverse_direction_retry_also_enforced(make_business, make_supplier, mak
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Reverse Retry Supplier")
 
-    connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    request_service.request_connection_to_business(supplier_user.id, business_profile.id)
     request = ConnectionRequest.query.filter_by(business_id=business.id, supplier_profile_id=profile.id).first()
     request.status = ConnectionRequestStatus.DECLINED
     from src.extensions import db
 
     db.session.commit()
 
-    result = connections_service.request_connection_to_business(supplier_user.id, business_profile.id)
+    result = request_service.request_connection_to_business(supplier_user.id, business_profile.id)
     assert result["connectionStatus"] == "PENDING"
 
 
@@ -158,8 +160,8 @@ def test_pending_and_active_requests_remain_fully_idempotent(make_business, make
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Idempotent Co")
 
-    first = connections_service.request_connection(business.id, profile.id)
-    second = connections_service.request_connection(business.id, profile.id)
+    first = request_service.request_connection(business.id, profile.id)
+    second = request_service.request_connection(business.id, profile.id)
 
     assert first["connectionStatus"] == "PENDING"
     assert second["connectionStatus"] == "PENDING"

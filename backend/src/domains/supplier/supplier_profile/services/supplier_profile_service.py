@@ -29,14 +29,24 @@ from src.domains.supplier.supplier_profile.repositories.supplier_profile_reposit
     SupplierProfileRepository,
 )
 from src.domains.supplier.supplier_profile.services.errors import ProfileValidationError
-
-MAX_BUSINESS_NAME_LENGTH = 255
+# The business-name rule is shared with supplier registration -- one
+# definition in shared.validation.business_name. MAX_BUSINESS_NAME_LENGTH
+# is re-exported through this import so existing references to
+# supplier_profile_service.MAX_BUSINESS_NAME_LENGTH still resolve.
+from src.shared.validation.business_name import (  # noqa: F401
+    MAX_BUSINESS_NAME_LENGTH,
+    normalize_business_name,
+)
 MAX_CATEGORY_LENGTH = 120
 MAX_LOCATION_LENGTH = 120
 MAX_DESCRIPTION_LENGTH = 500
 MAX_WHATSAPP_DIGITS = 15  # E.164's own real upper bound
 MIN_WHATSAPP_DIGITS = 8
 MAX_TIKTOK_HANDLE_LENGTH = 100
+# R1,000,000 -- not a business rule so much as a mis-entry catch (a
+# supplier typing rands into a cents field would otherwise sail
+# through as a 100x minimum).
+MAX_MINIMUM_ORDER_CENTS = 100_000_000
 
 # TikTok's own real username rules -- letters, digits, underscore,
 # period. Not enforcing TikTok's full ruleset (period can't be first/
@@ -84,6 +94,8 @@ def update_my_profile(
     contact_email: Optional[str] = None,
     tiktok_handle: Optional[str] = None,
     share_contact_details: bool = False,
+    offers_delivery: Optional[bool] = None,
+    minimum_order_cents: Optional[int] = None,
     collection_building: Optional[str] = None,
     collection_street: Optional[str] = None,
     collection_suburb: Optional[str] = None,
@@ -95,11 +107,10 @@ def update_my_profile(
 ) -> SupplierProfile:
     errors: list[str] = []
 
-    business_name = business_name.strip()
-    if not business_name:
-        errors.append("Business name is required.")
-    elif len(business_name) > MAX_BUSINESS_NAME_LENGTH:
-        errors.append(f"Business name must be {MAX_BUSINESS_NAME_LENGTH} characters or fewer.")
+    try:
+        business_name = normalize_business_name(business_name)
+    except ValueError as exc:
+        errors.extend(exc.args[0])
 
     if category is not None and len(category) > MAX_CATEGORY_LENGTH:
         errors.append(f"Category must be {MAX_CATEGORY_LENGTH} characters or fewer.")
@@ -125,6 +136,15 @@ def update_my_profile(
         if len(normalized_tiktok) > MAX_TIKTOK_HANDLE_LENGTH or not _TIKTOK_HANDLE_PATTERN.match(normalized_tiktok):
             errors.append("Enter a valid TikTok handle (letters, numbers, underscores, and periods only).")
 
+    # A minimum order must be a real, positive amount. NULL/absent
+    # means "no minimum"; 0 or a negative number is not a minimum, it's
+    # a mis-entry, and silently storing it would show a business
+    # "Minimum order R0.00".
+    if minimum_order_cents is not None and minimum_order_cents <= 0:
+        errors.append("Minimum order must be more than R0, or left blank for no minimum.")
+    if minimum_order_cents is not None and minimum_order_cents > MAX_MINIMUM_ORDER_CENTS:
+        errors.append(f"Minimum order can't be more than R{MAX_MINIMUM_ORDER_CENTS // 100:,}.")
+
     if collection_latitude is not None and not (-90 <= collection_latitude <= 90):
         errors.append("Collection latitude is outside a valid range.")
     if collection_longitude is not None and not (-180 <= collection_longitude <= 180):
@@ -144,6 +164,8 @@ def update_my_profile(
         "contact_email": contact_email.strip() if contact_email else None,
         "tiktok_handle": normalized_tiktok,
         "share_contact_details": share_contact_details,
+        "offers_delivery": offers_delivery,
+        "minimum_order_cents": minimum_order_cents,
         "collection_building": collection_building.strip() if collection_building else None,
         "collection_street": collection_street.strip() if collection_street else None,
         "collection_suburb": collection_suburb.strip() if collection_suburb else None,

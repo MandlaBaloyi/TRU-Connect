@@ -16,19 +16,21 @@ import re
 from src.shared.email.email import get_fake_provider
 
 
-def _register_supplier(client, *, owner_name="Sipho Mahlangu", email="sipho@example.com"):
-    return client.post(
-        "/api/v1/auth/register",
-        json={
-            "role": "supplier",
-            "ownerName": owner_name,
-            "businessName": "Mahlangu Fresh Produce",
-            "email": email,
-            "password": "Abcd1234!",
-            "confirmPassword": "Abcd1234!",
-            "acceptTerms": True,
-        },
-    )
+def _register_supplier(
+    client, *, owner_name="Sipho Mahlangu", business_name="Mahlangu Fresh Produce", email="sipho@example.com"
+):
+    body = {
+        "role": "supplier",
+        "businessName": business_name,
+        "email": email,
+        "password": "Abcd1234!",
+        "confirmPassword": "Abcd1234!",
+        "acceptTerms": True,
+    }
+    # owner name is optional now -- only send it when the test supplies one
+    if owner_name is not None:
+        body["ownerName"] = owner_name
+    return client.post("/api/v1/auth/register", json=body)
 
 
 def _extract_otp(email: str) -> str:
@@ -42,7 +44,9 @@ def _extract_otp(email: str) -> str:
 
 def test_supplier_not_searchable_before_verification(client, make_user):
     from src.domains.auth.models.user import UserRole, VerificationStatus
-    from src.domains.network.connections.services import connections_service
+    from src.domains.network.connections.services import (
+        discovery_service,
+    )
     from src.extensions import db
 
     response = _register_supplier(client, owner_name="Not Yet Verified", email="notyet@example.com")
@@ -53,13 +57,13 @@ def test_supplier_not_searchable_before_verification(client, make_user):
     )
     db.session.commit()
 
-    results = connections_service.search_suppliers("Not Yet Verified", viewer_business.id)
+    results = discovery_service.search_suppliers("Not Yet Verified", viewer_business.id)
     assert results == []
 
 
 def test_supplier_becomes_searchable_immediately_after_verification(client, make_user):
     from src.domains.auth.models.user import UserRole, VerificationStatus
-    from src.domains.network.connections.services import connections_service
+    from src.domains.network.connections.services import discovery_service
     from src.extensions import db
 
     response = _register_supplier(client, owner_name="Sipho Mahlangu", email="sipho-seed@example.com")
@@ -77,9 +81,61 @@ def test_supplier_becomes_searchable_immediately_after_verification(client, make
     )
     db.session.commit()
 
-    results = connections_service.search_suppliers("Sipho Mahlangu", viewer_business.id)
+    # Seeded with the BUSINESS name now (mandatory field), not the
+    # owner name -- see otp_service._seed_supplier_profile.
+    results = discovery_service.search_suppliers("Mahlangu Fresh Produce", viewer_business.id)
     assert len(results) == 1
-    assert results[0]["businessName"] == "Sipho Mahlangu"
+    assert results[0]["businessName"] == "Mahlangu Fresh Produce"
+
+
+def test_supplier_registration_requires_a_valid_business_name(client):
+    """Business name is mandatory and shape-checked
+    (shared.validation.business_name) -- a missing or junk name is a
+    422, never a silently-accepted profile."""
+    missing = client.post(
+        "/api/v1/auth/register",
+        json={
+            "role": "supplier",
+            "ownerName": "Someone",
+            "email": "noname@example.com",
+            "password": "Abcd1234!",
+            "confirmPassword": "Abcd1234!",
+            "acceptTerms": True,
+        },
+    )
+    assert missing.status_code == 422
+
+    for bad in ("a", "aaaa", "1234"):
+        response = _register_supplier(
+            client, business_name=bad, email=f"bad-{bad}@example.com"
+        )
+        assert response.status_code == 422, bad
+
+
+def test_supplier_registration_succeeds_without_an_owner_name(client):
+    """Owner name is optional now -- a sole trader with just a business
+    name registers fine, and the profile seeds from the business name."""
+    response = _register_supplier(
+        client, owner_name=None, business_name="Solo Trader Supplies", email="solo@example.com"
+    )
+    assert response.status_code == 201
+
+    code = _extract_otp("solo@example.com")
+    verify = client.post(
+        "/api/v1/auth/phone/verify-otp", json={"destination": "solo@example.com", "code": code}
+    )
+    assert verify.status_code == 200
+
+    from src.domains.auth.models.user import User
+    from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
+        SupplierProfileRepository,
+    )
+
+    user = User.query.filter_by(email="solo@example.com").first()
+    assert user.first_name is None
+    profile = SupplierProfileRepository.get_by_supplier_id(user.id)
+    assert profile is not None
+    assert profile.business_name == "Solo Trader Supplies"
 
 
 def test_get_or_create_is_idempotent(client, db_session):

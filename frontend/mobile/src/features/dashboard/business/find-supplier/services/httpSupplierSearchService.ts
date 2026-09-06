@@ -32,6 +32,7 @@ import type {
   SupplierProductsQuery,
   SupplierProfilePreview,
   SupplierSearchResult,
+  SupplierShowcase,
 } from "../types";
 
 export async function searchSuppliers(query: string): Promise<SupplierSearchResult[]> {
@@ -85,6 +86,14 @@ export async function reportSupplier(
 
 export async function inviteSupplier(email: string): Promise<{ status: "SENT" }> {
   return apiPost<{ status: "SENT" }>("/supplier-discovery/invitations", { email });
+}
+
+/** The brand-profile product showcase -- the supplier's real product
+ *  categories (biggest first, max 5), each a strip. Imageless products
+ *  excluded, pinned products first within their category (see backend
+ *  connections_service.list_profile_products / _group_profile_showcase). */
+export async function getSupplierProfileProducts(supplierId: string): Promise<SupplierShowcase> {
+  return apiGet<SupplierShowcase>(`/supplier-discovery/suppliers/${supplierId}/profile-products`);
 }
 
 export async function getSupplierProducts(

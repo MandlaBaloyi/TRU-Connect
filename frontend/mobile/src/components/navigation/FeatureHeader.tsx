@@ -78,6 +78,16 @@ export function FeatureHeader({ back, options, navigation }: NativeStackHeaderPr
   // feature's _layout.tsx exactly as before.
   const title = options.title ?? "";
 
+  // A screen can supply a RENDER headerTitle (function) instead of a
+  // plain string -- used for the social-style entity headers
+  // (EntityHeaderTitle: avatar + business name + verified tick) on the
+  // supplier brand profile and stock catalogue. React Navigation's own
+  // headerTitle contract: string | ((props) => ReactNode). We only
+  // special-case the function form; a string headerTitle still falls
+  // through to the <Text> below via `title`.
+  const renderTitle =
+    typeof options.headerTitle === "function" ? options.headerTitle : null;
+
   return (
     <View
       style={[
@@ -107,13 +117,19 @@ export function FeatureHeader({ back, options, navigation }: NativeStackHeaderPr
           <View style={styles.backSpacer} />
         )}
 
-        <Text
-          style={[styles.title, { color: theme.colors.onSurface }]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {title}
-        </Text>
+        {renderTitle ? (
+          <View style={styles.titleSlot}>
+            {renderTitle({ children: title, tintColor: theme.colors.onSurface })}
+          </View>
+        ) : (
+          <Text
+            style={[styles.title, { color: theme.colors.onSurface }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {title}
+          </Text>
+        )}
 
         {/* Fixed-width slot keeps the title's position identical
             between screens that do and don't have a right action, and
@@ -152,5 +168,8 @@ const styles = StyleSheet.create({
   backButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backSpacer: { width: 40 },
   title: { ...typography.h2, flex: 1, marginLeft: spacing.xs },
+  // Same footprint as `title` (flex:1 + the left margin) for a render
+  // headerTitle, minus the text-only typography props a View can't take.
+  titleSlot: { flex: 1, marginLeft: spacing.xs, flexDirection: "row", alignItems: "center" },
   rightSlot: { minWidth: 80, alignItems: "flex-end", justifyContent: "center" },
 });

@@ -325,8 +325,8 @@ function SupplierRegisterForm({
 
         <RegisterError errorMessage={errorMessage} isDuplicateEmail={isDuplicateEmail} />
 
-        <FormTextField control={control} name="businessName" label="Business Name (optional)" />
-        <FormTextField control={control} name="ownerName" label="Owner Name" />
+        <FormTextField control={control} name="businessName" label="Business Name" />
+        <FormTextField control={control} name="ownerName" label="Owner Name (optional)" />
         <FormTextField control={control} name="email" label="Email" autoCapitalize="none" keyboardType="email-address" />
         <PasswordField control={control} name="password" label="Password" />
         <PasswordField control={control} name="confirmPassword" label="Confirm Password" />
