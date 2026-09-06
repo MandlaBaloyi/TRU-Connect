@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import type { NativeStackHeaderProps } from "@react-navigation/native-stack";
+import type { NativeStackHeaderProps } from "expo-router";
 
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -32,7 +32,11 @@ const HEADER_HEIGHT = 56;
  *      screenOptions object. That is exactly why changing the theme
  *      "fixed" it: new headerStyle object -> re-apply -> re-measure.
  *      native-stack does NOT expose headerStatusBarHeight (verified
- *      against the installed @react-navigation/native-stack types),
+ *      against expo-router's own re-exported NativeStackHeaderProps --
+ *      expo-router 57 ships its own internal copy of these types
+ *      rather than depending on @react-navigation/native-stack
+ *      directly; importing from the raw package instead created a
+ *      duplicate-type conflict across every _layout.tsx using this),
  *      so that native measurement cannot be corrected from JS.
  *   C. ScreenHeader (custom JS, NO inset handling at all) — the
  *      supplier product-catalogue screens.

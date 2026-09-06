@@ -84,6 +84,14 @@ def update_my_profile(
     contact_email: Optional[str] = None,
     tiktok_handle: Optional[str] = None,
     share_contact_details: bool = False,
+    collection_building: Optional[str] = None,
+    collection_street: Optional[str] = None,
+    collection_suburb: Optional[str] = None,
+    collection_city: Optional[str] = None,
+    collection_province: Optional[str] = None,
+    collection_postal_code: Optional[str] = None,
+    collection_latitude: Optional[float] = None,
+    collection_longitude: Optional[float] = None,
 ) -> SupplierProfile:
     errors: list[str] = []
 
@@ -117,6 +125,11 @@ def update_my_profile(
         if len(normalized_tiktok) > MAX_TIKTOK_HANDLE_LENGTH or not _TIKTOK_HANDLE_PATTERN.match(normalized_tiktok):
             errors.append("Enter a valid TikTok handle (letters, numbers, underscores, and periods only).")
 
+    if collection_latitude is not None and not (-90 <= collection_latitude <= 90):
+        errors.append("Collection latitude is outside a valid range.")
+    if collection_longitude is not None and not (-180 <= collection_longitude <= 180):
+        errors.append("Collection longitude is outside a valid range.")
+
     if errors:
         raise ProfileValidationError("Check the highlighted fields.", errors=errors)
 
@@ -131,6 +144,14 @@ def update_my_profile(
         "contact_email": contact_email.strip() if contact_email else None,
         "tiktok_handle": normalized_tiktok,
         "share_contact_details": share_contact_details,
+        "collection_building": collection_building.strip() if collection_building else None,
+        "collection_street": collection_street.strip() if collection_street else None,
+        "collection_suburb": collection_suburb.strip() if collection_suburb else None,
+        "collection_city": collection_city.strip() if collection_city else None,
+        "collection_province": collection_province.strip() if collection_province else None,
+        "collection_postal_code": collection_postal_code.strip() if collection_postal_code else None,
+        "collection_latitude": collection_latitude,
+        "collection_longitude": collection_longitude,
     }
     if photo_visibility is not None:
         update_fields["photo_visibility"] = PhotoVisibility(photo_visibility)

@@ -1,6 +1,6 @@
 import { ApiError } from "@/services/api/apiClient";
 
-import type { DeclineReason, OrderDetail, OrderSummary, StockOrderStatus } from "../types";
+import type { CancelReason, DeclineReason, OrderDetail, OrderSummary, StockOrderStatus } from "../types";
 
 const latency = (ms = 300) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -23,6 +23,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "CASH",
       deliveryType: "DELIVER",
       submittedAt: hoursAgo(0.3),
+      decidedAt: null,
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Mandla Zulu",
       buyerPhone: "+27821234567",
       buyerBusinessName: "Mandla's Spaza Shop",
@@ -30,6 +34,7 @@ const orders = new Map<string, OrderDetail>([
       buyerEmail: "mandla@example.com",
       declineReason: null,
       declineDetails: null,
+      cancelDetails: null,
       items: [
         { productId: "p1", productName: "White Bread 700g", images: [], quantity: 10, priceCentsAtAddTime: 1800, lineTotalCents: 18000 },
         { productId: "p2", productName: "Full Cream Milk 1L", images: [], quantity: 3, priceCentsAtAddTime: 2000, lineTotalCents: 6000 },
@@ -47,6 +52,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "PROOF_OF_PAYMENT",
       deliveryType: "COLLECT",
       submittedAt: hoursAgo(28), // deliberately past the real 24h reminder threshold
+      decidedAt: null,
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Naledi Mokoena",
       buyerPhone: "+27837654321",
       buyerBusinessName: "Naledi's Café",
@@ -54,6 +63,7 @@ const orders = new Map<string, OrderDetail>([
       buyerEmail: "naledi@example.com",
       declineReason: null,
       declineDetails: null,
+      cancelDetails: null,
       items: [
         { productId: "p3", productName: "Cooking Oil 5L", images: [], quantity: 20, priceCentsAtAddTime: 2900, lineTotalCents: 58000 },
       ],
@@ -70,6 +80,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "CASH",
       deliveryType: "DELIVER",
       submittedAt: daysAgo(1),
+      decidedAt: hoursAgo(22), // approved a couple hours after submitting
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Sipho Dlamini",
       buyerPhone: "+27849876543",
       buyerBusinessName: "Sipho's Butchery",
@@ -77,6 +91,7 @@ const orders = new Map<string, OrderDetail>([
       buyerEmail: "sipho@example.com",
       declineReason: null,
       declineDetails: null,
+      cancelDetails: null,
       items: [
         { productId: "p4", productName: "Sunflower Oil 2L", images: [], quantity: 6, priceCentsAtAddTime: 2600, lineTotalCents: 15600 },
       ],
@@ -93,6 +108,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "PROOF_OF_PAYMENT",
       deliveryType: "COLLECT",
       submittedAt: daysAgo(6),
+      decidedAt: daysAgo(5.8),
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Precious Ndlovu",
       buyerPhone: "+27827778899",
       buyerBusinessName: "Precious General Dealer",
@@ -100,6 +119,7 @@ const orders = new Map<string, OrderDetail>([
       buyerEmail: "precious@example.com",
       declineReason: null,
       declineDetails: null,
+      cancelDetails: null,
       items: [
         { productId: "p5", productName: "Maize Meal 10kg", images: [], quantity: 12, priceCentsAtAddTime: 3500, lineTotalCents: 42000 },
       ],
@@ -116,6 +136,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "CASH",
       deliveryType: "DELIVER",
       submittedAt: daysAgo(2),
+      decidedAt: daysAgo(1.9),
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Blessing Mahlangu",
       buyerPhone: "+27835551234",
       buyerBusinessName: "Blessing's Tuck Shop",
@@ -123,6 +147,7 @@ const orders = new Map<string, OrderDetail>([
       buyerEmail: "blessing@example.com",
       declineReason: "out_of_stock",
       declineDetails: "Sold out this week, restocking Friday.",
+      cancelDetails: null,
       items: [
         { productId: "p6", productName: "Rice 5kg", images: [], quantity: 4, priceCentsAtAddTime: 2450, lineTotalCents: 9800 },
       ],
@@ -139,6 +164,10 @@ const orders = new Map<string, OrderDetail>([
       paymentMethod: "PROOF_OF_PAYMENT",
       deliveryType: "COLLECT",
       submittedAt: daysAgo(9),
+      decidedAt: daysAgo(8), // auto-declined roughly 24h after submission, never answered
+      cancelledBy: null,
+      cancelReason: null,
+      cancelledAt: null,
       buyerName: "Tumi Radebe",
       buyerPhone: "+27823334455",
       buyerBusinessName: "Tumi's Corner Store",
@@ -147,6 +176,7 @@ const orders = new Map<string, OrderDetail>([
       // Auto-declined -- never actually answered.
       declineReason: "no_response",
       declineDetails: null,
+      cancelDetails: null,
       items: [
         { productId: "p7", productName: "Washing Powder 3kg", images: [], quantity: 8, priceCentsAtAddTime: 3900, lineTotalCents: 31200 },
       ],
@@ -200,5 +230,22 @@ export async function declineOrder(orderId: string, reason: DeclineReason, detai
   order.status = "DECLINED";
   order.declineReason = reason;
   order.declineDetails = details ?? null;
+  return order;
+}
+
+/** CONFIRMED -> CANCELLED only -- mirrors the real backend's own
+ *  cancel_order, a genuinely different door from decline above. */
+export async function cancelOrder(orderId: string, reason: CancelReason, details?: string): Promise<OrderSummary> {
+  await latency(400);
+  const order = orders.get(orderId);
+  if (!order) throw new ApiError("Order not found.", 404, [], "ORDER_NOT_FOUND");
+  if (order.status !== "CONFIRMED") {
+    throw new ApiError("Only a confirmed order can be cancelled this way.", 409, [], "ORDER_NOT_CONFIRMED");
+  }
+  order.status = "CANCELLED";
+  order.cancelledBy = "supplier";
+  order.cancelReason = reason;
+  order.cancelDetails = details ?? null;
+  order.cancelledAt = new Date().toISOString();
   return order;
 }

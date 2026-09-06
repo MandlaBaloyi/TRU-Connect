@@ -1,6 +1,6 @@
 import { apiGet, apiPost } from "@/services/api/apiClient";
 
-import type { DeclineReason, OrderDetail, OrderSummary, StockOrderStatus } from "../types";
+import type { CancelReason, DeclineReason, OrderDetail, OrderSummary, StockOrderStatus } from "../types";
 
 /** No status -> the real, unchanged "New" queue (pending only).
  *  A status -> the Approved/Declined tabs' own real history,
@@ -29,4 +29,12 @@ export async function approveOrder(orderId: string): Promise<OrderSummary> {
 
 export async function declineOrder(orderId: string, reason: DeclineReason, details?: string): Promise<OrderSummary> {
   return apiPost<OrderSummary>(`/supplier/stock-orders/${orderId}/decline`, { reason, details });
+}
+
+/** CONFIRMED -> CANCELLED only -- a genuinely different door from
+ *  decline above, which only ever applies to a still-PENDING order.
+ *  See the backend's own order_management_service.cancel_order for
+ *  the full reasoning. */
+export async function cancelOrder(orderId: string, reason: CancelReason, details?: string): Promise<OrderSummary> {
+  return apiPost<OrderSummary>(`/supplier/stock-orders/${orderId}/cancel`, { reason, details });
 }

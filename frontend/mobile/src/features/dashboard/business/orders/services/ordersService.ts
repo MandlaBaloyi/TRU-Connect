@@ -13,4 +13,5 @@ export const removeItem = impl.removeItem;
 export const clearCart = impl.clearCart;
 export const getOrderHistory = impl.getOrderHistory;
 export const getOrderDetail = impl.getOrderDetail;
+export const cancelOrder = impl.cancelOrder;
 export const submitCheckout = impl.submitCheckout;

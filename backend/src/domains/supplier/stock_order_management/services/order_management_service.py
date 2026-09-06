@@ -12,12 +12,19 @@ already proven for the business side.
 from __future__ import annotations
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
-from src.domains.network.orders.models.stock_order import StockOrderDeclineReason, StockOrderStatus
+from src.domains.network.orders.models.stock_order import (
+    StockOrderCancelledBy,
+    StockOrderCancelReason,
+    StockOrderDeclineReason,
+    StockOrderPaymentMethod,
+    StockOrderStatus,
+)
 from src.domains.network.orders.notification_templates.stock_order_templates import (
     build_order_auto_declined_notification,
+    build_order_cancelled_by_supplier_notification,
     build_order_confirmed_notification,
     build_order_declined_notification,
 )
@@ -25,7 +32,12 @@ from src.domains.network.orders.repositories.stock_order_repository import Stock
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.products.services import product_media_service
-from src.domains.supplier.stock_order_management.errors import OrderNotFoundError, OrderNotPendingError
+from src.domains.supplier.stock_order_management.errors import (
+    DigitalPaymentCancellationNotSupportedError,
+    OrderNotConfirmedError,
+    OrderNotFoundError,
+    OrderNotPendingError,
+)
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
 )
@@ -46,6 +58,7 @@ def _serialize_order_summary(order) -> dict:
         "paymentMethod": order.payment_method.value if order.payment_method else None,
         "deliveryType": order.delivery_type.value if order.delivery_type else None,
         "submittedAt": order.submitted_at.isoformat() if order.submitted_at else None,
+        "decidedAt": order.decided_at.isoformat() if order.decided_at else None,
         "buyerName": order.buyer_name,
         "buyerPhone": order.buyer_phone,
         "buyerBusinessName": order.buyer_business_name,
@@ -55,6 +68,10 @@ def _serialize_order_summary(order) -> dict:
         # fields) since the Declined tab's own cards show the real
         # reason without a tap-through.
         "declineReason": order.decline_reason,
+        # Only meaningful when status is CANCELLED.
+        "cancelledBy": order.cancelled_by,
+        "cancelReason": order.cancel_reason,
+        "cancelledAt": order.cancelled_at.isoformat() if order.cancelled_at else None,
     }
 
 
@@ -113,6 +130,7 @@ def get_order_detail(supplier_profile_id: str | UUID, order_id: str | UUID) -> d
         **_serialize_order_summary(order),
         "deliveryAddressText": order.delivery_address_text,
         "declineDetails": order.decline_details,
+        "cancelDetails": order.cancel_details,
         "items": items,
     }
 
@@ -131,6 +149,7 @@ def approve_order(supplier_profile_id: str | UUID, order_id: str | UUID) -> dict
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     order.status = StockOrderStatus.CONFIRMED
+    order.decided_at = datetime.now(timezone.utc)
     db.session.commit()
 
     publish_notification(
@@ -165,6 +184,7 @@ def _apply_decline(order, reason: str, details: Optional[str]) -> None:
     order.status = StockOrderStatus.DECLINED
     order.decline_reason = reason
     order.decline_details = details
+    order.decided_at = datetime.now(timezone.utc)
 
     for item in order.items:
         if item.is_deleted:
@@ -207,6 +227,94 @@ def decline_order(
     publish(
         AuditEvent(
             event_name=SupplierAuditEvent.ORDER_DECLINED,
+            domain=AuditDomain.SUPPLIER,
+            status=AuditStatus.SUCCESS,
+            metadata={
+                "supplier_profile_id": str(supplier_profile_id),
+                "order_id": str(order.id),
+                "reason": reason,
+            },
+        )
+    )
+
+    return _serialize_order_summary(order)
+
+
+# The real, enforced subset a SUPPLIER is allowed to choose from --
+# business-side reasons (CHANGED_MIND etc.) describe something only a
+# business could actually know; offering them to a supplier would be
+# nonsensical, not just superfluous. See
+# domains.network.orders.services.cancellation_service's own
+# BUSINESS_CANCEL_REASONS for the mirror image of this constant.
+SUPPLIER_CANCEL_REASONS = {
+    StockOrderCancelReason.OUT_OF_STOCK.value,
+    StockOrderCancelReason.CANNOT_FULFIL_DELIVERY_AREA.value,
+    StockOrderCancelReason.PRICING_ERROR.value,
+    StockOrderCancelReason.OTHER.value,
+}
+
+
+def cancel_order(
+    supplier_profile_id: str | UUID, order_id: str | UUID, reason: str, details: Optional[str] = None
+) -> dict:
+    """CONFIRMED -> CANCELLED, the supplier's own real, considered
+    decision to walk back an order they already approved. THE ONLY
+    PATH a CONFIRMED order can be cancelled through at all -- once
+    confirmed, the business itself can no longer self-cancel via the
+    app (domains.network.orders.services.cancellation_service.py's
+    own cancel_order_by_business explicitly refuses this); if a
+    business calls asking to cancel, this is the supplier's own tool
+    for acting on that. Genuinely NOT the same door as decline_order
+    above -- that one only ever applies to a still-PENDING order.
+
+    Releases the same held stock reservation decline does -- a
+    CONFIRMED order still holds its reservation (nothing releases it
+    on approval; see InventoryRepository.reserve_quantity's own
+    docstring), so cancelling one afterward needs the exact same
+    release _apply_decline already performs, or that stock would stay
+    falsely reserved forever with no real order behind it."""
+    if reason not in SUPPLIER_CANCEL_REASONS:
+        raise ValueError(f"'{reason}' isn't a real cancellation reason for a supplier.")
+
+    order = StockOrderRepository.get_by_id_for_supplier(order_id, supplier_profile_id)
+    if not order:
+        raise OrderNotFoundError("Order not found.")
+
+    if order.payment_method == StockOrderPaymentMethod.PAYFAST:
+        raise DigitalPaymentCancellationNotSupportedError(
+            "Online payments need their own cancellation and refund flow -- contact support."
+        )
+
+    if order.status != StockOrderStatus.CONFIRMED:
+        raise OrderNotConfirmedError("Only a confirmed order can be cancelled this way.")
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+
+    order.status = StockOrderStatus.CANCELLED
+    order.cancelled_by = StockOrderCancelledBy.SUPPLIER.value
+    order.cancel_reason = reason
+    order.cancel_details = details
+    order.cancelled_at = datetime.now(timezone.utc)
+
+    for item in order.items:
+        if item.is_deleted:
+            continue
+        inventory = InventoryRepository.get_by_product_id(item.product_id)
+        if inventory:
+            InventoryRepository.reserve_quantity(inventory, -item.quantity)
+
+    db.session.commit()
+
+    publish_notification(
+        build_order_cancelled_by_supplier_notification(
+            order,
+            business_user_id=str(order.business_id),
+            supplier_business_name=supplier.business_name if supplier else "Your supplier",
+        )
+    )
+    publish(
+        AuditEvent(
+            event_name=SupplierAuditEvent.ORDER_CANCELLED,
             domain=AuditDomain.SUPPLIER,
             status=AuditStatus.SUCCESS,
             metadata={

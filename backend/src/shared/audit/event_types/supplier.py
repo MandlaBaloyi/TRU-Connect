@@ -32,3 +32,4 @@ class SupplierAuditEvent(str, enum.Enum):
     ORDER_APPROVED = "supplier.order_approved"
     ORDER_DECLINED = "supplier.order_declined"
     ORDER_AUTO_DECLINED = "supplier.order_auto_declined"
+    ORDER_CANCELLED = "supplier.order_cancelled"

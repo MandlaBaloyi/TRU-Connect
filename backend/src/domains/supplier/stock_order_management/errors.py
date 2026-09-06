@@ -5,7 +5,7 @@ other domain in this codebase.
 """
 from __future__ import annotations
 
-from src.core.exceptions import ConflictError, NotFoundError
+from src.core.exceptions import AppError, ConflictError, NotFoundError
 
 
 class OrderNotFoundError(NotFoundError):
@@ -27,3 +27,27 @@ class OrderNotPendingError(ConflictError):
     first."""
 
     code = "ORDER_NOT_PENDING"
+
+
+class OrderNotConfirmedError(ConflictError):
+    """Raised when a supplier tries to cancel an order that isn't
+    CONFIRMED -- a still-PENDING order is cancelled through decline
+    (or the business's own cancel_order_by_business), and an already
+    DECLINED/CANCELLED order is already terminal. This is
+    specifically the "already confirmed, now walking it back" door,
+    nothing else (see cancellation_service.py's own module
+    docstring)."""
+
+    code = "ORDER_NOT_CONFIRMED"
+
+
+class DigitalPaymentCancellationNotSupportedError(AppError):
+    """Mirrors domains.network.orders' own error of the same name --
+    genuinely unreachable today since PAYFAST orders can't exist yet,
+    kept as a real, deliberate guard rather than silent trust. See
+    that error's own docstring for the full reasoning; duplicated
+    here rather than imported, same per-domain error ownership
+    already established throughout this codebase."""
+
+    status_code = 409
+    code = "DIGITAL_PAYMENT_CANCELLATION_NOT_SUPPORTED"

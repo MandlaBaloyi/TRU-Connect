@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, Pressable, StyleSheet, Animated, Dimensions, Platform } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRootSafeAreaInsets } from "@/hooks/useRootSafeAreaInsets";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { spacing, radius } from "@/theme/spacing";
 
@@ -114,7 +114,7 @@ function TabItem({ routeName, isFocused, label, onPress, onLongPress }: TabItemP
  */
 export function DashboardTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useRootSafeAreaInsets();
 
   // A focused screen can hide this bar entirely by calling
   // navigation.setOptions({ tabBarStyle: { display: "none" } }) --
@@ -138,7 +138,7 @@ export function DashboardTabBar({ state, descriptors, navigation }: BottomTabBar
         },
       ]}
     >
-      {state.routes.map((route, index) => {
+      {state.routes.map((route: (typeof state.routes)[number], index: number) => {
         const { options } = descriptors[route.key];
         const label = typeof options.title === "string" ? options.title : route.name;
         const isFocused = state.index === index;

@@ -26,6 +26,10 @@ const EMPTY_MESSAGES: Record<StockOrderStatus, string> = {
   PENDING_SUPPLIER_APPROVAL: "No orders waiting on you right now.",
   CONFIRMED: "No approved orders yet.",
   DECLINED: "No declined orders.",
+  // No CANCELLED tab exists in TABS above (see StockOrderStatus's own
+  // comment on why it's in the type at all) -- this entry is never
+  // actually shown, it just keeps the Record complete and correct.
+  CANCELLED: "No cancelled orders.",
 };
 
 /**

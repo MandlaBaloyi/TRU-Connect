@@ -192,3 +192,53 @@ def test_update_my_profile_can_be_called_repeatedly_on_the_same_profile(make_sup
     refetched = supplier_profile_service.get_my_profile(supplier.id)
     assert refetched.business_name == "Second Name"
     assert profile.business_name == "Second Name"
+
+
+# --- collection address (supplier's own premises, Mapbox pin-drop) ---------
+
+
+def test_update_my_profile_persists_collection_address(make_supplier):
+    supplier = make_supplier()
+
+    profile = supplier_profile_service.update_my_profile(
+        supplier.id,
+        business_name="Fresh Foods Wholesale",
+        collection_building="Warehouse 3",
+        collection_street="Market Street",
+        collection_suburb="Seshego",
+        collection_city="Polokwane",
+        collection_province="Limpopo",
+        collection_postal_code="0742",
+        collection_latitude=-23.8500,
+        collection_longitude=29.4000,
+    )
+
+    assert profile.collection_building == "Warehouse 3"
+    assert profile.collection_street == "Market Street"
+    assert profile.collection_suburb == "Seshego"
+    assert profile.collection_city == "Polokwane"
+    assert profile.collection_province == "Limpopo"
+    assert profile.collection_postal_code == "0742"
+    assert float(profile.collection_latitude) == pytest.approx(-23.8500)
+    assert float(profile.collection_longitude) == pytest.approx(29.4000)
+
+
+def test_update_my_profile_collection_address_is_genuinely_optional(make_supplier):
+    """A supplier who hasn't set up a collection address yet still has
+    a fully working profile otherwise -- same "optional, not required"
+    reasoning as every contact field above."""
+    supplier = make_supplier()
+
+    profile = supplier_profile_service.update_my_profile(supplier.id, business_name="No Address Yet Co")
+
+    assert profile.collection_street is None
+    assert profile.collection_latitude is None
+
+
+def test_update_my_profile_rejects_out_of_range_collection_coordinates(make_supplier):
+    supplier = make_supplier()
+
+    with pytest.raises(ProfileValidationError):
+        supplier_profile_service.update_my_profile(
+            supplier.id, business_name="Bad Coords Co", collection_latitude=999.0, collection_longitude=29.0
+        )

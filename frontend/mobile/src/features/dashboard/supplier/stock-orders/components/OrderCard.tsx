@@ -10,7 +10,7 @@ import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { DECLINE_REASON_LABELS } from "../types";
-import type { OrderSummary } from "../types";
+import type { OrderSummary, StockOrderStatus } from "../types";
 
 interface Props {
   order: OrderSummary;
@@ -25,10 +25,11 @@ const PAYMENT_ICONS = { CASH: Banknote, PROOF_OF_PAYMENT: Receipt, PAYFAST: Rece
  *  out). Same "impossible to miss" reasoning as the original,
  *  New-only version, now genuinely meaningful in every tab instead
  *  of only the urgent one. */
-const ACCENT_COLOR = {
+const ACCENT_COLOR: Record<StockOrderStatus, string> = {
   PENDING_SUPPLIER_APPROVAL: palette.warning,
   CONFIRMED: palette.success,
   DECLINED: palette.danger,
+  CANCELLED: palette.danger,
 };
 
 /**

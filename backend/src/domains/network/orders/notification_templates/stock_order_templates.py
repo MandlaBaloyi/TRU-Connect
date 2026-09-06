@@ -113,6 +113,50 @@ def build_order_declined_notification(order: StockOrder, business_user_id: str, 
     )
 
 
+def build_order_cancelled_by_business_notification(
+    order: StockOrder, supplier_user_id: str, buyer_business_name: str
+) -> NotificationEvent:
+    """To the SUPPLIER, the moment a business cancels their own still-
+    PENDING order -- the one real reason this exists at all: without
+    it, a supplier could spend time reviewing an order the business
+    already walked away from. Only reachable while PENDING_SUPPLIER_APPROVAL
+    (see cancellation_service.cancel_order_by_business's own docstring)."""
+    body = (
+        f"TruConnect: Order {order.order_reference} from {buyer_business_name} was cancelled "
+        f"\u00b7 Amount {_format_rand(order.total_cents)} \u00b7 {_format_short_date(order)}"
+    )
+    return NotificationEvent(
+        recipient_user_id=supplier_user_id,
+        category=NotificationCategory.STOCK_ORDER,
+        title="Order cancelled",
+        body=body,
+        related_entity_type="stock_order",
+        related_entity_id=str(order.id),
+    )
+
+
+def build_order_cancelled_by_supplier_notification(
+    order: StockOrder, business_user_id: str, supplier_business_name: str
+) -> NotificationEvent:
+    """To the BUSINESS, the moment a supplier cancels an order that was
+    already CONFIRMED -- the harder of the two directions, since this
+    business may have been genuinely counting on it. Only reachable
+    from CONFIRMED (see cancellation_service.cancel_order_by_supplier's
+    own docstring) -- a real, considered action, not a casual one."""
+    body = (
+        f"TruConnect: Order {order.order_reference} cancelled by {supplier_business_name} "
+        f"\u00b7 Amount {_format_rand(order.total_cents)} \u00b7 {_format_short_date(order)}"
+    )
+    return NotificationEvent(
+        recipient_user_id=business_user_id,
+        category=NotificationCategory.STOCK_ORDER,
+        title="Order cancelled",
+        body=body,
+        related_entity_type="stock_order",
+        related_entity_id=str(order.id),
+    )
+
+
 def build_order_reminder_notification(order: StockOrder, supplier_user_id: str, buyer_business_name: str) -> NotificationEvent:
     """To the supplier, when a real order has sat unanswered past a
     real threshold -- see stock_order_reminder_sweep_job.py for the

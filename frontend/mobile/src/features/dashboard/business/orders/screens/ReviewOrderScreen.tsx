@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
@@ -33,11 +33,32 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
  * shouldn't have to re-walk delivery/payment just to get there.
  */
 export default function ReviewOrderScreen() {
-  const { supplierId, paymentMethod, deliveryType, deliveryAddressText } = useLocalSearchParams<{
+  const {
+    supplierId,
+    paymentMethod,
+    deliveryType,
+    deliveryAddressText,
+    deliveryBuilding,
+    deliveryStreet,
+    deliverySuburb,
+    deliveryCity,
+    deliveryProvince,
+    deliveryPostalCode,
+    deliveryLatitude,
+    deliveryLongitude,
+  } = useLocalSearchParams<{
     supplierId: string;
     paymentMethod: PaymentMethod;
     deliveryType: DeliveryType;
     deliveryAddressText: string;
+    deliveryBuilding?: string;
+    deliveryStreet?: string;
+    deliverySuburb?: string;
+    deliveryCity?: string;
+    deliveryProvince?: string;
+    deliveryPostalCode?: string;
+    deliveryLatitude?: string;
+    deliveryLongitude?: string;
   }>();
   const router = useRouter();
   const theme = useTheme();
@@ -50,6 +71,18 @@ export default function ReviewOrderScreen() {
         paymentMethod,
         deliveryType,
         deliveryAddressText,
+        // Router params are always strings or undefined -- only ever
+        // present when DeliveryPaymentScreen actually sent them
+        // (DELIVER with a confirmed map pin); undefined here is
+        // exactly what submitCheckout already treats as "not sent".
+        deliveryBuilding,
+        deliveryStreet,
+        deliverySuburb,
+        deliveryCity,
+        deliveryProvince,
+        deliveryPostalCode,
+        deliveryLatitude: deliveryLatitude ? Number(deliveryLatitude) : undefined,
+        deliveryLongitude: deliveryLongitude ? Number(deliveryLongitude) : undefined,
       });
       router.replace({
         pathname: `/business/orders/${supplierId}/placed` as any,
@@ -106,6 +139,9 @@ export default function ReviewOrderScreen() {
         </View>
         {cart.items.map((item) => (
           <View key={item.productId} style={styles.itemRow}>
+            <View style={[styles.imageWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
+              {item.images[0] && <Image source={{ uri: item.images[0] }} style={styles.image} resizeMode="contain" />}
+            </View>
             <Text style={[styles.itemLabel, { color: theme.colors.onSurface }]} numberOfLines={1}>
               {item.quantity} × {item.productName}
             </Text>
@@ -151,7 +187,9 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.h2, fontWeight: "700" },
   editLink: { ...typography.bodySmall, fontWeight: "700", textDecorationLine: "underline" },
   sectionSpacing: { marginTop: spacing.lg, marginBottom: spacing.sm },
-  itemRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  itemRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, paddingVertical: 4 },
+  imageWrap: { width: 44, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  image: { width: "100%", height: "100%" },
   itemLabel: { ...typography.body, flex: 1, paddingRight: spacing.sm },
   itemValue: { ...typography.body, fontWeight: "600" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: spacing.sm },

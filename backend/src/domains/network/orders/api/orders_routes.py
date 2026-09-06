@@ -23,7 +23,7 @@ from src.core.decorators import fully_authenticated, role_required
 from src.core.responses import error_response, success_response
 from src.domains.network.orders.rate_limit import policies as rate_limit_policies
 from src.domains.network.orders.schemas.checkout_schemas import AddCartItemSchema, SubmitCheckoutSchema, UpdateCartItemSchema
-from src.domains.network.orders.services import cart_service, checkout_service, order_history_service
+from src.domains.network.orders.services import cancellation_service, cart_service, checkout_service, order_history_service
 from src.domains.security.rate_limit.limiter import limiter
 
 orders_bp = Blueprint("orders", __name__)
@@ -129,6 +129,20 @@ def get_order_detail(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
     return success_response(data=result)
 
 
+@orders_bp.route("/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/history/<uuid:order_id>/cancel", methods=["POST"])
+@fully_authenticated
+@role_required("business")
+def cancel_order(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
+    """PENDING_SUPPLIER_APPROVAL -> CANCELLED only -- see
+    cancellation_service.cancel_order_by_business's own docstring for
+    why a CONFIRMED order can't be self-cancelled here at all."""
+    body = request.get_json(silent=True) or {}
+    result = cancellation_service.cancel_order_by_business(
+        _business_id(), supplier_profile_id, order_id, reason=body.get("reason"), details=body.get("details")
+    )
+    return success_response(data=result)
+
+
 @orders_bp.route("/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/submit", methods=["POST"])
 @fully_authenticated
 @role_required("business")
@@ -145,5 +159,13 @@ def submit_checkout(supplier_profile_id: uuid.UUID):
         data["payment_method"],
         data["delivery_type"],
         data["delivery_address_text"],
+        data["delivery_building"],
+        data["delivery_street"],
+        data["delivery_suburb"],
+        data["delivery_city"],
+        data["delivery_province"],
+        data["delivery_postal_code"],
+        data["delivery_latitude"],
+        data["delivery_longitude"],
     )
     return success_response(data=result)

@@ -224,6 +224,101 @@ def test_get_supplier_profile_includes_real_product_count(make_business, make_su
     assert result["productCount"] == 1
 
 
+def test_get_supplier_profile_collection_address_is_null_when_not_connected(
+    make_business, make_supplier, make_supplier_profile
+):
+    """THE REAL GUARD -- a collection address is exactly the kind of
+    information that shouldn't leak to a business that hasn't been
+    approved to order from this supplier yet."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Not Connected Co")
+    profile.collection_street = "Market Street"
+    profile.collection_suburb = "Seshego"
+    db.session.commit()
+
+    result = connections_service.get_supplier_profile(business.id, profile.id)
+
+    assert result["collectionAddress"] is None
+
+
+def test_get_supplier_profile_collection_address_returned_when_active(
+    make_business, make_supplier, make_supplier_profile
+):
+    """Unlike whatsapp/email, this does NOT also require
+    share_contact_details -- an active connection alone is enough,
+    since a collection address is core order-completion information,
+    not a discretionary contact channel (see connections_service.py's
+    own comment on this exact distinction)."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Connected Collect Co")
+    profile.collection_building = "Warehouse 3"
+    profile.collection_street = "Market Street"
+    profile.collection_suburb = "Seshego"
+    profile.collection_city = "Polokwane"
+    profile.collection_province = "Limpopo"
+    profile.collection_postal_code = "0742"
+    profile.collection_latitude = -23.85
+    profile.collection_longitude = 29.40
+    db.session.commit()
+    _make_active_connection(business, profile)
+
+    result = connections_service.get_supplier_profile(business.id, profile.id)
+
+    assert result["collectionAddress"] == {
+        "building": "Warehouse 3",
+        "street": "Market Street",
+        "suburb": "Seshego",
+        "city": "Polokwane",
+        "province": "Limpopo",
+        "postalCode": "0742",
+        "latitude": pytest.approx(-23.85),
+        "longitude": pytest.approx(29.40),
+    }
+
+
+def test_get_supplier_profile_collection_address_null_when_supplier_hasnt_set_one(
+    make_business, make_supplier, make_supplier_profile
+):
+    """An active connection alone doesn't fabricate an address out of
+    nothing -- a supplier who hasn't set up collection yet still
+    correctly returns null, not empty strings."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="No Address Set Co")
+    _make_active_connection(business, profile)
+
+    result = connections_service.get_supplier_profile(business.id, profile.id)
+
+    assert result["collectionAddress"] is None
+
+
+def test_get_supplier_profile_contact_requires_active_and_opt_in(
+    make_business, make_supplier, make_supplier_profile
+):
+    """Added specifically so a business viewing a CONFIRMED order they
+    can no longer self-cancel has a real way to reach the supplier --
+    same double gate (active connection AND the supplier's own
+    opt-in) as the contact block used elsewhere in this file."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Contact Gate Co")
+    profile.whatsapp_number = "+27821234567"
+    profile.share_contact_details = False
+    db.session.commit()
+    _make_active_connection(business, profile)
+
+    not_opted_in = connections_service.get_supplier_profile(business.id, profile.id)
+    assert not_opted_in["contact"] is None
+
+    profile.share_contact_details = True
+    db.session.commit()
+
+    opted_in = connections_service.get_supplier_profile(business.id, profile.id)
+    assert opted_in["contact"] == {"whatsappNumber": "+27821234567", "email": None, "tiktokHandle": None}
+
+
 # --- get_supplier_product ----------------------------------------------------
 
 

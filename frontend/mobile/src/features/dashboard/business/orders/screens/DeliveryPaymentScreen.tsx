@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Banknote, Check, CreditCard, MapPin, Receipt } from "lucide-react-native";
+import { Banknote, Check, CreditCard, MapPin, Receipt, Search } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
-import { useSavedDeliveryAddress } from "../hooks/useSavedDeliveryAddress";
+import { formatDeliveryAddress } from "@/features/dashboard/shared/location-picker/formatDeliveryAddress";
+import { MapPickerModal } from "@/features/dashboard/shared/location-picker/MapPickerModal";
+import { SearchAddressModal } from "@/features/dashboard/shared/location-picker/SearchAddressModal";
+import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import type { DeliveryType, PaymentMethod } from "../types";
 
 const DELIVERY_OPTIONS: { value: DeliveryType; label: string }[] = [
@@ -30,17 +33,22 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; description: strin
  * Step 1 of 3 -- a real, full screen, not a bottom sheet.
  *
  * DELIVER vs COLLECT get genuinely different address handling, not
- * the same text box with a different label -- confirmed directly
- * after checking the actual backend: a real, saved business address
- * doesn't exist yet (useSavedDeliveryAddress is the ready-to-wire
- * plug-in point for when it does), so Deliver keeps a free-text field
- * for now. Collect is different in kind, not just missing data --
- * checking SupplierProfile directly confirmed there's no real
- * collection address field there at all, only a general suburb/city
- * "location" column explicitly documented as never meant to hold a
- * full street address. A business genuinely can't type the supplier's
- * own address, so Collect shows a real, honest placeholder instead of
- * an editable field that would silently accept the wrong thing.
+ * the same text box with a different label. DELIVER now offers TWO
+ * real, separate entry points -- "Search address" (SearchAddressModal)
+ * and "Choose on map" (MapPickerModal) -- not a text box, since a
+ * real, saved business address still doesn't exist on the backend
+ * (useSavedDeliveryAddress, orphaned by this change, was the old
+ * plug-in point for that and returns a plain string that no longer
+ * matches this screen's structured shape -- revisit it once a real
+ * saved-address feature exists and returns something richer). Collect
+ * is different in kind, not just missing data -- checking
+ * SupplierProfile directly confirmed there's no real collection
+ * address field there at all, only a general suburb/city "location"
+ * column explicitly documented as never meant to hold a full street
+ * address. A business genuinely can't type (or pin) the supplier's
+ * own address themselves, so Collect keeps its existing honest
+ * placeholder -- untouched by this change, on purpose (the supplier's
+ * own pin-drop is separate, not-yet-scoped work).
  *
  * A REAL THIRD PAYMENT OPTION sits here -- "Pay Online (Card / Instant
  * EFT)". Tapping it shows "Coming soon" and never actually selects
@@ -55,20 +63,23 @@ export default function DeliveryPaymentScreen() {
   const { supplierId } = useLocalSearchParams<{ supplierId: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const { savedAddress } = useSavedDeliveryAddress();
 
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("DELIVER");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
-  const [address, setAddress] = useState("");
-
-  useEffect(() => {
-    if (savedAddress) setAddress(savedAddress);
-  }, [savedAddress]);
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation | null>(null);
+  const [isMapPickerVisible, setIsMapPickerVisible] = useState(false);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+  // Set only when the business picked a search result -- opens the
+  // map picker already centered there instead of resolving device
+  // location. Cleared once the map picker closes, so "Choose location
+  // on map" tapped directly afterward starts fresh, not still seeded
+  // by a stale search.
+  const [mapPresetCenter, setMapPresetCenter] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const handleContinue = () => {
     if (!paymentMethod) return;
-    if (deliveryType === "DELIVER" && !address.trim()) {
-      Alert.alert("Address needed", "Enter a delivery address to continue.");
+    if (deliveryType === "DELIVER" && !deliveryLocation) {
+      Alert.alert("Address needed", "Choose your delivery location on the map to continue.");
       return;
     }
     router.push({
@@ -77,7 +88,24 @@ export default function DeliveryPaymentScreen() {
         paymentMethod,
         deliveryType,
         deliveryAddressText:
-          deliveryType === "DELIVER" ? address.trim() : "Provided by the supplier upon collection",
+          deliveryType === "DELIVER" && deliveryLocation
+            ? formatDeliveryAddress(deliveryLocation)
+            : "Provided by the supplier upon collection",
+        // Structured fields + coordinates -- COLLECT never sends any
+        // of these (the backend ignores them for COLLECT regardless,
+        // but there's genuinely nothing to send here either way).
+        ...(deliveryType === "DELIVER" && deliveryLocation
+          ? {
+              deliveryBuilding: deliveryLocation.building,
+              deliveryStreet: deliveryLocation.street,
+              deliverySuburb: deliveryLocation.suburb,
+              deliveryCity: deliveryLocation.city,
+              deliveryProvince: deliveryLocation.province,
+              deliveryPostalCode: deliveryLocation.postalCode,
+              deliveryLatitude: String(deliveryLocation.latitude),
+              deliveryLongitude: String(deliveryLocation.longitude),
+            }
+          : {}),
       },
     });
   };
@@ -85,6 +113,7 @@ export default function DeliveryPaymentScreen() {
   const handlePayOnline = () => {
     Alert.alert("Coming soon", "Paying online isn't available yet, but it's on the way.");
   };
+
 
   return (
     <ScreenContainer hasNativeHeader>
@@ -117,17 +146,44 @@ export default function DeliveryPaymentScreen() {
           {deliveryType === "COLLECT" ? "Collection address" : "Delivery address"}
         </Text>
         {deliveryType === "DELIVER" ? (
-          <TextInput
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Enter your delivery address"
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            multiline
-            style={[
-              styles.addressInput,
-              { borderColor: theme.colors.outline, color: theme.colors.onSurface, backgroundColor: theme.colors.surface },
-            ]}
-          />
+          deliveryLocation ? (
+            <Pressable
+              onPress={() => setIsMapPickerVisible(true)}
+              style={[styles.confirmedAddress, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surface }]}
+              accessibilityRole="button"
+              accessibilityLabel="Edit delivery address"
+            >
+              <MapPin size={18} color={theme.colors.primary} strokeWidth={2} />
+              <Text style={[styles.confirmedAddressText, { color: theme.colors.onSurface }]}>
+                {formatDeliveryAddress(deliveryLocation)}
+              </Text>
+              <Text style={[styles.editLabel, { color: theme.colors.primary }]}>Edit</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.locationOptionsRow}>
+              <Pressable
+                onPress={() => setIsSearchModalVisible(true)}
+                style={[styles.chooseLocationButton, styles.locationOptionHalf, { borderColor: theme.colors.outline }]}
+                accessibilityRole="button"
+                accessibilityLabel="Search your address"
+              >
+                <Search size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+                <Text style={[styles.chooseLocationText, { color: theme.colors.onSurface }]}>Search address</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setMapPresetCenter(null);
+                  setIsMapPickerVisible(true);
+                }}
+                style={[styles.chooseLocationButton, styles.locationOptionHalf, { borderColor: theme.colors.outline }]}
+                accessibilityRole="button"
+                accessibilityLabel="Choose location on map"
+              >
+                <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+                <Text style={[styles.chooseLocationText, { color: theme.colors.onSurface }]}>Choose on map</Text>
+              </Pressable>
+            </View>
+          )
         ) : (
           <View style={[styles.collectNotice, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}>
             <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
@@ -136,6 +192,28 @@ export default function DeliveryPaymentScreen() {
             </Text>
           </View>
         )}
+
+        <SearchAddressModal
+          visible={isSearchModalVisible}
+          onClose={() => setIsSearchModalVisible(false)}
+          onLocationFound={(location) => {
+            setMapPresetCenter(location);
+            setIsMapPickerVisible(true);
+          }}
+        />
+
+        <MapPickerModal
+          visible={isMapPickerVisible}
+          presetCenter={mapPresetCenter}
+          onClose={() => {
+            setIsMapPickerVisible(false);
+            setMapPresetCenter(null);
+          }}
+          onConfirm={(location) => {
+            setDeliveryLocation(location);
+            setMapPresetCenter(null);
+          }}
+        />
 
         <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: theme.colors.onSurface }]}>How will you pay?</Text>
         {PAYMENT_OPTIONS.map((option) => {
@@ -196,7 +274,30 @@ const styles = StyleSheet.create({
   segmentRow: { flexDirection: "row", gap: spacing.sm },
   segment: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   segmentLabel: { ...typography.body, fontWeight: "700" },
-  addressInput: { borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, minHeight: 72, textAlignVertical: "top", ...typography.body },
+  locationOptionsRow: { flexDirection: "row", gap: spacing.sm },
+  locationOptionHalf: { flex: 1, justifyContent: "center" },
+  chooseLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    minHeight: 48,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  chooseLocationText: { ...typography.body, fontWeight: "700" },
+  confirmedAddress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  confirmedAddressText: { ...typography.body, flex: 1 },
+  editLabel: { ...typography.bodySmall, fontWeight: "700" },
   collectNotice: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderWidth: 1, borderRadius: radius.md, padding: spacing.sm },
   collectNoticeText: { ...typography.bodySmall, flex: 1 },
   optionRow: {

@@ -54,6 +54,16 @@ def _to_dto(profile) -> dict:
         "contactEmail": profile.contact_email,
         "tiktokHandle": profile.tiktok_handle,
         "shareContactDetails": profile.share_contact_details,
+        "collectionBuilding": profile.collection_building,
+        "collectionStreet": profile.collection_street,
+        "collectionSuburb": profile.collection_suburb,
+        "collectionCity": profile.collection_city,
+        "collectionProvince": profile.collection_province,
+        "collectionPostalCode": profile.collection_postal_code,
+        "collectionLatitude": float(profile.collection_latitude) if profile.collection_latitude is not None else None,
+        "collectionLongitude": float(profile.collection_longitude)
+        if profile.collection_longitude is not None
+        else None,
     }
 
 

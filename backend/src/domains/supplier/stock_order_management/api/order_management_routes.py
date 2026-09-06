@@ -87,3 +87,18 @@ def decline_order(order_id: uuid.UUID):
         _supplier_profile_id(), order_id, reason=body.get("reason"), details=body.get("details")
     )
     return success_response(data=result)
+
+
+@order_management_bp.route("/api/v1/supplier/stock-orders/<uuid:order_id>/cancel", methods=["POST"])
+@fully_authenticated
+@role_required("supplier")
+def cancel_order(order_id: uuid.UUID):
+    """CONFIRMED -> CANCELLED only -- see order_management_service.
+    cancel_order's own docstring for why this is a genuinely different
+    door from decline above, not the same action with a different
+    name."""
+    body = request.get_json(silent=True) or {}
+    result = order_management_service.cancel_order(
+        _supplier_profile_id(), order_id, reason=body.get("reason"), details=body.get("details")
+    )
+    return success_response(data=result)

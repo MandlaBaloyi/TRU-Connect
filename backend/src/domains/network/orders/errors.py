@@ -141,6 +141,33 @@ class CartAlreadySubmittedError(ConflictError):
     code = "CART_ALREADY_SUBMITTED"
 
 
+class OrderNotCancellableError(ConflictError):
+    """Raised when a business tries to cancel an order that isn't (or
+    is no longer) PENDING_SUPPLIER_APPROVAL -- once a supplier has
+    decided either way, this is the wrong door: DECLINED/CANCELLED
+    are already terminal, and CONFIRMED specifically routes the
+    business to contact their supplier directly instead (see
+    cancellation_service.py's own module docstring for the full
+    architecture and why that's a deliberate choice, not a gap)."""
+
+    code = "ORDER_NOT_CANCELLABLE"
+
+
+class DigitalPaymentCancellationNotSupportedError(AppError):
+    """Genuinely unreachable today -- PAYFAST orders can't exist yet
+    (see StockOrderPaymentMethod's own comment). Exists as a real,
+    deliberate guard rather than silent trust that this code path
+    will never see one: a digital payment needs its own refund-
+    integrated cancellation flow through the real payment gateway,
+    not this manual, reason-and-notify one built for CASH/PROOF_OF_PAYMENT.
+    Whoever eventually builds real PAYFAST cancellation should see
+    this error and know exactly why it's here, not silently inherit
+    a cash-shaped flow that was never designed for it."""
+
+    status_code = 409
+    code = "DIGITAL_PAYMENT_CANCELLATION_NOT_SUPPORTED"
+
+
 class StaleCartItemError(ConflictError):
     """Raised at checkout time when a cart contains an item whose
     product has since been archived or deleted -- never silently

@@ -99,6 +99,13 @@ export interface SupplierProfilePreview {
    *  Drives the profile screen's "View Products" entry point: an
    *  honest empty state when 0, a real (if minimal) list otherwise. */
   productCount: number;
+  /** Null unless there's an ACTIVE connection AND the supplier has
+   *  opted into share_contact_details -- same double gate, same
+   *  SupplierContactDetails shape as the catalog's own contact block
+   *  (see ContactSupplierSheet.tsx). Added specifically so a business
+   *  viewing a CONFIRMED order (which they can no longer self-cancel)
+   *  has a real way to reach the supplier directly. */
+  contact: SupplierContactDetails | null;
 }
 
 // ---------------------------------------------------------------------------
