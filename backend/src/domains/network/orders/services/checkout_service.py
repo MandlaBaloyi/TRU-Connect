@@ -16,6 +16,7 @@ limits rather than shared/media owning them.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -25,11 +26,19 @@ from src.domains.business.business_profile.repositories.business_profile_reposit
     BusinessProfileRepository,
 )
 from src.domains.network.orders.algorithms.order_reference_generator import generate_unique_order_reference
-from src.domains.network.orders.notification_templates.stock_order_templates import build_new_order_notification
+from src.domains.network.orders.notification_templates.stock_order_templates import (
+    build_direct_receipts_threshold_notification,
+    build_new_order_notification,
+)
 from src.shared.notifications.notifications import publish_notification
 from src.domains.network.orders.services.commission import calculate_platform_commission_cents
 from src.domains.business.order_limits.tiers import get_stock_order_limits
 from src.domains.business.tiers.resolver import get_current_tier
+from src.domains.supplier.order_limits.tiers import get_direct_payment_limits
+# Aliased: both roles name their resolver get_current_tier, and they
+# return deliberately different enums (BusinessTier vs Tier). Importing
+# both under one name would be a silent, type-checker-invisible bug.
+from src.domains.supplier.tiers.resolver import get_current_tier as get_current_supplier_tier
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
 from src.domains.supplier.products.repositories.product_repository import ProductRepository
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
@@ -61,20 +70,31 @@ from src.domains.network.orders.providers.composition import get_payment_provide
 from src.domains.network.orders.repositories.stock_order_payment_repository import StockOrderPaymentRepository
 from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
 
-# ONLY these two are actually offered in this pass -- PAYFAST exists
-# on the enum (see StockOrderPaymentMethod's own docstring) but
-# checkout_service itself never accepts it as a real choice yet.
-# Extending this tuple is the ONE change needed once PayFast is
-# genuinely wired -- the rest of this function's own logic doesn't
-# need to change, since it already delegates to whichever provider
-# composition.py resolves for the chosen method.
-_AVAILABLE_PAYMENT_METHODS = (StockOrderPaymentMethod.CASH, StockOrderPaymentMethod.PROOF_OF_PAYMENT)
+logger = logging.getLogger(__name__)
 
-# The SAME two methods are subject to spending limits -- PAYFAST never
-# is, since a real gateway confirms payment before the order proceeds,
-# so the fraud/reliability concern these limits exist for doesn't
-# apply to it.
-_METHODS_SUBJECT_TO_LIMITS = (StockOrderPaymentMethod.CASH, StockOrderPaymentMethod.PROOF_OF_PAYMENT)
+# PAYFAST exists on the enum (see StockOrderPaymentMethod's own
+# docstring) but checkout_service never accepts it as a real choice
+# yet. Adding it to this tuple is the ONE change needed once PayFast
+# is genuinely wired -- the rest of this function's logic does not
+# change, since it already delegates to whichever provider
+# composition.py resolves for the chosen method.
+#
+# ONE OFFERABLE METHOD NOW. CASH and PROOF_OF_PAYMENT were merged into
+# DIRECT -- see StockOrderPaymentMethod's own comment on why that
+# distinction was never enforceable. The old values remain accepted on
+# the way IN (an app build from before the merge, a resumed session)
+# and are treated identically; they are simply never offered.
+_AVAILABLE_PAYMENT_METHODS = (
+    StockOrderPaymentMethod.DIRECT,
+    StockOrderPaymentMethod.CASH,
+    StockOrderPaymentMethod.PROOF_OF_PAYMENT,
+)
+
+# The same methods are subject to spending limits -- PAYFAST never is,
+# since a real gateway confirms payment before the order proceeds, so
+# the fraud/reliability concern these limits exist for doesn't apply
+# to it.
+_METHODS_SUBJECT_TO_LIMITS = _AVAILABLE_PAYMENT_METHODS
 
 
 def _validate_cart_is_fresh(stock_order) -> None:
@@ -128,9 +148,12 @@ def _validate_spending_limits(business_id: str | UUID, stock_order, method_enum:
     just pushes every large order onto proof-of-payment). Both closed
     here.
 
-    1. Per-transaction cap, DIFFERENT for cash vs proof-of-payment,
-       matching the real tier numbers.
-    2. Monthly cumulative cap, summed across BOTH manual methods
+    1. Per-transaction cap. ONE number now, across the whole direct
+       rail -- the old split (a lower cap for cash, a higher one for
+       proof-of-payment) rested on a distinction TRU Connect could
+       never verify, and a buyer wanting the higher cap only had to
+       tick the other box. See StockOrderTierLimits.
+    2. Monthly cumulative cap, summed across every direct method
        together via a live query (StockOrderPaymentRepository.
        sum_manual_payments_since) -- no stored counter, no scheduler,
        no drift risk; the number IS the real historical rows. See that
@@ -139,14 +162,15 @@ def _validate_spending_limits(business_id: str | UUID, stock_order, method_enum:
        before building this.
     3. Calendar-month window -- "this month" resets on the 1st, the
        common, intuitive reading of a monthly limit.
+
+    THIS IS THE BUYER'S HALF ONLY. The supplier's own ceiling on what
+    they may RECEIVE is checked separately, in
+    _validate_supplier_receipt_limits -- ten buyers each inside their
+    own limit would otherwise leave the other end unbounded.
     """
     limits = get_stock_order_limits(get_current_tier(business_id))
 
-    per_transaction_cap = (
-        limits.cash_transaction_cap_cents
-        if method_enum == StockOrderPaymentMethod.CASH
-        else limits.proof_of_payment_transaction_cap_cents
-    )
+    per_transaction_cap = limits.direct_transaction_cap_cents
     if stock_order.total_cents > per_transaction_cap:
         publish(
             AuditEvent(
@@ -204,6 +228,145 @@ def _validate_spending_limits(business_id: str | UUID, stock_order, method_enum:
                 "monthlyLimitCents": limits.monthly_manual_payment_cap_cents,
             },
         )
+
+
+def _notify_supplier_of_receipt_threshold(
+    supplier,
+    already_received_cents: int,
+    projected_total_cents: int,
+    cap_cents: int,
+    warn_at_fractions: tuple[float, ...],
+) -> None:
+    """Tell the supplier once, on the order that actually crosses a
+    threshold.
+
+    FIRES ON THE CROSSING, NOT ON BEING OVER. The check is "were we
+    below this line before, and above it now" -- so one notification
+    per threshold per month, on the order that did it. Testing
+    "projected >= threshold" instead would send a fresh warning on
+    every subsequent order for the rest of the month, which is how a
+    useful warning becomes noise a supplier learns to swipe away.
+
+    HIGHEST THRESHOLD ONLY. An order large enough to cross 75% and 90%
+    at once sends one message about 90%, not two -- the lower one is
+    already true and no longer the useful number.
+
+    NEVER BLOCKS CHECKOUT. Wrapped because a notification failing is
+    not a reason to fail an order that is otherwise perfectly valid;
+    the money and the stock matter, the message does not.
+    """
+    crossed = [
+        fraction
+        for fraction in warn_at_fractions
+        if already_received_cents < cap_cents * fraction <= projected_total_cents
+    ]
+    if not crossed:
+        return
+
+    try:
+        supplier_user_id = supplier.supplier_id
+        publish_notification(
+            build_direct_receipts_threshold_notification(
+                supplier_user_id=str(supplier_user_id),
+                received_cents=projected_total_cents,
+                cap_cents=cap_cents,
+                fraction=max(crossed),
+            )
+        )
+    except Exception:  # noqa: BLE001 -- see the docstring above
+        logger.exception(
+            "checkout: failed to send direct-receipts threshold notification for supplier_profile_id=%s",
+            supplier.id,
+        )
+
+
+def _validate_supplier_accepts_method(supplier, method_enum: StockOrderPaymentMethod) -> None:
+    """A supplier decides which payment rails they take, the same way
+    they decide whether they deliver.
+
+    ENFORCED HERE AND NOT ONLY IN THE UI, for exactly the reasons
+    _validate_supplier_fulfilment_terms gives: a stale screen, a
+    resumed session or a direct API call all reach this line, and the
+    supplier may have changed the answer after the cart was built.
+
+    THE HISTORICAL VALUES COUNT AS DIRECT. An app build from before
+    CASH and PROOF_OF_PAYMENT were merged still sends those, and they
+    are the same rail -- refusing them would break older clients over a
+    rename.
+    """
+    is_direct = method_enum in _AVAILABLE_PAYMENT_METHODS
+
+    if is_direct and not supplier.accepts_direct_payment:
+        raise PaymentMethodNotAvailableError(
+            f"{supplier.business_name} only accepts payment through TRU Connect. "
+            "Choose that option to place this order."
+        )
+
+    if method_enum == StockOrderPaymentMethod.PAYFAST and not supplier.accepts_digital_payment:
+        raise PaymentMethodNotAvailableError(
+            f"{supplier.business_name} doesn't accept online payment. "
+            "Choose to pay them directly instead."
+        )
+
+
+def _validate_supplier_receipt_limits(supplier, stock_order) -> None:
+    """The supplier end of the direct-payment ceiling.
+
+    WARNS ALWAYS, BLOCKS ONLY WHEN THE TIER SAYS SO. Today no tier
+    blocks -- see DirectPaymentTierLimits.blocks_when_exceeded on why
+    that is deliberate rather than unfinished: the cap exists to move
+    suppliers onto the digital rail, and the gateway is not wired, so
+    blocking now would stop a supplier trading rather than redirect
+    them. The warning runs from day one regardless, so the limit is
+    already familiar by the time it can bite.
+
+    THE WARNING GOES TO THE SUPPLIER, NEVER THE BUYER. It is the
+    supplier's ceiling, their tier and their decision to act on; a
+    business told "this supplier is near their limit" learns something
+    about someone else's account that is none of their business and
+    that they cannot do anything about.
+    """
+    limits = get_direct_payment_limits(get_current_supplier_tier(supplier.id))
+
+    now = datetime.now(timezone.utc)
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    already_received = StockOrderPaymentRepository.sum_direct_receipts_for_supplier_since(
+        supplier.id, start_of_month
+    )
+    projected_total = already_received + stock_order.total_cents
+    cap = limits.monthly_direct_receipts_cap_cents
+
+    if projected_total > cap and limits.blocks_when_exceeded:
+        publish(
+            AuditEvent(
+                event_name=BusinessAuditEvent.ORDER_LIMIT_EXCEEDED,
+                domain=AuditDomain.BUSINESS,
+                status=AuditStatus.FAILURE,
+                metadata={
+                    "supplier_profile_id": str(supplier.id),
+                    "reason": "SUPPLIER_MONTHLY_RECEIPTS_LIMIT",
+                    "already_received_this_month_cents": already_received,
+                    "order_total_cents": stock_order.total_cents,
+                    "monthly_limit_cents": cap,
+                },
+            )
+        )
+        # Worded for the BUYER, who is the one being stopped and who
+        # did nothing wrong. It names no figures from the supplier's
+        # account -- their monthly turnover is not a buyer's business.
+        raise OrderLimitExceededError(
+            f"{supplier.business_name} can't take more direct payments this month. "
+            "Try again next month, or ask them about paying through TRU Connect.",
+            data={"reason": "SUPPLIER_MONTHLY_RECEIPTS_LIMIT"},
+        )
+
+    _notify_supplier_of_receipt_threshold(
+        supplier=supplier,
+        already_received_cents=already_received,
+        projected_total_cents=projected_total,
+        cap_cents=cap,
+        warn_at_fractions=limits.warn_at_fractions,
+    )
 
 
 def _validate_supplier_fulfilment_terms(supplier, stock_order, delivery_type: str) -> None:
@@ -316,9 +479,15 @@ def submit_checkout(
     _validate_supplier_fulfilment_terms(supplier, stock_order, delivery_type)
 
     method_enum = StockOrderPaymentMethod(payment_method)
+    _validate_supplier_accepts_method(supplier, method_enum)
 
     if method_enum in _METHODS_SUBJECT_TO_LIMITS:
+        # BOTH ENDS OF THE SAME TRADE. The buyer cap bounds what one
+        # business moves invisibly; the supplier cap bounds the total
+        # arriving at the other end, which ten buyers inside their own
+        # limits would otherwise leave completely unbounded.
         _validate_spending_limits(business_id, stock_order, method_enum)
+        _validate_supplier_receipt_limits(supplier, stock_order)
 
     provider = get_payment_provider(method_enum)
     outcome = provider.process_checkout(stock_order, method_enum)
@@ -408,13 +577,25 @@ def submit_checkout(
             InventoryRepository.reserve_quantity(inventory, item.quantity)
 
     commission_cents = calculate_platform_commission_cents(stock_order.total_cents, method_enum)
-    # CASH/PROOF_OF_PAYMENT: SUCCEEDED immediately -- neither has a
-    # verification step to wait on. A real gateway payment (not
-    # reachable here) would instead be created at INITIATED.
+    # CASH/PROOF_OF_PAYMENT: DUE -- an obligation, not a settlement.
+    #
+    # This used to be written SUCCEEDED right here, which claimed money
+    # had changed hands at the exact moment the business tapped
+    # "Confirm order" -- before the supplier had even seen it. For cash
+    # the money moves on delivery, days later, between two people in a
+    # yard; nothing about that reaches this system. For proof of
+    # payment it moves by bank transfer that TRU Connect never sees
+    # either.
+    #
+    # DUE is what is actually true here and all this code can honestly
+    # assert. Moving it to SUCCEEDED needs someone who was there to say
+    # so -- the supplier confirming receipt, which does not exist yet --
+    # or a gateway webhook, once PayFast is wired. A real gateway
+    # payment would be created at INITIATED instead.
     StockOrderPaymentRepository.create(
         stock_order_id=stock_order.id,
         payment_method=method_enum.value,
-        status=StockOrderPaymentStatus.SUCCEEDED,
+        status=StockOrderPaymentStatus.DUE,
         amount_cents=stock_order.total_cents,
         platform_commission_cents=commission_cents,
     )

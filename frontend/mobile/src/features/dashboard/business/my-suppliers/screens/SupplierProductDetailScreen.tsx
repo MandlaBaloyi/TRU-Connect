@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Heart, ShoppingCart } from "lucide-react-native";
+import { ChevronRight, Heart, ShoppingCart } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { productDetailHref } from "../../routes";
@@ -227,15 +227,48 @@ export default function SupplierProductDetailScreen() {
             the top bar. */}
         <ProductBuyBlock product={product} />
 
-        {/* Moves with the quantity stepper below, so pressing + visibly
-            closes the gap to the minimum -- a blocker turned into an
-            instruction. */}
-        <ProductFulfilmentNote
-          offersDelivery={product.supplierOffersDelivery}
-          minimumOrderCents={product.supplierMinimumOrderCents}
-          cartTotalCents={cart?.totalCents ?? 0}
-          lineTotalCents={product.priceCents * quantity}
-        />
+        {/* THE SUPPLIER'S TERMS, DIRECTLY UNDER "In stock".
+            "Can I get it" and "what does it take to get it" are the
+            same question, so the answers sit together. They were at the
+            bottom, just above the buy bar, on the reasoning that terms
+            are checked at commit time -- that was reversed on direct
+            feedback: a business that discovers a R500 minimum only
+            after building a cart has been made to waste the whole
+            visit, and by then the number reads as a rejection rather
+            than an instruction.
+
+            NAMED AFTER THE SUPPLIER, not "Fulfilment" or "Terms". A
+            minimum order is not a rule of TruConnect, it is this one
+            supplier's condition -- and attributing it plainly is the
+            difference between a business thinking "the app is blocking
+            me" and "MacMan wants R500 a drop". Same reason the
+            track-record card is signed with the business name.
+
+            COLLAPSED BY DEFAULT, matching Shipping / Returns / Product
+            Codes. Position and default state are separate decisions:
+            being high on the screen is what makes the terms findable
+            BEFORE a cart is built, while starting closed keeps the
+            product itself — description, price, buy bar — from being
+            pushed down by detail most visits never need. Every other
+            supporting section on this screen behaves the same way, so
+            one habit covers all four.
+
+            ONE TRADE-OFF, ACCEPTED KNOWINGLY: the shortfall line is
+            live against the cart and the quantity stepper is now far
+            below it, so pressing + no longer visibly closes the gap on
+            screen. Seeing the terms BEFORE building a cart beats
+            watching them update while building one. */}
+        <View style={styles.fulfilment}>
+          <AccordionSection title={supplierTermsTitle(headerSupplierName)} defaultExpanded={false}>
+            <ProductFulfilmentNote
+              offersDelivery={product.supplierOffersDelivery}
+              minimumOrderCents={product.supplierMinimumOrderCents}
+              cartTotalCents={cart?.totalCents ?? 0}
+              lineTotalCents={product.priceCents * quantity}
+            />
+          </AccordionSection>
+          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+        </View>
 
         <View style={styles.body}>
           {/* Description -- its own block right below Product
@@ -284,27 +317,37 @@ export default function SupplierProductDetailScreen() {
               not something to re-read every visit. Each is separated by
               a rule so a stack of closed headers doesn't read as one
               undifferentiated list. */}
+          {/* BOTH SECTIONS FOLLOW ONE SHAPE, deliberately: what
+              TruConnect does, then what you do, then where the full
+              rule is written down. They used to be two loose
+              paragraphs each, both opening on what TruConnect does NOT
+              do -- so a business read two disclaimers before reaching
+              a single instruction. Leading with the action and keeping
+              the same three beats in both means the second section is
+              already familiar by the time it is opened. */}
           <AccordionSection title="Shipping" defaultExpanded={false}>
             <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              TRU Connect provides the technology connecting you with suppliers -- we don't handle delivery
-              ourselves. Delivery is arranged directly with {product.supplierName}.
+              Delivery is arranged directly with {product.supplierName}. Contact them to confirm what they charge,
+              how long it takes, and whether they deliver to your area.
             </Text>
             <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              Contact {product.supplierName} using the details below to confirm delivery options, timing, and any
-              costs.
+              TruConnect connects you with suppliers — we don&apos;t carry, ship or deliver stock ourselves.
             </Text>
+            <PolicyLink label="Read the shipping terms" />
           </AccordionSection>
 
           <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
 
           <AccordionSection title="Returns" defaultExpanded={false}>
             <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              TRU Connect doesn't process returns or refunds -- that's arranged directly between you and{" "}
-              {product.supplierName}.
+              Returns, exchanges and refunds are arranged directly with {product.supplierName}. Contact them to
+              agree what happens before you send anything back.
             </Text>
             <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              Contact {product.supplierName} directly to discuss returning or exchanging this product.
+              TruConnect doesn&apos;t process returns or refunds — for cash and proof-of-payment orders the money
+              never passes through us.
             </Text>
+            <PolicyLink label="Read the returns and refunds terms" />
           </AccordionSection>
 
           <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
@@ -366,6 +409,7 @@ export default function SupplierProductDetailScreen() {
               </ProfileCard>
             </View>
           )}
+
         </View>
       </ScrollView>
 
@@ -443,11 +487,60 @@ export default function SupplierProductDetailScreen() {
   );
 }
 
+/**
+ * "Ordering from MacMan Businesses" — the section holding this
+ * supplier's minimum order and delivery terms.
+ *
+ * NOT "REQUIREMENTS", which this was first called and which was wrong
+ * twice over: only half the content is a requirement (a minimum order
+ * is; whether they deliver is not), and the word leads with obligation
+ * — it reads as a list of hurdles set by the app rather than the
+ * practical terms of dealing with one supplier.
+ *
+ * "Ordering from X" says what the section covers, names the supplier
+ * so the terms are attributed to them rather than to TruConnect, and
+ * sidesteps a possessive entirely — worth noting because most business
+ * names here end in "s" ("… Businesses", "… Traders"), where "'s" is
+ * plainly wrong and a bare apostrophe looks like a typo.
+ */
+function supplierTermsTitle(supplierName: string | null): string {
+  const trimmed = supplierName?.trim();
+  return trimmed ? `Ordering from ${trimmed}` : "Ordering from this supplier";
+}
+
+/**
+ * "Read the returns and refunds terms →"
+ *
+ * A REAL destination, not a gesture at one. The Terms of Service
+ * genuinely covers this ground — Cancellation (5), Refunds (6), and
+ * the clause stating TruConnect neither warehouses nor delivers stock
+ * — so a business following this link finds the rule written out
+ * rather than a page that never mentions the subject.
+ */
+function PolicyLink({ label }: { label: string }) {
+  const theme = useTheme();
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push("/(legal)/terms")}
+      style={styles.policyLinkRow}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+    >
+      <Text style={[styles.policyLinkText, { color: theme.colors.primary }]}>{label}</Text>
+      <ChevronRight size={14} color={theme.colors.primary} strokeWidth={2.4} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   contactBlock: { gap: spacing.sm },
   contactCardBody: { padding: spacing.md },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { paddingBottom: 96 },
+  // Its own wrapper because it sits OUTSIDE styles.body, between the
+  // buy block and the description -- body's padding would not reach it.
+  fulfilment: { paddingHorizontal: spacing.md },
   body: { padding: spacing.md, gap: spacing.md },
   priceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   compareAtPrice: { ...typography.bodySmall, textDecorationLine: "line-through" },
@@ -462,6 +555,8 @@ const styles = StyleSheet.create({
   measurer: { height: 0, overflow: "hidden" },
   readMore: { ...typography.bodySmall, fontWeight: "700", marginTop: 4 },
   policyText: { ...typography.body, lineHeight: 20 },
+  policyLinkRow: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 36 },
+  policyLinkText: { ...typography.bodySmall, fontWeight: "700" },
   detailsList: { gap: 0 },
   // REAL BUG, visible on a real device: this was space-between with no
   // width constraint on either child, so a long value (a product name

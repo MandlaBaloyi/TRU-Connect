@@ -186,8 +186,8 @@ export async function getSupplierProfile(id: string): Promise<SupplierProfilePre
     connectedBusinessCount: supplier.productCount > 0 ? 8 : 0,
     trust:
       id === "sup_001"
-        ? { acceptedOrderCount: 112, repeatBusinessCount: 6, unitsSoldCount: 1840 }
-        : { acceptedOrderCount: 0, repeatBusinessCount: 0, unitsSoldCount: 0 },
+        ? { acceptedOrderCount: 112 }
+        : { acceptedOrderCount: 0 },
     // sup_001 is online; sup_002 opted in but was last seen a while
     // ago; sup_003 hasn't switched it on at all -- all three paths.
     activity:

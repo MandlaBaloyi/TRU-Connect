@@ -22,6 +22,13 @@ export default function SupplierOrdersLayout() {
       <Stack.Screen name="delivery-payment" options={{ title: "Delivery & Payment" }} />
       <Stack.Screen name="review" options={{ title: "Review Order" }} />
       <Stack.Screen name="placed" options={{ title: "Order Placed", headerBackVisible: false }} />
+      {/* Not a checkout step -- it hangs off the cart's ⋮ rather than
+          the cart -> delivery -> review -> placed line. It lives in
+          this stack anyway because it is scoped to the same supplier
+          and wants the same header; the title here is only the
+          pre-load fallback, since the screen swaps in the supplier's
+          avatar and name once they are known. */}
+      <Stack.Screen name="history" options={{ title: "Order history" }} />
     </Stack>
   );
 }

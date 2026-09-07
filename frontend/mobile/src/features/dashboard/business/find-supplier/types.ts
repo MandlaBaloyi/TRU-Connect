@@ -157,13 +157,19 @@ export interface SupplierTrust {
    *  (the ratio and median-reply-time it replaced did neither — see the
    *  backend repository's own note). */
   acceptedOrderCount: number;
-  /** Businesses that have had MORE THAN ONE order accepted. The
-   *  hardest signal to fake: coming back is a verdict on the first
-   *  order. */
-  repeatBusinessCount: number;
-  /** Volume, not transaction count — 16 orders of one case each and 16
-   *  of forty are very different suppliers. */
-  unitsSoldCount: number;
+  /* repeatBusinessCount and unitsSoldCount were here. Both moved to
+     the SUPPLIER's own performance payload and are no longer sent to a
+     business at all -- so this is a real removal, not hiding.
+
+     Repeat buyers says how a supplier PERFORMS rather than where they
+     stand, and is theirs to act on. Units sold was a second view of
+     "orders accepted" that no business-facing screen ever rendered.
+
+     What is left is the whole public set: this count, plus
+     connectedBusinessCount on the profile itself, plus orders
+     fulfilled once it can be measured. Keep it that way -- the
+     supplier's Settings screen states these three as the complete
+     list. */
 }
 
 export interface SupplierActivity {

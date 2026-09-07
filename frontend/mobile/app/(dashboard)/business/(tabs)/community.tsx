@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ChevronLeft, Search, UserPlus, Users } from "lucide-react-native";
+import { ChevronLeft, Search, Settings, UserPlus, UserX, Users } from "lucide-react-native";
 import { TextInput, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -124,7 +124,20 @@ export default function BusinessCommunity() {
             onSecondaryRightIconPress={() => setIsSearchMode(true)}
             rightIcon={
               <CommunityOverflowMenu
-                onViewDisconnectedSuppliers={() => router.push("/business/my-suppliers/disconnected" as any)}
+                items={[
+                  {
+                    key: "disconnected",
+                    title: "Disconnected Suppliers",
+                    icon: ({ size, color }) => <UserX size={size} color={color} strokeWidth={2} />,
+                    onPress: () => router.push("/business/my-suppliers/disconnected" as any),
+                  },
+                  {
+                    key: "settings",
+                    title: "Settings",
+                    icon: ({ size, color }) => <Settings size={size} color={color} strokeWidth={2} />,
+                    onPress: () => router.push("/business/settings" as any),
+                  },
+                ]}
               />
             }
           />

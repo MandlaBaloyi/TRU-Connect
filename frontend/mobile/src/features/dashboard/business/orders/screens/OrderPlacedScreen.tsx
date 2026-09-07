@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { CheckCircle2, MessageCircle } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
 import { supplierProfileHref } from "../../routes";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { buildWhatsAppUrl } from "@/services/contact/contactLinks";
@@ -38,8 +39,45 @@ export default function OrderPlacedScreen() {
     supplierName: string;
   }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
-  const { contact } = useSupplierProducts(supplierId ?? "", { limit: 1 });
+  const { contact, supplierName: fetchedSupplierName, supplierBusinessImageUrl } = useSupplierProducts(
+    supplierId ?? "",
+    { limit: 1 }
+  );
+
+  /* THE SAME SOCIAL TOP BAR AS THE REST OF CHECKOUT, closing the flow
+     the way it opened.
+
+     A DIFFERENT SOURCE, and that is the point. Every other step reads
+     the supplier off the cart; by the time this screen renders the
+     cart has been cleared (see this file's own docstring), so there is
+     nothing there to read. It comes instead from the catalog query
+     this screen ALREADY makes for the supplier's WhatsApp number --
+     no extra request -- with the route param covering the first frame
+     before that lands. The param was already being passed here; it had
+     just never been used for the header.
+
+     There is no back button on this screen (headerBackVisible: false
+     in the layout), so the header is pure identity: the business has
+     just committed money and this is the confirmation that it went to
+     the right people. */
+  useLayoutEffect(() => {
+    const headerName = fetchedSupplierName ?? supplierName ?? null;
+    navigation.setOptions({
+      ...(headerName
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={headerName}
+                subtitle="Order placed"
+                photoUrl={supplierBusinessImageUrl}
+              />
+            ),
+          }
+        : {}),
+    });
+  }, [navigation, fetchedSupplierName, supplierName, supplierBusinessImageUrl]);
 
   const handleSendViaWhatsApp = () => {
     if (!contact?.whatsappNumber) {

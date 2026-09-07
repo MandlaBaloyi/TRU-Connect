@@ -1,5 +1,5 @@
 import React from "react";
-import { InfoScreen } from "@/features/dashboard/business/settings/components/InfoScreen";
+import { InfoScreen } from "@/features/dashboard/shared/settings/components/InfoScreen";
 import { PRIVACY_POLICY_META_LINE, PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_DOWNLOAD_URL } from "@/content/legal/privacyPolicyContent";
 
 /** Public, pre-auth Privacy Policy — see

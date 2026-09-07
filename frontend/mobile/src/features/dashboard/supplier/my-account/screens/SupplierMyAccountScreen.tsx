@@ -7,6 +7,7 @@ import { CreditCard, Receipt, ShieldAlert, Sparkles, Trash2, UserX } from "lucid
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { Card, CardSection, StatusPill } from "@/components/lists/CardListUI";
+import { showsAsVerified } from "@/constants/config";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -82,7 +83,7 @@ export default function SupplierMyAccountScreen() {
           secondaryName={fullName}
           coverUri={summary.coverImageUrl}
           avatarUri={summary.businessImageUrl}
-          verified={summary.verification === "VERIFIED"}
+          verified={showsAsVerified(summary.verification)}
           bio={summary.bio}
           onCoverPress={openProfile}
           onAvatarPress={openProfile}

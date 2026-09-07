@@ -32,8 +32,8 @@ import {
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { CardSection, Card, SwitchCard } from "@/components/lists/CardListUI";
-import { useSettings } from "../hooks/SettingsProvider";
-import { LANGUAGE_LABELS, START_SCREEN_LABELS, THEME_LABELS } from "../types";
+import { useSettings } from "@/features/dashboard/shared/settings/hooks/SettingsProvider";
+import { LANGUAGE_LABELS, START_SCREEN_LABELS, THEME_LABELS } from "@/features/dashboard/shared/settings/types";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 

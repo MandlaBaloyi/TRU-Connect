@@ -1,5 +1,5 @@
 import React from "react";
-import { ComingSoonScreen } from "@/features/dashboard/business/settings/components/ComingSoonScreen";
+import { ComingSoonScreen } from "@/features/dashboard/shared/settings/components/ComingSoonScreen";
 
 /**
  * Card/gateway payments (a payment provider settling to the supplier

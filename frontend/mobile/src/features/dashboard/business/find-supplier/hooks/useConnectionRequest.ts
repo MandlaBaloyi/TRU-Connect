@@ -5,11 +5,16 @@ import type { SupplierProfilePreview } from "../types";
 
 const profileKey = (id: string) => ["findSupplier", "profile", id] as const;
 
-export function useSupplierProfile(id: string) {
+/** `enabled` lets a caller hold the request back when it already has
+ *  what it needs from somewhere cheaper — see orders/hooks/
+ *  useSupplierIdentity, which only reaches for this when the cart
+ *  couldn't answer. Defaults to on, so every existing caller is
+ *  unchanged. */
+export function useSupplierProfile(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: profileKey(id),
     queryFn: () => getSupplierProfile(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (options?.enabled ?? true),
   });
 }
 

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { Banknote, Check, CreditCard, MapPin, Receipt, Search } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -14,6 +15,7 @@ import { SearchAddressModal } from "@/features/dashboard/shared/location-picker/
 import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import type { DeliveryType, PaymentMethod } from "../types";
 import { useCart } from "../hooks/useCart";
+import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 
 const DELIVERY_OPTIONS: { value: DeliveryType; label: string }[] = [
@@ -64,9 +66,14 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; description: strin
 export default function DeliveryPaymentScreen() {
   const { supplierId } = useLocalSearchParams<{ supplierId: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
 
   const { cart } = useCart(supplierId ?? "");
+  // Reads the supplier from the cart when there is one, and from
+  // their profile when there is not -- an empty cart must not blank
+  // the header. See useSupplierIdentity.
+  const supplier = useSupplierIdentity(supplierId ?? "");
   const offersDelivery = cart?.supplierOffersDelivery ?? true;
   const minimumOrderCents = cart?.supplierMinimumOrderCents ?? null;
   const collectionAddress = cart?.supplierCollectionAddress ?? null;
@@ -74,6 +81,29 @@ export default function DeliveryPaymentScreen() {
   const shortfallCents =
     minimumOrderCents !== null && cart ? Math.max(0, minimumOrderCents - cart.totalCents) : 0;
   const isBelowMinimum = shortfallCents > 0;
+
+  /* THE SAME SOCIAL TOP BAR AS THE CART, carried through checkout.
+     Every step of cart -> delivery & payment -> review is about one
+     supplier, and the header is the only thing on these screens that
+     says which one -- there is no other mention of them on this
+     screen at all once you are past the cart. Dropping the avatar and
+     name here left the middle of the flow anonymous, which is exactly
+     when a business is entering an address and choosing how to pay.
+
+     Reads from the cart, which is warm: it is the screen this one is
+     pushed from. Falls back to the layout's plain title while the
+     name is unknown -- same guard as everywhere else. */
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...(supplier.name
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle name={supplier.name!} subtitle="Delivery & payment" photoUrl={supplier.photoUrl} />
+            ),
+          }
+        : {}),
+    });
+  }, [navigation, supplier.name, supplier.photoUrl]);
 
   // DEFAULTS TO THE OPTION THAT ACTUALLY EXISTS. A supplier who
   // doesn't deliver used to still get a screen defaulted to "Deliver",

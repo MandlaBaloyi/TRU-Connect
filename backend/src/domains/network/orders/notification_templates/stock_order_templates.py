@@ -31,6 +31,8 @@ lock screen.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from src.domains.network.orders.models.stock_order import StockOrder
 from src.shared.notifications.notification_types import NotificationCategory, NotificationEvent
 
@@ -74,6 +76,44 @@ def build_new_order_notification(order: StockOrder, supplier_user_id: str, buyer
         body=body,
         related_entity_type="stock_order",
         related_entity_id=str(order.id),
+    )
+
+
+def build_direct_receipts_threshold_notification(
+    supplier_user_id: str,
+    received_cents: int,
+    cap_cents: int,
+    fraction: float,
+) -> NotificationEvent:
+    """To the SUPPLIER, when their direct (off-platform) receipts pass
+    a warning threshold for the month.
+
+    NOT AN ERROR, AND WORDED SO. A supplier at 75% has done nothing
+    wrong -- they have traded well. The message states where they are
+    and what happens next; it does not scold, and it does not imply
+    anything is presently blocked, because nothing is.
+
+    NO ORDER ATTACHED, unlike every other template in this file. The
+    threshold is a property of the month, not of the order that
+    happened to cross it -- linking it to one order would invite a
+    supplier to think that particular sale was the problem.
+    """
+    percent = int(round(fraction * 100))
+    body = (
+        f"TruConnect: You've received {_format_rand(received_cents)} in direct payments this month "
+        f"· {percent}% of your {_format_rand(cap_cents)} monthly limit"
+    )
+    return NotificationEvent(
+        recipient_user_id=supplier_user_id,
+        category=NotificationCategory.STOCK_ORDER,
+        title="Direct payments this month",
+        body=body,
+        related_entity_type="supplier_direct_receipts",
+        # The MONTH is the thing this is about, so that is what it
+        # points at -- and it doubles as the natural key for "have we
+        # already told them this", one notification per threshold per
+        # month rather than one per order after they cross it.
+        related_entity_id=f"{datetime.now(timezone.utc):%Y-%m}:{percent}",
     )
 
 

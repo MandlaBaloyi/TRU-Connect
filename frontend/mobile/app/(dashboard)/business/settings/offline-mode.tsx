@@ -1,4 +1,4 @@
 /** Route only. Implementation lives in the feature folder. */
-import OfflineModeScreen from "@/features/dashboard/business/settings/screens/OfflineModeScreen";
+import OfflineModeScreen from "@/features/dashboard/shared/settings/screens/OfflineModeScreen";
 
 export default OfflineModeScreen;

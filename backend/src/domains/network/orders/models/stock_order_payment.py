@@ -29,16 +29,55 @@ from src.extensions import db
 
 
 class StockOrderPaymentStatus(str, enum.Enum):
-    """Deliberately minimal -- only what this pass actually reaches.
-    CASH/PROOF_OF_PAYMENT go straight to SUCCEEDED the moment checkout
-    completes (there's no verification step to wait on; a supplier
-    confirming the money genuinely arrived is real, separate, later
-    work on the supplier-side order-management feature). A real
-    PayFast attempt would start at INITIATED and move to SUCCEEDED or
-    FAILED only once the ITN webhook actually confirms it -- not
-    reachable by anything in this pass, modelled now so wiring PayFast
-    later doesn't need a migration just to add these two states."""
+    """WHERE THE MONEY IS, not whether a call worked.
 
+    THE BUG THIS ENUM WAS CHANGED TO FIX. CASH and PROOF_OF_PAYMENT
+    used to be written SUCCEEDED the moment checkout completed, and
+    that was a claim TRU Connect had no basis for. Cash is handed over
+    on delivery, days later, by two people standing in a yard; nothing
+    reaches this system at that moment. The row said money had moved
+    when nothing had. It went unnoticed because only one query read it
+    (the monthly spending cap), and for that one purpose the wrong
+    value happened to give the right answer.
+
+    THE DISTINCTION THAT FIXES IT is between two different facts that
+    were being stored in one field:
+
+      * an OBLIGATION -- "R1,000 is owed for this order". True from
+        the moment the order is submitted, for every payment method,
+        and TRU Connect can prove it because it created the order.
+      * a SETTLEMENT -- "R1,000 actually changed hands". Only true
+        when it actually happens, and for CASH/PROOF_OF_PAYMENT TRU
+        Connect can never observe it directly at all.
+
+    So:
+
+      DUE       -- the obligation exists, nothing has been paid.
+                   CASH and PROOF_OF_PAYMENT start here at checkout
+                   and STAY here: nothing in the app records
+                   settlement yet, so nothing may claim it.
+      INITIATED -- a real gateway attempt is in flight, awaiting its
+                   own webhook. PayFast only; not reachable yet.
+      SUCCEEDED -- money genuinely changed hands. Now honest, because
+                   nothing writes it at submission any more. Currently
+                   unreachable, and that is correct rather than a gap:
+                   the supplier-confirms-receipt action does not exist
+                   yet, and PayFast is not wired.
+      FAILED    -- a gateway attempt failed. PayFast only.
+
+    HOW WE WOULD KNOW differs by method, and the difference is worth
+    keeping in mind whenever this data is used to attest to anything.
+    A PayFast SUCCEEDED is OBSERVED -- a gateway told us. A manual
+    SUCCEEDED could only ever be DECLARED -- a person told us. Both
+    are legitimate; they are not the same strength of evidence, and
+    payment_method is what says which one you are looking at.
+
+    NOTHING IS EVER DELETED FROM THIS TABLE. A payment that is never
+    settled is a fact worth keeping, not litter to sweep up -- it is
+    precisely the pattern an AML review would ask about.
+    """
+
+    DUE = "DUE"
     INITIATED = "INITIATED"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"

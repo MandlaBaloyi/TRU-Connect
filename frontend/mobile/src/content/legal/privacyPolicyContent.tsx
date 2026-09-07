@@ -33,7 +33,7 @@ import {
   ScrollText, Database, MapPin, Package, Target, Scale, Link2, Lock,
   Clock, ShieldCheck, Bell, Baby, Globe, RefreshCw, Mail,
 } from "lucide-react-native";
-import type { InfoParagraph } from "@/features/dashboard/business/settings/components/InfoScreen";
+import type { InfoParagraph } from "@/features/dashboard/shared/settings/components/InfoScreen";
 
 export const PRIVACY_POLICY_META_LINE = "Last updated 5 September 2026 · Version 2.1 (draft)";
 
