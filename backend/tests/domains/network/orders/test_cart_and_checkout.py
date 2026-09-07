@@ -35,7 +35,14 @@ from src.domains.network.orders.errors import (
     SupplierNotFoundError,
 )
 from src.domains.network.orders.services import cancellation_service, cart_service, checkout_service, order_history_service
-from src.domains.network.orders.models.stock_order import StockOrder, StockOrderPaymentMethod, StockOrderStatus
+from src.domains.network.orders.models.stock_order import (
+    StockOrder,
+    StockOrderCancelReason,
+    StockOrderDeclineReason,
+    StockOrderPaymentMethod,
+    StockOrderStatus,
+)
+from src.domains.supplier.stock_order_management.services import order_management_service
 from src.domains.network.orders.models.stock_order_payment import StockOrderPayment, StockOrderPaymentStatus
 from src.domains.network.orders.providers.composition import get_payment_provider, reset_payment_providers
 from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
@@ -385,11 +392,16 @@ def test_submit_checkout_creates_a_real_payment_record(make_business, make_suppl
 
     payment = StockOrderPayment.query.filter_by(stock_order_id=result["id"]).first()
     assert payment is not None
-    assert payment.status == StockOrderPaymentStatus.SUCCEEDED
+    # DUE, NOT SUCCEEDED. This assertion used to be the opposite, and
+    # it was locking in a false claim: nobody has handed over cash at
+    # the moment an order is submitted. See StockOrderPaymentStatus.
+    assert payment.status == StockOrderPaymentStatus.DUE
     assert payment.payment_method == "CASH"
     assert payment.amount_cents == 20000
     assert payment.platform_commission_cents == 0
-    assert payment.completed_at is not None
+    # No completion date either -- nothing has completed. A cash
+    # payment gets one when someone who was there confirms it.
+    assert payment.completed_at is None
 
 
 # --- provider isolation ---------------------------------------------------
@@ -461,7 +473,7 @@ def test_cash_order_within_the_per_transaction_cap_succeeds(make_business, make_
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Within Cash Cap Co")
     make_active_connection(business, profile)
-    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
+    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.direct_transaction_cap_cents)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
@@ -474,34 +486,49 @@ def test_cash_order_over_the_per_transaction_cap_is_rejected(make_business, make
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Over Cash Cap Co")
     make_active_connection(business, profile)
-    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents + 1)
+    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.direct_transaction_cap_cents + 1)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     with pytest.raises(OrderLimitExceededError) as exc_info:
         checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
     assert exc_info.value.data["reason"] == "PER_TRANSACTION_LIMIT"
-    assert exc_info.value.data["limitCents"] == FREE_LIMITS.cash_transaction_cap_cents
+    assert exc_info.value.data["limitCents"] == FREE_LIMITS.direct_transaction_cap_cents
 
 
-def test_proof_of_payment_has_its_own_higher_per_transaction_cap(
+def test_direct_rail_has_one_cap_regardless_of_which_legacy_method_is_sent(
     make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
-    """THE REAL DIFFERENTIATION -- proof-of-payment's own cap is
-    genuinely different from cash's, matching the real tier numbers,
-    not a single shared limit applied to both."""
+    """THE DIFFERENTIATION IS GONE, ON PURPOSE, and this test now
+    proves its absence rather than its presence.
+
+    It used to assert that proof-of-payment earned a higher
+    per-transaction cap than cash. That cap difference was never
+    enforceable: nothing stopped a buyer picking proof-of-payment to
+    get the higher ceiling and then handing over notes, so it was a
+    real limit resting on an unverifiable self-declaration. Both are
+    now the one DIRECT rail with one cap -- see
+    StockOrderPaymentMethod.
+
+    Kept rather than deleted because the loophole is worth a permanent
+    guard: if someone ever reintroduces a per-method cap, this fails.
+    """
     business = make_business()
     supplier_user = make_supplier()
-    profile = make_supplier_profile(supplier_user, business_name="POP Higher Cap Co")
+    profile = make_supplier_profile(supplier_user, business_name="Same Cap Either Way Co")
     make_active_connection(business, profile)
-    # Over the CASH cap, but within the POP cap.
-    assert FREE_LIMITS.proof_of_payment_transaction_cap_cents > FREE_LIMITS.cash_transaction_cap_cents
-    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents + 1)
-    cart_service.add_item(business.id, profile.id, product.id, 1)
 
-    result = checkout_service.submit_checkout(business.id, profile.id, "PROOF_OF_PAYMENT", "DELIVER")
+    over_the_cap = FREE_LIMITS.direct_transaction_cap_cents + 1
+    product = _make_product(profile.id, "Item", price_cents=over_the_cap)
 
-    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+    # The historical value must not buy a bigger order than the current
+    # one does. Both are the same rail now.
+    for method in ("PROOF_OF_PAYMENT", "CASH", "DIRECT"):
+        cart_service.add_item(business.id, profile.id, product.id, 1)
+        with pytest.raises(OrderLimitExceededError) as exc_info:
+            checkout_service.submit_checkout(business.id, profile.id, method, "DELIVER")
+        assert exc_info.value.data["reason"] == "PER_TRANSACTION_LIMIT"
+        assert exc_info.value.data["limitCents"] == FREE_LIMITS.direct_transaction_cap_cents
 
 
 def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
@@ -518,7 +545,7 @@ def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
     make_active_connection(business, profile)
     # Each order individually under BOTH per-transaction caps, but
     # together they exceed the monthly cap.
-    per_order_cents = FREE_LIMITS.cash_transaction_cap_cents
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
     orders_to_hit_cap = FREE_LIMITS.monthly_manual_payment_cap_cents // per_order_cents
 
     product = _make_product(profile.id, "Item", price_cents=per_order_cents)
@@ -537,6 +564,153 @@ def test_monthly_cumulative_cap_is_enforced_across_multiple_separate_orders(
     assert exc_info.value.data["alreadySpentThisMonthCents"] == orders_to_hit_cap * per_order_cents
 
 
+def _fill_month_to_cap(business, profile, product, per_order_cents):
+    """Submit exactly enough CASH orders to consume the whole monthly
+    manual-payment cap. Returns the submitted orders."""
+    orders = []
+    for _ in range(FREE_LIMITS.monthly_manual_payment_cap_cents // per_order_cents):
+        cart_service.add_item(business.id, profile.id, product.id, 1)
+        orders.append(checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER"))
+    return orders
+
+
+def test_a_declined_order_gives_its_monthly_spend_back(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE REAL BUG, reported directly: spend the whole monthly cap,
+    have the supplier DECLINE one of those orders, and the business was
+    still locked out -- the declined order kept consuming the cap for
+    the rest of the month.
+
+    The cause was that a CASH / PROOF_OF_PAYMENT payment row is written
+    SUCCEEDED at SUBMISSION, before the supplier has even seen the
+    order, and the monthly sum filtered on the PAYMENT's status without
+    ever looking at the ORDER's. A supplier's refusal moves no money,
+    so it must not consume a limit whose whole purpose is to bound how
+    much unverified money a business actually moves.
+    """
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Declined Releases Co")
+    make_active_connection(business, profile)
+
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
+    product = _make_product(profile.id, "Item", price_cents=per_order_cents)
+    orders = _fill_month_to_cap(business, profile, product, per_order_cents)
+
+    # At the cap: the next order is refused.
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    with pytest.raises(OrderLimitExceededError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    # The supplier declines one. That money never changed hands.
+    order_management_service.decline_order(
+        profile.id, orders[0]["id"], StockOrderDeclineReason.OUT_OF_STOCK.value
+    )
+
+    # The same order now goes through, because the headroom came back.
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_a_supplier_cancelled_order_gives_its_monthly_spend_back(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """The other half of the same bug: an order the supplier APPROVED
+    and then cancelled is just as much money that never moved."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Cancelled Releases Co")
+    make_active_connection(business, profile)
+
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
+    product = _make_product(profile.id, "Item", price_cents=per_order_cents)
+    orders = _fill_month_to_cap(business, profile, product, per_order_cents)
+
+    order_management_service.approve_order(profile.id, orders[0]["id"])
+    order_management_service.cancel_order(
+        profile.id, orders[0]["id"], StockOrderCancelReason.OUT_OF_STOCK.value
+    )
+
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_a_business_cancelled_order_gives_its_monthly_spend_back(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """And the third path into CANCELLED -- the business pulling out of
+    its own still-pending order."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Business Cancel Releases Co")
+    make_active_connection(business, profile)
+
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
+    product = _make_product(profile.id, "Item", price_cents=per_order_cents)
+    orders = _fill_month_to_cap(business, profile, product, per_order_cents)
+
+    cancellation_service.cancel_order_by_business(
+        business.id, profile.id, orders[0]["id"], StockOrderCancelReason.CHANGED_MIND.value
+    )
+
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL"
+
+
+def test_a_pending_order_still_consumes_the_monthly_cap(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """THE OTHER DIRECTION, and the reason the fix excludes two dead
+    statuses rather than counting only CONFIRMED ones. An order
+    awaiting the supplier's decision must still count: if it did not, a
+    business could fire off unlimited orders in parallel, each one
+    individually passing the check because none of the others had been
+    approved yet, and the cumulative cap would mean nothing at all.
+    """
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Pending Still Counts Co")
+    make_active_connection(business, profile)
+
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
+    product = _make_product(profile.id, "Item", price_cents=per_order_cents)
+    orders = _fill_month_to_cap(business, profile, product, per_order_cents)
+
+    # Every one of them is still PENDING_SUPPLIER_APPROVAL -- nothing
+    # has been approved, declined or cancelled.
+    assert all(order["status"] == "PENDING_SUPPLIER_APPROVAL" for order in orders)
+
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    with pytest.raises(OrderLimitExceededError) as exc_info:
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+    assert exc_info.value.data["reason"] == "MONTHLY_CUMULATIVE_LIMIT"
+
+
+def test_an_approved_order_still_consumes_the_monthly_cap(
+    make_business, make_supplier, make_supplier_profile, make_active_connection
+):
+    """A CONFIRMED order is real spending and must keep counting -- the
+    fix must not release anything beyond the two dead states."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Approved Still Counts Co")
+    make_active_connection(business, profile)
+
+    per_order_cents = FREE_LIMITS.direct_transaction_cap_cents
+    product = _make_product(profile.id, "Item", price_cents=per_order_cents)
+    orders = _fill_month_to_cap(business, profile, product, per_order_cents)
+
+    for order in orders:
+        order_management_service.approve_order(profile.id, order["id"])
+
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+    with pytest.raises(OrderLimitExceededError):
+        checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+
 def test_monthly_cumulative_cap_is_shared_across_cash_and_proof_of_payment(
     make_business, make_supplier, make_supplier_profile, make_active_connection
 ):
@@ -546,19 +720,19 @@ def test_monthly_cumulative_cap_is_shared_across_cash_and_proof_of_payment(
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Shared Cap Co")
     make_active_connection(business, profile)
-    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
+    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.direct_transaction_cap_cents)
 
     cart_service.add_item(business.id, profile.id, product.id, 1)
     checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
 
-    remaining = FREE_LIMITS.monthly_manual_payment_cap_cents - FREE_LIMITS.cash_transaction_cap_cents
-    if remaining < FREE_LIMITS.cash_transaction_cap_cents:
+    remaining = FREE_LIMITS.monthly_manual_payment_cap_cents - FREE_LIMITS.direct_transaction_cap_cents
+    if remaining < FREE_LIMITS.direct_transaction_cap_cents:
         # Not enough room left for another full cash-cap order --
         # confirm the SAME running total is visible from the POP side.
         cart_service.add_item(business.id, profile.id, product.id, 1)
         with pytest.raises(OrderLimitExceededError) as exc_info:
             checkout_service.submit_checkout(business.id, profile.id, "PROOF_OF_PAYMENT", "DELIVER")
-        assert exc_info.value.data["alreadySpentThisMonthCents"] == FREE_LIMITS.cash_transaction_cap_cents
+        assert exc_info.value.data["alreadySpentThisMonthCents"] == FREE_LIMITS.direct_transaction_cap_cents
 
 
 def test_order_at_exactly_the_per_transaction_cap_is_allowed(make_business, make_supplier, make_supplier_profile, make_active_connection):
@@ -568,7 +742,7 @@ def test_order_at_exactly_the_per_transaction_cap_is_allowed(make_business, make
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Exactly At Cap Co")
     make_active_connection(business, profile)
-    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.cash_transaction_cap_cents)
+    product = _make_product(profile.id, "Item", price_cents=FREE_LIMITS.direct_transaction_cap_cents)
     cart_service.add_item(business.id, profile.id, product.id, 1)
 
     result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")

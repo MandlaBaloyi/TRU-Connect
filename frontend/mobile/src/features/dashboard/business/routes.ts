@@ -1,5 +1,5 @@
 /**
- * The three business-side routes whose screens show an entity's NAME in
+ * The business-side routes whose screens show an entity's NAME in
  * their top bar, built in one place instead of hand-concatenated at
  * each call site.
  *
@@ -65,6 +65,17 @@ export function productDetailHref(
     productName
   );
   return withName(base, "supplierName", supplierName);
+}
+
+/** Every order placed with one supplier —
+ *  /business/orders/<id>/history
+ *
+ *  Reached from the cart's own ⋮. The cart already knows the supplier's
+ *  name (it renders it in its own top bar), so passing it through is
+ *  free and keeps the history screen's header correct on its first
+ *  frame — the same reason every other helper here exists. */
+export function orderHistoryHref(supplierId: string, supplierName?: string | null): string {
+  return withName(`/business/orders/${supplierId}/history`, "supplierName", supplierName);
 }
 
 /** Appends `?key=value` (or `&key=value` when the path already has a

@@ -1,17 +1,19 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { ApiError } from "@/services/api/apiClient";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { useCart } from "../hooks/useCart";
+import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { useCheckout } from "../hooks/useCheckout";
 import type { DeliveryType, PaymentMethod } from "../types";
 
@@ -61,9 +63,32 @@ export default function ReviewOrderScreen() {
     deliveryLongitude?: string;
   }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
   const { cart, isLoading, isError, refetch } = useCart(supplierId ?? "");
+  // Reads the supplier from the cart when there is one, and from
+  // their profile when there is not -- an empty cart must not blank
+  // the header. See useSupplierIdentity.
+  const supplier = useSupplierIdentity(supplierId ?? "");
   const { submitCheckout, isSubmitting } = useCheckout(supplierId ?? "");
+
+  /* THE SAME SOCIAL TOP BAR AS THE CART, carried to the last step.
+     This is the screen where the order is actually submitted, so being
+     certain WHO it is going to matters more here than anywhere else in
+     the flow -- and it is the one place a mistake cannot be walked
+     back with the chevron. See DeliveryPaymentScreen for the rest of
+     the reasoning; the two are deliberately identical. */
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...(supplier.name
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle name={supplier.name!} subtitle="Review order" photoUrl={supplier.photoUrl} />
+            ),
+          }
+        : {}),
+    });
+  }, [navigation, supplier.name, supplier.photoUrl]);
 
   const handleConfirm = async () => {
     try {
@@ -92,7 +117,7 @@ export default function ReviewOrderScreen() {
           totalCents: String(result.totalCents),
           instructions: result.instructions ?? "",
           paymentMethod,
-          supplierName: cart?.supplierName ?? "",
+          supplierName: supplier.name ?? "",
         },
       });
     } catch (error) {

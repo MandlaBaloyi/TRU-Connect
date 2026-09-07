@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { LogOut, MoreVertical, User } from "lucide-react-native";
+import { LogOut, MoreVertical, Settings, User } from "lucide-react-native";
 import Constants from "expo-constants";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
@@ -13,12 +13,19 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 /**
- * More — My Account is the first real row here (previously
- * architecture-only). My Supplier Business, Account Security, and
- * Settings are deliberately NOT here yet — each is its own separate,
- * later piece of this build, same isolated-feature-folder pattern as
- * Business's own four rows, added one at a time as they're actually
- * built rather than all at once as stubs.
+ * More — My Account and Settings are the real rows here. My Supplier
+ * Business and Account Security are deliberately NOT here yet — each
+ * is its own separate, later piece of this build, same
+ * isolated-feature-folder pattern as Business's own four rows, added
+ * one at a time as they're actually built rather than all at once as
+ * stubs.
+ *
+ * Settings is a SUPPLIER stack of its own
+ * (app/(dashboard)/supplier/settings/), not a link into the business
+ * one: most of the screens behind it are genuinely shared
+ * (features/dashboard/shared/settings/), but the menu and the
+ * privacy/visibility half are role-specific. See that menu's own
+ * docstring for why the two roles do not share one screen.
  */
 const ROWS: { key: string; label: string; subtitle: string; route: string; icon: (color: string) => React.ReactNode }[] = [
   {
@@ -27,6 +34,13 @@ const ROWS: { key: string; label: string; subtitle: string; route: string; icon:
     subtitle: "Manage your personal information",
     route: "/supplier/my-account",
     icon: (c) => <User size={20} color={c} strokeWidth={2} />,
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    subtitle: "Appearance, notifications, privacy and support",
+    route: "/supplier/settings",
+    icon: (c) => <Settings size={20} color={c} strokeWidth={2} />,
   },
 ];
 

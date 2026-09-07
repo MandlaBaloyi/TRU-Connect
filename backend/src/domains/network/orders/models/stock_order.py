@@ -149,8 +149,29 @@ class StockOrderPaymentMethod(str, enum.Enum):
     """Null on a CART -- a business hasn't chosen how they're paying
     until they actually check out. Set exactly once, at submission."""
 
+    # THE ONE OFF-PLATFORM RAIL. Notes on delivery, an EFT, a bank
+    # deposit, a transfer with a screenshot -- TRU Connect observes
+    # none of them, and that, not the instrument, is what makes them
+    # one thing. Capped, because invisible money is what the caps
+    # exist to bound.
+    DIRECT = "DIRECT"
+
+    # HISTORICAL, NOT OFFERED. CASH and PROOF_OF_PAYMENT were the two
+    # halves of what is now DIRECT, split on the reasoning that a
+    # traceable transfer is safer than notes and so earns a higher
+    # per-transaction cap. TRU Connect could never enforce that: a
+    # buyer selecting proof-of-payment for the higher cap and then
+    # handing over cash was indistinguishable from one who transferred.
+    # A cap resting on an unverifiable self-declaration is not a cap.
+    #
+    # The values stay because existing orders genuinely recorded what
+    # the buyer selected at the time, and rewriting that would be
+    # falsifying history rather than correcting it. Everything that
+    # sums direct payments treats all three identically -- see
+    # DIRECT_PAYMENT_METHODS in stock_order_payment_repository.
     CASH = "CASH"
     PROOF_OF_PAYMENT = "PROOF_OF_PAYMENT"
+
     PAYFAST = "PAYFAST"  # not reachable by anything in this pass -- see providers/payfast_provider.py
 
 

@@ -7,7 +7,7 @@ import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-c
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "react-native-paper";
 import { ThemeProvider } from "@/theme/ThemeProvider";
-import { SettingsProvider, useSettings } from "@/features/dashboard/business/settings/hooks/SettingsProvider";
+import { SettingsProvider, useSettings } from "@/features/dashboard/shared/settings/hooks/SettingsProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { queryClient } from "@/services/api/queryClient";
 import { OfflineBanner } from "@/components/feedback/OfflineBanner";

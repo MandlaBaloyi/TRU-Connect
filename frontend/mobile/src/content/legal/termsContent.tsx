@@ -32,7 +32,7 @@ import {
   Wallet, Star, Ban, Copyright, Flag, ShieldAlert, Gavel, XCircle,
   RefreshCw, Scale, Mail, CircleSlash, Banknote,
 } from "lucide-react-native";
-import type { InfoParagraph } from "@/features/dashboard/business/settings/components/InfoScreen";
+import type { InfoParagraph } from "@/features/dashboard/shared/settings/components/InfoScreen";
 
 export const TERMS_META_LINE = "Last updated 5 September 2026 · Version 2.1 (draft)";
 

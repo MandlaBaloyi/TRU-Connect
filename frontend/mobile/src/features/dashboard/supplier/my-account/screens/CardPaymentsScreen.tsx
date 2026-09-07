@@ -1,5 +1,5 @@
 import React from "react";
-import { ComingSoonScreen } from "@/features/dashboard/business/settings/components/ComingSoonScreen";
+import { ComingSoonScreen } from "@/features/dashboard/shared/settings/components/ComingSoonScreen";
 
 /**
  * Card/gateway payments — the third row in the Cash / EFT / Card

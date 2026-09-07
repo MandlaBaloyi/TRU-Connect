@@ -177,6 +177,38 @@ class SupplierProfile(BaseModel):
     # a float; see shared/finance for the rule).
     minimum_order_cents = db.Column(db.Integer, nullable=True)
 
+    # WHICH PAYMENT RAILS THIS SUPPLIER ACCEPTS.
+    #
+    # There are exactly two, and the difference between them is not the
+    # instrument -- it is whether TRU Connect can see the money at all:
+    #
+    #   DIRECT  -- settled between the two parties, by whatever means
+    #              suits them: notes on delivery, an EFT, a bank
+    #              deposit, a transfer with a screenshot. TRU Connect
+    #              observes NONE of it. Capped, because invisible
+    #              money is exactly what the caps exist to bound.
+    #   DIGITAL -- settled through TRU Connect's own gateway. Observed,
+    #              so it needs no cap at all.
+    #
+    # "Cash" and "proof of payment" used to be modelled as two separate
+    # methods with two different per-transaction caps, on the reasoning
+    # that a traceable transfer is safer than notes. That was a
+    # distinction TRU Connect could never actually enforce: nothing
+    # stops a buyer selecting proof-of-payment for the higher cap and
+    # then handing over cash. One rail, one cap, honestly named.
+    #
+    # PLAIN BOOLEANS, not tri-state. Unlike offers_delivery above,
+    # false here is a real and safe answer -- "I don't take that" -- and
+    # the defaults assert nothing awkward on anyone's behalf: every
+    # supplier already takes direct payment today, and nobody can take
+    # digital yet because the gateway is not wired.
+    #
+    # AT LEAST ONE MUST BE TRUE. A supplier accepting neither cannot be
+    # paid at all, which is not a configuration, it is a broken
+    # shopfront -- supplier_profile_service refuses it.
+    accepts_direct_payment = db.Column(db.Boolean, nullable=False, default=True, server_default="true")
+    accepts_digital_payment = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
+
     # "Show businesses when I was last online."
     #
     # A PLAIN BOOLEAN, deliberately -- unlike offers_delivery next door,

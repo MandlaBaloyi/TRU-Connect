@@ -1,10 +1,14 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
+import { ChevronRight } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { SwitchCard } from "@/components/lists/CardListUI";
+import { showsAsVerified } from "@/constants/config";
+import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ImageActionSheet } from "@/components/ui/ImageActionSheet";
 import { FullScreenImageViewer } from "@/components/ui/FullScreenImageViewer";
 import { radius, spacing } from "@/theme/spacing";
@@ -13,16 +17,15 @@ import { typography } from "@/theme/typography";
 import { useAccountProfile } from "../hooks/useAccountProfile";
 import { useUpdateDisplayName } from "../hooks/useDisplayName";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
+import { useSupplierProfileField } from "../hooks/useSupplierProfileField";
 import { useProfileImageUpload } from "../hooks/useProfileImageUpload";
 import type { SupplierProfileData } from "../services/accountService";
 import type { AccountProfileSummary } from "../types";
 import type { ProfileImageSlot } from "../services/profileImageUpload";
 import { ProfileHeader } from "../components/ProfileHeader";
+import { ProfileOverflowMenu } from "../components/ProfileOverflowMenu";
 import { InlineEditField } from "../components/InlineEditField";
 import { CollectionAddressField } from "../components/CollectionAddressField";
-import { LastActiveRow } from "../components/LastActiveRow";
-import { TrackRecordPanel } from "../components/TrackRecordPanel";
-import { InfoHint } from "@/components/ui/InfoHint";
 import { formatCents } from "../../products/services/productMapper";
 import { BIO_MAX_LENGTH } from "../types";
 
@@ -38,23 +41,94 @@ import { BIO_MAX_LENGTH } from "../types";
  * to Cloudinary, scoped to this supplier's own folder; what's shown is
  * always the stored url on SupplierProfile, never local device state.
  *
- * FIELDS are grouped into two carded sections -- "Your details" and
- * "Business contact details" -- each row reading as its CURRENT VALUE
- * with an explicit "Edit" control (components/InlineEditField.tsx),
- * saving itself on confirm. Business name, bio and the three contact
- * channels go through the real PATCH /supplier-discovery/my-profile
- * (category / location / photoVisibility / visibleImageSource passed
- * through UNCHANGED). First/last name use updateDisplayName. The login
- * email is READ-ONLY here -- it's the account credential, changed in
- * Account security (not built for the supplier role yet). Phone number
- * was removed: a customer-facing number belongs in Business contact
+ * FIELDS are grouped into carded sections -- "Your details",
+ * "Business contact details", fulfilment terms, collection address --
+ * each row reading as its CURRENT VALUE with an explicit "Edit"
+ * control (components/InlineEditField.tsx), saving itself on confirm.
+ * Everything goes through the real PATCH
+ * /supplier-discovery/my-profile via useSupplierProfileField, which
+ * owns the pass-through of every field this screen isn't changing.
+ * First/last name use updateDisplayName instead. The login email is
+ * READ-ONLY here -- it's the account credential, changed in Account
+ * security (not built for the supplier role yet). Phone number was
+ * removed: a customer-facing number belongs in Business contact
  * details, not next to the login email.
+ *
+ * THIS SCREEN HOLDS VALUES, NOT VISIBILITY. Three switches used to
+ * live here -- share contact details, show last active, show track
+ * record -- along with the track-record panel and the last-active
+ * preview. They are gone, to Settings (supplier/settings/screens/
+ * SupplierVisibilityScreen.tsx and CommunityActivityScreen.tsx).
+ *
+ * The reason is that they were never profile information. A profile is
+ * what you tell businesses; a visibility switch is who gets to hear
+ * it. Mixing them made this screen half input form and half privacy
+ * console, and it read as neither -- it was long enough that the
+ * actual editable fields were buried under explanation belonging to
+ * settings. What stays behind is a short signpost at the bottom, so a
+ * supplier who looks for a switch here still finds their way.
+ *
+ * The one exception is the CONTACT SHARING STATE, echoed as a single
+ * read-only line under the contact card. Not a control -- editing a
+ * WhatsApp number while unable to tell whether it is being shared with
+ * anyone is the one place where splitting value from visibility would
+ * genuinely mislead.
  */
 export default function ProfileScreen() {
   const theme = useTheme();
+  const navigation = useNavigation();
 
   const { summary, isLoading, isError, refetch } = useAccountProfile();
   const { profile, isLoading: isProfileLoading } = useSupplierProfile();
+
+  /**
+   * THE HEADER FLASH FIX, reported directly: opening this screen showed
+   * "Profile" for a beat before swapping to the business name and
+   * avatar. Same class of bug and same fix as SupplierCatalogScreen's
+   * own "Stock Catalogue" flash (see its comment for the full
+   * reasoning) -- the title could only become real once a request
+   * resolved.
+   *
+   * TWO PARTS, and this is the second of them.
+   *
+   * (1) The supplier's own profile is now PREFETCHED when the
+   *     dashboard mounts (supplier/(tabs)/_layout.tsx), so by the time
+   *     any of the four screens that read it are opened, the React
+   *     Query cache already holds it.
+   *
+   * (2) This effect lives on the OUTER component, above the loading
+   *     and error early-returns, rather than inside ProfileForm.
+   *     That is the part that actually removes the flash: ProfileForm
+   *     only mounts AFTER loading finishes, so a header set from
+   *     inside it could never be set on the first frame no matter how
+   *     warm the cache was. Up here, a cached profile is read
+   *     synchronously on the very first render and useLayoutEffect
+   *     commits the header before paint.
+   *
+   * Falls back to the _layout.tsx "Profile" string only while the name
+   * is genuinely unknown -- exactly the catalogue's own
+   * `...(name ? {headerTitle} : {})` shape. A wrong-but-styled header
+   * would be worse than a plain one.
+   */
+  const headerName = profile?.businessName?.trim() || null;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...(headerName
+        ? {
+            headerTitle: () => (
+              <EntityHeaderTitle
+                name={headerName}
+                subtitle="Your profile"
+                photoUrl={profile?.businessImageUrl}
+                verified={showsAsVerified(summary?.verification)}
+              />
+            ),
+          }
+        : {}),
+      headerRight: () => <ProfileOverflowMenu />,
+    });
+  }, [navigation, headerName, profile?.businessImageUrl, summary?.verification]);
 
   if (isLoading || isProfileLoading) {
     return (
@@ -79,7 +153,13 @@ export default function ProfileScreen() {
 
 function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; profile: SupplierProfileData }) {
   const theme = useTheme();
-  const { save: saveProfile } = useSupplierProfile();
+  const router = useRouter();
+  /** One field changed -- PATCH the whole SupplierProfile with every
+   *  other field passed through untouched. That pass-through list is
+   *  the hook's job, not this screen's: Settings writes the same row
+   *  now, and two hand-maintained copies of "all the fields" would
+   *  eventually drop one silently. */
+  const { saveField: saveProfileField } = useSupplierProfileField();
   const updateDisplayName = useUpdateDisplayName();
   const { busySlot, error: imageError, pickAndUpload, remove: removeImage } = useProfileImageUpload();
 
@@ -89,36 +169,16 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
   const fullName = [summary.firstName, summary.lastName].filter(Boolean).join(" ") || summary.email;
   const displayName = profile.businessName?.trim() || fullName;
 
-  /** One field changed -- PATCH the whole SupplierProfile with every
-   *  other field passed through untouched. */
-  const saveProfileField = (patch: Partial<SupplierProfileData>) =>
-    saveProfile({
-      businessName: profile.businessName,
-      category: profile.category,
-      location: profile.location,
-      description: profile.description,
-      photoVisibility: profile.photoVisibility,
-      visibleImageSource: profile.visibleImageSource,
-      businessImageUrl: profile.businessImageUrl,
-      coverImageUrl: profile.coverImageUrl,
-      whatsappNumber: profile.whatsappNumber,
-      contactEmail: profile.contactEmail,
-      tiktokHandle: profile.tiktokHandle,
-      shareContactDetails: profile.shareContactDetails,
-      offersDelivery: profile.offersDelivery,
-      minimumOrderCents: profile.minimumOrderCents,
-      collectionBuilding: profile.collectionBuilding,
-      collectionStreet: profile.collectionStreet,
-      collectionSuburb: profile.collectionSuburb,
-      collectionCity: profile.collectionCity,
-      collectionProvince: profile.collectionProvince,
-      collectionPostalCode: profile.collectionPostalCode,
-      collectionLatitude: profile.collectionLatitude,
-      collectionLongitude: profile.collectionLongitude,
-      showLastActive: profile.showLastActive,
-      showTrackRecord: profile.showTrackRecord,
-      ...patch,
-    });
+  /* THE TOP BAR CARRIES THE BUSINESS, not the word "Profile" -- the
+     avatar, name and tick a BUSINESS sees when it opens this
+     supplier's brand profile, rendered by the identical component so a
+     supplier is looking at exactly what their customers look at.
+     "Profile" as a title told them nothing they did not already know.
+
+     WIRED IN THE OUTER ProfileScreen, not here, and that placement is
+     the whole flash fix -- see the long comment there. This component
+     only mounts once loading is done, so a header set from here can
+     never make the first frame. */
 
   const sheetImageUri = sheetSlot === "cover" ? profile.coverImageUrl : profile.businessImageUrl;
 
@@ -131,7 +191,7 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
           secondaryName={fullName}
           coverUri={profile.coverImageUrl}
           avatarUri={profile.businessImageUrl}
-          verified={summary.verification === "VERIFIED"}
+          verified={showsAsVerified(summary.verification)}
           busySlot={busySlot}
           onCoverPress={() => setSheetSlot("cover")}
           onAvatarPress={() => setSheetSlot("profile")}
@@ -184,6 +244,7 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
             hint={[
               "Shown only to businesses you're connected with, on the products they view from you.",
               "Separate from your login email above — changing these never changes how you sign in.",
+              "Whether they're shared at all is a Settings choice, under Supplier visibility.",
             ]}
           />
 
@@ -194,7 +255,7 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
               keyboardType="phone-pad"
               placeholder="e.g. 27821234567"
               helperText="Include the country code, no + or spaces."
-              emptyText="Not shared"
+              emptyText="Not added"
               onSave={(v) => saveProfileField({ whatsappNumber: v || null }).then(() => {})}
             />
             <InlineEditField
@@ -202,7 +263,7 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
               value={profile.contactEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              emptyText="Not shared"
+              emptyText="Not added"
               onSave={(v) => saveProfileField({ contactEmail: v || null }).then(() => {})}
             />
             <InlineEditField
@@ -210,17 +271,22 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
               value={profile.tiktokHandle}
               autoCapitalize="none"
               placeholder="e.g. myshop"
-              emptyText="Not shared"
+              emptyText="Not added"
               noDivider
               onSave={(v) => saveProfileField({ tiktokHandle: v || null }).then(() => {})}
             />
           </View>
 
-          <SwitchCard
-            label="Share these with connected businesses"
-            description="When off, none of the above is shown to anyone — even businesses you're connected with."
-            value={profile.shareContactDetails}
-            onValueChange={(val) => saveProfileField({ shareContactDetails: val })}
+          {/* STATE, NOT A CONTROL. The switch itself lives in Settings
+              (Supplier visibility) with the rest of the visibility
+              choices. This line stays because editing a contact number
+              while unable to tell whether anyone is being shown it is
+              the one case where the split would genuinely mislead --
+              so the answer travels with the fields, and the switch
+              does not. */}
+          <SharingStatusRow
+            isShared={profile.shareContactDetails}
+            onPress={() => router.push("/supplier/settings/supplier-visibility" as any)}
           />
 
           {/* --- Fulfilment terms ---
@@ -354,52 +420,35 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
           />
 
 
-          {/* ---- ACTIVITY ----
-              Recorded for everyone, shown to businesses only by opt-in
-              (see supplier_profile.show_last_active). The row below is
-              visible to the supplier either way: their own activity
-              isn't a secret from them, and seeing the exact wording a
-              business would read is what makes the choice concrete. */}
+          {/* ---- WHERE THE SWITCHES WENT ----
+              A signpost, not a section. Activity status and track
+              record used to render here in full -- two headings, two
+              switches, a stats panel and a preview row. All of it was
+              answering "who can see this", which is a Settings
+              question, so all of it moved. What a supplier loses by
+              that move is knowing where to look, and this is the two
+              lines that give it back. */}
           <SectionHeading
-            title="Activity"
+            title="Visibility"
             hint={[
-              "Shows businesses roughly when you were last using TruConnect — \"Active now\", \"Active 3 hours ago\".",
-              "It tells a business you're around and likely to answer, which matters most when they're deciding who to order from today.",
-              "Turn it off and businesses see nothing about your activity. You'll still see it yourself.",
+              "Your profile holds what you tell businesses. Settings holds who gets to see it.",
+              "Photo visibility, contact sharing and your track record are under Supplier visibility. Your activity status is under Community activity.",
             ]}
           />
 
-          <SwitchCard
-            label="Show when I was last active"
-            description="Businesses viewing your profile can see roughly when you were last online."
-            value={profile.showLastActive}
-            onValueChange={(val) => saveProfileField({ showLastActive: val })}
-          />
-          <LastActiveRow lastActiveAt={profile.lastActiveAt} isShared={profile.showLastActive} />
-
-          {/* ---- TRACK RECORD ----
-              The supplier's OWN figures, which are deliberately NOT the
-              set businesses see (TrackRecordPanel's docstring has the
-              full reasoning). Lives here only because no analytics
-              screen exists yet -- this panel is what moves into one
-              when it does. */}
-          <SectionHeading
-            title="Your track record"
-            hint={[
-              "Your real trading figures, built from actual orders — nothing here is self-reported.",
-              "Businesses see a SHORTER list on your profile: businesses connected, orders accepted, units sold and repeat buyers. Your acceptance rate, reply time and cancellations stay private — they're here to help you improve, not to be judged on.",
-              "The switch below controls only what businesses see. You always see this panel.",
-            ]}
-          />
-
-          <TrackRecordPanel performance={profile.performance} />
-
-          <SwitchCard
-            label="Show my track record to businesses"
-            description="Businesses viewing your profile see your connections, accepted orders, units sold and repeat buyers."
-            value={profile.showTrackRecord}
-            onValueChange={(val) => saveProfileField({ showTrackRecord: val })}
-          />
+          <View style={[styles.groupCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+            <SettingsLinkRow
+              label="Supplier visibility"
+              description="Who sees your photo, contact details and track record"
+              onPress={() => router.push("/supplier/settings/supplier-visibility" as any)}
+            />
+            <SettingsLinkRow
+              label="Community activity"
+              description="Whether businesses see when you were last active"
+              noDivider
+              onPress={() => router.push("/supplier/settings/community-activity" as any)}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -420,27 +469,69 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
 }
 
 /**
- * A section heading, with its explanation behind an ⓘ rather than in a
- * permanent grey paragraph underneath.
+ * Whether the contact details above are reaching anyone, stated in the
+ * words that matter to a supplier, with a way to change it.
  *
- * WHY: this screen had grown four such paragraphs, and together they
- * meant a supplier scrolled through more explanation than actual
- * profile. Each sentence was individually justified; the total wasn't.
- * The heading names the section, the ⓘ explains it, and a supplier who
- * already knows never pays for it.
+ * It reads as a status line rather than a switch on purpose -- the
+ * switch is in Settings, and having a second one here would give two
+ * controls for one value on two screens a supplier moves between.
  */
-function SectionHeading({ title, hint }: { title: string; hint?: string | string[] }) {
+function SharingStatusRow({ isShared, onPress }: { isShared: boolean; onPress: () => void }) {
   const theme = useTheme();
   return (
-    <View style={styles.sectionHeadingRow}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>{title}</Text>
-      {hint && <InfoHint title={title} body={hint} size={15} />}
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={styles.sharingRow}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isShared ? "Contact details are shared. Change in Supplier visibility." : "Contact details are not shared. Change in Supplier visibility."
+      }
+    >
+      <View style={[styles.sharingDot, { backgroundColor: isShared ? theme.colors.secondary : theme.colors.outline }]} />
+      <Text style={[styles.sharingText, { color: theme.colors.onSurfaceVariant }]}>
+        {isShared
+          ? "Shared with connected businesses"
+          : "Not shared — nobody sees these"}
+      </Text>
+      <Text style={[styles.sharingAction, { color: theme.colors.primary }]}>Change</Text>
+      <ChevronRight size={14} color={theme.colors.primary} strokeWidth={2.4} />
+    </Pressable>
+  );
+}
+
+/** A row inside a group card that navigates instead of editing. */
+function SettingsLinkRow({
+  label,
+  description,
+  noDivider,
+  onPress,
+}: {
+  label: string;
+  description: string;
+  noDivider?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.linkRow,
+        !noDivider && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.outlineVariant },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={styles.linkRowText}>
+        <Text style={[styles.linkRowLabel, { color: theme.colors.onSurface }]}>{label}</Text>
+        <Text style={[styles.linkRowDescription, { color: theme.colors.onSurfaceVariant }]}>{description}</Text>
+      </View>
+      <ChevronRight size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2.2} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionHeadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
   deliveryChoiceRow: { flexDirection: "row", gap: spacing.sm },
   deliveryChoice: {
     flex: 1,
@@ -462,6 +553,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  sectionTitle: { ...typography.caption, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
   sectionHint: { ...typography.bodySmall, lineHeight: 18 },
+
+  sharingRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, minHeight: 40 },
+  sharingDot: { width: 8, height: 8, borderRadius: 4 },
+  sharingText: { ...typography.bodySmall, flex: 1 },
+  sharingAction: { ...typography.bodySmall, fontWeight: "700" },
+
+  linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
+  linkRowText: { flex: 1, gap: 2 },
+  linkRowLabel: { ...typography.body, fontWeight: "600" },
+  linkRowDescription: { ...typography.bodySmall },
 });

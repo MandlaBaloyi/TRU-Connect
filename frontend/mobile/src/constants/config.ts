@@ -56,9 +56,20 @@ export const MAPBOX_PUBLIC_TOKEN: string =
 export const SHOW_VERIFICATION_BADGE = process.env.EXPO_PUBLIC_SHOW_VERIFICATION_BADGE === "true";
 
 /** The one place "should this look verified" is decided, so the flag
- *  can't be honoured in three places and forgotten in a fourth. */
+ *  can't be honoured in three places and forgotten in a fourth.
+ *
+ *  CASE-INSENSITIVE, because it is reached from two different shapes
+ *  of the same fact: the business-facing discovery payloads send the
+ *  enum value ("verified"), while the supplier's own account summary
+ *  sends it upper-cased ("VERIFIED"). The supplier-side screens had
+ *  been comparing that upper-case form inline and so bypassed the flag
+ *  entirely -- a supplier saw a verified tick on their own profile
+ *  that no business would ever see, which is the precise misleading
+ *  trust signal the flag exists to prevent, pointed at the one person
+ *  who would act on it hardest. Normalising here rather than at each
+ *  call site keeps this the only place that decides. */
 export function showsAsVerified(verificationStatus: string | null | undefined): boolean {
-  return SHOW_VERIFICATION_BADGE && verificationStatus === "verified";
+  return SHOW_VERIFICATION_BADGE && verificationStatus?.toLowerCase() === "verified";
 }
 
 export const OTP_LENGTH = 6;

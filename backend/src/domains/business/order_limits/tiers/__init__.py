@@ -36,11 +36,24 @@ class StockOrderTierLimits:
     # over several days must still be bounded by ONE real number, not
     # reset by simply switching which manual method they use.
     monthly_manual_payment_cap_cents: int
-    # Per-transaction ceilings, DELIBERATELY DIFFERENT per method --
-    # proof-of-payment gets a slightly higher single-transaction cap
-    # than cash, matching the real tier numbers as specified.
-    cash_transaction_cap_cents: int
-    proof_of_payment_transaction_cap_cents: int
+
+    # ONE per-transaction ceiling, across the whole direct rail.
+    #
+    # THERE USED TO BE TWO -- a lower one for cash and a higher one for
+    # proof-of-payment, on the reasoning that a traceable transfer is
+    # safer than notes. TRU Connect could never enforce that
+    # difference: nothing stopped a buyer selecting proof-of-payment
+    # for the higher cap and then handing over cash. The two methods
+    # were merged into DIRECT (see StockOrderPaymentMethod), so the two
+    # caps merged with them.
+    #
+    # IT ALSO BOUNDS CANCELLATION DAMAGE, not just invisible money.
+    # Checkout RESERVES inventory at submission
+    # (InventoryRepository.reserve_quantity), so a large order that is
+    # later cancelled has been sitting on a small supplier's stock the
+    # whole time it was pending. Capping the single order caps how much
+    # of a supplier's shelf one buyer can freeze.
+    direct_transaction_cap_cents: int
 
 
 def get_stock_order_limits(tier: BusinessTier) -> StockOrderTierLimits:

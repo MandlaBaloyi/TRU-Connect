@@ -297,7 +297,7 @@ def test_trust_counts_only_accepted_orders_and_repeat_buyers(
     result = discovery_service.get_supplier_profile(business.id, profile.id)
     # A brand-new supplier reports zeroes; the frontend hides each at 0
     # rather than the backend inventing a floor.
-    assert result["trust"] == {"acceptedOrderCount": 0, "repeatBusinessCount": 0, "unitsSoldCount": 0}
+    assert result["trust"] == {"acceptedOrderCount": 0}
 
 
 def test_track_record_is_omitted_when_the_supplier_switched_it_off(
@@ -329,7 +329,7 @@ def test_track_record_defaults_to_visible(
     assert profile.show_track_record is True
 
     trust = discovery_service.get_supplier_profile(business.id, profile.id)["trust"]
-    assert trust == {"acceptedOrderCount": 0, "repeatBusinessCount": 0, "unitsSoldCount": 0}
+    assert trust == {"acceptedOrderCount": 0}
 
 
 def test_supplier_performance_excludes_business_initiated_cancellations(

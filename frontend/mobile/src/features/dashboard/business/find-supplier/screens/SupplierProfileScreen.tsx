@@ -142,6 +142,7 @@ export default function SupplierProfileScreen() {
             before it weighs any individual price -- so these sit
             directly under the brand header, above everything else. */}
         <SupplierTrustSignals
+          businessName={supplier.businessName}
           connectedBusinessCount={supplier.connectedBusinessCount}
           trust={supplier.trust}
         />

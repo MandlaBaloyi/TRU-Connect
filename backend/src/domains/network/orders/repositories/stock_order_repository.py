@@ -353,9 +353,35 @@ class StockOrderRepository:
         exactly the thing worth showing, and unlike a rate it can't be
         dragged down by age.
 
-        REPEAT BUYERS is the strongest signal here and the hardest to
-        fake -- a business coming back a second time is a verdict on
-        the first order that no self-reported claim can imitate.
+        REPEAT BUYERS WAS HERE AND IS NOT ANY MORE. It is still the
+        strongest signal in this data -- a business coming back a
+        second time is a verdict on the first order that no
+        self-reported claim can imitate -- but strength was never the
+        question. It says something about how the supplier PERFORMS,
+        not about their standing with strangers, and acting on it is
+        the supplier's own business rather than a stranger's. It now
+        lives in performance_stats_for_supplier below, with the other
+        figures a supplier can actually do something about.
+
+        UNITS SOLD LEFT FOR THE SAME REASON, with one of its own: it
+        was in this payload but no business-facing screen ever rendered
+        it, so it was being handed to businesses purely by accident of
+        history. It is a second view of "orders accepted" rather than a
+        separate question, and it stayed in
+        performance_stats_for_supplier where volume is actionable.
+
+        THIS PAYLOAD IS DELIBERATELY DOWN TO ONE KEY, and that is the
+        point rather than an oversight. What a business sees is exactly
+        three things: how many businesses are connected (counted
+        elsewhere, it is a connection fact not an order fact), how many
+        orders this supplier accepted, and -- once it can be measured
+        at all -- how many were fulfilled. Nothing else from this
+        domain reaches a business-facing payload.
+
+        That is what lets the supplier's own Settings screen list the
+        public set in three lines and be telling the literal truth. If
+        a fourth figure is ever added here, that screen is wrong the
+        same day, so add it there too.
         """
         from src.domains.network.orders.models.stock_order import (
             StockOrder,
@@ -369,37 +395,8 @@ class StockOrderRepository:
             StockOrder.status == StockOrderStatus.CONFIRMED,
         )
 
-        accepted_count = accepted.count()
-
-        # Businesses with MORE THAN ONE accepted order. Counted in SQL
-        # (group-by + having) rather than by loading every order and
-        # tallying in Python -- this runs on every profile view, and the
-        # suppliers it matters most for are the ones with the most rows.
-        repeat_rows = (
-            accepted.with_entities(StockOrder.business_id)
-            .group_by(StockOrder.business_id)
-            .having(db.func.count(StockOrder.id) > 1)
-            .all()
-        )
-
-        units = (
-            db.session.query(db.func.coalesce(db.func.sum(StockOrderItem.quantity), 0))
-            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
-            .filter(
-                StockOrder.supplier_profile_id == supplier_profile_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
-                StockOrder.is_deleted.is_(False),
-                StockOrderItem.is_deleted.is_(False),
-            )
-            .scalar()
-        )
-
         return {
-            "acceptedOrderCount": accepted_count,
-            "repeatBusinessCount": len(repeat_rows),
-            # Volume, not transaction count -- 16 orders of one case
-            # each and 16 orders of forty are very different suppliers.
-            "unitsSoldCount": int(units or 0),
+            "acceptedOrderCount": accepted.count(),
         }
 
     @staticmethod
@@ -591,6 +588,22 @@ class StockOrderRepository:
             StockOrder.cancelled_by == "supplier",
         ).count()
 
+        # Businesses with MORE THAN ONE accepted order. Moved here from
+        # trust_stats_for_supplier (which see): a business coming back
+        # is the clearest read a supplier has on whether the first
+        # order went well, and that is feedback to act on rather than a
+        # badge for strangers.
+        #
+        # Counted in SQL (group-by + having) rather than by loading
+        # every order and tallying in Python -- the suppliers it
+        # matters most for are the ones with the most rows.
+        repeat_rows = (
+            confirmed.with_entities(StockOrder.business_id)
+            .group_by(StockOrder.business_id)
+            .having(db.func.count(StockOrder.id) > 1)
+            .all()
+        )
+
         return {
             "decidedCount": len(decided),
             "acceptedCount": accepted_recent,
@@ -601,4 +614,5 @@ class StockOrderRepository:
                 StockOrder.submitted_at >= utcnow() - timedelta(days=30)
             ).count(),
             "cancelledAfterConfirming": cancelled_after_confirming,
+            "repeatBusinessCount": len(repeat_rows),
         }

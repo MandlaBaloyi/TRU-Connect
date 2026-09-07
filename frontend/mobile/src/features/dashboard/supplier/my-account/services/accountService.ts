@@ -139,6 +139,14 @@ export interface SupplierPerformance {
    *  Business-initiated cancellations are excluded — someone else's
    *  change of mind isn't the supplier's record. */
   cancelledAfterConfirming: number;
+  /** Businesses that have had MORE THAN ONE order accepted. The
+   *  hardest signal in this data to fake — coming back is a verdict on
+   *  the first order that no self-reported claim can imitate.
+   *
+   *  PRIVATE. It used to be a public track-record column; it moved
+   *  here because it says how the supplier PERFORMS rather than where
+   *  they STAND, and acting on it is their own business. */
+  repeatBusinessCount: number;
 }
 
 let mockProfile: SupplierProfileData = {

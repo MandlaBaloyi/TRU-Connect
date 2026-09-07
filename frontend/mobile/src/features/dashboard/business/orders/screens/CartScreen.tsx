@@ -8,16 +8,16 @@ import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
-import { productDetailHref } from "../../routes";
+import { orderHistoryHref, productDetailHref } from "../../routes";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { useCart } from "../hooks/useCart";
+import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { useClearCart } from "../hooks/useClearCart";
 import { CartItemRow } from "../components/CartItemRow";
 import { CartMenu } from "../components/CartMenu";
-import { OrderHistorySheet } from "../components/OrderHistorySheet";
 import type { CartItem } from "../types";
 
 /**
@@ -37,9 +37,11 @@ export default function CartScreen() {
     supplierId ?? ""
   );
   const { clearCart, isClearing } = useClearCart(supplierId ?? "");
+  // Not `cart?.supplierName`: an EMPTY cart is null, and the header
+  // still has to say whose cart it is. See useSupplierIdentity.
+  const supplier = useSupplierIdentity(supplierId ?? "");
 
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [itemCountY, setItemCountY] = useState<number | null>(null);
   const isItemCountSticky = itemCountY !== null && scrollY >= itemCountY;
@@ -59,27 +61,33 @@ export default function CartScreen() {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      title: cart?.supplierName ?? "Cart",
+      title: supplier.name ?? "Cart",
       // Same social top bar as the catalogue this screen is reached
       // from -- the supplier's avatar + name, with "Cart" as the quiet
       // second line. Without the avatar, stepping catalogue -> cart
       // dropped the visual identity mid-flow and the header became a
       // bare name again.
-      ...(cart?.supplierName
+      ...(supplier.name
         ? {
             headerTitle: () => (
-              <EntityHeaderTitle
-                name={cart.supplierName}
-                subtitle="Cart"
-                photoUrl={cart.supplierBusinessImageUrl}
-              />
+              <EntityHeaderTitle name={supplier.name!} subtitle="Cart" photoUrl={supplier.photoUrl} />
             ),
           }
         : {}),
-      headerRight: () => <CartMenu onOrderHistory={() => setHistoryOpen(true)} onClearCart={handleClearCart} />,
+      headerRight: () => (
+        <CartMenu
+          // PUSHES A SCREEN now, rather than opening a full-screen
+          // modal -- see OrderHistoryScreen's own docstring for the
+          // three things the modal got wrong. The supplier's name goes
+          // with it so that screen's header is right on its first
+          // frame; this screen already has it.
+          onOrderHistory={() => router.push(orderHistoryHref(supplierId ?? "", supplier.name) as any)}
+          onClearCart={handleClearCart}
+        />
+      ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, cart?.supplierName, cart?.supplierBusinessImageUrl]);
+  }, [navigation, supplier.name, supplier.photoUrl]);
 
   if (isLoading) {
     return (
@@ -203,7 +211,6 @@ export default function CartScreen() {
         </Pressable>
       </View>
 
-      <OrderHistorySheet visible={historyOpen} supplierId={supplierId ?? ""} onClose={() => setHistoryOpen(false)} />
     </ScreenContainer>
   );
 }

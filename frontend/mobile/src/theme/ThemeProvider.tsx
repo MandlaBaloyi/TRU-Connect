@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { PaperProvider } from "react-native-paper";
 import * as SystemUI from "expo-system-ui";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { useSettings } from "@/features/dashboard/business/settings/hooks/SettingsProvider";
+import { useSettings } from "@/features/dashboard/shared/settings/hooks/SettingsProvider";
 import { truConnectLightTheme, truConnectDarkTheme } from "./paperTheme";
 
 /**

@@ -1,39 +1,28 @@
 import React from "react";
-import { Phone, Mail, MessageCircle, BookOpen, Wallet, ClipboardList, Store, Trash2 } from "lucide-react-native";
-import { InfoScreen } from "@/features/dashboard/business/settings/components/InfoScreen";
+import { BookOpen, Wallet, ClipboardList, Store, Trash2 } from "lucide-react-native";
+import { InfoScreen } from "@/features/dashboard/shared/settings/components/InfoScreen";
+import { SUPPORT_CONTACTS } from "@/features/dashboard/shared/settings/supportContacts";
 
 /**
- * REAL contact methods + real static guidance.
+ * REAL contact methods + real static guidance — business side.
  *
- * PLACEHOLDER VALUES BELOW -- replace phone/WhatsApp/email with your
- * real details before release. Formats matter for the Linking calls:
- *   phone: "tel:+27XXXXXXXXX"          (no spaces, country code, no leading 0)
- *   whatsapp: "https://wa.me/27XXXXXXXXX"  (same number format, no "+")
- *   email: "mailto:support@yourdomain.co.za"
+ * ROLE-SPECIFIC ON PURPOSE. This lived in shared/settings/ briefly
+ * while Settings was being split, and that was wrong: every paragraph
+ * below names something only a business has (Loan Book, Order Book,
+ * Trash, "My Business under More"). A supplier opening the shared
+ * version was being told to visit menu rows that do not exist for
+ * them, which is exactly the kind of dishonest surface the rest of
+ * this Settings tree is written to avoid.
+ *
+ * The contacts are still shared — same support team either way — and
+ * live in shared/settings/supportContacts.tsx so the phone number has
+ * one home. See supplier/settings/screens/HelpScreen.tsx for the other
+ * half.
  */
 export default function HelpScreen() {
   return (
     <InfoScreen
-      contacts={[
-        {
-          label: "Call us",
-          value: "+27 00 000 0000",
-          url: "tel:+27000000000",
-          icon: (c) => <Phone size={20} color={c} />,
-        },
-        {
-          label: "WhatsApp",
-          value: "+27 00 000 0000",
-          url: "https://wa.me/27000000000",
-          icon: (c) => <MessageCircle size={20} color={c} />,
-        },
-        {
-          label: "Email",
-          value: "support@truconnect.co.za",
-          url: "mailto:support@truconnect.co.za",
-          icon: (c) => <Mail size={20} color={c} />,
-        },
-      ]}
+      contacts={SUPPORT_CONTACTS}
       paragraphs={[
         {
           heading: "Getting started",

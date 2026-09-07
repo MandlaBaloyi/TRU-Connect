@@ -65,7 +65,13 @@ export function TrackRecordPanel({ performance }: { performance: SupplierPerform
       <Stat
         value={performance.unitsSoldCount.toLocaleString()}
         label="units sold"
-        hint="Total items sold across all accepted orders. This one IS shown to businesses on your profile."
+        hint="Total items sold across all accepted orders. Businesses don't see this — your public record shows how many orders you accepted, not the volume inside them."
+      />
+
+      <Stat
+        value={performance.repeatBusinessCount.toLocaleString()}
+        label="businesses ordered again"
+        hint="Businesses that came back for a second order. This is the clearest read you have on whether the first order went well — nothing else here is as hard to fake. It used to be on your public profile and was moved here: it says how you're performing, which is yours to act on, rather than where you stand, which is what strangers are reading."
       />
       <Stat
         value={acceptanceLabel}

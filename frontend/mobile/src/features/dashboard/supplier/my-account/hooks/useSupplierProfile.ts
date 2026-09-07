@@ -30,6 +30,13 @@ export function useSupplierProfile() {
   return {
     profile: query.data ?? null,
     isLoading: query.isLoading,
+    // isError/refetch are exposed so a caller can render a RECOVERABLE
+    // failure. Without refetch the only escape from a failed load is
+    // backing out of the screen, which on a settings screen means a
+    // supplier cannot reach their own privacy switches at all after
+    // one bad request.
+    isError: query.isError,
+    refetch: query.refetch,
     save: mutation.mutateAsync,
     isSaving: mutation.isPending,
   };
