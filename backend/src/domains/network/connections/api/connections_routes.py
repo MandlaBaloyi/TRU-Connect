@@ -114,12 +114,33 @@ def list_supplier_products(supplier_profile_id: uuid.UUID):
     # service layer, not here.
     page = request.args.get("page", default=1, type=int)
     limit = request.args.get("limit", default=catalog_service.DEFAULT_CATALOG_PAGE_SIZE, type=int)
-    sort = request.args.get("sort", default="NEWEST")
+    sort = request.args.get("sort", default="RECOMMENDED")
     category = request.args.get("category")
+    search_term = request.args.get("q")
 
     result = catalog_service.list_supplier_products(
-        _business_id(), supplier_profile_id, page=page, limit=limit, sort=sort, category=category
+        _business_id(),
+        supplier_profile_id,
+        page=page,
+        limit=limit,
+        sort=sort,
+        category=category,
+        search_term=search_term,
     )
+    return success_response(data=result)
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/buy-it-again", methods=["GET"]
+)
+@fully_authenticated
+@role_required("business")
+def list_buy_it_again(supplier_profile_id: uuid.UUID):
+    """What THIS business has ordered from THIS supplier before. Its own
+    endpoint rather than a flag on the catalogue -- see the service's
+    own docstring on why a personal, per-viewer list doesn't belong
+    inside a paginated query that's identical for everyone."""
+    result = catalog_service.list_buy_it_again(_business_id(), supplier_profile_id)
     return success_response(data=result)
 
 

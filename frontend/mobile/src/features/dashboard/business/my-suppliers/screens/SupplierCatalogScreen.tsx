@@ -1,8 +1,8 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Package, ShoppingCart } from "lucide-react-native";
+import { Package, Search, ShoppingCart, X } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -19,6 +19,8 @@ import { useSupplierProductCategories } from "../../find-supplier/hooks/useSuppl
 import { useEndConnection } from "../../find-supplier/hooks/useEndConnection";
 import { useReportSupplier } from "../../find-supplier/hooks/useReportSupplier";
 import { useCart } from "../../orders/hooks/useCart";
+import { useAddToCart } from "../../orders/hooks/useAddToCart";
+import { ApiError } from "@/services/api/apiClient";
 import { SupplierCatalogProductCard } from "../components/SupplierCatalogProductCard";
 import { CatalogControlsRow } from "../components/CatalogControlsRow";
 import { CatalogSortSheet } from "../components/CatalogSortSheet";
@@ -81,8 +83,27 @@ export default function SupplierCatalogScreen() {
     category && CATEGORY_OPTIONS.some((o) => o.value === category) ? category : null;
 
   const [page, setPage] = useState(1);
-  const [sortOption, setSortOption] = useState<CatalogSortOption>("NEWEST");
+  const [sortOption, setSortOption] = useState<CatalogSortOption>("RECOMMENDED");
   const [categoryFilter, setCategoryFilter] = useState<CatalogCategoryFilter>(initialCategory);
+  // Typed value vs the value actually SENT. Firing a request per
+  // keystroke would put a round trip behind every letter; the debounce
+  // below settles it. Both live here so the input stays responsive
+  // while the query lags behind it.
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // 350ms: long enough that "coca-cola" is one request rather than
+  // nine, short enough that it still feels like live search.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(searchInput.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // A new search is a new result set, so page 3 of the old one is
+  // meaningless -- same reasoning as handleSortChange below.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   const {
     supplierName,
@@ -99,6 +120,7 @@ export default function SupplierCatalogScreen() {
     page,
     sort: sortOption,
     category: categoryFilter,
+    search: searchTerm || null,
   });
   // THE HEADER FLASH FIX, reported directly: opening this screen cold
   // showed "Stock Catalogue" for a beat and then swapped to the real
@@ -118,6 +140,10 @@ export default function SupplierCatalogScreen() {
   const { endConnection, isEnding } = useEndConnection(supplierId ?? "");
   const { reportSupplier, isReporting } = useReportSupplier(supplierId ?? "");
   const { cart } = useCart(supplierId ?? "");
+  const { addToCart } = useAddToCart(supplierId ?? "");
+  // Which card is mid-request, so only THAT button shows "Adding…"
+  // rather than every card on the page going busy at once.
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const cartItemCount = cart?.itemCount ?? 0;
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
@@ -161,6 +187,23 @@ export default function SupplierCatalogScreen() {
   const handleCategoryChange = (category: CatalogCategoryFilter) => {
     setCategoryFilter(category);
     handlePageChange(1);
+  };
+
+  const handleAddToCart = async (product: SupplierProduct) => {
+    setAddingProductId(product.id);
+    try {
+      await addToCart({ productId: product.id, quantity: 1 });
+    } catch (error) {
+      // The backend names the exact product in its out-of-stock
+      // message, so it's shown as-is rather than reworded.
+      if (error instanceof ApiError && error.code === "OUT_OF_STOCK") {
+        Alert.alert("Out of stock", error.message);
+      } else {
+        Alert.alert("Couldn't add to cart", "Check your connection and try again.");
+      }
+    } finally {
+      setAddingProductId(null);
+    }
   };
 
   const handleReport = async (reason: ReportReason, details: string | null) => {
@@ -254,7 +297,13 @@ export default function SupplierCatalogScreen() {
     );
   }
 
-  if (totalCount === 0) {
+  // ONLY when the supplier genuinely has nothing -- a search or filter
+  // that matches nothing also returns totalCount 0, and telling a
+  // business "this supplier hasn't listed any products" because they
+  // typed "xyz" would be a flat lie. Those cases fall through to the
+  // list's own "nothing matches" empty state, which keeps the search
+  // bar on screen so the term can be corrected.
+  if (totalCount === 0 && !searchTerm && !categoryFilter) {
     return (
       <ScreenContainer hasNativeHeader>
         <EmptyState
@@ -298,11 +347,44 @@ export default function SupplierCatalogScreen() {
         ListHeaderComponent={
           // The supplier's name now lives in the top bar
           // (EntityHeaderTitle), so it's no longer repeated here.
-          <View onLayout={(event) => setControlsRowY(event.nativeEvent.layout.y)}>{controlsRow}</View>
+          <View>
+            {/* SEARCH INSIDE THIS SUPPLIER'S CATALOGUE. At 26 products
+                you can scroll; at 300 the only way to find one item was
+                guessing its category. Server-side (before pagination) --
+                a client-side filter could only ever search the page you
+                happen to be on. */}
+            <View style={[styles.searchWrap, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surface }]}>
+              <Search size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+              <TextInput
+                value={searchInput}
+                onChangeText={setSearchInput}
+                placeholder="Search this catalogue"
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                style={[styles.searchInput, { color: theme.colors.onSurface }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Search this catalogue"
+              />
+              {searchInput.length > 0 && (
+                <Pressable
+                  onPress={() => setSearchInput("")}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <X size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2.2} />
+                </Pressable>
+              )}
+            </View>
+            <View onLayout={(event) => setControlsRowY(event.nativeEvent.layout.y)}>{controlsRow}</View>
+          </View>
         }
         ListEmptyComponent={
           <Text style={[styles.noMatches, { color: theme.colors.onSurfaceVariant }]}>
-            No products match this filter.
+            {searchTerm
+              ? `Nothing matches "${searchTerm}" in this catalogue.`
+              : "No products match this filter."}
           </Text>
         }
         ListFooterComponent={<CatalogPager page={page} totalPages={totalPages} onPageChange={handlePageChange} />}
@@ -310,6 +392,8 @@ export default function SupplierCatalogScreen() {
           <SupplierCatalogProductCard
             product={item}
             onPress={() => router.push(productDetailHref(supplierId, item.id, item.name, headerSupplierName) as any)}
+            onAddToCart={() => handleAddToCart(item)}
+            isAdding={addingProductId === item.id}
           />
         )}
       />
@@ -367,6 +451,16 @@ const styles = StyleSheet.create({
   },
   cartBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderRadius: 24,
+    marginBottom: spacing.sm,
+  },
+  searchInput: { flex: 1, ...typography.body, paddingVertical: 10 },
   list: { padding: spacing.md, gap: spacing.md },
   row: { justifyContent: "space-between" },
   noMatches: { ...typography.body, textAlign: "center", paddingTop: spacing.xl },

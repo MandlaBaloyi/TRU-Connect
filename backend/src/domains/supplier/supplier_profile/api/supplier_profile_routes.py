@@ -65,6 +65,30 @@ def _flatten_marshmallow_errors(exc: MarshmallowValidationError) -> list[str]:
     ]
 
 
+def _performance_stats(profile) -> dict:
+    """This supplier's own acceptance rate, reply time, sales and
+    cancellations -- the actionable set, never shown to businesses."""
+    from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
+
+    return StockOrderRepository.performance_stats_for_supplier(profile.id)
+
+
+def _supplier_last_active_iso(profile) -> str | None:
+    """This supplier's own last_active_at, ISO-formatted.
+
+    Only ever returned to the supplier THEMSELVES (this is the
+    /my-profile DTO) -- the business-facing side has its own gate on
+    show_last_active. A supplier can always see their own activity,
+    regardless of whether they've chosen to show it to anyone.
+    """
+    from src.domains.auth.models.user import User
+
+    user = User.query.filter_by(id=profile.supplier_id).first()
+    if user is None or user.last_active_at is None:
+        return None
+    return user.last_active_at.isoformat()
+
+
 def _to_dto(profile) -> dict:
     return {
         "businessName": profile.business_name,
@@ -81,6 +105,19 @@ def _to_dto(profile) -> dict:
         "shareContactDetails": profile.share_contact_details,
         "offersDelivery": profile.offers_delivery,
         "minimumOrderCents": profile.minimum_order_cents,
+        "showLastActive": profile.show_last_active,
+        # The supplier's OWN last-active timestamp, so the settings row
+        # can show them exactly what a business would see. Read off the
+        # user row, never stored on the profile (see that column's own
+        # comment on why it isn't copied).
+        "lastActiveAt": _supplier_last_active_iso(profile),
+        "showTrackRecord": profile.show_track_record,
+        # The supplier's OWN performance figures -- a different set from
+        # what businesses see (see the repository's own note on why).
+        # Always returned regardless of showTrackRecord: that switch
+        # controls what BUSINESSES see, never whether a supplier can see
+        # their own numbers.
+        "performance": _performance_stats(profile),
         "collectionBuilding": profile.collection_building,
         "collectionStreet": profile.collection_street,
         "collectionSuburb": profile.collection_suburb,

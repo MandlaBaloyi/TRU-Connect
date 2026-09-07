@@ -106,6 +106,7 @@ export async function getSupplierProducts(
       limit: query.limit,
       sort: query.sort,
       category: query.category ?? undefined,
+      q: query.search || undefined,
     },
   });
 }

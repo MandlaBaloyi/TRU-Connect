@@ -104,6 +104,41 @@ export interface SupplierProfileData {
   collectionPostalCode: string | null;
   collectionLatitude: number | null;
   collectionLongitude: number | null;
+  /** "Show businesses when I was last online." Opt-in — false is a
+   *  real, complete answer that asserts nothing about the supplier. */
+  showLastActive: boolean;
+  /** "Show businesses my track record." Defaults TRUE — every public
+   *  figure is a count that hides at zero, so there's no arrangement
+   *  of the data that can make a supplier look bad by default. */
+  showTrackRecord: boolean;
+  /** READ-ONLY. The supplier's own last-active time, so the setting can
+   *  show them exactly what a business would see. Never sent back on a
+   *  save; the server owns it (see core/decorators._touch_last_active). */
+  lastActiveAt?: string | null;
+  /** READ-ONLY. The supplier's OWN performance figures — a different
+   *  set from what businesses see, because the two audiences need
+   *  opposite things: businesses need signals that are fair to a
+   *  newcomer, a supplier needs signals that say what to fix. Always
+   *  returned; showTrackRecord only controls the BUSINESS-facing
+   *  view. */
+  performance?: SupplierPerformance | null;
+}
+
+export interface SupplierPerformance {
+  /** Recent decided orders (accepted or declined), and how many of
+   *  those were accepted. A recent window, so improvement actually
+   *  shows — an all-time rate can never recover. */
+  decidedCount: number;
+  acceptedCount: number;
+  /** Median hours from submitted to decided. Null if nothing decided. */
+  medianResponseHours: number | null;
+  totalSalesCents: number;
+  unitsSoldCount: number;
+  ordersThisMonth: number;
+  /** Orders this supplier accepted and then cancelled themselves.
+   *  Business-initiated cancellations are excluded — someone else's
+   *  change of mind isn't the supplier's record. */
+  cancelledAfterConfirming: number;
 }
 
 let mockProfile: SupplierProfileData = {
@@ -129,6 +164,10 @@ let mockProfile: SupplierProfileData = {
   collectionPostalCode: null,
   collectionLatitude: null,
   collectionLongitude: null,
+  showLastActive: false,
+  lastActiveAt: null,
+  showTrackRecord: true,
+  performance: null,
 };
 
 export async function getMyProfile(): Promise<SupplierProfileData> {
@@ -170,6 +209,8 @@ export async function updateMyProfile(input: SupplierProfileData): Promise<Suppl
     collection_postal_code: input.collectionPostalCode,
     collection_latitude: input.collectionLatitude,
     collection_longitude: input.collectionLongitude,
+    show_last_active: input.showLastActive,
+    show_track_record: input.showTrackRecord,
   });
 }
 

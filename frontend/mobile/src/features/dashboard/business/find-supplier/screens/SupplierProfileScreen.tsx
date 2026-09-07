@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { Boxes, ChevronRight } from "lucide-react-native";
@@ -7,6 +7,7 @@ import { Boxes, ChevronRight } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { showsAsVerified } from "@/constants/config";
 import { productDetailHref, supplierCatalogHref } from "../../routes";
 import { spacing, radius } from "@/theme/spacing";
@@ -14,6 +15,9 @@ import { typography } from "@/theme/typography";
 
 import { useSupplierProfile, useRequestConnection } from "../hooks/useConnectionRequest";
 import { useSupplierProfileProducts } from "../hooks/useSupplierProfileProducts";
+import { useAddToCart } from "../../orders/hooks/useAddToCart";
+import { ApiError } from "@/services/api/apiClient";
+import type { SupplierProduct } from "../types";
 import { SupplierBrandHeader } from "../components/SupplierBrandHeader";
 import { SupplierShowcase } from "../components/SupplierShowcase";
 import { SupplierProfileMenu } from "../components/SupplierProfileMenu";
@@ -22,6 +26,7 @@ import { SupplierContactRow } from "../components/SupplierContactRow";
 import { SupplierTrustSignals } from "../components/SupplierTrustSignals";
 import { SupplierFulfilmentBlock } from "../components/SupplierFulfilmentBlock";
 import { SupplierConnectionStatus } from "../components/SupplierConnectionStatus";
+import { ProfileSection, ProfileCard } from "../components/ProfileSection";
 
 /**
  * The supplier's brand profile, seen by a business -- the conversion
@@ -52,6 +57,26 @@ export default function SupplierProfileScreen() {
   const requestConnection = useRequestConnection(supplierId ?? "");
 
   const [infoOpen, setInfoOpen] = useState(false);
+  const { addToCart } = useAddToCart(supplierId ?? "");
+  // Only the card mid-request shows "Adding…", not every card at once.
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
+
+  const handleAddToCart = async (product: SupplierProduct) => {
+    setAddingProductId(product.id);
+    try {
+      await addToCart({ productId: product.id, quantity: 1 });
+    } catch (error) {
+      // The backend's out-of-stock message already names the product,
+      // so it's shown as-is rather than reworded.
+      if (error instanceof ApiError && error.code === "OUT_OF_STOCK") {
+        Alert.alert("Out of stock", error.message);
+      } else {
+        Alert.alert("Couldn't add to cart", "Check your connection and try again.");
+      }
+    } finally {
+      setAddingProductId(null);
+    }
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -108,7 +133,7 @@ export default function SupplierProfileScreen() {
           businessImageUrl={supplier.businessImageUrl}
           coverImageUrl={supplier.coverImageUrl}
           photoUrl={supplier.photoUrl}
-          stockedCategories={supplier.stockedCategories}
+          activity={supplier.activity}
         />
 
         {/* TRUST BEFORE PRODUCTS. An informal business deciding whether
@@ -118,35 +143,46 @@ export default function SupplierProfileScreen() {
             directly under the brand header, above everything else. */}
         <SupplierTrustSignals
           connectedBusinessCount={supplier.connectedBusinessCount}
-          reliability={supplier.reliability}
+          trust={supplier.trust}
         />
 
-        <View style={styles.body}>
-          {/* CONNECTION STATUS FIRST, not last -- it used to sit below
-              every product strip, so a business had to scroll the whole
-              profile to learn whether they could actually order. "Can I
-              buy from these people" is the question the screen exists to
-              answer; it belongs directly under the brand header. */}
-          <View style={styles.actions}>
-            <SupplierConnectionStatus
-              status={supplier.connectionStatus}
-              initiatedBy={supplier.connectionInitiatedBy}
-              supplierName={supplier.businessName}
-              onRequest={() => requestConnection.mutate()}
-              isSubmitting={requestConnection.isPending}
+        {/* SUPPLIER DETAILS -- where you stand with them, and how to
+            reach them. One block because they answer the same
+            question: "can I deal with these people, and how?" */}
+        <ProfileSection
+          label="Supplier details"
+          accessory={
+            <InfoHint
+              title="Supplier details"
+              body={[
+                "Your connection with this supplier, and the ways they've chosen to let connected businesses contact them.",
+                "Contact channels only appear once you're connected and the supplier has opted into sharing them.",
+              ]}
             />
-          </View>
+          }
+        >
+          <ProfileCard>
+            <View style={styles.detailsBody}>
+              <SupplierConnectionStatus
+                status={supplier.connectionStatus}
+                initiatedBy={supplier.connectionInitiatedBy}
+                supplierName={supplier.businessName}
+                onRequest={() => requestConnection.mutate()}
+                isSubmitting={requestConnection.isPending}
+              />
+              {/* Renders nothing without a real channel to show. */}
+              <SupplierContactRow contact={supplier.contact} />
+            </View>
+          </ProfileCard>
+        </ProfileSection>
 
-          {/* Contact renders nothing without a channel to show; the
-              fulfilment block always renders (delivery is answerable
-              either way) but hides the rows that have no real data. */}
-          <SupplierContactRow contact={supplier.contact} />
-          <SupplierFulfilmentBlock
-            offersDelivery={supplier.offersDelivery}
-            minimumOrderCents={supplier.minimumOrderCents}
-            address={supplier.collectionAddress}
-          />
+        <SupplierFulfilmentBlock
+          offersDelivery={supplier.offersDelivery}
+          minimumOrderCents={supplier.minimumOrderCents}
+          address={supplier.collectionAddress}
+        />
 
+        <ProfileSection label="Products">
           <SupplierShowcase
             categories={showcase?.categories ?? []}
             isLoading={isShowcaseLoading}
@@ -156,6 +192,8 @@ export default function SupplierProfileScreen() {
             onProductPress={(productId, productName) =>
               router.push(productDetailHref(supplierId, productId, productName, supplier.businessName) as any)
             }
+            onAddToCart={handleAddToCart}
+            addingProductId={addingProductId}
           />
 
           {/* THE WHOLE-CATALOGUE ENTRY POINT. Until now the only way in
@@ -166,29 +204,27 @@ export default function SupplierProfileScreen() {
               is hidden entirely at zero rather than offering a link to
               an empty catalogue. */}
           {supplier.productCount > 0 && (
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => router.push(supplierCatalogHref(supplierId, supplier.businessName) as any)}
-                style={({ pressed }) => [
-                  styles.shopAll,
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.outlineVariant,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Shop all ${supplier.productCount} products`}
-              >
-                <Boxes size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-                <Text style={[styles.shopAllLabel, { color: theme.colors.onSurface }]}>
-                  Shop all {supplier.productCount} {supplier.productCount === 1 ? "product" : "products"}
-                </Text>
-                <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => router.push(supplierCatalogHref(supplierId, supplier.businessName) as any)}
+              style={({ pressed }) => [
+                styles.shopAll,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Shop all ${supplier.productCount} products`}
+            >
+              <Boxes size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+              <Text style={[styles.shopAllLabel, { color: theme.colors.onSurface }]}>
+                Shop all {supplier.productCount} {supplier.productCount === 1 ? "product" : "products"}
+              </Text>
+              <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
+            </Pressable>
           )}
-        </View>
+        </ProfileSection>
       </ScrollView>
 
       <SupplierConnectionInfoSheet
@@ -203,8 +239,7 @@ export default function SupplierProfileScreen() {
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-  body: { paddingTop: spacing.md, gap: spacing.lg },
-  actions: { paddingHorizontal: spacing.md },
+  detailsBody: { padding: spacing.md, gap: spacing.md },
   shopAll: {
     flexDirection: "row",
     alignItems: "center",

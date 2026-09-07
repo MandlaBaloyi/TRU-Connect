@@ -5,12 +5,12 @@ import { BadgeCheck, CalendarDays, MapPin, Store } from "lucide-react-native";
 
 import { FullScreenImageViewer } from "@/components/ui/FullScreenImageViewer";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { SupplierActivityDot } from "./SupplierActivityDot";
 import { showsAsVerified } from "@/constants/config";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { palette } from "@/theme/colors";
 
-import { CATEGORY_OPTIONS } from "../../../supplier/products/types";
 import type { SupplierProfilePreview } from "../types";
 
 /**
@@ -37,17 +37,8 @@ type Props = Pick<
   | "businessImageUrl"
   | "coverImageUrl"
   | "photoUrl"
-  | "stockedCategories"
+  | "activity"
 >;
-
-const MAX_CATEGORY_CHIPS = 4;
-
-/** The human label for a raw ProductCategory value, falling back to the
- *  raw value so an unknown//new category degrades to something readable
- *  rather than vanishing. */
-function labelForCategory(value: string): string {
-  return CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
-}
 
 const COVER_HEIGHT = 158;
 const AVATAR_OVERLAP = 46;
@@ -62,7 +53,7 @@ export function SupplierBrandHeader({
   businessImageUrl,
   coverImageUrl,
   photoUrl,
-  stockedCategories,
+  activity,
 }: Props) {
   const theme = useTheme();
   const [viewerUri, setViewerUri] = useState<string | null>(null);
@@ -132,6 +123,12 @@ export function SupplierBrandHeader({
           <Text style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>{meta}</Text>
         </View>
       ) : null}
+      {/* Directly under the name: "are these people around" is a fact
+          about the supplier, like the name itself, and a business
+          shouldn't have to scroll to find it. Renders nothing unless
+          the supplier switched sharing on. */}
+      <SupplierActivityDot activity={activity} />
+
       {memberSince ? (
         <View style={styles.metaRow}>
           <CalendarDays size={13} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
@@ -140,32 +137,6 @@ export function SupplierBrandHeader({
           </Text>
         </View>
       ) : null}
-
-      {/* WHAT THEY ACTUALLY STOCK, from their real products -- not a
-          self-described category. Sits directly under the description
-          on purpose: a supplier's own bio drifts (a real case here was
-          a bio about fragrances above a shop full of cold drinks and
-          chips), and these chips correct it without contradicting
-          anyone. Capped so a supplier with a dozen categories doesn't
-          push the products off screen. */}
-      {stockedCategories.length > 0 && (
-        <View style={styles.categoryRow}>
-          {stockedCategories.slice(0, MAX_CATEGORY_CHIPS).map((category) => (
-            <View key={category} style={[styles.categoryChip, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <Text style={[styles.categoryChipText, { color: theme.colors.onSurfaceVariant }]}>
-                {labelForCategory(category)}
-              </Text>
-            </View>
-          ))}
-          {stockedCategories.length > MAX_CATEGORY_CHIPS && (
-            <View style={[styles.categoryChip, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <Text style={[styles.categoryChipText, { color: theme.colors.onSurfaceVariant }]}>
-                +{stockedCategories.length - MAX_CATEGORY_CHIPS}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
 
       {description ? (
         <Text style={[styles.description, { color: theme.colors.onSurface }]}>{description}</Text>
@@ -192,16 +163,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   name: { ...typography.h1, fontWeight: "700", textAlign: "center", flexShrink: 1 },
-  categoryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  categoryChip: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill },
-  categoryChipText: { ...typography.bodySmall, fontWeight: "600", fontSize: 12 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: spacing.xs, paddingHorizontal: spacing.md },
   metaText: { ...typography.bodySmall },
   description: {

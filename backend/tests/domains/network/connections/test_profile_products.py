@@ -222,3 +222,141 @@ def test_showcase_caps_at_five_categories(client, make_business, make_supplier, 
     categories = _showcase(client, business, profile.id)
 
     assert len(categories) == 5
+
+
+# --- Activity sharing: the gate is the field's ABSENCE ---------------------
+
+
+def test_profile_omits_activity_unless_the_supplier_switched_it_on(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    """A field that isn't in the response can't be leaked by a frontend
+    that forgets to check a flag -- see discovery_service._resolve_last_active."""
+    from src.core.base_model import utcnow
+    from src.domains.network.connections.services import discovery_service
+    from src.extensions import db
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Private Activity Co")
+    supplier_user.last_active_at = utcnow()
+    profile.show_last_active = False
+    db.session.commit()
+
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
+    assert result["activity"] is None
+
+
+def test_profile_exposes_activity_when_the_supplier_opted_in(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    from src.core.base_model import utcnow
+    from src.domains.network.connections.services import discovery_service
+    from src.extensions import db
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Shared Activity Co")
+    supplier_user.last_active_at = utcnow()
+    profile.show_last_active = True
+    db.session.commit()
+
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
+    assert result["activity"]["isOnline"] is True
+    assert result["activity"]["lastActiveAt"]
+
+
+def test_activity_is_none_when_opted_in_but_never_active(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    """Opting in doesn't invent activity that never happened."""
+    from src.domains.network.connections.services import discovery_service
+    from src.extensions import db
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Never Active Co")
+    profile.show_last_active = True
+    db.session.commit()
+
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
+    assert result["activity"] is None
+
+
+def test_trust_counts_only_accepted_orders_and_repeat_buyers(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    """Counts that only grow -- see StockOrderRepository.trust_stats_for_supplier
+    on why the earlier ratio and median reply time were removed."""
+    from src.domains.network.connections.services import discovery_service
+
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(supplier_user, business_name="Fresh Trust Co")
+
+    result = discovery_service.get_supplier_profile(business.id, profile.id)
+    # A brand-new supplier reports zeroes; the frontend hides each at 0
+    # rather than the backend inventing a floor.
+    assert result["trust"] == {"acceptedOrderCount": 0, "repeatBusinessCount": 0, "unitsSoldCount": 0}
+
+
+def test_track_record_is_omitted_when_the_supplier_switched_it_off(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    """The gate is the field's ABSENCE, same as activity -- a frontend
+    that forgets to check a flag can't leak what isn't there."""
+    from src.domains.network.connections.services import discovery_service
+    from src.extensions import db
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Private Record Co")
+    profile.show_track_record = False
+    db.session.commit()
+
+    assert discovery_service.get_supplier_profile(business.id, profile.id)["trust"] is None
+
+
+def test_track_record_defaults_to_visible(
+    client, make_business, make_supplier, make_supplier_profile
+):
+    """Defaults ON, unlike show_last_active -- every public figure is a
+    count that hides at zero, so there is no arrangement of the data
+    that can make a supplier look bad by default."""
+    from src.domains.network.connections.services import discovery_service
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Default Record Co")
+    assert profile.show_track_record is True
+
+    trust = discovery_service.get_supplier_profile(business.id, profile.id)["trust"]
+    assert trust == {"acceptedOrderCount": 0, "repeatBusinessCount": 0, "unitsSoldCount": 0}
+
+
+def test_supplier_performance_excludes_business_initiated_cancellations(
+    make_business, make_supplier, make_supplier_profile
+):
+    """A business changing its mind is not the supplier's record."""
+    from src.core.base_model import utcnow
+    from src.domains.network.orders.models.stock_order import StockOrder, StockOrderStatus
+    from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
+    from src.extensions import db
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Cancel Attribution Co")
+
+    for cancelled_by in ("business", "supplier"):
+        db.session.add(
+            StockOrder(
+                business_id=business.id,
+                supplier_profile_id=profile.id,
+                status=StockOrderStatus.CANCELLED,
+                total_cents=1000,
+                submitted_at=utcnow(),
+                cancelled_by=cancelled_by,
+                cancelled_at=utcnow(),
+            )
+        )
+    db.session.commit()
+
+    stats = StockOrderRepository.performance_stats_for_supplier(profile.id)
+    assert stats["cancelledAfterConfirming"] == 1

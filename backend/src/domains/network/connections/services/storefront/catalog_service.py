@@ -29,7 +29,20 @@ from src.domains.supplier.supplier_profile.repositories.supplier_profile_reposit
     SupplierProfileRepository,
 )
 
-VALID_CATALOG_SORT_OPTIONS = {"NEWEST", "NAME_ASC", "PRICE_ASC", "PRICE_DESC"}
+VALID_CATALOG_SORT_OPTIONS = {
+    # The DEFAULT. In stock -> deepest discount -> newest, the same rule
+    # the brand-profile showcase uses (storefront/ranking.py), applied in
+    # SQL so it survives pagination. NEWEST used to be the default, which
+    # meant whatever a supplier uploaded last led their shop regardless
+    # of whether it was in stock or worth buying.
+    "RECOMMENDED",
+    # Units actually sold, from CONFIRMED orders only.
+    "BEST_SELLING",
+    "NEWEST",
+    "NAME_ASC",
+    "PRICE_ASC",
+    "PRICE_DESC",
+}
 MAX_CATALOG_PAGE_SIZE = 50
 DEFAULT_CATALOG_PAGE_SIZE = 20
 
@@ -57,8 +70,9 @@ def list_supplier_products(
     supplier_profile_id: str | UUID,
     page: int = 1,
     limit: int = DEFAULT_CATALOG_PAGE_SIZE,
-    sort: str = "NEWEST",
+    sort: str = "RECOMMENDED",
     category: Optional[str] = None,
+    search_term: Optional[str] = None,
 ) -> dict:
     """Real, and now genuinely useful -- name/category/price/unit,
     matching Product's own grown shape (Phase 1: Products). Viewable by
@@ -118,7 +132,7 @@ def list_supplier_products(
         }
 
     products, total_count = ProductRepository.list_for_supplier_paginated(
-        supplier_profile_id, page=page, limit=limit, sort=sort, category=category
+        supplier_profile_id, page=page, limit=limit, sort=sort, category=category, search_term=search_term
     )
     total_pages = max(1, math.ceil(total_count / limit))
 
@@ -199,6 +213,7 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
     from "connected but declined to share" from the response shape.
     """
     from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
+    from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
     from src.domains.supplier.products.repositories.product_repository import ProductRepository
     from src.domains.supplier.products.services import product_media_service
 
@@ -238,6 +253,10 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
         "priceCents": product.price_cents,
         "compareAtPriceCents": product.compare_at_price_cents,
         "sellingUnit": product.selling_unit.value,
+        # See product_dto's own note -- these were on the model all
+        # along and never reached a business.
+        "unitQuantity": product.unit_quantity,
+        "unitMeasure": product.unit_measure.value if product.unit_measure else None,
         # Same real, direct answer as list_supplier_products' own
         # inStock -- never the exact quantity.
         "inStock": available > 0,
@@ -245,4 +264,65 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
         "sku": product.sku,
         "productCode": product.product_code,
         "images": product_media_service.list_approved_media(product.id),
+        # SOCIAL PROOF, per product. A business deciding whether to
+        # stock something is really asking "will this sell" -- and
+        # another business having paid for it is the closest thing to
+        # an answer before you've tried it yourself. Distinct buyers,
+        # CONFIRMED orders only; the frontend hides it below a
+        # threshold rather than showing "1 business bought this",
+        # which reads as a warning rather than a recommendation.
+        "buyerCount": StockOrderRepository.buyer_count_for_product(product.id),
+        # THE SUPPLIER'S FULFILMENT TERMS, on the PRODUCT page.
+        # They were already on the brand profile and enforced at
+        # checkout, but the product page is where a business actually
+        # decides to add something -- so "they don't deliver to you" and
+        # "you're R300 short of their minimum" were both discovered two
+        # screens too late. Same class of problem as building a cart for
+        # a collection-only supplier, one screen earlier.
+        #
+        # Ungated, matching the profile: these are terms a business
+        # needs while deciding, not private detail.
+        "supplierOffersDelivery": supplier.offers_delivery,
+        "supplierMinimumOrderCents": supplier.minimum_order_cents,
     }
+
+
+def list_buy_it_again(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
+    """"Buy it again" -- what THIS business has ordered from THIS
+    supplier before, newest order first.
+
+    Deliberately its own endpoint rather than a flag on the catalogue
+    grid: it's a different QUESTION ("what do I usually get here")
+    answered from different data (this business's own order history,
+    not the supplier's shelf), it's personal where the catalogue is
+    public, and it's empty for most viewers. Folding it into the
+    paginated grid would have meant a per-viewer ordering on a query
+    that's otherwise identical for everyone.
+
+    Archived and deleted products are dropped, not shown greyed out: a
+    supplier who removed a line has removed it, and offering to reorder
+    something that no longer exists is worse than not offering.
+    """
+    from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
+    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+
+    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    if not supplier:
+        raise SupplierNotFoundError("Supplier not found.")
+
+    product_ids = StockOrderRepository.previously_ordered_product_ids(business_id, supplier_profile_id)
+    if not product_ids:
+        return {"products": []}
+
+    # The SUPPLIER-SCOPED fetch, not a bare id lookup -- ownership
+    # baked into the query, the same IDOR-safety discipline every other
+    # product read in this domain uses.
+    by_id = {
+        product.id: product
+        for product in ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+        if not product.is_archived
+    }
+    # Preserve the repository's own most-recent-first ordering, which a
+    # bulk id fetch does not guarantee.
+    ordered = [by_id[pid] for pid in product_ids if pid in by_id]
+    return {"products": build_catalog_product_dicts(ordered)}

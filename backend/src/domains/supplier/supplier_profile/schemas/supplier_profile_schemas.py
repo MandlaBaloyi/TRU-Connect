@@ -58,6 +58,14 @@ class UpdateSupplierProfileSchema(Schema):
     # this wrong.
     offers_delivery = fields.Bool(required=False, allow_none=True, load_default=None)
     minimum_order_cents = fields.Integer(required=False, allow_none=True, load_default=None)
+    # A plain bool with a False default is correct here, unlike
+    # offers_delivery above -- "don't show my activity" is a real,
+    # complete answer that asserts nothing on the supplier's behalf.
+    # See the column's own comment in supplier_profile.py.
+    show_last_active = fields.Bool(required=False, load_default=False)
+    # Defaults TRUE here to match the column -- see its own comment on
+    # why this one defaults on where show_last_active defaults off.
+    show_track_record = fields.Bool(required=False, load_default=True)
     # The supplier's own premises -- all optional, same reasoning as
     # every other optional field here: a supplier who hasn't set this
     # up yet still has a fully working profile otherwise.

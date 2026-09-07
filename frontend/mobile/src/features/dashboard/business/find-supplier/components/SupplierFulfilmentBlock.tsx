@@ -4,6 +4,7 @@ import { useTheme } from "react-native-paper";
 import { MapPin, Truck, Wallet } from "lucide-react-native";
 
 import { AccordionSection } from "@/components/ui/AccordionSection";
+import { ProfileSection } from "./ProfileSection";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
@@ -84,7 +85,7 @@ export function SupplierFulfilmentBlock({
   if (!showDelivery && !showMinimum && !showAddress) return null;
 
   return (
-    <View style={styles.wrap}>
+    <ProfileSection>
       <AccordionSection
         title="Delivery & collection"
         // COLLAPSED BY DEFAULT, unlike the product screen's accordions.
@@ -152,7 +153,7 @@ export function SupplierFulfilmentBlock({
         )}
       </View>
       </AccordionSection>
-    </View>
+    </ProfileSection>
   );
 }
 
@@ -190,7 +191,6 @@ function Divider() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: spacing.md },
   card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, gap: spacing.md },
   row: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
   iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
