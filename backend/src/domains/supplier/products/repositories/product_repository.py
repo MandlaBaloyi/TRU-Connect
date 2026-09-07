@@ -125,12 +125,90 @@ class ProductRepository:
         return query.order_by(Product.created_at.desc()).all()
 
     @staticmethod
+    def _apply_ranked_sort(query, sort: str, supplier_profile_id: str | UUID):
+        """The two COMPUTED orderings, expressed in SQL so they survive
+        pagination (see list_for_supplier_paginated's own note).
+
+        RECOMMENDED is the same rule the brand-profile showcase uses
+        (storefront/ranking.showcase_sort_key): in stock first, then
+        deepest discount, then newest. It replaced NEWEST as the
+        catalogue default -- with NEWEST, whatever a supplier uploaded
+        most recently led their shop regardless of whether it was in
+        stock or worth buying.
+
+        BEST_SELLING counts units actually sold, from CONFIRMED orders
+        only: a cart nobody checked out, or an order the supplier
+        declined, is not evidence of anything.
+
+        Both LEFT JOIN, never INNER -- a product with no inventory row
+        and a product nobody has ever ordered must still appear in the
+        catalogue, ranked last rather than dropped. An inner join here
+        would silently hide a supplier's newest stock.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+        from src.domains.supplier.inventory.models.inventory import Inventory
+
+        if sort == "BEST_SELLING":
+            sold = (
+                db.session.query(
+                    StockOrderItem.product_id.label("product_id"),
+                    db.func.coalesce(db.func.sum(StockOrderItem.quantity), 0).label("units"),
+                )
+                .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+                .filter(
+                    StockOrder.supplier_profile_id == supplier_profile_id,
+                    StockOrder.status == StockOrderStatus.CONFIRMED,
+                    StockOrder.is_deleted.is_(False),
+                    StockOrderItem.is_deleted.is_(False),
+                )
+                .group_by(StockOrderItem.product_id)
+                .subquery()
+            )
+            return query.outerjoin(sold, sold.c.product_id == Product.id).order_by(
+                db.func.coalesce(sold.c.units, 0).desc(),
+                Product.created_at.desc(),
+            )
+
+        # RECOMMENDED
+        available = (
+            db.func.coalesce(Inventory.quantity_on_hand, 0)
+            - db.func.coalesce(Inventory.quantity_reserved, 0)
+        )
+        # Discount as a FRACTION, computed in SQL. NULLIF guards a zero
+        # compare-at (division by zero); the outer comparison makes a
+        # compare-at at or below the price count as no discount at all,
+        # exactly as ranking._discount_fraction does -- stale or
+        # mis-entered data must never rank a product UP.
+        discount = db.case(
+            (
+                db.and_(
+                    Product.compare_at_price_cents.isnot(None),
+                    Product.compare_at_price_cents > Product.price_cents,
+                ),
+                (Product.compare_at_price_cents - Product.price_cents)
+                * 1.0
+                / db.func.nullif(Product.compare_at_price_cents, 0),
+            ),
+            else_=0.0,
+        )
+        return query.outerjoin(Inventory, Inventory.product_id == Product.id).order_by(
+            (available > 0).desc(),
+            discount.desc(),
+            Product.created_at.desc(),
+        )
+
+    @staticmethod
     def list_for_supplier_paginated(
         supplier_profile_id: str | UUID,
         page: int,
         limit: int,
         sort: str,
         category: Optional[str],
+        search_term: Optional[str] = None,
     ) -> tuple[List[Product], int]:
         """A SEPARATE method from list_for_supplier above, deliberately
         -- that one is shared by the supplier's own Products screen and
@@ -155,6 +233,17 @@ class ProductRepository:
         Sort/category validation happens in the SERVICE layer, not
         here -- same "repository has no business rules" discipline
         already established throughout this codebase.
+
+        EVERY SORT IS APPLIED IN SQL, INCLUDING THE COMPUTED ONES.
+        RECOMMENDED and BEST_SELLING could have been expressed far more
+        readably as a Python sort over the enriched product dicts (the
+        showcase does exactly that, see storefront/ranking.py) -- but
+        that only works when you have the WHOLE list. Here the list is
+        paginated, and sorting in Python after the fact would sort each
+        page WITHIN ITSELF: page 1 would hold an arbitrary 20 products
+        neatly ordered, while the genuinely best-selling item sat on
+        page 3. Ranking has to happen before LIMIT/OFFSET, which means
+        it has to happen in the database.
         """
         from src.domains.supplier.products.models.product import ProductCategory
 
@@ -164,9 +253,23 @@ class ProductRepository:
         if category is not None:
             query = query.filter_by(category=ProductCategory(category))
 
+        if search_term:
+            # Substring, not prefix -- a business hunting inside ONE
+            # supplier's catalogue they already have a relationship with
+            # is not the public discovery search, so file.txt §4's
+            # enumeration concern (prefix-only, see
+            # search_by_name_prefix) genuinely doesn't apply. Matching
+            # "cola" against "Coca-Cola 500ml" is the whole point.
+            from src.shared.validation.identifiers import escape_like_pattern
+
+            pattern = f"%{escape_like_pattern(search_term.strip())}%"
+            query = query.filter(Product.name.ilike(pattern, escape="\\"))
+
         total_count = query.count()
 
-        if sort == "NAME_ASC":
+        if sort in ("RECOMMENDED", "BEST_SELLING"):
+            query = ProductRepository._apply_ranked_sort(query, sort, supplier_profile_id)
+        elif sort == "NAME_ASC":
             query = query.order_by(Product.name.asc())
         elif sort == "PRICE_ASC":
             query = query.order_by(Product.price_cents.asc())
@@ -218,17 +321,35 @@ class ProductRepository:
         current product and never duplicates a row that's already in
         the related set. Out-of-stock products are NOT excluded here
         -- same consistent behaviour as the main catalogue grid.
-        Newest first in both passes -- no stronger "best match" signal
-        to rank by. Archived excluded throughout."""
+        Archived excluded throughout.
+
+        RANKED, NOT JUST NEWEST. Both passes used to be plain
+        created_at DESC, because when this was written there genuinely
+        was no better signal available. There is now: the same-category
+        pass uses RECOMMENDED (in stock -> deepest discount -> newest),
+        and the backfill uses BEST_SELLING, so the products offered
+        alongside the one you're looking at are ones that can actually
+        be bought and that other businesses actually buy -- rather than
+        whatever the supplier happened to upload most recently, which
+        could easily be out of stock.
+
+        The two passes use DIFFERENT rankings on purpose. Within a
+        category, relevance is already established by the category
+        itself, so what matters is "which of these should I buy" ->
+        stock and price. Across categories there is no relevance at
+        all, so popularity is the only honest ordering left."""
         related = (
-            Product.query.filter(
-                Product.supplier_profile_id == supplier_profile_id,
-                Product.category == category,
-                Product.id != exclude_product_id,
-                Product.is_deleted.is_(False),
-                Product.is_archived.is_(False),
+            ProductRepository._apply_ranked_sort(
+                Product.query.filter(
+                    Product.supplier_profile_id == supplier_profile_id,
+                    Product.category == category,
+                    Product.id != exclude_product_id,
+                    Product.is_deleted.is_(False),
+                    Product.is_archived.is_(False),
+                ),
+                "RECOMMENDED",
+                supplier_profile_id,
             )
-            .order_by(Product.created_at.desc())
             .limit(limit)
             .all()
         )
@@ -239,13 +360,18 @@ class ProductRepository:
 
         already_included_ids = [exclude_product_id] + [p.id for p in related]
         backfill = (
-            Product.query.filter(
-                Product.supplier_profile_id == supplier_profile_id,
-                Product.id.notin_(already_included_ids),
-                Product.is_deleted.is_(False),
-                Product.is_archived.is_(False),
+            ProductRepository._apply_ranked_sort(
+                Product.query.filter(
+                    Product.supplier_profile_id == supplier_profile_id,
+                    Product.id.notin_(already_included_ids),
+                    Product.is_deleted.is_(False),
+                    Product.is_archived.is_(False),
+                ),
+                # Popularity, not recency -- see this method's docstring
+                # on why the two passes rank differently.
+                "BEST_SELLING",
+                supplier_profile_id,
             )
-            .order_by(Product.created_at.desc())
             .limit(remaining)
             .all()
         )

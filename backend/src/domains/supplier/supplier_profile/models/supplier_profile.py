@@ -177,6 +177,39 @@ class SupplierProfile(BaseModel):
     # a float; see shared/finance for the rule).
     minimum_order_cents = db.Column(db.Integer, nullable=True)
 
+    # "Show businesses when I was last online."
+    #
+    # A PLAIN BOOLEAN, deliberately -- unlike offers_delivery next door,
+    # which had to become tri-state. The difference: FALSE here is a
+    # real, safe, complete answer ("don't show my activity") that
+    # asserts nothing about the supplier to anyone. offers_delivery's
+    # false asserted "this supplier does not deliver", which is a claim
+    # nobody had made. A privacy switch defaulting to private states
+    # nothing on the person's behalf, so two states are genuinely
+    # enough.
+    #
+    # Defaults FALSE: same cautious opt-in as share_contact_details and
+    # VisibleImageSource.NONE -- being visible is always the choice,
+    # never the default.
+    show_last_active = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
+    # "Show businesses my track record" -- the connections/orders/repeat
+    # buyer figures on the brand profile.
+    #
+    # DEFAULTS TRUE, unlike show_last_active right above it, and the
+    # difference is deliberate. Every PUBLIC track-record figure is a
+    # count that only grows and is hidden entirely at zero, so there is
+    # no arrangement of the data that can make a supplier look bad by
+    # default -- a new supplier simply shows fewer rows. Defaulting this
+    # OFF would hide a feature that only ever helps the supplier, from
+    # every supplier who never finds the setting.
+    #
+    # The harsher figures (acceptance rate, reply time, cancellations)
+    # are deliberately NOT in the public set at all -- they live on the
+    # supplier's own profile, where they're actionable rather than
+    # punishing. See supplier_profile_routes._performance_stats.
+    show_track_record = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+
     verification_status = db.Column(
         db.Enum(SupplierVerificationStatus, name="supplier_verification_status", schema="supplier"),
         nullable=False,

@@ -20,6 +20,8 @@ import type { ProfileImageSlot } from "../services/profileImageUpload";
 import { ProfileHeader } from "../components/ProfileHeader";
 import { InlineEditField } from "../components/InlineEditField";
 import { CollectionAddressField } from "../components/CollectionAddressField";
+import { LastActiveRow } from "../components/LastActiveRow";
+import { TrackRecordPanel } from "../components/TrackRecordPanel";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatCents } from "../../products/services/productMapper";
 import { BIO_MAX_LENGTH } from "../types";
@@ -113,6 +115,8 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
       collectionPostalCode: profile.collectionPostalCode,
       collectionLatitude: profile.collectionLatitude,
       collectionLongitude: profile.collectionLongitude,
+      showLastActive: profile.showLastActive,
+      showTrackRecord: profile.showTrackRecord,
       ...patch,
     });
 
@@ -349,6 +353,53 @@ function ProfileForm({ summary, profile }: { summary: AccountProfileSummary; pro
             }
           />
 
+
+          {/* ---- ACTIVITY ----
+              Recorded for everyone, shown to businesses only by opt-in
+              (see supplier_profile.show_last_active). The row below is
+              visible to the supplier either way: their own activity
+              isn't a secret from them, and seeing the exact wording a
+              business would read is what makes the choice concrete. */}
+          <SectionHeading
+            title="Activity"
+            hint={[
+              "Shows businesses roughly when you were last using TruConnect — \"Active now\", \"Active 3 hours ago\".",
+              "It tells a business you're around and likely to answer, which matters most when they're deciding who to order from today.",
+              "Turn it off and businesses see nothing about your activity. You'll still see it yourself.",
+            ]}
+          />
+
+          <SwitchCard
+            label="Show when I was last active"
+            description="Businesses viewing your profile can see roughly when you were last online."
+            value={profile.showLastActive}
+            onValueChange={(val) => saveProfileField({ showLastActive: val })}
+          />
+          <LastActiveRow lastActiveAt={profile.lastActiveAt} isShared={profile.showLastActive} />
+
+          {/* ---- TRACK RECORD ----
+              The supplier's OWN figures, which are deliberately NOT the
+              set businesses see (TrackRecordPanel's docstring has the
+              full reasoning). Lives here only because no analytics
+              screen exists yet -- this panel is what moves into one
+              when it does. */}
+          <SectionHeading
+            title="Your track record"
+            hint={[
+              "Your real trading figures, built from actual orders — nothing here is self-reported.",
+              "Businesses see a SHORTER list on your profile: businesses connected, orders accepted, units sold and repeat buyers. Your acceptance rate, reply time and cancellations stay private — they're here to help you improve, not to be judged on.",
+              "The switch below controls only what businesses see. You always see this panel.",
+            ]}
+          />
+
+          <TrackRecordPanel performance={profile.performance} />
+
+          <SwitchCard
+            label="Show my track record to businesses"
+            description="Businesses viewing your profile see your connections, accepted orders, units sold and repeat buyers."
+            value={profile.showTrackRecord}
+            onValueChange={(val) => saveProfileField({ showTrackRecord: val })}
+          />
         </View>
       </ScrollView>
 

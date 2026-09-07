@@ -54,27 +54,62 @@ def search_suppliers(query: str, business_id: str | UUID) -> list[dict]:
     return _dispatch_search(query, SupplierProfileRepository, resolve_photo=resolve_photo)
 
 
-# A supplier needs a real track record before any of it is shown. Below
-# this, "accepted 1 of 1 order" reads as a statistic when it's a
-# coincidence -- and an unlucky first decline would brand a good
-# supplier permanently. Silence is the honest answer for a new supplier,
-# not a flattering number built on nothing.
-MIN_DECIDED_ORDERS_FOR_RELIABILITY = 5
+# How recently a supplier must have used the app to read as "online".
+# Kept just above the heartbeat's own throttle
+# (core/decorators.LAST_ACTIVE_THROTTLE_MINUTES = 1) so someone
+# genuinely using the app never flickers to "away" between writes.
+ONLINE_WITHIN_MINUTES = 2
 
 
-def _resolve_reliability(supplier_profile_id: str | UUID) -> Optional[dict]:
-    """None until there's enough history to be meaningful -- see
-    MIN_DECIDED_ORDERS_FOR_RELIABILITY. The frontend renders nothing at
-    all for None rather than an empty or zeroed block."""
+def _resolve_trust(supplier, supplier_profile_id: str | UUID) -> Optional[dict]:
+    """A supplier's real trading record. Every figure is a count that
+    only grows -- see StockOrderRepository.trust_stats_for_supplier for
+    why the earlier ratio and median-response-time were removed.
+
+    NO MINIMUM-SAMPLE GATE, unlike the version this replaced. That gate
+    existed because a RATE over a tiny sample is misleading ("accepted 0
+    of 1"); a COUNT never is. "1 accepted order" is a small, true,
+    unembarrassing fact, and hiding it would deny a new supplier the
+    only proof they have. The frontend hides each figure at zero.
+
+    None when the supplier has switched their track record off. The
+    whole object is omitted rather than zeroed, for the same reason as
+    activity: a field that isn't in the response can't be leaked by a
+    frontend that forgets to check a flag.
+    """
+    if not supplier.show_track_record:
+        return None
+
     from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
 
-    stats = StockOrderRepository.reliability_stats_for_supplier(supplier_profile_id)
-    if stats["decidedCount"] < MIN_DECIDED_ORDERS_FOR_RELIABILITY:
+    return StockOrderRepository.trust_stats_for_supplier(supplier_profile_id)
+
+
+def _resolve_last_active(supplier, supplier_user) -> Optional[dict]:
+    """When this supplier was last using the app -- ONLY if they've
+    switched it on (SupplierProfile.show_last_active).
+
+    Returns None, not a timestamp with a flag, when they haven't: a
+    field that isn't in the response can't be leaked by a frontend that
+    forgets to check a boolean. The gate is the absence.
+
+    `isOnline` is resolved SERVER-SIDE rather than left to the client to
+    compute from the timestamp, so every screen agrees on what "online"
+    means and the threshold can change in one place.
+    """
+    from datetime import timedelta
+
+    from src.core.base_model import utcnow
+
+    if not supplier.show_last_active:
         return None
+    if supplier_user is None or supplier_user.last_active_at is None:
+        return None
+
+    last_active = supplier_user.last_active_at
     return {
-        "decidedCount": stats["decidedCount"],
-        "acceptedCount": stats["acceptedCount"],
-        "medianResponseHours": stats["medianResponseHours"],
+        "lastActiveAt": last_active.isoformat(),
+        "isOnline": (utcnow() - last_active) < timedelta(minutes=ONLINE_WITHIN_MINUTES),
     }
 
 
@@ -126,13 +161,10 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
     profile["connectedBusinessCount"] = ConnectionRequestRepository.count_active_for_supplier_profile(
         supplier_profile_id
     )
-    profile["reliability"] = _resolve_reliability(supplier_profile_id)
-    # The categories this supplier ACTUALLY stocks, as chips under their
-    # name. Self-correcting where a supplier's own description drifts
-    # from what they sell (a real case: a bio about fragrances above a
-    # shop full of cold drinks and chips).
-    profile["stockedCategories"] = ProductRepository.list_distinct_categories_for_supplier(supplier_profile_id)
-
+    profile["trust"] = _resolve_trust(supplier, supplier_profile_id)
+    # Null unless the supplier switched it on -- see _resolve_last_active
+    # on why the gate is the field's absence, not a flag beside it.
+    profile["activity"] = _resolve_last_active(supplier, supplier_user)
     # WHO asked whom. connectionStatus alone can't answer "am I waiting
     # on them, or are they waiting on me" -- a PENDING request reads
     # completely differently depending on which side started it (see

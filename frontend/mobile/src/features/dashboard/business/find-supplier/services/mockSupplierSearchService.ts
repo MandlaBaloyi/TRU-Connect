@@ -184,11 +184,18 @@ export async function getSupplierProfile(id: string): Promise<SupplierProfilePre
     // honestly rather than inventing a state the mock can't reach.
     connectionInitiatedBy: connectionState.get(id) ? "BUSINESS" : null,
     connectedBusinessCount: supplier.productCount > 0 ? 8 : 0,
-    // sup_001 has enough history to show; the others deliberately don't,
-    // so the "too new to say" path gets exercised too.
-    reliability:
-      id === "sup_001" ? { decidedCount: 14, acceptedCount: 12, medianResponseHours: 5 } : null,
-    stockedCategories: id === "sup_001" ? ["BEVERAGES", "SNACKS_CONFECTIONERY", "FOOD_GROCERY"] : [],
+    trust:
+      id === "sup_001"
+        ? { acceptedOrderCount: 112, repeatBusinessCount: 6, unitsSoldCount: 1840 }
+        : { acceptedOrderCount: 0, repeatBusinessCount: 0, unitsSoldCount: 0 },
+    // sup_001 is online; sup_002 opted in but was last seen a while
+    // ago; sup_003 hasn't switched it on at all -- all three paths.
+    activity:
+      id === "sup_001"
+        ? { lastActiveAt: new Date().toISOString(), isOnline: true }
+        : id === "sup_002"
+          ? { lastActiveAt: new Date(Date.now() - 3 * 3600_000).toISOString(), isOnline: false }
+          : null,
   };
 }
 
@@ -249,6 +256,8 @@ const MOCK_PRODUCTS: Record<string, SupplierProduct[]> = {
       priceCents: 21000,
       compareAtPriceCents: null,
       sellingUnit: "CASE",
+    unitQuantity: 24,
+    unitMeasure: "CAN",
       inStock: true,
       images: ["https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=400&fit=crop"],
     },
@@ -259,6 +268,8 @@ const MOCK_PRODUCTS: Record<string, SupplierProduct[]> = {
       priceCents: 9500,
       compareAtPriceCents: null,
       sellingUnit: "CASE",
+    unitQuantity: 24,
+    unitMeasure: "CAN",
       inStock: false,
       images: [],
     },
@@ -269,6 +280,8 @@ const MOCK_PRODUCTS: Record<string, SupplierProduct[]> = {
       priceCents: 18500,
       compareAtPriceCents: 24000,
       sellingUnit: "CASE",
+    unitQuantity: 24,
+    unitMeasure: "CAN",
       inStock: true,
       images: ["https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=400&h=400&fit=crop"],
     },
@@ -283,7 +296,11 @@ const MOCK_PRODUCTS: Record<string, SupplierProduct[]> = {
       category: (["BEVERAGES", "SNACKS_CONFECTIONERY", "PERSONAL_CARE", "OTHER"] as const)[i % 4],
       priceCents: 1500 + i * 250,
       compareAtPriceCents: i % 5 === 0 ? 1500 + i * 250 + 500 : null,
-      sellingUnit: "EACH" as const,
+      sellingUnit: (i % 3 === 0 ? "PACK" : "EACH") as "PACK" | "EACH",
+      // A third are packs with real contents, so the per-unit price
+      // line ("R33.33 each") is exercised alongside plain Each items.
+      unitQuantity: i % 3 === 0 ? 6 : null,
+      unitMeasure: i % 3 === 0 ? "BOTTLE" : null,
       // Every 6th generated item is out of stock -- enough of a mix to
       // genuinely exercise both states across a real page, not every
       // single item looking identical.
@@ -352,11 +369,28 @@ export async function getSupplierProducts(
   // creating the same backward dependency already caught and fixed
   // twice elsewhere in this feature.
   const category = query.category ?? null;
-  const filtered = category ? all.filter((p) => p.category === category) : all;
+  const byCategory = category ? all.filter((p) => p.category === category) : all;
+  // Substring on the name, matching the real backend's own catalogue
+  // search (NOT the prefix rule public supplier discovery uses).
+  const term = (query.search ?? "").trim().toLowerCase();
+  const filtered = term ? byCategory.filter((p) => p.name.toLowerCase().includes(term)) : byCategory;
 
-  const sort = query.sort ?? "NEWEST";
+  const sort = query.sort ?? "RECOMMENDED";
   const sorted = [...filtered];
-  if (sort === "NAME_ASC") sorted.sort((a, b) => a.name.localeCompare(b.name));
+  if (sort === "RECOMMENDED") {
+    // Mirrors the real backend's SQL ranking: in stock, then deepest
+    // discount, then the mock array's own (newest-first) order.
+    const discountOf = (p: SupplierProduct) =>
+      p.compareAtPriceCents && p.compareAtPriceCents > p.priceCents
+        ? (p.compareAtPriceCents - p.priceCents) / p.compareAtPriceCents
+        : 0;
+    sorted.sort(
+      (a, b) => Number(b.inStock) - Number(a.inStock) || discountOf(b) - discountOf(a)
+    );
+  } else if (sort === "BEST_SELLING") {
+    // No order history in mock mode, so this honestly falls back to the
+    // default ordering rather than inventing sales figures.
+  } else if (sort === "NAME_ASC") sorted.sort((a, b) => a.name.localeCompare(b.name));
   else if (sort === "PRICE_ASC") sorted.sort((a, b) => a.priceCents - b.priceCents);
   else if (sort === "PRICE_DESC") sorted.sort((a, b) => b.priceCents - a.priceCents);
   // "NEWEST" (default): mock array's own insertion order, no sort.
@@ -398,6 +432,11 @@ export async function getSupplierProduct(
     ...product,
     supplierName: supplier.businessName,
     supplierBusinessImageUrl: supplier.businessImageUrl,
+    // Enough buyers that the social-proof line renders in mock mode;
+    // the UI hides it below its own threshold.
+    buyerCount: 9,
+    supplierOffersDelivery: supplier.offersDelivery,
+    supplierMinimumOrderCents: supplier.minimumOrderCents,
     // Mirrors the real gate exactly: connected (mock connection
     // state, same module as requestConnection below) AND the
     // supplier having "opted in" -- sup_001 is the one mock supplier

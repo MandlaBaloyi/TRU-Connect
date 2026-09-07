@@ -316,27 +316,213 @@ class StockOrderRepository:
         return stock_order
 
     @staticmethod
-    def reliability_stats_for_supplier(supplier_profile_id: str | UUID) -> dict:
-        """Real fulfilment history for a supplier's brand profile:
-        how many decided orders they've had, how many they accepted,
-        and how long they typically took to decide.
+    def trust_stats_for_supplier(supplier_profile_id: str | UUID) -> dict:
+        """A supplier's real trading record: how many orders they've
+        accepted, and how many businesses have come back to order again.
 
-        DECIDED ORDERS ONLY -- an order still sitting in
-        PENDING_SUPPLIER_APPROVAL hasn't been accepted OR refused yet,
-        so counting it either way would be a guess. CANCELLED is
-        excluded too: a business cancelling their own order says
-        nothing about the supplier.
+        THESE ARE LIVE COUNTS OF CURRENT STATE, not a running tally.
+        Every call re-counts rows whose status is CONFIRMED right now,
+        so the figures grow as a supplier accepts more work -- but they
+        also DROP if a supplier cancels an order they had already
+        confirmed (order_management_service's CONFIRMED -> CANCELLED).
+        That is the correct behaviour, not a leak: an order the supplier
+        pulled out of is not one they fulfilled, and a business reading
+        "112 orders accepted" should not be counting orders that were
+        taken back. It does mean the number is not monotonic, which an
+        earlier version of this docstring wrongly claimed.
 
-        MEDIAN, not mean, for the response time -- one supplier who
-        went on holiday for three weeks once shouldn't define what
-        "usually" means for them.
+        WHY COUNTS AND NOT RATES -- this replaced an "accepted X of
+        their last Y" ratio plus a median response time, and both were
+        removed for the same underlying reason: a supplier could do
+        everything right and watch the number not move, or get worse.
 
-        Returns raw numbers only. Whether there's ENOUGH history to
-        show any of this to a business is a judgement the service makes
-        (see showcase-side MIN_ORDERS_FOR_RELIABILITY), not something a
-        repository should decide.
+          * The ratio led with the failures. A new supplier's first
+            decline read as "accepted 0 of 1" -- a damning headline
+            earned by one order.
+          * The median response time actively ignored improvement. It
+            is designed to resist outliers, so a supplier with a slow
+            history who answers the next order in minutes sees no
+            change at all. Reported directly: "I just approved an order
+            but it's not changing." Correct statistics, useless
+            feedback.
+
+        A count of accepted orders moves the moment a supplier accepts
+        something, and is the number a business actually wants ("have
+        these people done this before, and how often"). ALL-TIME,
+        deliberately not a recent window: a long trading history is
+        exactly the thing worth showing, and unlike a rate it can't be
+        dragged down by age.
+
+        REPEAT BUYERS is the strongest signal here and the hardest to
+        fake -- a business coming back a second time is a verdict on
+        the first order that no self-reported claim can imitate.
         """
-        from src.domains.network.orders.models.stock_order import StockOrder, StockOrderStatus
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        accepted = StockOrder.query.filter(
+            StockOrder.supplier_profile_id == supplier_profile_id,
+            StockOrder.is_deleted.is_(False),
+            StockOrder.status == StockOrderStatus.CONFIRMED,
+        )
+
+        accepted_count = accepted.count()
+
+        # Businesses with MORE THAN ONE accepted order. Counted in SQL
+        # (group-by + having) rather than by loading every order and
+        # tallying in Python -- this runs on every profile view, and the
+        # suppliers it matters most for are the ones with the most rows.
+        repeat_rows = (
+            accepted.with_entities(StockOrder.business_id)
+            .group_by(StockOrder.business_id)
+            .having(db.func.count(StockOrder.id) > 1)
+            .all()
+        )
+
+        units = (
+            db.session.query(db.func.coalesce(db.func.sum(StockOrderItem.quantity), 0))
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .scalar()
+        )
+
+        return {
+            "acceptedOrderCount": accepted_count,
+            "repeatBusinessCount": len(repeat_rows),
+            # Volume, not transaction count -- 16 orders of one case
+            # each and 16 orders of forty are very different suppliers.
+            "unitsSoldCount": int(units or 0),
+        }
+
+    @staticmethod
+    def previously_ordered_product_ids(
+        business_id: str | UUID, supplier_profile_id: str | UUID, limit: int = 12
+    ) -> List[UUID]:
+        """Products THIS business has previously had accepted by THIS
+        supplier, most recently ordered first.
+
+        The single most useful query in an informal-wholesale app: a
+        spaza owner restocking buys the same handful of things every
+        week, and today they have to re-find each one by scrolling a
+        category. Ordering is per-BUSINESS, so this is genuinely
+        personal history rather than a popularity list dressed up as
+        one.
+
+        CONFIRMED ONLY. A cart nobody checked out, or an order the
+        supplier declined, is not something the business "ordered" --
+        offering to reorder either would be offering to repeat
+        something that never happened.
+
+        Returns IDs, not products: the caller already has the enrichment
+        pipeline (build_catalog_product_dicts) and needs the products
+        loaded the same way as every other catalogue read, not a second
+        slightly-different shape.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        rows = (
+            db.session.query(
+                StockOrderItem.product_id,
+                db.func.max(StockOrder.submitted_at).label("last_ordered"),
+            )
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.business_id == business_id,
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .group_by(StockOrderItem.product_id)
+            .order_by(db.text("last_ordered DESC NULLS LAST"))
+            .limit(limit)
+            .all()
+        )
+        return [row.product_id for row in rows]
+
+    @staticmethod
+    def buyer_count_for_product(product_id: str | UUID) -> int:
+        """How many DISTINCT businesses have had an order accepted that
+        included this product.
+
+        The one question a shop owner asks that a spec sheet can't
+        answer: "will this actually sell". Another business putting
+        money on it is the closest thing to an answer available before
+        you've stocked it yourself.
+
+        DISTINCT BUSINESSES, not order count and not units: one buyer
+        ordering weekly is a loyal customer, not fifty endorsements, and
+        counting orders would let a single business inflate a product
+        indefinitely.
+
+        CONFIRMED only -- a declined order or an abandoned cart is not
+        somebody buying something.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        return (
+            db.session.query(StockOrder.business_id)
+            .join(StockOrderItem, StockOrderItem.stock_order_id == StockOrder.id)
+            .filter(
+                StockOrderItem.product_id == product_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .distinct()
+            .count()
+        )
+
+    @staticmethod
+    def performance_stats_for_supplier(supplier_profile_id: str | UUID, window: int = 20) -> dict:
+        """The supplier's OWN performance figures -- deliberately a
+        different set from trust_stats_for_supplier above.
+
+        WHY TWO SETS AND NOT ONE WITH A VISIBILITY FLAG. These two
+        audiences need opposite things from the same data:
+
+          * A BUSINESS needs signals that are hard to fake and fair to a
+            newcomer, so the public set is counts that only grow and
+            hide at zero. Nothing there can make a supplier look bad.
+          * A SUPPLIER needs signals that tell them what to FIX.
+            Acceptance rate and reply time are exactly that -- and
+            they're exactly what was removed from the public profile,
+            because publicly they punish one bad week ("accepted 0 of
+            1") while privately they're the most actionable numbers a
+            supplier has.
+
+        Same rows in the database, opposite purposes on screen. Folding
+        them into one set behind a flag would have meant showing a
+        business a number designed to be self-criticism.
+
+        `window` bounds the acceptance/reply figures to recent history,
+        so a supplier who has improved can actually see it move -- the
+        all-time versions would be dragged by orders from a year ago.
+        """
+        from datetime import timedelta
+
+        from src.core.base_model import utcnow
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
 
         decided = (
             StockOrder.query.filter(
@@ -346,22 +532,19 @@ class StockOrderRepository:
                 StockOrder.status.in_([StockOrderStatus.CONFIRMED, StockOrderStatus.DECLINED]),
             )
             .with_entities(StockOrder.status, StockOrder.submitted_at, StockOrder.decided_at)
+            .order_by(StockOrder.decided_at.desc())
+            .limit(window)
             .all()
         )
+        accepted_recent = sum(1 for row in decided if row.status == StockOrderStatus.CONFIRMED)
 
-        if not decided:
-            return {"decidedCount": 0, "acceptedCount": 0, "medianResponseHours": None}
-
-        accepted = sum(1 for row in decided if row.status == StockOrderStatus.CONFIRMED)
-
-        durations = [
+        durations = sorted(
             (row.decided_at - row.submitted_at).total_seconds() / 3600
             for row in decided
             if row.submitted_at is not None and row.decided_at is not None
-        ]
+        )
         median_hours = None
         if durations:
-            durations.sort()
             middle = len(durations) // 2
             median_hours = (
                 durations[middle]
@@ -369,8 +552,53 @@ class StockOrderRepository:
                 else (durations[middle - 1] + durations[middle]) / 2
             )
 
+        confirmed = StockOrder.query.filter(
+            StockOrder.supplier_profile_id == supplier_profile_id,
+            StockOrder.is_deleted.is_(False),
+            StockOrder.status == StockOrderStatus.CONFIRMED,
+        )
+
+        sales_cents = (
+            db.session.query(db.func.coalesce(db.func.sum(StockOrder.total_cents), 0))
+            .filter(
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.is_deleted.is_(False),
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+            )
+            .scalar()
+        )
+
+        units = (
+            db.session.query(db.func.coalesce(db.func.sum(StockOrderItem.quantity), 0))
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .scalar()
+        )
+
+        # CANCELLED BY THE SUPPLIER specifically -- an order the
+        # BUSINESS pulled out of says nothing about the supplier, and
+        # counting it here would be blaming them for someone else's
+        # change of mind.
+        cancelled_after_confirming = StockOrder.query.filter(
+            StockOrder.supplier_profile_id == supplier_profile_id,
+            StockOrder.is_deleted.is_(False),
+            StockOrder.status == StockOrderStatus.CANCELLED,
+            StockOrder.cancelled_by == "supplier",
+        ).count()
+
         return {
             "decidedCount": len(decided),
-            "acceptedCount": accepted,
+            "acceptedCount": accepted_recent,
             "medianResponseHours": median_hours,
+            "totalSalesCents": int(sales_cents or 0),
+            "unitsSoldCount": int(units or 0),
+            "ordersThisMonth": confirmed.filter(
+                StockOrder.submitted_at >= utcnow() - timedelta(days=30)
+            ).count(),
+            "cancelledAfterConfirming": cancelled_after_confirming,
         }

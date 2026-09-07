@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { Package } from "lucide-react-native";
+import { Package, Plus } from "lucide-react-native";
 
 import { ProductActionsRow } from "@/components/products/ProductActionsRow";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
@@ -15,6 +15,11 @@ import type { SupplierProduct } from "../../find-supplier/types";
 interface Props {
   product: SupplierProduct;
   onPress: () => void;
+  /** Omitted -> no Add button at all. Kept optional so a context
+   *  without a cart (a future preview, a supplier's own view) can reuse
+   *  this card without pretending to offer ordering. */
+  onAddToCart?: () => void;
+  isAdding?: boolean;
   /** Optional override for the card's own outer width -- the default
    *  (48%) only makes sense inside the 2-column grid this card was
    *  built for. "More from [Supplier]" reuses this exact same card in
@@ -58,11 +63,11 @@ interface Props {
  *
  * 2-up grid (see SupplierCatalogScreen.tsx's own layout).
  */
-export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Props) {
+export function SupplierCatalogProductCard({ product, onPress, cardStyle, onAddToCart, isAdding = false }: Props) {
   const theme = useTheme();
   const discount = calculateDiscount(product.priceCents, product.compareAtPriceCents);
   const photoUrl = product.images[0] ?? null;
-  const unitLabel = sellingUnitLabel(product.sellingUnit);
+  const unitLabel = sellingUnitLabel(product.sellingUnit, product.unitQuantity, product.unitMeasure);
 
   return (
     <Pressable
@@ -107,7 +112,7 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Prop
         </Text>
 
         <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: discount ? theme.colors.error : theme.colors.onSurface }]}>
+          <Text style={[styles.price, { color: theme.colors.onSurface }]}>
             {formatCents(product.priceCents)}
           </Text>
           {discount && product.compareAtPriceCents !== null && (
@@ -122,6 +127,51 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Prop
           <Text style={[styles.unitLabel, { color: theme.colors.onSurfaceVariant }]}>{unitLabel}</Text>
         )}
 
+        {/* ADD STRAIGHT FROM THE GRID. The reason this exists: a spaza
+            owner restocking buys the same fifteen known lines every
+            week, and making them open fifteen product pages to add
+            fifteen things was the single biggest friction in the app.
+            Consumer retail can afford a product page per item; wholesale
+            reordering cannot.
+
+            Out of stock keeps the row but disables it, rather than
+            hiding it -- a missing button reads as a broken card, where a
+            greyed one reads as "not right now". */}
+        {onAddToCart && (
+          <Pressable
+            onPress={(event) => {
+              // The whole card navigates; this must not.
+              event.stopPropagation();
+              onAddToCart();
+            }}
+            disabled={!product.inStock || isAdding}
+            style={({ pressed }) => [
+              styles.addButton,
+              {
+                backgroundColor: product.inStock ? theme.colors.primary : theme.colors.surfaceVariant,
+                opacity: !product.inStock || isAdding ? 0.5 : pressed ? 0.85 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={product.inStock ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
+            accessibilityState={{ disabled: !product.inStock || isAdding }}
+          >
+            <Plus
+              size={15}
+              color={product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+              strokeWidth={2.6}
+            />
+            <Text
+              style={[
+                styles.addLabel,
+                { color: product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {isAdding ? "Adding…" : product.inStock ? "Add" : "Out of stock"}
+            </Text>
+          </Pressable>
+        )}
+
         <ProductActionsRow productName={product.name} />
       </View>
     </Pressable>
@@ -129,6 +179,16 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle }: Prop
 }
 
 const styles = StyleSheet.create({
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minHeight: 34,
+    borderRadius: radius.md,
+    marginTop: spacing.xs,
+  },
+  addLabel: { ...typography.bodySmall, fontWeight: "700" },
   unitLabel: { ...typography.bodySmall, fontSize: 11, marginTop: 1 },
   card: {
     width: "48%",

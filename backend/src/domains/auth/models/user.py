@@ -119,6 +119,19 @@ class User(BaseModel):
 
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     last_login_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # LAST SEEN USING THE APP, which is a different fact from
+    # last_login_at: a supplier who signed in three weeks ago and has
+    # used the app every day since has an ancient last_login_at and a
+    # fresh last_active_at. Touched by core/decorators.py's
+    # fully_authenticated, THROTTLED (see LAST_ACTIVE_THROTTLE_MINUTES)
+    # so a burst of requests writes once, not once per call.
+    #
+    # STORED FOR EVERY ROLE, SHOWN ONLY BY OPT-IN. Recording it is
+    # cheap and role-neutral; whether anyone else ever SEES it is a
+    # separate, explicit choice the person makes
+    # (SupplierProfile.show_last_active). Never expose this column
+    # directly -- go through that gate.
+    last_active_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid only
         return f"<User {self.email} ({self.role.value if self.role else '?'})>"

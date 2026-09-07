@@ -127,9 +127,10 @@ export interface SupplierProfilePreview {
   /** Fulfilment terms — UNGATED, shown before any connection exists,
    *  because "do you deliver" and "what's the minimum order" are
    *  exactly what a business needs while deciding whether to connect.
+   *
+   *  offersDelivery is TRI-STATE: null means the supplier hasn't stated
+   *  their terms and must never render as "collection only".
    *  minimumOrderCents null means no minimum (never 0). */
-  /** TRI-STATE: null means the supplier hasn't stated their terms
-   *  — never render that as "collection only". */
   offersDelivery: boolean | null;
   minimumOrderCents: number | null;
   /** Who sent the connection request — null when there isn't one. */
@@ -138,24 +139,38 @@ export interface SupplierProfilePreview {
    *  proof an informal business actually decides on — real ACTIVE
    *  connections, not a self-reported claim. 0 for a new supplier. */
   connectedBusinessCount: number;
-  /** Real fulfilment history, or NULL until there's enough of it to
-   *  mean anything (backend: MIN_DECIDED_ORDERS_FOR_RELIABILITY).
-   *  Null renders nothing at all — never a zeroed block, which would
-   *  read as "bad" rather than "new". */
-  reliability: SupplierReliability | null;
-  /** The categories this supplier ACTUALLY stocks, from their real
-   *  products — not a self-described category. */
-  stockedCategories: string[];
+  /** The supplier's real trading record — counts that only ever grow.
+   *  Each figure is hidden at zero rather than shown as a nought.
+   *  NULL when the supplier has switched their track record off; the
+   *  gate is the field's absence, so a screen that forgets to check a
+   *  flag can't leak it. */
+  trust: SupplierTrust | null;
+  /** When they were last using the app — NULL unless the supplier
+   *  switched it on. The gate is the field's absence, so a screen that
+   *  forgets to check a flag can't leak it. */
+  activity: SupplierActivity | null;
 }
 
-export interface SupplierReliability {
-  /** Orders they've genuinely decided on (accepted or declined).
-   *  Excludes still-pending and business-cancelled orders. */
-  decidedCount: number;
-  acceptedCount: number;
-  /** MEDIAN hours from submitted to decided, so one holiday doesn't
-   *  define "usually". Null if no order had both timestamps. */
-  medianResponseHours: number | null;
+export interface SupplierTrust {
+  /** All-time orders this supplier has ACCEPTED. A count, not a rate:
+   *  it only ever grows, and it moves the moment they accept something
+   *  (the ratio and median-reply-time it replaced did neither — see the
+   *  backend repository's own note). */
+  acceptedOrderCount: number;
+  /** Businesses that have had MORE THAN ONE order accepted. The
+   *  hardest signal to fake: coming back is a verdict on the first
+   *  order. */
+  repeatBusinessCount: number;
+  /** Volume, not transaction count — 16 orders of one case each and 16
+   *  of forty are very different suppliers. */
+  unitsSoldCount: number;
+}
+
+export interface SupplierActivity {
+  lastActiveAt: string;
+  /** Resolved SERVER-SIDE so every screen agrees what "online" means
+   *  and the threshold lives in one place. */
+  isOnline: boolean;
 }
 
 /** Mirrors discovery_service.get_supplier_profile's own
@@ -276,6 +291,11 @@ export interface SupplierProduct {
    *  looking at it. */
   compareAtPriceCents: number | null;
   sellingUnit: string;
+  /** What's actually inside the unit — "Pack" + 6 + "BOTTLE" reads as
+   *  "Pack of 6 bottles", and makes a per-unit price computable. Both
+   *  nullable: plenty of products are just sold as Each. */
+  unitQuantity: number | null;
+  unitMeasure: string | null;
   /** A real, direct answer to "can I actually order this right now" --
    *  never the exact quantity. Computed server-side from the
    *  supplier's real Inventory row (available = on hand - reserved),
@@ -344,6 +364,10 @@ export interface SupplierProductsQuery {
   limit?: number;
   sort?: string;
   category?: string | null;
+  /** Substring match on the product name, applied SERVER-side before
+   *  pagination — a client-side filter could only ever search the page
+   *  you happen to be on. */
+  search?: string | null;
 }
 
 /**
@@ -387,11 +411,28 @@ export interface SupplierProductDetail {
   priceCents: number;
   compareAtPriceCents: number | null;
   sellingUnit: string;
+  /** What's actually inside the unit — "Pack" + 6 + "BOTTLE" reads as
+   *  "Pack of 6 bottles", and makes a per-unit price computable. Both
+   *  nullable: plenty of products are just sold as Each. */
+  unitQuantity: number | null;
+  unitMeasure: string | null;
   /** Same real, direct meaning as SupplierProduct's own inStock. */
   inStock: boolean;
   description: string | null;
   productCode: string;
   images: string[];
+  /** Distinct businesses that have had a CONFIRMED order including
+   *  this product. Social proof for "will this sell". Hidden below a
+   *  threshold by the UI — "1 business bought this" reads as a warning,
+   *  not a recommendation. */
+  buyerCount: number;
+  /** The supplier's fulfilment terms, repeated on the product page —
+   *  this is where a business decides to add, so discovering either at
+   *  checkout is two screens too late. Ungated, matching the profile.
+   *  offersDelivery is TRI-STATE (null = they haven't said);
+   *  minimumOrderCents null means no minimum, never zero. */
+  supplierOffersDelivery: boolean | null;
+  supplierMinimumOrderCents: number | null;
 }
 
 /**

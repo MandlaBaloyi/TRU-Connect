@@ -12,6 +12,10 @@ interface Props {
   supplierName: string;
   products: SupplierProduct[];
   onPressProduct: (product: SupplierProduct) => void;
+  /** Same Add button the catalogue grid has. Omitted -> no button, so
+   *  a context without a cart can still reuse this row. */
+  onAddToCart?: (product: SupplierProduct) => void;
+  addingProductId?: string | null;
 }
 
 const CARD_WIDTH = 160;
@@ -40,7 +44,13 @@ const CARD_WIDTH = 160;
  * Renders nothing at all only when the supplier genuinely has no
  * other products at all.
  */
-export function RelatedProductsRow({ supplierName, products, onPressProduct }: Props) {
+export function RelatedProductsRow({
+  supplierName,
+  products,
+  onPressProduct,
+  onAddToCart,
+  addingProductId,
+}: Props) {
   const theme = useTheme();
 
   if (products.length === 0) return null;
@@ -55,7 +65,13 @@ export function RelatedProductsRow({ supplierName, products, onPressProduct }: P
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <SupplierCatalogProductCard product={item} onPress={() => onPressProduct(item)} cardStyle={styles.card} />
+          <SupplierCatalogProductCard
+            product={item}
+            onPress={() => onPressProduct(item)}
+            cardStyle={styles.card}
+            onAddToCart={onAddToCart ? () => onAddToCart(item) : undefined}
+            isAdding={addingProductId === item.id}
+          />
         )}
       />
     </View>

@@ -1,7 +1,7 @@
 import React from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { ChevronRight, Package } from "lucide-react-native";
+import { ChevronRight, Package, Plus } from "lucide-react-native";
 
 import { ProductActionsRow } from "@/components/products/ProductActionsRow";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
@@ -32,6 +32,11 @@ interface Props {
   /** name rides along so the product screen's own top bar is right
    *  on its first frame -- see business/routes.ts. */
   onProductPress: (productId: string, productName: string) => void;
+  /** Add straight from the brand profile -- the same reasoning as the
+   *  catalogue grid: a repeat buyer shouldn't have to open a product
+   *  page to add something they already know they want. */
+  onAddToCart?: (product: SupplierProduct) => void;
+  addingProductId?: string | null;
 }
 
 const CARD_WIDTH = 148;
@@ -40,7 +45,14 @@ function labelFor(category: string): string {
   return CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category;
 }
 
-export function SupplierShowcase({ categories, isLoading, onSeeAll, onProductPress }: Props) {
+export function SupplierShowcase({
+  categories,
+  isLoading,
+  onSeeAll,
+  onProductPress,
+  onAddToCart,
+  addingProductId,
+}: Props) {
   const theme = useTheme();
 
   if (isLoading) {
@@ -87,7 +99,12 @@ export function SupplierShowcase({ categories, isLoading, onSeeAll, onProductPre
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
-              <ShowcaseCard product={item} onPress={() => onProductPress(item.id, item.name)} />
+              <ShowcaseCard
+                product={item}
+                onPress={() => onProductPress(item.id, item.name)}
+                onAddToCart={onAddToCart ? () => onAddToCart(item) : undefined}
+                isAdding={addingProductId === item.id}
+              />
             )}
           />
         </View>
@@ -96,11 +113,21 @@ export function SupplierShowcase({ categories, isLoading, onSeeAll, onProductPre
   );
 }
 
-function ShowcaseCard({ product, onPress }: { product: SupplierProduct; onPress: () => void }) {
+function ShowcaseCard({
+  product,
+  onPress,
+  onAddToCart,
+  isAdding = false,
+}: {
+  product: SupplierProduct;
+  onPress: () => void;
+  onAddToCart?: () => void;
+  isAdding?: boolean;
+}) {
   const theme = useTheme();
   const discount = calculateDiscount(product.priceCents, product.compareAtPriceCents);
   const photo = product.images[0] ?? null;
-  const unitLabel = sellingUnitLabel(product.sellingUnit);
+  const unitLabel = sellingUnitLabel(product.sellingUnit, product.unitQuantity, product.unitMeasure);
 
   return (
     <Pressable
@@ -135,7 +162,7 @@ function ShowcaseCard({ product, onPress }: { product: SupplierProduct; onPress:
           {product.name}
         </Text>
         <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: discount ? theme.colors.error : theme.colors.onSurface }]}>
+          <Text style={[styles.price, { color: theme.colors.onSurface }]}>
             {formatCents(product.priceCents)}
           </Text>
           {discount && product.compareAtPriceCents !== null && (
@@ -153,6 +180,41 @@ function ShowcaseCard({ product, onPress }: { product: SupplierProduct; onPress:
             cards had drifted, so the same product looked like a
             different kind of object depending on which screen you
             found it on. One shared component now. */}
+        {onAddToCart && (
+          <Pressable
+            onPress={(event) => {
+              // The card itself navigates; adding must not.
+              event.stopPropagation();
+              onAddToCart();
+            }}
+            disabled={!product.inStock || isAdding}
+            style={({ pressed }) => [
+              styles.addButton,
+              {
+                backgroundColor: product.inStock ? theme.colors.primary : theme.colors.surfaceVariant,
+                opacity: !product.inStock || isAdding ? 0.5 : pressed ? 0.85 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={product.inStock ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
+            accessibilityState={{ disabled: !product.inStock || isAdding }}
+          >
+            <Plus
+              size={14}
+              color={product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+              strokeWidth={2.6}
+            />
+            <Text
+              style={[
+                styles.addLabel,
+                { color: product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {isAdding ? "Adding…" : product.inStock ? "Add" : "Out of stock"}
+            </Text>
+          </Pressable>
+        )}
+
         <ProductActionsRow productName={product.name} size={18} />
       </View>
     </Pressable>
@@ -160,6 +222,16 @@ function ShowcaseCard({ product, onPress }: { product: SupplierProduct; onPress:
 }
 
 const styles = StyleSheet.create({
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minHeight: 32,
+    borderRadius: radius.md,
+    marginTop: spacing.xs,
+  },
+  addLabel: { ...typography.bodySmall, fontWeight: "700", fontSize: 12 },
   unitLabel: { ...typography.bodySmall, fontSize: 11, marginTop: 1 },
   wrap: { gap: spacing.lg },
   centre: { height: 140, alignItems: "center", justifyContent: "center" },

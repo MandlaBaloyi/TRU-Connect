@@ -902,3 +902,145 @@ def test_list_related_products_raises_for_a_genuinely_nonexistent_product(
 
     with pytest.raises(ProductNotFoundError):
         catalog_service.list_related_products(business.id, profile.id, uuid.uuid4())
+
+
+# --- Catalogue ranking, search, and buy-it-again --------------------------
+
+
+def _product(profile_id, name):
+    """This file's own _make_product wants every column spelled out;
+    these tests only care about the name, so the rest is fixed."""
+    return _make_product(profile_id, name, ProductCategory.BEVERAGES, 1000, ProductUnit.EACH)
+
+
+def _confirmed_order(business, profile, product, quantity=1):
+    """A real CONFIRMED order for `product` -- the only kind that counts
+    toward best-selling or buy-it-again."""
+    from src.core.base_model import utcnow
+    from src.domains.network.orders.models.stock_order import StockOrder, StockOrderItem, StockOrderStatus
+    from src.extensions import db
+
+    order = StockOrder(
+        business_id=business.id,
+        supplier_profile_id=profile.id,
+        status=StockOrderStatus.CONFIRMED,
+        total_cents=product.price_cents * quantity,
+        submitted_at=utcnow(),
+        decided_at=utcnow(),
+    )
+    db.session.add(order)
+    db.session.flush()
+    db.session.add(
+        StockOrderItem(
+            stock_order_id=order.id,
+            product_id=product.id,
+            quantity=quantity,
+            price_cents_at_add_time=product.price_cents,
+        )
+    )
+    db.session.commit()
+    return order
+
+
+def test_recommended_is_the_default_and_puts_in_stock_first(
+    make_business, make_supplier, make_supplier_profile
+):
+    """RECOMMENDED replaced NEWEST as the default: with NEWEST, whatever
+    a supplier uploaded last led their shop regardless of whether it was
+    even orderable."""
+    from src.domains.network.connections.services.storefront import catalog_service
+    from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Rank Catalogue Co")
+    _product(profile.id, "Old but available")
+    newest = _product(profile.id, "Newest but sold out")
+
+    stocked = _product(profile.id, "Also available")
+    for p in (stocked,):
+        inventory = InventoryRepository.get_or_create_for_product(p.id, profile.id)
+        InventoryRepository.adjust_quantity(inventory, 10)
+
+    result = catalog_service.list_supplier_products(business.id, profile.id)
+    names = [p["name"] for p in result["products"]]
+
+    # The in-stock product leads, even though a newer one exists.
+    assert names[0] == "Also available"
+    assert newest.name in names  # sold-out products still appear, just lower
+
+
+def test_best_selling_sorts_by_units_actually_sold(
+    make_business, make_supplier, make_supplier_profile
+):
+    from src.domains.network.connections.services.storefront import catalog_service
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Best Seller Co")
+    quiet = _product(profile.id, "Barely sells")
+    popular = _product(profile.id, "Sells a lot")
+
+    _confirmed_order(business, profile, quiet, quantity=1)
+    _confirmed_order(business, profile, popular, quantity=25)
+
+    result = catalog_service.list_supplier_products(business.id, profile.id, sort="BEST_SELLING")
+    names = [p["name"] for p in result["products"]]
+
+    assert names[0] == "Sells a lot"
+    # A product nobody ever ordered still appears -- LEFT JOIN, ranked
+    # last, never dropped from the catalogue.
+    assert "Barely sells" in names
+
+
+def test_catalogue_search_matches_a_substring_of_the_name(
+    make_business, make_supplier, make_supplier_profile
+):
+    """Substring, not prefix: a business searching inside ONE supplier's
+    catalogue isn't the public discovery search, so matching "cola"
+    against "Coca-Cola 500ml" is the whole point."""
+    from src.domains.network.connections.services.storefront import catalog_service
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="Search Co")
+    _product(profile.id, "Coca-Cola 500ml")
+    _product(profile.id, "Simba Chips")
+
+    result = catalog_service.list_supplier_products(business.id, profile.id, search_term="cola")
+
+    assert [p["name"] for p in result["products"]] == ["Coca-Cola 500ml"]
+    # totalCount reflects the FILTERED set, so pagination stays honest.
+    assert result["totalCount"] == 1
+
+
+def test_buy_it_again_returns_only_this_businesss_confirmed_orders(
+    make_business, make_supplier, make_supplier_profile
+):
+    from src.domains.network.connections.services.storefront import catalog_service
+
+    business = make_business()
+    other_business = make_business("someone-else@example.com")
+    profile = make_supplier_profile(make_supplier(), business_name="Reorder Co")
+
+    mine = _product(profile.id, "What I always buy")
+    theirs = _product(profile.id, "What someone else buys")
+    _product(profile.id, "Never ordered by anyone")
+
+    _confirmed_order(business, profile, mine)
+    _confirmed_order(other_business, profile, theirs)
+
+    result = catalog_service.list_buy_it_again(business.id, profile.id)
+
+    # Personal history, not a popularity list: another business's order
+    # must never appear in mine.
+    assert [p["name"] for p in result["products"]] == ["What I always buy"]
+
+
+def test_buy_it_again_is_empty_for_a_business_that_never_ordered(
+    make_business, make_supplier, make_supplier_profile
+):
+    from src.domains.network.connections.services.storefront import catalog_service
+
+    business = make_business()
+    profile = make_supplier_profile(make_supplier(), business_name="No History Co")
+    _product(profile.id, "Something")
+
+    assert catalog_service.list_buy_it_again(business.id, profile.id) == {"products": []}

@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Heart, Mail, MessageCircle, Music2, ShoppingCart } from "lucide-react-native";
+import { Heart, ShoppingCart } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { productDetailHref } from "../../routes";
@@ -11,8 +11,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { ImageCarousel } from "../../../supplier/products/components";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
 import { formatCents } from "../../../supplier/products/services/productMapper";
-import { CATEGORY_OPTIONS, UNIT_OPTIONS } from "../../../supplier/products/types";
-import { buildTikTokUrl, buildWhatsAppUrl, openUrl } from "@/services/contact/contactLinks";
+import { CATEGORY_OPTIONS } from "../../../supplier/products/types";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { palette } from "@/theme/colors";
@@ -21,12 +20,18 @@ import { useSupplierProductDetail } from "../../find-supplier/hooks/useSupplierP
 import { useRelatedProducts } from "../../find-supplier/hooks/useRelatedProducts";
 import { useReportSupplier } from "../../find-supplier/hooks/useReportSupplier";
 import { useAddToCart } from "../../orders/hooks/useAddToCart";
+import { useCart } from "../../orders/hooks/useCart";
 import { ApiError } from "@/services/api/apiClient";
 import { ProductDetailMenu } from "../components/ProductDetailMenu";
 import { ReportSupplierSheet } from "../components/ReportSupplierSheet";
 import { RelatedProductsRow } from "../components/RelatedProductsRow";
 import { AccordionSection } from "@/components/ui/AccordionSection";
-import type { ReportReason } from "../../find-supplier/types";
+import { ProductBuyBlock } from "../components/ProductBuyBlock";
+import { ProductFulfilmentNote } from "../components/ProductFulfilmentNote";
+import { SupplierContactRow } from "../../find-supplier/components/SupplierContactRow";
+import { ProfileCard } from "../../find-supplier/components/ProfileSection";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
+import type { ReportReason, SupplierProduct } from "../../find-supplier/types";
 
 const DESCRIPTION_COLLAPSED_LINES = 4;
 
@@ -90,12 +95,38 @@ export default function SupplierProductDetailScreen() {
   const theme = useTheme();
   const { product, isLoading, isError, refetch } = useSupplierProductDetail(supplierId ?? "", productId ?? "");
   const { addToCart } = useAddToCart(supplierId ?? "");
+  // Needed for the minimum-order shortfall: it's measured against the
+  // WHOLE cart, not this product alone -- see ProductFulfilmentNote.
+  const { cart } = useCart(supplierId ?? "");
   const { relatedProducts } = useRelatedProducts(supplierId ?? "", productId ?? "");
   const { reportSupplier, isReporting } = useReportSupplier(supplierId ?? "");
 
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [descriptionTruncated, setDescriptionTruncated] = useState(false);
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
+  // Resets to 1 on every product, deliberately -- carrying a quantity
+  // across products would silently add 10 of something you looked at
+  // after ordering 10 of something else.
+  const [quantity, setQuantity] = useState(1);
+  // Separate from `quantity` above: the related row adds ONE of a
+  // DIFFERENT product, and must not borrow the quantity chosen for the
+  // product currently on screen.
+  const [addingRelatedId, setAddingRelatedId] = useState<string | null>(null);
+
+  const handleAddRelated = async (related: SupplierProduct) => {
+    setAddingRelatedId(related.id);
+    try {
+      await addToCart({ productId: related.id, quantity: 1 });
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "OUT_OF_STOCK") {
+        Alert.alert("Out of stock", error.message);
+      } else {
+        Alert.alert("Couldn't add to cart", "Check your connection and try again.");
+      }
+    } finally {
+      setAddingRelatedId(null);
+    }
+  };
 
   const handleReport = async (reason: ReportReason, details: string | null) => {
     try {
@@ -110,11 +141,15 @@ export default function SupplierProductDetailScreen() {
   const handleAddToCart = async () => {
     if (!supplierId || !productId) return;
     try {
-      await addToCart({ productId, quantity: 1 });
-      Alert.alert("Added to cart", `${product?.name ?? "This product"} was added to your cart.`, [
-        { text: "Keep browsing" },
-        { text: "View cart", onPress: () => router.push(`/business/orders/${supplierId}` as any) },
-      ]);
+      await addToCart({ productId, quantity });
+      Alert.alert(
+        "Added to cart",
+        `${quantity} × ${product?.name ?? "this product"} added to your cart.`,
+        [
+          { text: "Keep browsing" },
+          { text: "View cart", onPress: () => router.push(`/business/orders/${supplierId}` as any) },
+        ]
+      );
     } catch (error) {
       // Real, specific message when the product is out of stock --
       // a real bug found after direct report: this check never
@@ -185,81 +220,24 @@ export default function SupplierProductDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ImageCarousel images={product.images} />
 
+        {/* THE BUY BLOCK replaces a six-row label/value table -- see
+            ProductBuyBlock's own docstring for what that table got
+            wrong and which questions this answers instead. Supplier
+            and product name aren't repeated here: both are already in
+            the top bar. */}
+        <ProductBuyBlock product={product} />
+
+        {/* Moves with the quantity stepper below, so pressing + visibly
+            closes the gap to the minimum -- a blocker turned into an
+            instruction. */}
+        <ProductFulfilmentNote
+          offersDelivery={product.supplierOffersDelivery}
+          minimumOrderCents={product.supplierMinimumOrderCents}
+          cartTotalCents={cart?.totalCents ?? 0}
+          lineTotalCents={product.priceCents * quantity}
+        />
+
         <View style={styles.body}>
-          {/* Product details -- row-style, no arrows, always visible. */}
-          <Text style={[styles.sectionHeader, { color: theme.colors.onSurface }]}>Product details</Text>
-          <View style={styles.detailsList}>
-            <View style={styles.detailsRow}>
-              <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Supplier</Text>
-              <Text style={[styles.detailsValue, { color: theme.colors.onSurface }]}>{product.supplierName}</Text>
-            </View>
-            <View style={[styles.detailsDivider, { backgroundColor: theme.colors.outlineVariant }]} />
-
-            <View style={styles.detailsRow}>
-              <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Product name</Text>
-              <Text style={[styles.detailsValue, { color: theme.colors.onSurface }]}>{product.name}</Text>
-            </View>
-            <View style={[styles.detailsDivider, { backgroundColor: theme.colors.outlineVariant }]} />
-
-            <View style={styles.detailsRow}>
-              <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Price</Text>
-              <View style={styles.priceRow}>
-                <Text
-                  style={[styles.detailsValue, { color: discount ? theme.colors.error : theme.colors.onSurface }]}
-                >
-                  {formatCents(product.priceCents)}
-                </Text>
-                {product.compareAtPriceCents !== null && (
-                  <Text style={[styles.compareAtPrice, { color: theme.colors.onSurfaceVariant }]}>
-                    {formatCents(product.compareAtPriceCents)}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {discount && (
-              <>
-                <View style={[styles.detailsDivider, { backgroundColor: theme.colors.outlineVariant }]} />
-                <View style={styles.detailsRow}>
-                  <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Discount</Text>
-                  <View style={[styles.discountBadge, { backgroundColor: theme.colors.errorContainer }]}>
-                    <Text style={[styles.discountBadgeText, { color: theme.colors.error }]}>
-                      {discount.percentOff}% OFF
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-
-            <View style={[styles.detailsDivider, { backgroundColor: theme.colors.outlineVariant }]} />
-            <View style={styles.detailsRow}>
-              <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Availability</Text>
-              <View
-                style={[
-                  styles.availabilityBadge,
-                  { backgroundColor: product.inStock ? "#E3F6EC" : theme.colors.errorContainer },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.availabilityText,
-                    { color: product.inStock ? palette.success : theme.colors.error },
-                  ]}
-                >
-                  {product.inStock ? "In stock" : "Out of stock"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailsDivider, { backgroundColor: theme.colors.outlineVariant }]} />
-            <View style={styles.detailsRow}>
-              <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Sold as</Text>
-              <Text style={[styles.detailsValue, { color: theme.colors.onSurface }]}>
-                {labelFor(UNIT_OPTIONS, product.sellingUnit)}
-              </Text>
-            </View>
-          </View>
-
           {/* Description -- its own block right below Product
               details, not a row inside it. */}
           {product.description && (
@@ -299,10 +277,39 @@ export default function SupplierProductDetailScreen() {
 
           <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
 
-          {/* Product Codes -- collapsible, Supplier moved up into the
-              real Product details section above, so only Product code
-              and Category remain here. */}
-          <AccordionSection title="Product Codes">
+          {/* Shipping and Returns come BEFORE Product Codes: how it
+              reaches you and what happens if it's wrong are decisions;
+              a product code is a reference you look up. All three start
+              collapsed -- reference material you open on a question,
+              not something to re-read every visit. Each is separated by
+              a rule so a stack of closed headers doesn't read as one
+              undifferentiated list. */}
+          <AccordionSection title="Shipping" defaultExpanded={false}>
+            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
+              TRU Connect provides the technology connecting you with suppliers -- we don't handle delivery
+              ourselves. Delivery is arranged directly with {product.supplierName}.
+            </Text>
+            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
+              Contact {product.supplierName} using the details below to confirm delivery options, timing, and any
+              costs.
+            </Text>
+          </AccordionSection>
+
+          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+
+          <AccordionSection title="Returns" defaultExpanded={false}>
+            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
+              TRU Connect doesn't process returns or refunds -- that's arranged directly between you and{" "}
+              {product.supplierName}.
+            </Text>
+            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
+              Contact {product.supplierName} directly to discuss returning or exchanging this product.
+            </Text>
+          </AccordionSection>
+
+          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+
+          <AccordionSection title="Product Codes" defaultExpanded={false}>
             <View style={styles.detailsRow}>
               <Text style={[styles.detailsLabel, { color: theme.colors.onSurface }]}>Product code</Text>
               <Text style={[styles.detailsValue, { color: theme.colors.onSurface }]}>{product.productCode}</Text>
@@ -318,35 +325,6 @@ export default function SupplierProductDetailScreen() {
 
           <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
 
-          {/* Shipping/Returns -- real TRU Connect defaults, honest
-              about TRU Connect not being the seller. Meant to be
-              replaced once a real supplier-input form for this
-              exists. */}
-          <AccordionSection title="Shipping">
-            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              TRU Connect provides the technology connecting you with suppliers -- we don't handle delivery
-              ourselves. Delivery is arranged directly with {product.supplierName}.
-            </Text>
-            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              Contact {product.supplierName} using the details below to confirm delivery options, timing, and any
-              costs.
-            </Text>
-          </AccordionSection>
-
-          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
-
-          <AccordionSection title="Returns">
-            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              TRU Connect doesn't process returns or refunds -- that's arranged directly between you and{" "}
-              {product.supplierName}.
-            </Text>
-            <Text style={[styles.policyText, { color: theme.colors.onSurface }]}>
-              Contact {product.supplierName} directly to discuss returning or exchanging this product.
-            </Text>
-          </AccordionSection>
-
-          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
-
           {/* More from [Supplier] -- ABOVE Contact. */}
           <RelatedProductsRow
             supplierName={product.supplierName}
@@ -354,60 +332,38 @@ export default function SupplierProductDetailScreen() {
             onPressProduct={(related) =>
               router.push(productDetailHref(supplierId, related.id, related.name, headerSupplierName) as any)
             }
+            onAddToCart={handleAddRelated}
+            addingProductId={addingRelatedId}
           />
 
+          <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+
+          {/* SAME CARD AS THE SUPPLIER PROFILE. This screen had its own
+              hand-rolled copy of the WhatsApp/TikTok/Email buttons,
+              styled slightly differently -- so the same three actions
+              looked like two different features depending on which
+              screen you reached them from. SupplierContactRow is the
+              one implementation now; find-supplier is the feature
+              my-suppliers already depends on, so importing it points
+              the arrow the right way. */}
           {product.contact && (
-            <View style={styles.contactSection}>
+            <View style={styles.contactBlock}>
+              {/* The screen's OWN section header, not ProfileSection's
+                  tiny uppercase label. That label works for a short,
+                  fixed word like "TRACK RECORD"; set in caps with wide
+                  letter-spacing, "CONTACT MACMAN BUSINESSES" became a
+                  long shouted string that read as less important than
+                  the sections around it, which use this heading. Within
+                  one screen, matching that screen beats matching a
+                  different one. */}
               <Text style={[styles.sectionHeader, { color: theme.colors.onSurface }]}>
                 Contact {product.supplierName}
               </Text>
-              <View style={styles.contactActions}>
-                {product.contact.whatsappNumber && (
-                  <Pressable
-                    onPress={() => openUrl(buildWhatsAppUrl(product.contact!.whatsappNumber!))}
-                    style={({ pressed }) => [
-                      styles.contactAction,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                      pressed && styles.contactActionPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Message ${product.supplierName} on WhatsApp`}
-                  >
-                    <MessageCircle size={18} color={theme.colors.onSurface} strokeWidth={2} />
-                    <Text style={[styles.contactActionLabel, { color: theme.colors.onSurface }]}>WhatsApp</Text>
-                  </Pressable>
-                )}
-                {product.contact.tiktokHandle && (
-                  <Pressable
-                    onPress={() => openUrl(buildTikTokUrl(product.contact!.tiktokHandle!))}
-                    style={({ pressed }) => [
-                      styles.contactAction,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                      pressed && styles.contactActionPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${product.supplierName} on TikTok`}
-                  >
-                    <Music2 size={18} color={theme.colors.onSurface} strokeWidth={2} />
-                    <Text style={[styles.contactActionLabel, { color: theme.colors.onSurface }]}>TikTok</Text>
-                  </Pressable>
-                )}
-                {product.contact.email && (
-                  <Pressable
-                    onPress={() => openUrl(`mailto:${product.contact!.email}`)}
-                    style={({ pressed }) => [
-                      styles.contactAction,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                      pressed && styles.contactActionPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Email ${product.supplierName}`}
-                  >
-                    <Mail size={18} color={theme.colors.onSurface} strokeWidth={2} />
-                    <Text style={[styles.contactActionLabel, { color: theme.colors.onSurface }]}>Email</Text>
-                  </Pressable>
-                )}
-              </View>
+              <ProfileCard>
+                <View style={styles.contactCardBody}>
+                  <SupplierContactRow contact={product.contact} />
+                </View>
+              </ProfileCard>
             </View>
           )}
         </View>
@@ -415,27 +371,64 @@ export default function SupplierProductDetailScreen() {
 
       {/* Fixed bottom bar -- price, heart, Add to Cart, always
           reachable regardless of scroll position. */}
+      {/* THE BUY BAR. Two rows now, not one: the quantity has to sit
+          beside the action it applies to, and cramming a stepper into
+          the single row alongside price + heart + button left nothing
+          room to breathe on a narrow phone.
+
+          THE LINE TOTAL, not the unit price, is what the top row shows
+          once quantity > 1 -- "R200.00" while you're about to add three
+          cases answers the wrong question. The unit price stays
+          visible beneath it so the arithmetic is checkable. */}
       <View style={[styles.bottomBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant }]}>
-        <Text style={[styles.bottomBarPrice, { color: discount ? theme.colors.error : theme.colors.onSurface }]}>
-          {formatCents(product.priceCents)}
-        </Text>
-        <Pressable
-          onPress={() => Alert.alert("Coming soon", "Likes isn't available yet, but it's on the way.")}
-          hitSlop={8}
-          style={styles.bottomBarHeart}
-          accessibilityRole="button"
-          accessibilityLabel={`Like ${product.name}`}
-        >
-          <Heart size={24} color={theme.colors.onSurfaceVariant} strokeWidth={2.5} />
-        </Pressable>
+        <View style={styles.bottomBarTop}>
+          <View style={styles.bottomBarPriceBlock}>
+            <Text style={[styles.bottomBarPrice, { color: theme.colors.onSurface }]}>
+              {formatCents(product.priceCents * quantity)}
+            </Text>
+            {quantity > 1 && (
+              <Text style={[styles.bottomBarUnit, { color: theme.colors.onSurfaceVariant }]}>
+                {formatCents(product.priceCents)} each
+              </Text>
+            )}
+          </View>
+          <QuantityStepper value={quantity} onChange={setQuantity} disabled={!product.inStock} />
+          <Pressable
+            onPress={() => Alert.alert("Coming soon", "Likes isn't available yet, but it's on the way.")}
+            hitSlop={8}
+            style={styles.bottomBarHeart}
+            accessibilityRole="button"
+            accessibilityLabel={`Like ${product.name}`}
+          >
+            <Heart size={24} color={theme.colors.onSurfaceVariant} strokeWidth={2.5} />
+          </Pressable>
+        </View>
         <Pressable
           onPress={handleAddToCart}
-          style={[styles.addToCartButton, { backgroundColor: theme.colors.primary }]}
+          disabled={!product.inStock}
+          style={[
+            styles.addToCartButton,
+            {
+              backgroundColor: product.inStock ? theme.colors.primary : theme.colors.surfaceVariant,
+            },
+          ]}
           accessibilityRole="button"
-          accessibilityLabel="Add to cart"
+          accessibilityLabel={product.inStock ? "Add to cart" : "Out of stock"}
+          accessibilityState={{ disabled: !product.inStock }}
         >
-          <ShoppingCart size={18} color={theme.colors.onPrimary} strokeWidth={2.2} />
-          <Text style={[styles.addToCartLabel, { color: theme.colors.onPrimary }]}>Add to Cart</Text>
+          <ShoppingCart
+            size={18}
+            color={product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+            strokeWidth={2.2}
+          />
+          <Text
+            style={[
+              styles.addToCartLabel,
+              { color: product.inStock ? theme.colors.onPrimary : theme.colors.onSurfaceVariant },
+            ]}
+          >
+            {product.inStock ? "Add to Cart" : "Out of stock"}
+          </Text>
         </Pressable>
       </View>
 
@@ -451,13 +444,13 @@ export default function SupplierProductDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  contactBlock: { gap: spacing.sm },
+  contactCardBody: { padding: spacing.md },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { paddingBottom: 96 },
   body: { padding: spacing.md, gap: spacing.md },
   priceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   compareAtPrice: { ...typography.bodySmall, textDecorationLine: "line-through" },
-  discountBadge: { paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: radius.sm },
-  discountBadgeText: { ...typography.caption, fontWeight: "700" },
   availabilityBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill },
   availabilityText: { ...typography.bodySmall, fontWeight: "700" },
   divider: { height: StyleSheet.hairlineWidth },
@@ -470,40 +463,44 @@ const styles = StyleSheet.create({
   readMore: { ...typography.bodySmall, fontWeight: "700", marginTop: 4 },
   policyText: { ...typography.body, lineHeight: 20 },
   detailsList: { gap: 0 },
-  detailsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
-  detailsLabel: { ...typography.bodySmall, fontWeight: "600" },
-  detailsValue: { ...typography.body, fontWeight: "700" },
-  detailsDivider: { height: StyleSheet.hairlineWidth },
-  contactSection: { gap: spacing.sm },
-  contactActions: { flexDirection: "row", gap: spacing.sm },
-  contactAction: {
-    flex: 1,
+  // REAL BUG, visible on a real device: this was space-between with no
+  // width constraint on either child, so a long value (a product name
+  // that ran to two lines) simply expanded until it overlapped its own
+  // label. Every row was exposed; the name just triggered it first.
+  //
+  // The label now holds a fixed share and stops shrinking, and the
+  // value takes the rest and wraps inside it. alignItems moved to
+  // flex-start so a wrapped, multi-line value stays top-aligned with
+  // its label instead of drifting to the vertical middle of the row.
+  detailsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    minHeight: 48,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  contactActionPressed: { opacity: 0.7 },
-  contactActionLabel: { ...typography.body, fontWeight: "600" },
+  detailsLabel: { ...typography.bodySmall, fontWeight: "600", flexShrink: 0, maxWidth: "40%" },
+  detailsValue: { ...typography.body, fontWeight: "700", flex: 1, textAlign: "right" },
+  detailsDivider: { height: StyleSheet.hairlineWidth },
+  // Stacks now (was a single row): price+quantity+heart on top, the
+  // full-width action beneath. A wide Add to Cart is also a bigger,
+  // easier target than one squeezed beside three other controls.
   bottomBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  bottomBarTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  bottomBarPriceBlock: { flex: 1 },
   bottomBarPrice: { ...typography.h2, fontWeight: "700" },
+  bottomBarUnit: { ...typography.bodySmall, fontSize: 11 },
   bottomBarHeart: { padding: spacing.xs },
   addToCartButton: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

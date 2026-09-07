@@ -96,7 +96,10 @@ function ContactButton({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },
+  // No horizontal padding of its own -- it sits inside the profile
+  // card, which already provides it. Double-padding narrowed the three
+  // buttons for no reason.
+  wrap: { flexDirection: "row", gap: spacing.sm },
   button: {
     flex: 1,
     flexDirection: "row",
