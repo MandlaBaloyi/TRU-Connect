@@ -1,0 +1,248 @@
+===========================================================================
+TRU CONNECT — WHY THE CATALOGUE MATTERS
+The strategic case for the central product catalogue
+
+Version: 2.0.0
+Status: Strategy note
+Authority: Subordinate to 00A_TRUEPOINT_PLATFORM_CONSTITUTION
+Date: 2026-09-08
+===========================================================================
+
+
+HOW TO USE THIS DOCUMENT
+
+Written to be drawn on in investor conversations, but written as an
+internal assessment rather than a pitch. Part 5 lists what is NOT true
+yet and what should not be claimed. That section exists because being
+caught overstating in front of someone who asks one hard follow-up is
+worse than understating from the start -- and an investor who finds the
+limits stated plainly in your own document tends to trust the rest of it.
+
+Every number here is either measured or labelled as an estimate.
+
+
+===========================================================================
+PART 1 — THE INVERSION
+===========================================================================
+
+The obvious benefit of a central catalogue is price comparison: a
+business sees that the same case of Coke is R89 from one supplier and
+R94 from another.
+
+That is the LEAST valuable thing it does.
+
+It is the visible feature, the one that belongs on a landing page, and
+if it were the only benefit the complexity would not be worth carrying.
+The three things underneath it are where the value actually is, and none
+of them are visible in the product.
+
+Ranked by what they are worth to the business, most first:
+
+  1. Supplier onboarding cost      -- existential, today
+  2. Making a basket legible       -- unlocks lending
+  3. Price data nobody else holds  -- a by-product of the first two
+  4. A compounding moat            -- gets harder to copy over time
+  5. Price comparison for buyers   -- the visible one
+
+
+===========================================================================
+PART 2 — THE FOUR THAT MATTER
+===========================================================================
+
+
+2.1 SUPPLIER ONBOARDING IS THE GROWTH CONSTRAINT
+
+The binding constraint on TRU Connect is not demand from businesses. It
+is how long it takes to get a supplier listed with a real catalogue.
+
+Without a central catalogue, a supplier arriving with 3,000 products is
+a data-entry project -- either theirs or ours, and neither party will do
+it. That is not friction, it is a refusal, and it caps the platform at
+whatever size the smallest suppliers can be typed in by hand.
+
+With it, a supplier uploads the spreadsheet they already have and is
+trading. Everything else in this document is downstream of that: none of
+it happens if suppliers cannot join.
+
+THIS IS THE ONE TO LEAD WITH. It is concrete, it is measurable, and it
+is the thing an operator will recognise immediately.
+
+
+2.2 A LEGIBLE BASKET IS WHAT MAKES LENDING POSSIBLE
+
+Lending to informal businesses is already on the roadmap, and the
+catalogue is the piece that makes it underwritable.
+
+The problem: you cannot assess a spaza shop from a bank statement,
+because most do not have a meaningful one. Cash trade leaves no record a
+lender can read.
+
+What TRU Connect has instead: "orders R14,000 a month, consistently,
+from three suppliers, pays on time." That is a credit file that does not
+otherwise exist anywhere.
+
+THE CATALOGUE IS WHAT TURNS THAT NUMBER INTO A SIGNAL. Without it,
+R14,000 is opaque -- money spent on unspecified things. With it, the
+basket is readable: maize meal, cooking oil, bread. Staples, stable
+demand, price-inelastic, low risk. Change the same basket to
+discretionary goods and the risk profile is completely different.
+
+An opaque number is data. A legible basket is an underwriting decision.
+That is the whole difference, and it is worth being precise about it
+because it is the least obvious link in this document.
+
+
+2.3 PRICE DATA NOBODY ELSE HOLDS
+
+Once several suppliers quote the same catalogue products, TRU Connect
+knows the real wholesale price curve for South African informal retail
+-- by product, by region, over time.
+
+Who does NOT have this:
+
+  Stats SA          measures consumer prices, not informal wholesale
+  The banks         see payments, not line items
+  The FMCG brands   see their own sell-in to distributors, NOT what a
+                    spaza actually pays two steps down the chain
+
+That last one is the interesting one. A brand knows what it charged its
+distributor. It does not know what the shop paid, and it would like to.
+
+This is genuinely sellable, and it costs nothing extra to produce -- it
+is a by-product of doing 2.1 and 2.2 properly. It should be treated as
+upside rather than a plan, since it depends on reaching enough density
+in a region for the numbers to mean anything.
+
+
+2.4 A MOAT THAT COMPOUNDS
+
+Most marketplaces have weak network effects. This one has a real one,
+and it is worth being specific about the mechanism rather than asserting
+"network effects".
+
+Every confirmed product match is stored as an alias: this exact text
+means this exact product. The next supplier who writes it that way is
+matched instantly and free, forever.
+
+So each supplier who joins makes onboarding CHEAPER AND FASTER for the
+next one. A competitor starting today starts at zero and pays full price
+for every row, while TRU Connect's cost per supplier keeps falling.
+
+The alias table, the brand dictionary and the confirmed match history
+are owned outright. They cannot be repriced, withdrawn, or bought by a
+competitor.
+
+
+===========================================================================
+PART 3 — RENTED VERSUS OWNED
+===========================================================================
+
+The matching system is built as a ladder. Each rung that resolves a row
+means the next never runs:
+
+  tier 0  Barcode         exact identifier            FREE
+  tier 1  Learned alias   confirmed before            FREE, and compounds
+  tier 2  Normalised      same words, any order       FREE
+  tier 3  Rules + fuzzy   brand dictionary,           FREE
+                          pack-size rules, trigram
+  tier 4  AI              the ambiguous tail          PAID, per row
+
+TIERS 0 TO 3 ARE BUILT AND WORKING. Tier 4 is not, and nothing depends
+on it ever being switched on.
+
+The strategic point: THE AI IS RENTED, THE REST IS OWNED. Tier 4 costs
+the same per row forever and is subject to somebody else's pricing. The
+alias table, brand dictionary and confirmed matches are assets that grow
+on their own and cost nothing to keep.
+
+Tier 4 is scaffolding to build the owned asset faster. If it were
+switched off permanently, matching would keep working -- just with a
+longer human review queue.
+
+Estimated cost to onboard a 4,000-product supplier with tier 4 enabled:
+roughly R110, one time, falling as tiers 0 to 3 absorb more. With
+barcodes present in the file, materially less. Price updates re-run only
+what changed.
+
+
+===========================================================================
+PART 4 — THE LONGER-TERM VERSION
+===========================================================================
+
+Tier 3 currently scores candidates with four hand-picked weights:
+similarity, plus adjustments for brand agreement and pack-size
+agreement. Those numbers are an educated guess.
+
+Meanwhile every proposal is recorded with its features and, once
+reviewed, marked accepted or rejected. That is labelled training data,
+accumulating from day one at no cost.
+
+So the path to a proprietary model is not "build an ML platform". It is:
+once there are a few thousand reviewed rows, fit a small classifier on
+those same features and replace four constants with learned ones. One
+function changes; the tiers, the gate and the queue stay exactly as they
+are.
+
+THE HONEST DEPENDENCY: this needs a REVIEWER. The admin control centre
+does not exist yet, so labels currently accumulate unreviewed. The
+bottleneck is a person, not the technology, and that should be said
+plainly rather than presented as imminent.
+
+
+===========================================================================
+PART 5 — WHAT IS NOT TRUE YET
+===========================================================================
+
+Read this section before any investor conversation.
+
+  THE CATALOGUE IS EMPTY. The schema exists, the matcher works, and the
+  tables have no rows in them. Nothing is matched today.
+
+  TIER 4 IS NOT BUILT. Extraction and adjudication by model are
+  designed, budgeted and unbuilt.
+
+  NOBODY CAN REVIEW. The queue records proposals; no interface exists
+  for a person to accept or reject one.
+
+  THE CSV DOES NOT YET CARRY BARCODES. The matcher accepts a barcode;
+  the import parser does not read one yet, so tier 0 is unreachable from
+  a real upload.
+
+  NO SUPPLIER HAS BEEN ONBOARDED THIS WAY. Every cost figure in Part 3
+  is an estimate from token pricing, not a measurement.
+
+  THE PRICE DATA IS WORTH NOTHING YET. It requires density -- several
+  suppliers quoting the same products in the same region -- and there is
+  none.
+
+  LENDING IS NOT BUILT, and the underwriting case in 2.2 is an argument,
+  not a validated model.
+
+WHAT IS SAFE TO CLAIM: the architecture is built, tested and in
+production code; matching works today on four free tiers; the design
+deliberately makes the paid tier optional; and the asset that compounds
+is owned rather than rented. All of that is verifiable by reading the
+repository.
+
+
+===========================================================================
+PART 6 — THE RISK THAT MATTERS
+===========================================================================
+
+All of the above depends on the catalogue being ACCURATE.
+
+A catalogue with wrong matches is worse than no catalogue. The price
+comparison becomes a lie, the lending signal becomes noise, and the
+price data becomes unsellable -- and unlike a missing feature, a wrong
+match is invisible until someone catches it, by which time it has been
+believed.
+
+This is why the system has a confidence gate that refuses to decide in
+the middle band, why a wrong match is treated as strictly worse than no
+match, and why the review queue is expected to be long rather than
+empty. The caution is not conservatism; it is protecting the only asset
+here that matters.
+
+===========================================================================
+END
+===========================================================================

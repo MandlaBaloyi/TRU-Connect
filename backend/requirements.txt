@@ -43,3 +43,7 @@ requests==2.34.2  # only used by scripts/verify_cloudinary_connection.py, a manu
 
 # --- TRU Connect Bulk Import Domain: spreadsheet parsing ---
 openpyxl==3.1.5
+# --- TRU Connect AI layer: product matching, verification (src/shared/ai) ---
+# Reached ONLY through src/shared/ai/providers/claude_provider.py -- see
+# tests/architecture/test_ai_boundaries.py, which enforces that.
+anthropic==1.4.0
