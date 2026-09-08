@@ -1,0 +1,802 @@
+===========================================================================
+TRU CONNECT — V2 ARCHITECTURE EVOLUTION
+The Supplier Marketplace Architecture
+
+Version: 2.0.0
+Status: Architectural Specification
+Authority: Subordinate to 00A_TRUEPOINT_PLATFORM_CONSTITUTION
+Supersedes: the supplier-role assumptions in 01_TRU_CONNECT_PRODUCT_SPECIFICATION
+Date opened: 2026-09-08
+===========================================================================
+
+
+PURPOSE
+
+This document defines the second architecture of TRU Connect.
+
+V1 is complete, working, and tagged. It is not deprecated and it is not a
+mistake — it is a correct implementation of an assumption that turned out to be
+wrong. This document states that assumption, states why it was wrong, and
+defines what replaces it.
+
+Everything here was reached by the same method every other decision in this
+codebase was reached by: a problem was found in the current architecture, and
+the change is the solution to that problem. Nothing in this document is here
+because it is fashionable, because a larger company does it, or because it
+would be nice to have. Where a change is speculative, it is labelled
+speculative.
+
+
+===========================================================================
+PART 1 — WHY V2 EXISTS
+===========================================================================
+
+
+1.1 THE ASSUMPTION V1 WAS BUILT ON
+
+V1 modelled TRU Connect as a two-sided network of PEERS.
+
+A business is a user. A supplier is a user. Both sign up in the app, both have
+a profile, both have a Community tab, both search, both invite, both accept or
+decline connection requests. The supplier was, structurally, a business that
+happens to sell.
+
+Every V1 design decision follows correctly from that assumption:
+
+  - Connection is mutual and must be approved by both sides
+  - The supplier sits in the app and taps Accept on incoming orders
+  - Products belong to the supplier — there is no shared notion of a product
+  - Products are created one at a time in a form, or bulk-imported once
+  - The supplier's Community tab mirrors the business's Community tab
+
+The assumption was never written down as an assumption. It was inherited from
+the shape of the first screens and then everything grew on top of it.
+
+
+1.2 WHY IT IS WRONG
+
+A supplier is not a peer of a business. A supplier is SUPPLY-SIDE
+INFRASTRUCTURE.
+
+The evidence, in the order it surfaced:
+
+  (a) A real supplier does not sit in an app tapping Accept. A wholesaler
+      taking 200 orders a day has no one whose job is to approve them
+      individually. Requiring approval makes the platform unusable at exactly
+      the scale where it starts to matter.
+
+  (b) A real supplier already has their stock somewhere else — a spreadsheet,
+      an accounting package, an ERP. Asking them to retype 3,000 products into
+      a phone form is not a friction problem, it is a refusal.
+
+  (c) Informal businesses in South Africa buy from MANY suppliers, and those
+      suppliers are scattered and heterogeneous. A model that only fits one
+      kind of supplier cannot serve the actual buying behaviour.
+
+  (d) Products belonging to suppliers means the same physical product exists
+      as N unrelated rows across N suppliers. Nothing can be compared, and the
+      one question a business actually asks — "who sells this cheaper" —
+      is unanswerable by construction.
+
+  (e) Accept/decline was never a supplier feature. It is a consequence of CASH.
+      A supplier accepts because they are agreeing to release stock against a
+      promise to pay. Once money has already moved, there is nothing left to
+      accept. V1 encoded a payment-era control as a permanent part of the
+      order lifecycle.
+
+Point (e) is the clearest example of the general failure: V1 took a property of
+one situation and made it structural.
+
+
+1.3 WHAT V2 ASSERTS INSTEAD
+
+  A supplier is an entity that can reliably fulfil a repeat stock order for an
+  informal or small business.
+
+Four capabilities define one, and none of them is "has the app installed":
+
+  1. RANGE          — carries enough of what a business restocks
+  2. FULFILMENT     — can actually get it there, or have it collected
+  3. ACCOUNTABILITY — can be held to a price and a delivery
+  4. RELEVANCE      — already serves informal businesses, or wants to
+
+TRU Connect's job is to accept supply from any of them, in whatever form they
+can give it, and present it identically to the buyer.
+
+
+1.4 THE PROBLEM TRU CONNECT SOLVES, RESTATED
+
+V1 framed the problem as the business's: hard to find suppliers.
+
+V2 frames it as BOTH sides', and the supplier's side is the one that pays:
+
+  - Orders arrive by WhatsApp, phone call, and SMS, in no format, at all hours
+  - No record of what was ordered, agreed, or delivered
+  - Sales reps are expensive and cover a fraction of the territory
+  - No visibility of who is buying, what is selling, or what is running out
+
+The bigger the supplier, the more that chaos costs them. That is the argument
+for eventually going upmarket — but see Part 6 for why we do not start there.
+
+
+===========================================================================
+PART 2 — THE CORE ARCHITECTURAL CHANGES
+===========================================================================
+
+
+2.1 PRODUCT AND SUPPLIER OFFER ARE SEPARATE THINGS
+
+THE CHANGE
+
+  V1:  Product  ──belongs to──▶  Supplier
+       (name, category, price, sku, unit, stock)
+
+  V2:  Product (catalogue, shared, platform-owned)
+         │  name, brand, category, pack size, barcode, image
+         │
+         └──◀ Supplier Offer (per supplier)
+              price, compare-at price, selling unit, sku, stock, archived
+
+WHY
+
+Without this, "who sells Coca-Cola 2L x 6 cheapest" cannot be asked. Two
+suppliers' rows for the same physical product have no relationship to each
+other. Every comparison, every substitution, every "buy it again from someone
+else" is impossible — not hard, impossible.
+
+This is the Amazon ASIN model and the reason it exists is exactly this.
+
+WHAT MAKES IT SHIPPABLE
+
+The Offer's link to a catalogue Product is NULLABLE.
+
+An unmatched Offer behaves exactly like a V1 product. Nothing breaks on the day
+the split lands, and the catalogue can be empty. Matching enriches over time.
+This is what turns a rewrite into a migration.
+
+THE OPEN QUESTION (see Part 8)
+
+Where pack size lives. "Coca-Cola 2L" and "Coca-Cola 2L case of 6" have
+different barcodes and are arguably two Products. Alternatively the Product is
+the consumer unit and the pack is a property of the Offer. This must be
+decided before the catalogue has rows in it, because it is not cheaply
+reversible.
+
+
+2.2 SUPPLIERS HAVE CAPABILITIES, NOT TIERS
+
+THE CHANGE
+
+There is no SupplierTier enum that drives behaviour. The supplier row carries
+independent capability columns. A "tier" is a PRESET that sets them, and no
+code branches on tier.
+
+  Axis              Values
+  ────────────────  ──────────────────────────────
+  ingestion_mode    MANUAL | CSV | API
+  accepts_direct_payment    (exists in V1)
+  accepts_digital_payment   (exists in V1)
+  requires_connection       default FALSE
+  auto_accept_orders        derived from payment method
+
+WHY
+
+Because we already made this mistake once and fixed it. V1 carried
+`cash_transaction_cap_cents` and `proof_of_payment_transaction_cap_cents` as
+two separate caps. On inspection the differentiation was not real, and they
+collapsed into a single `direct_transaction_cap_cents`. A tier enum driving
+five behaviours is that same bug at five times the size.
+
+The axes correlate but are not identical. A hustler who wants digital-only is
+reasonable. A large wholesaler who wants approval for NEW customers only is
+reasonable. A single enum makes both unrepresentable, and the first supplier
+who does not fit the box arrives in week two.
+
+PRECEDENT IN THE CODEBASE
+
+`accepts_direct_payment` and `accepts_digital_payment` already exist as
+independent booleans on supplier_profile. V2 continues a pattern V1 started
+without naming.
+
+
+2.3 THE CONNECTION GATE IS REMOVED
+
+THE CHANGE
+
+Connection stops being a PERMISSION and becomes two separate things:
+
+  - A RELATIONSHIP RECORD, derived from trade. A business is connected to a
+    supplier because they have ordered, not because a request was approved.
+
+  - A SUPPLIER-SIDE OPTION (`requires_connection`, default off) for the small
+    supplier who genuinely wants to know who is buying.
+
+WHY
+
+  (a) Order accept/decline is a strictly better control than connection
+      approval. It is per-transaction, and it carries far more information —
+      the supplier sees what is being ordered, how much, and where to, instead
+      of approving an abstract future relationship.
+
+  (b) An integrated supplier structurally cannot use it. There is no one
+      sitting there to click accept on a connection request.
+
+  (c) It blocks the discovery model entirely. Browsing is already open in V1 —
+      `list_supplier_products` and the storefront services both state that only
+      ORDERING is gated. The connection requirement is the last thing standing
+      between the catalogue and a real discovery feed.
+
+WHAT DIES
+
+  - connection request / approve / decline flow and its notifications
+  - the disconnect flow
+  - "businesses connected" as a public track-record metric
+  - the contact-detail and collection-address gate
+
+WHAT REPLACES THE CONTACT GATE
+
+Nothing new. `share_contact_details` already exists on supplier_profile as a
+supplier-controlled boolean, alongside `photo_visibility` and the other
+visibility switches built in V1. The supplier already owns this decision; the
+connection gate was a second, redundant lock on the same door.
+
+TRACK RECORD AFTER THE CHANGE
+
+"Businesses connected" is no longer meaningful. The three public numbers become
+orders accepted, orders fulfilled, and businesses served — the last derived
+from distinct order counterparties rather than from approvals.
+
+
+2.4 PAYMENT METHOD SELECTS THE ORDER PATH
+
+THE CHANGE
+
+  DIRECT payment (cash, EFT, whatever moves outside the platform)
+    → the order is a REQUEST
+    → accept / decline is real and necessary
+    → spend caps apply
+
+  DIGITAL payment (money moves through the platform)
+    → the order is a PURCHASE
+    → it goes straight to fulfilment
+    → "decline" becomes REFUND + CANCEL, a different action with a real
+      financial consequence
+
+WHY
+
+Accept/decline exists because the supplier is releasing stock against an
+unsecured promise. That is a property of cash, not of suppliers. When the money
+has already moved, an accept step is friction with no purpose — and it is
+precisely the friction that makes the platform unusable for a supplier at
+volume.
+
+WHY THIS UNIFIES THE ORDER ENGINE
+
+One engine, two paths, selected by a column that already exists
+(`stock_orders.payment_method`). A small cash supplier and a large integrated
+supplier use the same code and neither knows the other path exists. This is
+what makes "support every supplier" tractable rather than a matrix of special
+cases.
+
+COMPLIANCE
+
+Larger suppliers must be digital-only. The REASON is not their size — it is
+transaction value and volume. Cash at R500,000/month is a money-laundering
+exposure; cash at R8,000/month is a spaza owner paying a bakkie driver.
+
+So the rule is threshold-driven, and V1 already built the thresholds:
+
+  Business direct caps    FREE  R1,000/txn   R5,000/month
+                          PRO   R2,000/txn   R10,000/month
+
+  Supplier direct caps    FREE  R10,000/month
+                          PRO   R25,000/month
+                          MAX   R50,000/month
+                          warn at 75% and 90%
+
+A supplier growing past the direct ceiling converts to digital-only as a
+consequence of the caps, not as a consequence of a tier check. The mechanism
+exists; V2 makes the top band a hard stop instead of warn-only.
+
+
+2.5 INGESTION IS AN ADAPTER; THE OFFER IS CANONICAL
+
+THE CHANGE
+
+  Phone form  ─┐
+  CSV / XLSX  ─┼──▶ staging rows ──▶ match to Product ──▶ Supplier Offer
+  API / ERP   ─┘                                              │
+                                                              ▼
+                          storefront · feed · ordering · per-unit price
+                            (know nothing about how the Offer arrived)
+
+WHY — THE AIRBNB LESSON
+
+Airbnb did not build a "hotel product" when it moved upmarket. It made a
+Listing creatable either by a human filling a form or by a property management
+system pushing over an API, and made everything downstream unable to tell the
+difference. Search, booking, payouts, reviews: identical.
+
+That is the property V2 needs, stated precisely:
+
+  A Supplier Offer is identical regardless of how it was created.
+
+This is what makes "when a real supplier arrives with their own system, we can
+integrate them" true rather than aspirational. The API adapter becomes additive
+work — roughly a week GIVEN the staging pipeline — instead of a rebuild.
+
+PRECEDENT IN THE CODEBASE
+
+This is the fourth instance of a pattern V1 already proved three times:
+MediaProvider (Cloudinary), PaymentProvider (PayFast/manual), GeocodingProvider
+(Mapbox). One interface, several concretes, one composition point, and no
+service imports a concrete provider by name.
+
+
+2.6 BULK IMPORT BECOMES A STAGED, UPSERTING PIPELINE
+
+THE LIVE BUG
+
+V1's importer is CREATE-ONLY. `import_worker.py` calls
+`product_service.create_product` per row. A supplier who imports twice gets
+duplicates.
+
+This is not a future-architecture concern. A supplier above hustler scale sends
+a PRICE FILE EVERY WEEK. The one-time import is the exception; the recurring
+update is the relationship. The importer as built structurally cannot serve a
+repeat supplier, and that is a lifecycle limit, not a size limit.
+
+THE SECOND PROBLEM
+
+V1 requires a fixed template: name, category, price, unit. A supplier with
+3,000 rows already has a spreadsheet with THEIR column names — Item Code,
+Description, Pack, Excl Price, SOH. Telling them to rename columns loses the
+supplier at the door.
+
+THE PIPELINE
+
+  Stage              What happens                              V1 status
+  ─────────────────  ────────────────────────────────────────  ──────────
+  1 Upload           file stored, ImportJob created            EXISTS
+  2 Profile          detect headers, PROPOSE A COLUMN MAP,     NEW
+                     supplier confirms
+  3 Parse+validate   row → ImportRow staging table             parser EXISTS
+  4 Match            row → catalogue Product, with confidence  NEW
+  5 Preview          "2,847 ready · 112 review · 41 errors"    error rows EXIST
+  6 Commit           UPSERT Offers by (supplier, supplier_sku) NEW
+  7 Report           per-row outcome, downloadable             EXISTS
+
+WHAT SURVIVES UNTOUCHED
+
+The parsers, the zip-bomb and spreadsheet-bomb defences, the row validator that
+mirrors the frontend field-for-field, abuse tracking, rate limits, and the
+no-deploy kill switch. This is good work and V2 keeps all of it. What changes
+is that the worker stages instead of creating.
+
+THE DELETION SEMANTICS PROBLEM
+
+A row that vanishes from this week's file means either "delisted" or "just not
+included". Guessing wrong silently deletes a supplier's catalogue. This must be
+an explicit per-supplier setting (FULL_CATALOGUE vs PARTIAL_UPDATE), never
+inferred.
+
+THE PAYOFF
+
+An API push from an ERP lands in the SAME staging table at stage 3, skipping
+1 and 2. Stages 3-7 are shared. Same validation, same matching, same preview,
+same upsert.
+
+
+2.7 THE CATALOGUE AGENT
+
+WHAT IT IS
+
+Claude, called over HTTPS from the Flask backend, behind a provider abstraction
+exactly like Cloudinary and PayFast. There is no separate product to adopt and
+no new infrastructure. `src/shared/catalogue_ai/providers/` with an ABC, one
+concrete implementation, one composition point, and a fake for tests.
+
+TWO JOBS, DIFFERENT FAILURE COSTS, DIFFERENT DESIGNS
+
+  Job A — NORMALISE AND PROPOSE (high volume, cheap)
+    Extract structured fields from a raw supplier row.
+    Model: Claude Haiku 4.5. This is extraction, not judgement.
+    Batch API (50% cost) — a CSV import is not latency-sensitive.
+    Prompt caching on the taxonomy prefix — identical across all rows.
+    strict:true tool schema — a schema violation here is silent catalogue
+    corruption, so the output must always parse.
+
+  Job B — ADJUDICATE (low volume, expensive)
+    "Is this supplier's row the same Product as this catalogue entry?"
+    Model: Claude Opus 5, adaptive thinking, high effort.
+    Vision where images exist on both sides — as CORROBORATION only, never
+    the primary key. Two pack sizes of the same drink look identical.
+    Output is a recommendation with a confidence and a reason. Never an action.
+
+CANDIDATE SEARCH IS DETERMINISTIC, NOT MODEL-DRIVEN
+
+Barcode exact → brand + normalised name trigram → embedding. It must be
+reproducible and explainable to a supplier who disputes a match.
+
+THE CONFIDENCE GATE — NON-NEGOTIABLE
+
+  Exact barcode        auto-link, no model call
+  High confidence      auto-link, logged, reversible
+  Middle band          HUMAN REVIEW QUEUE
+  Low confidence       create new Product, flag possible duplicate
+
+A wrong match is worse than no match. No match means an Offer sits alone. A
+wrong match means TRU Connect tells a business "R89 here, R74 there" about two
+different things — the product breaking its core promise. The agent never
+decides autonomously in the middle band, and every auto-link is reversible with
+an audit row.
+
+HIGHEST-LEVERAGE FIRST
+
+Column-header mapping (stage 2) is ONE CALL PER FILE, not per row. It costs a
+fraction of a cent and it is the difference between a supplier onboarding
+themselves and a supplier giving up. Build it before per-row extraction —
+better return, a tenth of the complexity.
+
+MEASURED COST (per 4,000-product supplier onboarding)
+
+  Extraction   Haiku 4.5, cached, batched          ~$2.40
+  Adjudication Opus 5, ~10% of rows                ~$9.00
+  TOTAL                                            ~$11  (~R200)
+
+One-time per supplier. Price updates re-run only changed rows. R200 to onboard
+a supplier's entire catalogue is a customer-acquisition cost, and it is the
+number that makes supply-side onboarding cheap enough for this architecture to
+be viable at all.
+
+THE CATALOGUE-FIXING AGENT
+
+The same machinery pointed backwards, on a schedule (V1's master scheduler
+already exists for exactly this shape of job): near-duplicate Products, Offers
+whose price-per-unit is a wild outlier for their Product (usually a pack-size
+extraction error), Products with no Offers.
+
+
+2.8 IMAGES ARE A CASCADE, NOT A FIELD
+
+THE CHANGE
+
+  offer.image_url        supplier uploaded
+    ↓ null
+  product.image_url      catalogue, barcode-enriched
+    ↓ null
+  brand.mark_url         ~200 marks cover most of SA FMCG
+    ↓ null
+  category.image_url     16 images. Always present. Never blank.
+
+WHY
+
+A tile never renders empty. A supplier who opens an account and uploads nothing
+but names and prices still has a storefront that looks deliberate. Every image
+that arrives later is an UPGRADE, not a fix — which means image sourcing stops
+being a blocker and becomes background work.
+
+THE RULE
+
+  An image is an enrichment, never a gate.
+
+A Product exists the moment it has a name, brand, pack size and barcode. If the
+catalogue cannot launch imageless, image sourcing blocks the whole
+architecture — and it must not.
+
+WHY THIS IS ENOUGH
+
+B2B restock is not consumer e-commerce. Consumer shopping is browse-driven, so
+the photograph does the selling. Restocking is search-driven: the buyer already
+knows what they want and is checking price per unit, pack size, and stock. The
+image's job is RECOGNITION AND SCANNING SPEED, not persuasion.
+
+A brand mark over a category-tinted background, with name, pack size, and
+price-per-unit, is denser and faster to scan than a photograph — and needs zero
+product photography.
+
+WHERE IMAGES ACTUALLY COME FROM
+
+  Tier              Source                            Count      When
+  ────────────────  ────────────────────────────────  ─────────  ──────────
+  Category          Licensed (Unsplash/Pexels) or     16         NOW
+                    commissioned and owned
+  Brand mark        Brand press kits + supplier       ~200       Early
+  Product photo     Supplier upload, rights           unbounded  Ongoing
+                    WARRANTED IN TERMS
+  Barcode           Open Food Facts (CC-BY-SA)        free wins  Background
+  Bulk              Anchor supplier integration       thousands  The multiplier
+
+WHAT WE DO NOT DO
+
+Bulk-scrape the internet. Not primarily for legal reasons — because it produces
+a visually incoherent catalogue. Scraped images arrive at different sizes,
+crops, backgrounds, and watermarks, and a rail of them looks broken. Watermarks
+on stock imagery ARE the paywall, not an obstacle to route around. The legal
+exposure is real but it is the second problem, not the first.
+
+HOW THE COMPARABLES DO IT
+
+Uber Eats: merchant uploads, plus a PAID photography programme, plus master
+assets from franchise brands, plus — critically — a large fraction of items
+with NO PHOTO AT ALL. They did not solve the image problem; they designed for
+it not being solved. Sixty60 uses Shoprite's in-house studio. Takealot is
+seller-uploaded plus own-stock studio. Everyone with good images either paid a
+photographer or got it from the brand. There is no trick.
+
+Supplier-uploaded with a rights warranty is what every marketplace does —
+Takealot, Amazon and Shopify do not own their product images either.
+
+
+2.9 THE SUPPLIER HUB IS WEB-FIRST
+
+THE CHANGE
+
+The supplier's working surface moves to the web. The app remains for the
+smallest suppliers and for on-the-go checks.
+
+WHY
+
+Managing 3,000 products, a weekly price file, and an order queue is desk work.
+It requires a keyboard, a wide screen, and a file picker. No amount of mobile
+design makes bulk catalogue management good on a phone.
+
+WHAT STAYS THE SAME IN THE APP
+
+Sign up and sign in are unchanged. Home, Account (business tools live here),
+Community, Discovery, and the More tab all stay. Notifications stay. Stock
+orders stay, with modification per 2.4.
+
+WHAT THE HUB ADDS
+
+Catalogue management at volume, import and mapping, order queue, price file
+upload, API credentials, and analytics.
+
+
+2.10 AUTHENTICATION SPLITS THREE WAYS
+
+THE CHANGE
+
+  Who                        What it is                Mechanism
+  ─────────────────────────  ────────────────────────  ──────────────────────
+  Supplier on web portal     human, first-party,       httpOnly Secure
+                             browser                   SameSite COOKIE
+  Mobile app                 human, first-party,       JWT bearer
+                             native                    (UNCHANGED)
+  Supplier's ERP             machine, no human         API key, or OAuth
+                                                       client_credentials
+
+WHAT WE ARE NOT BUILDING
+
+A full OAuth2 / OIDC authorization-code + PKCE identity provider.
+
+That flow exists for when a THIRD PARTY logs users in via YOUR identity
+provider. The supplier portal is first-party — our subdomain, our backend, our
+users table. Running the full dance against ourselves adds an IdP we would have
+to build and secure, and buys nothing.
+
+PKCE specifically exists for PUBLIC clients that cannot keep a secret — mobile
+apps and browser SPAs. An ERP server CAN keep a secret, so the integration path
+is client_credentials or scoped API keys (what Stripe, Shopify and Takealot
+actually hand out), never authorization-code + PKCE.
+
+If a genuine third-party developer ecosystem ever appears, run Keycloak or Ory.
+Hand-rolling an OIDC provider in Flask is a months-long security-critical
+project whose failure mode is a breach, not a bug.
+
+WHAT ACTUALLY CHANGES IN THE AUTH DOMAIN
+
+  - Token transport: a browser must not hold a JWT in localStorage (XSS reads
+    it). The same backend issues credentials two ways depending on client.
+  - CSRF protection: required the moment cookies are used. Bearer tokens do not
+    need it. This is new code.
+  - Session lifetime: a supplier keeps a portal tab open all day; mobile
+    refresh cadence does not fit.
+  - Role routing: web login must reject `business` and redirect to the app.
+  - API keys: a new table — hashed at rest, scoped, revocable, last-used
+    tracked. This is the ERP door and it does not exist.
+
+UNCHANGED: sign-up, OTP, verification, lockout, rate limiting.
+
+
+2.11 COMMUNITY IS REDEFINED PER ROLE
+
+The two roles diverge completely. One tab name, NO shared components below the
+tab bar. Trying to share them is what produced the generic-admin-list feel in
+V1.
+
+BUSINESS COMMUNITY — my trading network, and finding more of it
+
+Not a social network. Three things only: see who I buy from, discover who else
+I could buy from, get back to buying.
+
+  Section              Real source
+  ───────────────────  ─────────────────────────────────────
+  Category chips       16 categories + category descriptions
+  Your suppliers       distinct suppliers from order history
+  Buy it again         line items from delivered orders
+  On sale now          cross-supplier variant of list_on_sale
+  New on TRU Connect   recently verified supplier profiles
+  Near you             supplier area — BLOCKED, field may not exist
+
+Two rules carried from the storefront work, both learned the hard way:
+  - Rank in SQL, not Python. Python sorting breaks the moment it paginates.
+  - A thin rail is a broken rail. Under 3 items, the section does not render.
+  - Unknown section types render nothing, so the server can add a section
+    without an app release.
+
+SUPPLIER COMMUNITY — who buys from me
+
+CRM-lite. My customers sorted by recency or value, one customer's order history
+with this supplier, and search + invite unchanged.
+
+NO "FOR YOU" FEED. A supplier has nothing to discover here. Leave the space
+empty rather than inventing content — the same "silence is the honest answer"
+rule the track record already follows.
+
+
+2.12 THE BUSINESS SIDE EXTENDS TO SMALL BUSINESS
+
+Structurally the smallest change in V2, stated plainly so it does not consume
+planning time.
+
+A small business is an informal business with a bank account, possibly VAT
+registration, and higher volume. What changes:
+
+  - Spend caps — the tier mechanism already exists. New tier, same code.
+  - Verification — a registered business can prove more, so it can be trusted
+    with more.
+  - Invoice / PO — the one genuinely new feature, and only if asked for.
+
+The buyer UX does not fork. There is no "small business mode".
+
+
+===========================================================================
+PART 3 — WHAT V2 EXPLICITLY DOES NOT BUILD YET
+===========================================================================
+
+Recorded so that these are decisions rather than omissions.
+
+  PRODUCT-FIRST SEARCH AND PRICE COMPARISON UI
+  The Product/Offer split earns its keep on the SUPPLY side — onboarding a
+  supplier's 3,000-row file against a shared catalogue — long before it shows
+  up in the buyer's UI. Building comparison UI now means building it on a
+  catalogue without enough overlapping offers to compare. Search stays
+  supplier-name-first, because a business searches for suppliers they already
+  know: they have bonds, discounts, and history.
+
+  THE API / ERP ADAPTER
+  Built when a real supplier asks, not before. It is roughly a week of work
+  GIVEN the staging pipeline, and zero weeks of guessing what their ERP looks
+  like. The property in 2.5 is what buys the right to defer it.
+
+  A PHOTOGRAPHY PROGRAMME
+  The Uber Eats move. Later, and only for anchor suppliers, as a sales
+  sweetener.
+
+  LENDING
+  Already in the roadmap. Unchanged by V2, but note that the Offer/Product
+  split and real order history are what make underwriting possible later.
+
+
+===========================================================================
+PART 4 — WHAT V1 GOT RIGHT AND V2 KEEPS
+===========================================================================
+
+Listed because a version boundary invites unnecessary rewriting, and most of
+this codebase does not need to change.
+
+  - The domain structure itself. api / services / repositories / models /
+    schemas per domain, with enforced isolation tested by AST parsing.
+  - The provider abstraction pattern. Proven three times; V2 adds a fourth.
+  - The master scheduler. Jobs live in domains; the scheduler defines none.
+  - The AppError hierarchy and the response envelope.
+  - Tri-state booleans — null is not false.
+  - The storefront services. They already say browsing is open and only
+    ordering is gated; they need almost nothing.
+  - The bulk import defences — zip bombs, spreadsheet bombs, abuse tracking,
+    the kill switch.
+  - Long narrative comments recording past bugs and rejected alternatives.
+    This is why V2 could be planned at all: the reasoning was still readable.
+  - The payment rails, spend caps, and DUE-vs-SUCCEEDED distinction. V2 builds
+    directly on them.
+  - The community feed contract and the six storefront sections. Server-driven,
+    already shipped, and the correct foundation.
+
+
+===========================================================================
+PART 5 — MARKET SEQUENCE
+===========================================================================
+
+  BUYERS:    informal business  →  small business
+  SUPPLIERS: individual/hustler →  small  →  medium  →  large
+
+WHY SMALL SUPPLIERS FIRST — this is a marketing decision, not a technical one
+
+Medium and large suppliers are strict about data and will not join at an early
+stage. Small suppliers will. And at this stage WE NEED THEM MORE THAN THEY NEED
+US — they arrive with few products, tolerate rough edges, and are reachable.
+
+They also happen to be the ones for whom cash and direct payment are
+appropriate, which is why 2.4 keeps that path first-class rather than treating
+it as legacy.
+
+THE TENSION, STATED HONESTLY
+
+V2 builds the hardest architecture — Offer/Product split, staging, upsert,
+API-ready ingestion — for suppliers who will not arrive for a year, while
+shipping for suppliers who need none of it.
+
+That is deliberate, and it is the Airbnb sequence exactly: build the Listing
+abstraction while you still only have air mattresses, because retrofitting it
+across 100,000 listings is impossible.
+
+The discipline is: BUILD THE ABSTRACTION, NOT THE FEATURES.
+
+
+===========================================================================
+PART 6 — OPEN DECISIONS
+===========================================================================
+
+These are not yet decided. They are recorded here so they are decided
+deliberately rather than by accident in a pull request.
+
+  1. PACK SIZE PLACEMENT — Product or Offer?
+     "Coca-Cola 2L" and "Coca-Cola 2L case of 6" have different barcodes.
+     Either both are Products, or the Product is the consumer unit and the pack
+     is an Offer property. Must be settled BEFORE the catalogue has rows.
+     Not cheaply reversible.
+
+  2. INVENTORY OWNERSHIP for integrated suppliers.
+     Does stock live in our table, or is it a mirror of their ERP?
+     Proposal: same table, plus `stock_source` (MANUAL | IMPORT | API) and
+     `synced_at`. Stock stays a number internally; in/out is what is exposed;
+     be tolerant on integration.
+
+  3. DOES THE SUPPLIER APP KEEP DISCOVERY?
+     Discovery is independent of the core logic — news, opportunities, videos,
+     an ingestion engine. Probably yes, but unexamined.
+
+  4. "NEAR YOU" FEED SECTION
+     Requires a supplier area/region field that may not exist. Verify before
+     planning the section.
+
+  5. FULFILMENT / SETTLEMENT STATE
+     "Orders fulfilled" is a public track-record number with no data source
+     today. Needs a real fulfilment state on the order.
+
+  6. DELETION SEMANTICS DEFAULT for price files (2.6). FULL_CATALOGUE or
+     PARTIAL_UPDATE as the default for a new supplier?
+
+
+===========================================================================
+PART 7 — THE METHOD
+===========================================================================
+
+Recorded because it is the reason this document is trustworthy, and because it
+is the standard the V2 work must be held to.
+
+Nothing in TRU Connect was wired because it was good. Every piece exists
+because a problem was found in the current architecture and this was the
+solution.
+
+V2 follows the same rule. Each change in Part 2 names the problem first:
+
+  2.1  products cannot be compared across suppliers
+  2.2  a tier enum makes real suppliers unrepresentable
+  2.3  connection approval blocks discovery and cannot scale
+  2.4  accept/decline is a cash-era control encoded as permanent
+  2.5  ingestion shape leaks into everything downstream
+  2.6  the importer is create-only and breaks on the second import
+  2.7  matching by hand does not scale; matching wrongly is worse than not
+  2.8  the catalogue cannot launch if images gate it
+  2.9  bulk catalogue work is desk work
+  2.10 a browser must not hold a bearer token
+  2.11 one Community for two roles served neither
+  2.12 the buyer model was drawn too narrowly
+
+Where a change has no problem statement, it does not belong in V2.
+
+===========================================================================
+END
+===========================================================================

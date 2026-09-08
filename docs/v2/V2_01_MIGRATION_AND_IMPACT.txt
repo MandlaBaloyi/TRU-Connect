@@ -1,0 +1,327 @@
+===========================================================================
+TRU CONNECT — V2 MIGRATION AND IMPACT AUDIT
+What actually changes in the codebase, and in what order
+
+Version: 2.0.0
+Status: Engineering Plan
+Authority: Subordinate to V2_00_ARCHITECTURE_EVOLUTION
+Baseline: tag v1.0.0
+Date opened: 2026-09-08
+===========================================================================
+
+
+PURPOSE
+
+V2_00 states what changes and why. This document states WHERE, measured against
+the actual codebase at tag v1.0.0 rather than estimated.
+
+Every claim here was verified by reading the code, not inferred.
+
+
+===========================================================================
+PART 1 — THE FINDING THAT SHRINKS THIS
+===========================================================================
+
+The Product/Offer split sounded like a rewrite. It is not.
+
+There are EXACTLY SIX foreign keys into `supplier.products` in the entire
+backend:
+
+  Reference                                              Becomes
+  ─────────────────────────────────────────────────────  ────────
+  network/orders/models/stock_order.py:357               OFFER
+  supplier/inventory/models/inventory.py:54              OFFER
+  supplier/supplier_profile/models/supplier_storefront.py:126   OFFER
+  supplier/supplier_profile/models/supplier_profile_pin.py:42   OFFER
+  network/connections/models/supplier_report.py:70       OFFER
+  supplier/products/models/product_media.py:28           SPLITS
+
+Five of six become Offer. One splits (catalogue images on the Product,
+supplier's own photos on the Offer).
+
+WHY THIS MATTERS
+
+V1's `Product` model already IS an Offer. It carries `supplier_profile_id`,
+`price_cents`, `compare_at_price_cents`, `sku`, `product_code`, `is_archived`.
+It was correctly built and incorrectly named.
+
+So the migration is:
+
+  1. RENAME  supplier.products → supplier.supplier_offers
+             Every existing FK already points at the right concept.
+
+  2. ADD     catalogue.products (shared, brand, barcode, pack size, image)
+
+  3. ADD     one NULLABLE product_id on the Offer, populated by matching
+
+Step 3 is what makes it shippable. An unmatched Offer behaves exactly as it
+does today. Nothing breaks on day one and the catalogue can be empty.
+
+This is a two-week migration rather than a six-month rewrite, and it is only
+true because the FK surface was kept this narrow. That is a V1 achievement.
+
+
+===========================================================================
+PART 2 — DOMAIN BY DOMAIN
+===========================================================================
+
+Sizes are Python lines at v1.0.0.
+
+───────────────────────────────────────────────────────────────────────────
+network/connections                                        3,698    HEAVIEST
+───────────────────────────────────────────────────────────────────────────
+  DIES
+    services/request_service.py                     (363)  mostly deleted
+    repositories/connection_request_repository.py   (275)  mostly deleted
+    models/connection_request.py                    (127)  status collapses
+    notification_templates/connection_templates.py  (56)   request/approve gone
+    jobs/expired_invitations_cleanup_job.py         (62)   REVIEW — invitations
+                                                           survive, requests do not
+
+  CHANGES
+    services/storefront/ordering_gate.py            (47)   drop NOT_CONNECTED,
+                                                           keep SUPPLIER_HAS_NO_PRODUCTS
+    services/connection_list_service.py             (193)  re-source from orders,
+                                                           add photoUrl
+    services/_common.py                             (198)  keep _resolve_visible_photo_url,
+                                                           add business profile lookup
+
+  SURVIVES
+    services/discovery_service.py                   (314)  search stays
+    services/invitation_service.py                  (175)  invite stays
+    services/storefront/*                                  already states browsing
+                                                           is open; near-zero change
+    services/report_service.py                      (82)   FK renames only
+
+───────────────────────────────────────────────────────────────────────────
+network/orders                                             3,677    MODERATE
+───────────────────────────────────────────────────────────────────────────
+  Payment path splits per V2_00 §2.4. `stock_orders.payment_method` already
+  exists and already carries DIRECT / CASH / PROOF_OF_PAYMENT / digital, so the
+  branch has a home.
+
+  Order item product_id → Offer (mechanical rename).
+
+  Line items already SNAPSHOT price at order time, so order history stays
+  honest across catalogue changes. This was right in V1 and needs nothing.
+
+  Supplier cap top band becomes a hard stop instead of warn-only.
+
+───────────────────────────────────────────────────────────────────────────
+supplier/products                                          2,547    RENAME+SPLIT
+───────────────────────────────────────────────────────────────────────────
+  Model rename, new catalogue table, barcode column, matching service.
+
+  product_repository's storefront queries (list_on_sale, list_best_selling,
+  list_recently_added, list_best_unit_value) survive UNCHANGED — they are
+  per-supplier queries over what is now the Offer table.
+
+───────────────────────────────────────────────────────────────────────────
+supplier/supplier_profile                                  2,164    ADDITIVE
+───────────────────────────────────────────────────────────────────────────
+  New capability columns beside the two that already exist
+  (accepts_direct_payment, accepts_digital_payment):
+
+    requires_connection    Boolean, default FALSE
+    ingestion_mode         Enum MANUAL | CSV | API
+    auto_accept_orders     derived, may not need storing
+
+  NOTE: `share_contact_details` and `photo_visibility` ALREADY EXIST. The
+  contact-detail question raised during planning is already answered by V1 —
+  the supplier already owns that decision and the connection gate was a
+  redundant second lock.
+
+  Storefront sections and their config: UNTOUCHED.
+
+───────────────────────────────────────────────────────────────────────────
+supplier/bulk_import                                       1,396    BIGGEST
+                                                                    FUNCTIONAL
+───────────────────────────────────────────────────────────────────────────
+  THE LIVE BUG — create-only. import_worker.py:243 calls
+  product_service.create_product per row. Second import = duplicates.
+  Breaks today for any repeat supplier. Not a future concern.
+
+  CHANGES
+    workers/import_worker.py            (303)  stage instead of create
+    parsers/spreadsheet_parser.py       (136)  fixed REQUIRED_COLUMNS →
+                                               column mapping
+    NEW: ImportRow staging model
+    NEW: column-map proposal (one agent call per file)
+    NEW: upsert by (supplier, supplier_sku)
+    NEW: FULL_CATALOGUE vs PARTIAL_UPDATE deletion semantics
+
+  SURVIVES UNTOUCHED
+    parsers/zip_parser.py               (173)  zip-bomb defences
+    validators/row_validator.py         (248)  mirrors frontend field-for-field
+    services/abuse_tracking.py          (84)
+    rate_limit/policies.py, config.py          kill switch
+    models/import_job.py                (79)   ImportJob + ImportJobError;
+                                               the per-row error table is
+                                               exactly what stage 5 needs
+
+───────────────────────────────────────────────────────────────────────────
+supplier/inventory                                           643    FK + OPEN
+───────────────────────────────────────────────────────────────────────────
+  product_id → Offer.
+  OPEN DECISION (V2_00 Part 6 #2): stock_source + synced_at for integrated
+  suppliers.
+
+───────────────────────────────────────────────────────────────────────────
+auth                                                      ~1,600    EXTENDED
+───────────────────────────────────────────────────────────────────────────
+  Per V2_00 §2.10: cookie transport for web, CSRF, session lifetime, role
+  routing, API key table.
+  UNCHANGED: sign-up, OTP, verification, lockout, rate limiting.
+
+───────────────────────────────────────────────────────────────────────────
+UNTOUCHED
+───────────────────────────────────────────────────────────────────────────
+  business/order_book        1,748   business's own tool, no supplier coupling
+  business/loan_book         1,341   same
+  business/business_profile    731   small-business tier is additive
+  network/geocoding            560   MAPBOX. Reverse-geocodes a delivery pin to
+                                     address text. Nothing supplier-tier about
+                                     it. No change.
+  shared/media                 —     CLOUDINARY. Provider abstraction is fine.
+                                     EXTENDED only: new folder namespaces for
+                                     catalogue images and brand marks, plus the
+                                     image cascade resolver. The provider
+                                     interface itself does not change.
+  security, platform                 no change
+  trust, verification,               empty scaffolding
+  marketplace
+
+
+===========================================================================
+PART 3 — FRONTEND IMPACT
+===========================================================================
+
+  MOBILE — BUSINESS ROLE
+    Community feed: swap mockCommunityFeed for the real service. The
+    FeedSection contract, Rail, cards, and CommunityHeader were built
+    contract-first specifically so this is near-zero change.
+    Connections list: real photos (EntityAvatar), subtitle re-sourced from
+    trade rather than approval.
+    Connection request/approve UI: deleted.
+    Storefront: unchanged — already shipped and approved.
+
+  MOBILE — SUPPLIER ROLE
+    Community becomes a customer list. New screens, not a re-skin.
+    Product screens: field renames as Offer lands.
+    Storefront settings: unchanged.
+
+  WEB — NEW
+    Supplier Hub. Sign-in and sign-up reuse the existing auth domain.
+    Landing page deferred.
+
+  TYPECHECK BASELINE AT v1.0.0
+    7 pre-existing errors, all in files V2 does not touch:
+      business/my-account/services/accountService.ts (2)
+      supplier/my-account/services/accountService.ts (2)
+      shared/components/NotificationCard.tsx (1)
+      shared/hooks/useDashboardNotifications.ts (1)
+      services/api/mockData.ts (1)
+    Any NEW error is a V2 regression.
+
+
+===========================================================================
+PART 4 — MIGRATION ORDER
+===========================================================================
+
+The FK rename touches six tables, so it goes first and alone.
+
+  STEP 1  RENAME + CAPABILITIES
+          products → supplier_offers. Capability columns.
+          Purely mechanical. No behaviour change.
+          GATE: every existing test stays green. If any test needed changing
+          beyond a symbol rename, the step did too much.
+
+  STEP 2  CATALOGUE TABLE + NULLABLE product_id
+          Dormant. Nothing reads it yet.
+          Settle Open Decision #1 (pack size) BEFORE this lands.
+
+  STEP 3  IMPORT STAGING + UPSERT
+          Fixes a live bug. Independent of steps 1-2 in principle, but
+          cheaper after the rename.
+
+  STEP 4  CONNECTION GATE REMOVAL
+          The deletion pass. Own commit. Careful test pass.
+
+  STEP 5  PAYMENT PATH SPLIT
+          Direct → request. Digital → purchase.
+
+  STEP 6  MATCHING AGENT
+          Behind the confidence gate. Column mapping first (one call per
+          file), per-row extraction second.
+
+  STEP 7  WEB PORTAL AUTH + API KEYS
+
+Steps 1 and 2 are safe to start immediately. Step 4 is the one that deletes
+code and deserves the most care.
+
+
+===========================================================================
+PART 5 — VERIFICATION BASELINE AT v1.0.0
+===========================================================================
+
+Measured on 2026-09-08, immediately before tagging.
+
+  Backend
+    tests/domains/network        313 passed
+    tests/domains/supplier       304 passed (with tests/architecture)
+    tests/architecture           included above -- 617 total
+    App boots                    18 blueprints registered
+    Storefront routes live       GET/PUT my-profile/storefront,
+                                 GET suppliers/<id>/storefront
+
+  Frontend
+    npm run typecheck            7 pre-existing errors (listed in Part 3)
+
+  KNOWN ENVIRONMENT NOTES
+    pytest needs TEST_DATABASE_URL, SECRET_KEY, JWT_SECRET_KEY exported
+    manually — Flask's CLI auto-loads .env but pytest does not.
+
+    Do NOT run multiple large domain dirs in one pytest invocation. A ~10-min
+    combined run exhausts the Postgres connection pool and produces a wall of
+    phantom setup errors. Run one domain dir at a time.
+
+    `flask db migrate` autogenerate surfaces unrelated pre-existing drift.
+    Hand-trim generated migrations to the intended change only.
+
+    BaseModel has FIVE columns: id, created_at, updated_at, is_deleted,
+    deleted_at. A hand-written migration that omits deleted_at will pass tests
+    (conftest uses db.create_all from metadata and never runs migrations) and
+    fail in production. This happened once already; see migration
+    f2345678901a.
+
+
+===========================================================================
+PART 6 — RULES FOR THE V2 WORK
+===========================================================================
+
+  1. Do not change approved work while refactoring next to it.
+     This was violated once in V1 and cost a full revert. Consistency nobody
+     asked for is not a reason to touch a working screen.
+
+  2. Rank in SQL, not Python. Python sorting breaks under pagination.
+
+  3. Tri-state booleans: null is not false.
+
+  4. A thin rail is a broken rail. Under the minimum, render nothing.
+
+  5. Unknown section types render nothing — the server can add a section
+     without an app release.
+
+  6. Silence is the honest answer. A section with no data does not appear.
+
+  7. "App boots" proves imports, not that view functions run. Smoke-test the
+     actual route.
+
+  8. Never run a write smoke test against the dev database.
+
+  9. Keep the long narrative comments current rather than deleting them. They
+     are why V2 could be planned at all.
+
+===========================================================================
+END
+===========================================================================
