@@ -16,6 +16,7 @@ def create_app(env_name: str | None = None) -> Flask:
     app.config.from_object(get_config(env_name))
 
     _register_extensions(app)
+    _register_apiless_models()
     _register_blueprints(app)
     _register_error_handlers(app)
 
@@ -63,6 +64,28 @@ def _register_extensions(app: Flask) -> None:
 
     from src.domains.security.rate_limit.limiter import limiter
     limiter.init_app(app)
+
+
+def _register_apiless_models() -> None:
+    """Models that no blueprint reaches, imported so their tables exist.
+
+    A model only lands in SQLAlchemy's metadata by being IMPORTED, and
+    this app has no model registry -- every other model arrives
+    transitively through the blueprint imports below. The catalogue has
+    no HTTP surface yet (matching runs inside imports; the review queue
+    waits on the admin control centre), so nothing would import it, its
+    tables would be missing from db.create_all() in tests, and the
+    foreign keys pointing at it would fail to resolve.
+
+    DELIBERATELY EXPLICIT RATHER THAN A CLEVER SCAN. A directory walk
+    that imports everything would hide exactly this dependency, and the
+    failure it produces -- a table quietly absent -- is one of the
+    harder ones to read backwards from.
+
+    Delete an entry here the day that domain gets a blueprint.
+    """
+    from src.domains.catalogue.matching.models import match_alias, match_review  # noqa: F401
+    from src.domains.catalogue.products.models import brand, product  # noqa: F401
 
 
 def _register_blueprints(app: Flask) -> None:

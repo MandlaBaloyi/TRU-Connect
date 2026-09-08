@@ -38,6 +38,18 @@ def app():
         schemas = {table.schema for table in db.metadata.tables.values() if table.schema}
         for schema in schemas:
             db.session.execute(db.text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+
+        # EXTENSIONS ARE THE SAME PROBLEM ONE LEVEL UP, and it bit in
+        # exactly the same shape: matching's trigram search failed here
+        # with "function catalogue.similarity does not exist" while
+        # working perfectly against the dev database, because
+        # create_all() creates tables, migrations create extensions, and
+        # this fixture runs the first without ever running the second.
+        #
+        # SCHEMA catalogue, NOT public, matching migration c32c5e454643 --
+        # this database has no public schema, so everything from pg_trgm
+        # is schema-qualified at the call site too.
+        db.session.execute(db.text("CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA catalogue"))
         db.session.commit()
 
         db.create_all()

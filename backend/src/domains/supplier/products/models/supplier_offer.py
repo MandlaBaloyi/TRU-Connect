@@ -68,14 +68,9 @@ from src.extensions import db
 # columns use them and because a dozen call sites already import them
 # from this path; the re-export keeps that working while the single
 # definition lives where it belongs.
-# LOAD-BEARING IMPORT, NOT AN UNUSED ONE. Models only reach
-# db.metadata by being imported, and this app has no model registry --
-# they arrive transitively through blueprint imports in create_app. The
-# catalogue has no API yet, so nothing else would import it, its tables
-# would be absent from create_all() in tests, and the FK above would
-# fail to resolve. Do not "tidy" this away.
-from src.domains.catalogue.products.models import brand as _brand  # noqa: F401
-from src.domains.catalogue.products.models import product as _product  # noqa: F401
+# The catalogue models this row points at are imported by
+# create_app's _register_apiless_models(), not here -- see that
+# function for why an API-less domain needs explicit registration.
 from src.domains.catalogue.products.models.taxonomy import (  # noqa: F401
     TAXONOMY_TYPE_SCHEMA,
     ProductCategory,
