@@ -121,10 +121,26 @@ def update_product(
     sku: Optional[str] = None,
     description: Optional[str] = None,
     compare_at_price_cents: Optional[int] = None,
+    unit_quantity: Optional[int] = None,
+    unit_measure: Optional[ProductUnit] = None,
 ) -> Product:
     product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
+
+    # A PACK SIZE BELOW 1 IS NOT A PACK. Blank is fine and common --
+    # most products are genuinely sold as Each -- but "of 0" would
+    # divide the per-unit price by nothing and put a meaningless
+    # phrase on the product card.
+    if unit_quantity is not None and unit_quantity < 1:
+        raise ProductValidationError(
+            "Check the highlighted fields.",
+            errors=["How many are in the pack must be 1 or more, or left blank."],
+        )
+    # A measure with no quantity says nothing ("Case of bottles"), so
+    # it is dropped rather than stored as half an answer.
+    if not unit_quantity:
+        unit_measure = None
     _validate_common_fields(name, price_cents, compare_at_price_cents, description)
 
     # SKU is editable -- unlike product_code, which is never touched
@@ -155,6 +171,8 @@ def update_product(
         sku=sku,
         description=description.strip() if description else None,
         compare_at_price_cents=compare_at_price_cents,
+        unit_quantity=unit_quantity,
+        unit_measure=unit_measure,
     )
 
 

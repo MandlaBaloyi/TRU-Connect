@@ -243,6 +243,14 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       sku: input.sku,
       description: input.description,
       compare_at_price_cents: input.compareAtPriceCents,
+      // WHAT IS INSIDE THE UNIT. Both columns have existed on the
+      // backend from the start and this payload never carried them,
+      // so every product said "Case" and never "case of what" -- and
+      // the per-unit price, the "Case of 6 bottles" label and the
+      // storefront's better-per-unit section were all computing from
+      // a field nothing ever filled in.
+      unit_quantity: input.unitQuantity,
+      unit_measure: input.unitMeasure,
     });
     product = fromApiProduct(data);
   } catch (error) {
@@ -329,6 +337,14 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
       sku: input.sku,
       description: input.description,
       compare_at_price_cents: input.compareAtPriceCents,
+      // WHAT IS INSIDE THE UNIT. Both columns have existed on the
+      // backend from the start and this payload never carried them,
+      // so every product said "Case" and never "case of what" -- and
+      // the per-unit price, the "Case of 6 bottles" label and the
+      // storefront's better-per-unit section were all computing from
+      // a field nothing ever filled in.
+      unit_quantity: input.unitQuantity,
+      unit_measure: input.unitMeasure,
     });
     return fromApiProduct(data);
   } catch (error) {

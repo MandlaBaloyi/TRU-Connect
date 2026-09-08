@@ -40,6 +40,7 @@ export default function SupplierSettingsLayout() {
       {/* Supplier experience */}
       <Stack.Screen name="language" options={{ title: "Language" }} />
       <Stack.Screen name="start-screen" options={{ title: "Default start screen" }} />
+      <Stack.Screen name="storefront" options={{ title: "Your storefront" }} />
       <Stack.Screen name="preferences" options={{ title: "Order handling preferences" }} />
 
       {/* Data & connectivity */}

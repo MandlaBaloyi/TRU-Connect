@@ -42,6 +42,7 @@ from src.domains.supplier.supplier_profile.schemas.supplier_profile_schemas impo
 from src.domains.supplier.supplier_profile.services import (
     supplier_profile_image_service,
     supplier_profile_service,
+    supplier_storefront_service,
 )
 
 supplier_profile_bp = Blueprint("supplier_profile", __name__)
@@ -155,6 +156,54 @@ def update_my_profile():
     # the identical, already-proven pattern).
     profile = supplier_profile_service.update_my_profile(get_jwt_identity(), **data)
     return success_response(data=_to_dto(profile))
+
+
+# --- Storefront sections ----------------------------------------------------
+#
+# The supplier's own merchandising of their brand profile. The
+# BUSINESS-facing read of the same configuration lives in connections'
+# storefront_sections_service -- these two never share a service,
+# because a supplier editing their shopfront and a business browsing it
+# are different domains with different auth, and the business-facing
+# one must never grow a write path.
+
+
+@supplier_profile_bp.route("/api/v1/supplier-discovery/my-profile/storefront", methods=["GET"])
+@fully_authenticated
+@role_required("supplier")
+def get_my_storefront():
+    """Every section, INCLUDING the ones switched off -- a business
+    would never be sent those, but the supplier needs them here or
+    there is no way to switch one back on."""
+    profile = supplier_profile_service.get_my_profile(get_jwt_identity())
+    return success_response(data=supplier_storefront_service.get_configuration(profile.id))
+
+
+@supplier_profile_bp.route("/api/v1/supplier-discovery/my-profile/storefront", methods=["PUT"])
+@fully_authenticated
+@role_required("supplier")
+def replace_my_storefront():
+    """PUT, not PATCH: reordering is inherently about the whole set --
+    moving one section changes every position after it -- so a
+    per-section endpoint would have the client sending several
+    requests that are only correct together.
+
+    ProfileValidationError and NotFoundError aren't caught here; the
+    global AppError handler already turns them into real 422/404s, the
+    same as every other route in this file.
+    """
+    payload = request.get_json(silent=True) or {}
+    sections = payload.get("sections")
+    if not isinstance(sections, list):
+        return error_response(
+            message="Validation failed",
+            errors=["Send a 'sections' list, even if it's empty."],
+            status_code=422,
+        )
+
+    profile = supplier_profile_service.get_my_profile(get_jwt_identity())
+    result = supplier_storefront_service.replace_configuration(profile.id, sections)
+    return success_response(data=result)
 
 
 # --- Profile / cover image upload -------------------------------------------

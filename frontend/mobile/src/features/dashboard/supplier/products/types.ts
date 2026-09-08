@@ -229,6 +229,17 @@ export interface CreateProductInput {
   category: ProductCategory;
   priceCents: Cents;
   sellingUnit: ProductUnit;
+  /** WHAT IS INSIDE the unit -- "Case" + 6 + "Bottle" reads as "Case
+   *  of 6 bottles". Both optional and only meaningful together; a
+   *  product genuinely sold as Each has neither.
+   *
+   *  Both columns have existed on the backend Product model from the
+   *  beginning and no input type ever carried them, so nothing could
+   *  set them -- which left the per-unit price, the pack label and the
+   *  storefront's better-per-unit section all reading a field that was
+   *  always null. */
+  unitQuantity?: number;
+  unitMeasure?: ProductUnit;
   /** LOCAL, unuploaded file URIs from the on-device picker
    *  (components/ProductPhotosField.tsx) -- never Cloudinary URLs at
    *  this stage. ORDERED; first = cover image, matching Product.images'
@@ -260,6 +271,17 @@ export interface UpdateProductInput {
   category: ProductCategory;
   priceCents: Cents;
   sellingUnit: ProductUnit;
+  /** WHAT IS INSIDE the unit -- "Case" + 6 + "Bottle" reads as "Case
+   *  of 6 bottles". Both optional and only meaningful together; a
+   *  product genuinely sold as Each has neither.
+   *
+   *  Both columns have existed on the backend Product model from the
+   *  beginning and no input type ever carried them, so nothing could
+   *  set them -- which left the per-unit price, the pack label and the
+   *  storefront's better-per-unit section all reading a field that was
+   *  always null. */
+  unitQuantity?: number;
+  unitMeasure?: ProductUnit;
   images: string[];
   /** undefined means "leave the existing SKU alone" -- matches the
    *  backend's own update_product semantics exactly (see

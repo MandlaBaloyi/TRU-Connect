@@ -1,13 +1,14 @@
 import React from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { ChevronRight, Package, Plus } from "lucide-react-native";
+import { Package, Plus } from "lucide-react-native";
 
 import { ProductActionsRow } from "@/components/products/ProductActionsRow";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
 import { sellingUnitLabel } from "@/components/products/sellingUnitLabel";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { CATEGORY_OPTIONS } from "../../../supplier/products/types";
+import { categoryDescription } from "../../../supplier/products/categoryDescriptions";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -28,7 +29,6 @@ import type { SupplierProduct, SupplierShowcaseCategory } from "../types";
 interface Props {
   categories: SupplierShowcaseCategory[];
   isLoading: boolean;
-  onSeeAll: (category: string) => void;
   /** name rides along so the product screen's own top bar is right
    *  on its first frame -- see business/routes.ts. */
   onProductPress: (productId: string, productName: string) => void;
@@ -48,7 +48,6 @@ function labelFor(category: string): string {
 export function SupplierShowcase({
   categories,
   isLoading,
-  onSeeAll,
   onProductPress,
   onAddToCart,
   addingProductId,
@@ -78,18 +77,29 @@ export function SupplierShowcase({
     <View style={styles.wrap}>
       {categories.map((group) => (
         <View key={group.category} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>{labelFor(group.category)}</Text>
-            <Pressable
-              onPress={() => onSeeAll(group.category)}
-              hitSlop={8}
-              style={styles.seeAll}
-              accessibilityRole="button"
-              accessibilityLabel={`See all in ${labelFor(group.category)}`}
-            >
-              <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See all</Text>
-              <ChevronRight size={15} color={theme.colors.primary} strokeWidth={2.4} />
-            </Pressable>
+          {/* NO PER-CATEGORY "See all" ANY MORE. Five categories meant
+              five identical links to the same screen, each one only
+              pre-filtered differently -- five chances to leave a
+              profile that is trying to keep you on it. "Shop all N
+              products" above already does that job once, and the
+              catalogue has its own category filter waiting there. */}
+          {/* THE CATEGORY IS THE HEADING, with a line saying what is
+              actually in it. There used to be a "Products" label above
+              all of these, which said nothing -- everything on the
+              screen is products -- and left each strip headed by a bare
+              category name doing no work. See categoryDescriptions. */}
+          <View style={styles.sectionHeading}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              {labelFor(group.category)}
+            </Text>
+            {categoryDescription(group.category) && (
+              <Text
+                style={[styles.sectionSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                numberOfLines={1}
+              >
+                {categoryDescription(group.category)}
+              </Text>
+            )}
           </View>
 
           <FlatList
@@ -236,15 +246,9 @@ const styles = StyleSheet.create({
   wrap: { gap: spacing.lg },
   centre: { height: 140, alignItems: "center", justifyContent: "center" },
   section: { gap: spacing.sm },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-  },
-  sectionTitle: { ...typography.h2, fontWeight: "700" },
-  seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
-  seeAllText: { ...typography.bodySmall, fontWeight: "700" },
+  sectionHeading: { paddingHorizontal: spacing.md, gap: 1 },
+  sectionSubtitle: { ...typography.bodySmall, fontSize: 12 },
+  sectionTitle: { ...typography.body, fontWeight: "800", fontSize: 17 },
   empty: { ...typography.bodySmall, paddingHorizontal: spacing.md },
   list: { paddingHorizontal: spacing.md, gap: spacing.sm },
   card: { width: CARD_WIDTH, borderWidth: 1, borderRadius: radius.md, overflow: "hidden" },

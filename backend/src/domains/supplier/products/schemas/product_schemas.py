@@ -44,6 +44,14 @@ class UpdateProductSchema(Schema):
     price_cents = fields.Integer(required=True)
     compare_at_price_cents = fields.Integer(required=False, allow_none=True, load_default=None)
     selling_unit = fields.Str(required=True, validate=validate.OneOf(_UNIT_VALUES))
+    # WHAT IS INSIDE THE UNIT. CreateProductSchema has accepted these
+    # from the beginning and this one never did, so a pack size could
+    # be set at creation and then never corrected -- and since the app
+    # had no field for it either, in practice it was never set at all.
+    unit_quantity = fields.Integer(required=False, allow_none=True, load_default=None)
+    unit_measure = fields.Str(
+        required=False, allow_none=True, load_default=None, validate=validate.OneOf(_UNIT_VALUES)
+    )
     description = fields.Str(required=False, allow_none=True, load_default=None)
     # None here means "leave the existing SKU alone" -- see
     # product_service.py's own update_product docstring. Still never

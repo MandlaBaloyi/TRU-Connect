@@ -23,6 +23,7 @@ import {
   HelpCircle,
   MessageSquareWarning,
   ScrollText,
+  Store,
   FileText,
   Info,
 } from "lucide-react-native";
@@ -116,6 +117,12 @@ export default function SupplierSettingsScreen() {
             value={settings.confirmBeforeDeleting}
             onValueChange={(confirmBeforeDeleting) => updateSettings({ confirmBeforeDeleting })}
           />
+          {/* NOT UNDER "Privacy & visibility", deliberately. Those
+              switches answer "who can see this about me"; this one is
+              merchandising -- what a business is shown FIRST when they
+              open your profile. It belongs with the other decisions a
+              supplier makes about how they trade. */}
+          <Card icon={(c) => <Store size={20} color={c} />} label="Your storefront" onPress={go("/supplier/settings/storefront")} />
           <Card icon={(c) => <ClipboardList size={20} color={c} />} label="Order handling preferences" onPress={go("/supplier/settings/preferences")} />
         </CardSection>
 
