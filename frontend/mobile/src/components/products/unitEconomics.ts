@@ -1,5 +1,10 @@
 import { UNIT_OPTIONS } from "@/features/dashboard/supplier/products/types";
 
+/** The ProductUnit values that are units of MEASUREMENT rather than
+ *  countable things. They keep their own casing and never take an "s"
+ *  -- see describeMeasure. */
+const MEASUREMENT_UNITS = new Set(["KG", "G", "L", "ML"]);
+
 /**
  * How a wholesale price is actually read: what's in the pack, and what
  * that works out to per item.
@@ -27,9 +32,37 @@ export function describeUnit(
   // a quantity of 1 (a "Pack of 1" is just a pack).
   if (!unitQuantity || unitQuantity <= 1) return unit;
 
-  const measure = unitMeasure ? labelFor(unitMeasure).toLowerCase() : null;
-  const plural = measure ? `${measure}${unitQuantity === 1 ? "" : "s"}` : null;
-  return plural ? `${unit} of ${unitQuantity} ${plural}` : `${unit} of ${unitQuantity}`;
+  return `${unit} of ${unitQuantity}${describeMeasure(unitMeasure, unitQuantity)}`;
+}
+
+/**
+ * " bottles", " kg", or nothing at all.
+ *
+ * NAIVE PLURALISATION WAS A REAL, VISIBLE BUG: this used to append an
+ * "s" to whatever the measure resolved to, which produced "Box of 20
+ * eachs" on a supplier's own profile. Two separate problems, both
+ * fixed here:
+ *
+ *   EACH IS NOT A MEASURE, it is the absence of one. "Box of 20" is
+ *   already complete and correct; "Box of 20 eachs" is nonsense and
+ *   "Box of 20 eaches" would be no better. It contributes nothing.
+ *
+ *   MEASUREMENT UNITS DO NOT PLURALISE. It is "10 kg", never "10 kgs";
+ *   "2 L", never "2 Ls". Only countable things (bottles, cans,
+ *   packets) take the s.
+ */
+function describeMeasure(unitMeasure: string | null | undefined, unitQuantity: number): string {
+  if (!unitMeasure) return "";
+
+  const raw = unitMeasure.toUpperCase();
+  if (raw === "EACH") return "";
+
+  // Symbols, not words -- kept in their own case ("kg", "L", "ml")
+  // rather than lowercased, and never pluralised.
+  if (MEASUREMENT_UNITS.has(raw)) return ` ${labelFor(unitMeasure)}`;
+
+  const measure = labelFor(unitMeasure).toLowerCase();
+  return ` ${measure}${unitQuantity === 1 ? "" : "s"}`;
 }
 
 /**

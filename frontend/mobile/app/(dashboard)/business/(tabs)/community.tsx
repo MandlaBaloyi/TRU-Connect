@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ChevronLeft, Search, Settings, UserPlus, UserX, Users } from "lucide-react-native";
+import { ChevronLeft, Search, Settings, UserPlus, UserX } from "lucide-react-native";
 import { TextInput, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { AppHeader } from "@/components/navigation/AppHeader";
-import { EmptyState } from "@/components/feedback/EmptyState";
 import { Card, CardSection, StatusPill } from "@/components/lists/CardListUI";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -15,6 +14,7 @@ import { useSupplierRequests } from "@/features/dashboard/business/supplier-requ
 import { MyConnectionsList } from "@/features/dashboard/shared/connections/components/MyConnectionsList";
 import { CommunityOverflowMenu } from "@/features/dashboard/shared/connections/components/CommunityOverflowMenu";
 import { InlineSupplierSearch } from "@/features/dashboard/business/find-supplier/components/InlineSupplierSearch";
+import { CommunityFeed } from "@/features/dashboard/business/community/components/feed/CommunityFeed";
 
 const TABS = [
   { key: "FOR_YOU", label: "For You" },
@@ -215,10 +215,14 @@ export default function BusinessCommunity() {
               }
             />
           ) : (
-            <EmptyState
-              icon={<Users size={40} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />}
-              message="Nothing here yet. Activity from businesses and suppliers you're connected to will show up here."
-            />
+            // FOR YOU IS NOW A REAL FEED, replacing the empty state
+            // that stood here. It runs on mocked data
+            // (community/services/communityFeedService) because no feed
+            // endpoint exists yet -- everything else on this tab still
+            // talks to the real backend, so the app keeps working
+            // normally while this screen is designed. See that
+            // service's own docstring on why it ignores USE_MOCK_API.
+            <CommunityFeed />
           )}
         </>
       )}

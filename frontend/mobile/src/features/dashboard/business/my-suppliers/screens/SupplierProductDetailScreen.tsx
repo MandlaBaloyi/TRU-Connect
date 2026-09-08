@@ -23,6 +23,7 @@ import { useAddToCart } from "../../orders/hooks/useAddToCart";
 import { useCart } from "../../orders/hooks/useCart";
 import { ApiError } from "@/services/api/apiClient";
 import { ProductDetailMenu } from "../components/ProductDetailMenu";
+import { CartButton } from "@/features/dashboard/business/community/components/header/CartButton";
 import { ReportSupplierSheet } from "../components/ReportSupplierSheet";
 import { RelatedProductsRow } from "../components/RelatedProductsRow";
 import { AccordionSection } from "@/components/ui/AccordionSection";
@@ -190,7 +191,14 @@ export default function SupplierProductDetailScreen() {
             ),
           }
         : {}),
-      headerRight: () => <ProductDetailMenu onReport={() => setReportSheetOpen(true)} />,
+      // Same reasoning as the supplier profile: the cart has to be
+      // reachable from anywhere you can add to it.
+      headerRight: () => (
+        <View style={styles.headerActions}>
+          <CartButton supplierId={supplierId ?? ""} />
+          <ProductDetailMenu onReport={() => setReportSheetOpen(true)} />
+        </View>
+      ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, headerSupplierName, headerProductName, product?.supplierBusinessImageUrl]);
@@ -534,6 +542,7 @@ function PolicyLink({ label }: { label: string }) {
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
   contactBlock: { gap: spacing.sm },
   contactCardBody: { padding: spacing.md },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },

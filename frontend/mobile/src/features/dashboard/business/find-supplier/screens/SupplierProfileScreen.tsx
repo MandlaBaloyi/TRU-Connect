@@ -7,6 +7,7 @@ import { Boxes, ChevronRight } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { FadeIn } from "@/components/ui/FadeIn";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { showsAsVerified } from "@/constants/config";
 import { productDetailHref, supplierCatalogHref } from "../../routes";
@@ -20,6 +21,8 @@ import { ApiError } from "@/services/api/apiClient";
 import type { SupplierProduct } from "../types";
 import { SupplierBrandHeader } from "../components/SupplierBrandHeader";
 import { SupplierShowcase } from "../components/SupplierShowcase";
+import { CartButton } from "@/features/dashboard/business/community/components/header/CartButton";
+import { SupplierStorefront } from "../storefront/SupplierStorefront";
 import { SupplierProfileMenu } from "../components/SupplierProfileMenu";
 import { SupplierConnectionInfoSheet } from "../components/SupplierConnectionInfoSheet";
 import { SupplierContactRow } from "../components/SupplierContactRow";
@@ -57,6 +60,19 @@ export default function SupplierProfileScreen() {
   const requestConnection = useRequestConnection(supplierId ?? "");
 
   const [infoOpen, setInfoOpen] = useState(false);
+  // THE COLLAPSING HEADER. The brand header carries the supplier's
+  // avatar and name at full size; the top bar stays empty until that
+  // block scrolls away, and only then takes the identity over. Before
+  // that, repeating the name two centimetres above itself is noise.
+  //
+  // A BOOLEAN, NOT THE SCROLL OFFSET. setOptions on every scroll frame
+  // would rebuild the header sixty times a second; this flips at most
+  // twice per scroll, and the effect below only re-runs when it does.
+  const [isTitleInBar, setIsTitleInBar] = useState(false);
+  // Measured, never guessed -- the brand header's height depends on
+  // whether the supplier has a cover photo, a description, an activity
+  // line. A hardcoded threshold would be wrong for most suppliers.
+  const [brandHeaderHeight, setBrandHeaderHeight] = useState(0);
   const { addToCart } = useAddToCart(supplierId ?? "");
   // Only the card mid-request shows "Adding…", not every card at once.
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
@@ -80,27 +96,35 @@ export default function SupplierProfileScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <SupplierProfileMenu onAbout={() => setInfoOpen(true)} />,
-      // Social-style top bar: the supplier's own avatar + business name
-      // (+ tick when verified), replacing the generic "Supplier" title.
-      // Named from the ROUTE PARAM until the real profile lands, so the
-      // bar never flashes the layout's generic "Supplier" first -- see
-      // routes.ts's own docstring on that fix. Deliberately no onPress:
-      // this screen IS the profile the header would otherwise link to.
-      ...(supplier || supplierNameParam
+      // CART AND MENU. Both fit beside the collapsing title because
+      // the header's right slot is sized for exactly two icons (see
+      // CommunityHeader's rightSlot) and the title beside it shrinks
+      // rather than colliding. CartButton hides itself when the cart
+      // is empty, so most of the time this is a single icon anyway.
+      headerRight: () => (
+        <View style={styles.headerActions}>
+          <CartButton supplierId={supplierId ?? ""} />
+          <SupplierProfileMenu onAbout={() => setInfoOpen(true)} />
+        </View>
+      ),
+      // The identity appears ONLY once the brand header has scrolled
+      // past. Until then the bar is just a back arrow and the menu --
+      // see isTitleInBar above.
+      ...(isTitleInBar && (supplier || supplierNameParam)
         ? {
             headerTitle: () => (
-              <EntityHeaderTitle
-                name={supplier?.businessName ?? supplierNameParam ?? ""}
-                subtitle="Supplier profile"
-                photoUrl={supplier?.businessImageUrl ?? supplier?.photoUrl}
-                verified={showsAsVerified(supplier?.verificationStatus)}
-              />
+              <FadeIn>
+                <EntityHeaderTitle
+                  name={supplier?.businessName ?? supplierNameParam ?? ""}
+                  photoUrl={supplier?.businessImageUrl ?? supplier?.photoUrl}
+                  verified={showsAsVerified(supplier?.verificationStatus)}
+                />
+              </FadeIn>
             ),
           }
-        : {}),
+        : { headerTitle: () => null }),
     });
-  }, [navigation, supplier, supplierNameParam]);
+  }, [navigation, supplier, supplierNameParam, isTitleInBar]);
 
   if (isLoading) {
     return (
@@ -122,19 +146,39 @@ export default function SupplierProfileScreen() {
 
   return (
     <ScreenContainer hasNativeHeader paddingHorizontal={0}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <SupplierBrandHeader
-          businessName={supplier.businessName}
-          category={supplier.category}
-          location={supplier.location}
-          verificationStatus={supplier.verificationStatus}
-          memberSince={supplier.memberSince}
-          description={supplier.description}
-          businessImageUrl={supplier.businessImageUrl}
-          coverImageUrl={supplier.coverImageUrl}
-          photoUrl={supplier.photoUrl}
-          activity={supplier.activity}
-        />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        // 32 rather than 16: fine enough that the swap lands where the
+        // name actually leaves, coarse enough not to run the handler
+        // on every frame of a flick.
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          if (!brandHeaderHeight) return;
+          // Swap once the name itself is gone, not the whole block --
+          // the name sits low in the brand header, so waiting for the
+          // full height would leave the bar empty well after it left.
+          const threshold = brandHeaderHeight * 0.62;
+          const past = event.nativeEvent.contentOffset.y > threshold;
+          // Only ever sets when it actually changes, so a scroll that
+          // stays on one side of the line causes no re-renders.
+          setIsTitleInBar((current) => (current === past ? current : past));
+        }}
+      >
+        <View onLayout={(event) => setBrandHeaderHeight(event.nativeEvent.layout.height)}>
+          <SupplierBrandHeader
+            businessName={supplier.businessName}
+            category={supplier.category}
+            location={supplier.location}
+            verificationStatus={supplier.verificationStatus}
+            memberSince={supplier.memberSince}
+            description={supplier.description}
+            businessImageUrl={supplier.businessImageUrl}
+            coverImageUrl={supplier.coverImageUrl}
+            photoUrl={supplier.photoUrl}
+            activity={supplier.activity}
+          />
+        </View>
 
         {/* TRUST BEFORE PRODUCTS. An informal business deciding whether
             to send money to a supplier it has never traded with weighs
@@ -183,49 +227,78 @@ export default function SupplierProfileScreen() {
           address={supplier.collectionAddress}
         />
 
-        <ProfileSection label="Products">
-          <SupplierShowcase
-            categories={showcase?.categories ?? []}
-            isLoading={isShowcaseLoading}
-            onSeeAll={(category) =>
-              router.push(supplierCatalogHref(supplierId, supplier.businessName, category) as any)
-            }
-            onProductPress={(productId, productName) =>
-              router.push(productDetailHref(supplierId, productId, productName, supplier.businessName) as any)
-            }
-            onAddToCart={handleAddToCart}
-            addingProductId={addingProductId}
-          />
+        {/* THE MERCHANDISED SECTIONS, above the category strips.
+            Supplier's pick, on sale, best sellers, better-per-unit --
+            each drawn its own way, because a shopfront earns attention
+            by presenting different products differently, and a stack
+            of identically-drawn category strips cannot say "look at
+            this one first".
 
-          {/* THE WHOLE-CATALOGUE ENTRY POINT. Until now the only way in
-              was "See all" on one arbitrary category strip -- a business
-              wanting to just browse everything had to pick a category
-              first, and never saw how much this supplier actually
-              stocks. productCount is real (backend counts it); the row
-              is hidden entirely at zero rather than offering a link to
-              an empty catalogue. */}
-          {supplier.productCount > 0 && (
-            <Pressable
-              onPress={() => router.push(supplierCatalogHref(supplierId, supplier.businessName) as any)}
-              style={({ pressed }) => [
-                styles.shopAll,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.outlineVariant,
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Shop all ${supplier.productCount} products`}
-            >
-              <Boxes size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-              <Text style={[styles.shopAllLabel, { color: theme.colors.onSurface }]}>
-                Shop all {supplier.productCount} {supplier.productCount === 1 ? "product" : "products"}
-              </Text>
-              <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
-            </Pressable>
-          )}
-        </ProfileSection>
+            Still on mock data (see useSupplierStorefront) -- every
+            other block on this screen is real. It renders nothing at
+            all while loading, so the profile never looks slower than
+            it did. */}
+        <SupplierStorefront
+          supplierId={supplierId ?? ""}
+          onProductPress={(productId, productName) =>
+            router.push(productDetailHref(supplierId, productId, productName, supplier.businessName) as any)
+          }
+          onAddToCart={handleAddToCart}
+          addingProductId={addingProductId}
+        />
+
+        {/* The full catalogue by category -- the "here is everything"
+            half, where the storefront above is the "here is what to
+            look at" half.
+
+            NOT WRAPPED IN ProfileSection ANY MORE, and that was a real
+            bug rather than a style preference. ProfileSection pads 16px
+            horizontally and each strip's own list pads 16px again, so
+            the strips were boxed inside a 32px inset and clipped 16px
+            short of the screen edge -- they could not run off the side
+            the way every other rail in the app does, which is exactly
+            why they felt like they did not scroll properly. The strips
+            own their own padding and now bleed to the edge like the
+            storefront rails above them. */}
+        <SupplierShowcase
+          categories={showcase?.categories ?? []}
+          isLoading={isShowcaseLoading}
+          onProductPress={(productId, productName) =>
+            router.push(productDetailHref(supplierId, productId, productName, supplier.businessName) as any)
+          }
+          onAddToCart={handleAddToCart}
+          addingProductId={addingProductId}
+        />
+
+        {/* THE WHOLE-CATALOGUE ENTRY POINT, and now the ONLY one --
+            the per-category "See all" links are gone (see
+            SupplierShowcase). A business wanting to browse everything
+            no longer has to pick a category first, and this row is
+            where they see how much the supplier actually stocks.
+            productCount is real (backend counts it); the row is hidden
+            entirely at zero rather than offering a link to an empty
+            catalogue. */}
+        {supplier.productCount > 0 && (
+          <Pressable
+            onPress={() => router.push(supplierCatalogHref(supplierId, supplier.businessName) as any)}
+            style={({ pressed }) => [
+              styles.shopAll,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Shop all ${supplier.productCount} products`}
+          >
+            <Boxes size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+            <Text style={[styles.shopAllLabel, { color: theme.colors.onSurface }]}>
+              Shop all {supplier.productCount} {supplier.productCount === 1 ? "product" : "products"}
+            </Text>
+            <ChevronRight size={18} color={theme.colors.onSurfaceVariant} />
+          </Pressable>
+        )}
       </ScrollView>
 
       <SupplierConnectionInfoSheet
@@ -238,6 +311,7 @@ export default function SupplierProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
   content: { paddingBottom: spacing.xxl },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   detailsBody: { padding: spacing.md, gap: spacing.md },

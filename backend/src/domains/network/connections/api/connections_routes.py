@@ -46,6 +46,7 @@ from src.domains.network.connections.services import (
 from src.domains.network.connections.services.storefront import (
     catalog_service,
     showcase_service,
+    storefront_sections_service,
 )
 from src.domains.security.rate_limit.limiter import limiter
 
@@ -101,6 +102,25 @@ def list_supplier_profile_products(supplier_profile_id: uuid.UUID):
     """The small pinned/featured strip on the supplier's brand profile
     -- distinct from the paginated /products catalogue below."""
     result = showcase_service.list_profile_products(_business_id(), supplier_profile_id)
+    return success_response(data=result)
+
+
+@connections_bp.route(
+    "/api/v1/supplier-discovery/suppliers/<uuid:supplier_profile_id>/storefront", methods=["GET"]
+)
+@fully_authenticated
+@role_required("business")
+def get_supplier_storefront(supplier_profile_id: uuid.UUID):
+    """The supplier's MERCHANDISED sections -- their pick, what is on
+    sale, what businesses buy most, what is new, what is better per
+    unit, and any strip they curated themselves.
+
+    Distinct from /profile-products above, which is the same supplier's
+    catalogue grouped by category. That answers "here is everything";
+    this answers "here is what to look at first", and the supplier
+    decides which of these run and in what order.
+    """
+    result = storefront_sections_service.get_storefront(_business_id(), supplier_profile_id)
     return success_response(data=result)
 
 

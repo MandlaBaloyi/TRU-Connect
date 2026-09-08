@@ -211,6 +211,8 @@ def update_product(product_id: str):
         sku=data.get("sku"),
         description=data.get("description"),
         compare_at_price_cents=data.get("compare_at_price_cents"),
+        unit_quantity=data.get("unit_quantity"),
+        unit_measure=data.get("unit_measure"),
     )
     return success_response(data=_to_dto(product))
 

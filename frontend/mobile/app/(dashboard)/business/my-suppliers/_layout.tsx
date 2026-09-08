@@ -1,7 +1,7 @@
 import React from "react";
 import { Stack } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { featureHeader } from "@/components/navigation/FeatureHeader";
+import { communityHeader } from "@/features/dashboard/business/community/components/header/CommunityHeader";
 
 export default function MySuppliersLayout() {
   const theme = useTheme();
@@ -10,7 +10,7 @@ export default function MySuppliersLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
-        header: featureHeader,
+        header: communityHeader,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >

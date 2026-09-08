@@ -399,11 +399,20 @@ class ProductRepository:
         sku: Optional[str] = None,
         description: Optional[str] = None,
         compare_at_price_cents: Optional[int] = None,
+        unit_quantity: Optional[int] = None,
+        unit_measure: Optional[ProductUnit] = None,
     ) -> Product:
         product.name = name
         product.category = category
         product.price_cents = price_cents
         product.selling_unit = selling_unit
+        # ASSIGNED UNCONDITIONALLY, unlike sku below. None is a real
+        # answer here -- it is how a supplier clears a pack size they
+        # set by mistake -- so "leave it alone if None" would make that
+        # impossible. The service has already resolved what the value
+        # should be before calling.
+        product.unit_quantity = unit_quantity
+        product.unit_measure = unit_measure
         # product_code is DELIBERATELY never touched here -- see its
         # own column docstring on product.py. sku IS editable; None is
         # never passed by the service layer (it always resolves to the
@@ -519,3 +528,142 @@ class ProductRepository:
             Product.supplier_profile_id == supplier_profile_id,
             Product.is_deleted.is_(False),
         ).all()
+
+    # ------------------------------------------------------------------
+    # Storefront sections
+    #
+    # The four merchandised strips the PLATFORM computes for a
+    # supplier's brand profile (storefront_sections_service builds the
+    # sections; these four just fetch the rows). Each is small and
+    # LIMITed -- a rail shows six products, so none of them has any
+    # business loading a whole catalogue to throw most of it away.
+    #
+    # ALL FOUR EXCLUDE ARCHIVED AND DELETED PRODUCTS, and NONE excludes
+    # out-of-stock ones. An archived product is gone; an out-of-stock
+    # one is real, still worth seeing, and every storefront card has an
+    # explicit out-of-stock state. Dropping them would also make
+    # "what businesses buy most" quietly wrong -- popularity and
+    # availability are different facts.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _storefront_base(supplier_profile_id: str | UUID):
+        return Product.query.filter(
+            Product.supplier_profile_id == supplier_profile_id,
+            Product.is_deleted.is_(False),
+            Product.is_archived.is_(False),
+        )
+
+    @staticmethod
+    def list_on_sale(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+        """Genuinely reduced, deepest discount first.
+
+        compare_at MUST BE GREATER THAN the price, not merely present.
+        A compare-at equal to or below the price is stale or
+        mis-entered data, and showing it as a saving would put a
+        discount on a product that has none -- the same guard
+        _apply_ranked_sort's own discount expression applies.
+
+        Ordered by the discount FRACTION rather than the rand amount:
+        30% off a R20 item is a better deal than 5% off a R500 one,
+        even though the second saves more rands.
+        """
+        discount_fraction = (
+            (Product.compare_at_price_cents - Product.price_cents)
+            * 1.0
+            / db.func.nullif(Product.compare_at_price_cents, 0)
+        )
+        return (
+            ProductRepository._storefront_base(supplier_profile_id)
+            .filter(
+                Product.compare_at_price_cents.isnot(None),
+                Product.compare_at_price_cents > Product.price_cents,
+            )
+            .order_by(discount_fraction.desc(), Product.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_best_selling(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+        """Units actually sold, from CONFIRMED orders only.
+
+        INNER JOIN HERE, unlike _apply_ranked_sort's outer one, and the
+        difference is the point. That method RANKS a full catalogue, so
+        a product nobody has ordered must still appear, last. This
+        builds a strip whose entire claim is "businesses buy this" --
+        a product with no sales does not belong in it at all, and
+        padding the strip with unsold stock to reach six would make the
+        claim false.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        sold = (
+            db.session.query(
+                StockOrderItem.product_id.label("product_id"),
+                db.func.coalesce(db.func.sum(StockOrderItem.quantity), 0).label("units"),
+            )
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.supplier_profile_id == supplier_profile_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .group_by(StockOrderItem.product_id)
+            .subquery()
+        )
+        return (
+            ProductRepository._storefront_base(supplier_profile_id)
+            .join(sold, sold.c.product_id == Product.id)
+            .order_by(sold.c.units.desc(), Product.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_recently_added(supplier_profile_id: str | UUID, since, limit: int) -> List[Product]:
+        """Added within the window, newest first.
+
+        WINDOWED, NOT JUST SORTED. "Just added" is a claim about
+        recency; ordering by created_at alone would hand the newest six
+        products to a supplier whose last upload was eight months ago
+        and label them new. The section is meant to disappear for a
+        supplier who has added nothing lately, and the window is what
+        makes it disappear.
+        """
+        return (
+            ProductRepository._storefront_base(supplier_profile_id)
+            .filter(Product.created_at >= since)
+            .order_by(Product.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_best_unit_value(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+        """Multi-unit packs, cheapest per item first.
+
+        unit_quantity > 1 IS THE WHOLE FILTER. A product sold as Each
+        has no per-unit price to compute -- price divided by one is
+        just the price -- and putting it in a strip titled "better per
+        unit in bulk" would be claiming a saving that does not exist.
+        unitEconomics.perUnitCents on the frontend returns null for
+        exactly the same reason.
+
+        Ordered in SQL rather than in Python because this is LIMITed:
+        sorting after the fact would sort whichever six rows the
+        database happened to return, not the six cheapest per unit.
+        """
+        per_unit = Product.price_cents * 1.0 / db.func.nullif(Product.unit_quantity, 0)
+        return (
+            ProductRepository._storefront_base(supplier_profile_id)
+            .filter(Product.unit_quantity.isnot(None), Product.unit_quantity > 1)
+            .order_by(per_unit.asc(), Product.created_at.desc())
+            .limit(limit)
+            .all()
+        )

@@ -40,6 +40,8 @@ export default function AddProductScreen() {
         priceCents: values.priceCents,
         compareAtPriceCents: values.compareAtPriceCents,
         sellingUnit: values.sellingUnit,
+        unitQuantity: values.unitQuantity,
+        unitMeasure: values.unitMeasure,
         description: values.description,
         sku: values.sku,
         localImageUris: values.images,

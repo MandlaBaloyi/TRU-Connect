@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Package, Search, ShoppingCart, X } from "lucide-react-native";
+import { Package, Search, X } from "lucide-react-native";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -18,7 +18,6 @@ import { useSupplierProducts } from "../../find-supplier/hooks/useSupplierProduc
 import { useSupplierProductCategories } from "../../find-supplier/hooks/useSupplierProductCategories";
 import { useEndConnection } from "../../find-supplier/hooks/useEndConnection";
 import { useReportSupplier } from "../../find-supplier/hooks/useReportSupplier";
-import { useCart } from "../../orders/hooks/useCart";
 import { useAddToCart } from "../../orders/hooks/useAddToCart";
 import { ApiError } from "@/services/api/apiClient";
 import { SupplierCatalogProductCard } from "../components/SupplierCatalogProductCard";
@@ -27,6 +26,7 @@ import { CatalogSortSheet } from "../components/CatalogSortSheet";
 import { CatalogCategoryFilterSheet } from "../components/CatalogCategoryFilterSheet";
 import { CatalogPager } from "../components/CatalogPager";
 import { SupplierCatalogMenu } from "../components/SupplierCatalogMenu";
+import { CartButton } from "@/features/dashboard/business/community/components/header/CartButton";
 import { ContactSupplierSheet } from "../components/ContactSupplierSheet";
 import { ReportSupplierSheet } from "../components/ReportSupplierSheet";
 import { DisconnectSupplierSheet } from "../components/DisconnectSupplierSheet";
@@ -139,12 +139,10 @@ export default function SupplierCatalogScreen() {
   const { categories: availableCategories } = useSupplierProductCategories(supplierId ?? "");
   const { endConnection, isEnding } = useEndConnection(supplierId ?? "");
   const { reportSupplier, isReporting } = useReportSupplier(supplierId ?? "");
-  const { cart } = useCart(supplierId ?? "");
   const { addToCart } = useAddToCart(supplierId ?? "");
   // Which card is mid-request, so only THAT button shows "Adding…"
   // rather than every card on the page going busy at once.
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
-  const cartItemCount = cart?.itemCount ?? 0;
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -253,20 +251,13 @@ export default function SupplierCatalogScreen() {
         : {}),
       headerRight: () => (
         <View style={styles.headerRightRow}>
-          <Pressable
-            onPress={() => router.push(`/business/orders/${supplierId}` as any)}
-            hitSlop={10}
-            style={styles.cartButton}
-            accessibilityRole="button"
-            accessibilityLabel="Cart"
-          >
-            <ShoppingCart size={20} color={theme.colors.onSurface} strokeWidth={2.2} />
-            {cartItemCount > 0 && (
-              <View style={[styles.cartBadge, { backgroundColor: theme.colors.error }]}>
-                <Text style={styles.cartBadgeText}>{cartItemCount > 9 ? "9+" : cartItemCount}</Text>
-              </View>
-            )}
-          </Pressable>
+          {/* This screen built the cart button inline, and was the only
+              screen that had one. It moved to CartButton so the
+              supplier profile and product screen can show the identical
+              thing -- see that component's own docstring on why the
+              cart has to be reachable from every screen you can add
+              to. Behaviour here is unchanged. */}
+          <CartButton supplierId={supplierId ?? ""} />
           <SupplierCatalogMenu
             onViewProfile={() => router.push(supplierProfileHref(supplierId, headerSupplierName) as any)}
             onContactSupplier={() => setContactSheetOpen(true)}
@@ -277,7 +268,7 @@ export default function SupplierCatalogScreen() {
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, supplierId, cartItemCount, headerSupplierName, supplierBusinessImageUrl, supplierVerificationStatus]);
+  }, [navigation, supplierId, headerSupplierName, supplierBusinessImageUrl, supplierVerificationStatus]);
 
   if (isLoading) {
     return (
@@ -437,19 +428,6 @@ export default function SupplierCatalogScreen() {
 
 const styles = StyleSheet.create({
   headerRightRow: { flexDirection: "row", alignItems: "center" },
-  cartButton: { padding: spacing.xs, position: "relative" },
-  cartBadge: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  cartBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   searchWrap: {
     flexDirection: "row",
