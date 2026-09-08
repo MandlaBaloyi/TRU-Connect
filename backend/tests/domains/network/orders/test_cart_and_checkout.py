@@ -1191,15 +1191,47 @@ def test_submit_checkout_notifies_the_supplier(make_business, make_supplier, mak
 # --- the real, missing connection constraint (found and fixed) -------
 
 
-def test_checkout_rejects_with_no_connection_at_all(make_business, make_supplier, make_supplier_profile):
-    """THE REAL, CONFIRMED GAP found and fixed after direct report --
-    submit_checkout never verified an active connection existed at
-    all. Browsing and building a cart both stay allowed without one
-    (cart_service has no such check, unchanged); only the real
-    financial commitment does."""
+def test_checkout_succeeds_without_a_connection_for_an_ordinary_supplier(
+    make_business, make_supplier, make_supplier_profile
+):
+    """THE V2 STEP 4 BEHAVIOUR CHANGE, at the point it actually matters.
+
+    This exact scenario raised SupplierNotConnectedError before.
+    Connection stopped being a platform rule and became a per-supplier
+    choice that defaults off, so a business can now buy from a supplier
+    it has never connected to -- which is what makes a discovery feed
+    worth having at all.
+
+    Order accept/decline remains the supplier's real control, and it is
+    a better one: per-transaction, and they can see what is actually
+    being ordered."""
     business = make_business()
     supplier_user = make_supplier()
-    profile = make_supplier_profile(supplier_user, business_name="No Connection Co")
+    profile = make_supplier_profile(supplier_user, business_name="Open For Business Co")
+    product = _make_product(profile.id, "Bread")
+    cart_service.add_item(business.id, profile.id, product.id, 1)
+
+    result = checkout_service.submit_checkout(business.id, profile.id, "CASH", "DELIVER")
+
+    assert result["status"] == "PENDING_SUPPLIER_APPROVAL", (
+        "the supplier still decides per order -- ordering opened up, approval did not disappear"
+    )
+
+
+def test_checkout_rejects_with_no_connection_when_the_supplier_requires_one(
+    make_business, make_supplier, make_supplier_profile
+):
+    """The opt-in path. A supplier who wants to approve businesses
+    before stock moves turns requires_connection on and gets exactly the
+    behaviour every supplier used to have.
+
+    Browsing and building a cart stay allowed without one, unchanged --
+    only the real financial commitment is refused."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(
+        supplier_user, business_name="No Connection Co", requires_connection=True
+    )
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)  # still allowed, unchanged
 
@@ -1219,7 +1251,9 @@ def test_checkout_rejects_a_still_pending_connection_request(
 
     business = make_business()
     supplier_user = make_supplier()
-    profile = make_supplier_profile(supplier_user, business_name="Pending Only Co")
+    profile = make_supplier_profile(
+        supplier_user, business_name="Pending Only Co", requires_connection=True
+    )
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)
     request_service.request_connection(business.id, profile.id)  # sent, never approved
@@ -1242,7 +1276,9 @@ def test_checkout_rejects_after_a_real_disconnect_and_re_request(
 
     business = make_business()
     supplier_user = make_supplier()
-    profile = make_supplier_profile(supplier_user, business_name="Disconnect Reconnect Co")
+    profile = make_supplier_profile(
+        supplier_user, business_name="Disconnect Reconnect Co", requires_connection=True
+    )
     make_active_connection(business, profile)
     product = _make_product(profile.id, "Bread")
     cart_service.add_item(business.id, profile.id, product.id, 1)

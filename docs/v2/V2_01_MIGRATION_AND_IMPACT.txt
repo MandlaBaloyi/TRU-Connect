@@ -386,8 +386,73 @@ The FK rename touches six tables, so it goes first and alone.
           so deleting an offer never erases how it got there). Downgrade
           and re-upgrade clean, 53 offers preserved.
 
-  STEP 4  CONNECTION GATE REMOVAL
-          The deletion pass. Own commit. Careful test pass.
+  STEP 4  CONNECTION GATE REMOVAL                     DONE 2026-09-08
+          No migration -- requires_connection already shipped in step 1.
+
+          THIS WAS NOT A DELETION PASS, and the earlier plan calling it
+          one was wrong. The mobile app actively calls the
+          connection-request endpoints
+          (find-supplier/services/httpSupplierSearchService.ts, the
+          supplier-side customer-requests screens). Deleting them would
+          break a shipped client for a change that is supposed to make
+          the platform MORE usable.
+
+          So connection did not die -- it stopped being compulsory.
+          requires_connection defaults FALSE, and a supplier who
+          genuinely wants to approve businesses before stock moves turns
+          it on and gets exactly the old behaviour. Request, approve,
+          decline and disconnect all still work.
+
+          THE RULE WAS WRITTEN OUT TWICE, WHICH IS THE REAL FINDING.
+          ordering_gate.can_place_order had one copy and
+          checkout_service.submit_checkout had another, independent one.
+          Flipping only the gate would have left the app saying "you can
+          order" on the product screen and then refusing at checkout
+          with "send a connection request first" -- incoherent, and
+          worse than the old behaviour which was merely strict. Both now
+          call ordering_gate.connection_requirement_met, one definition.
+
+          AN AUDIT CONFIRMED THOSE WERE THE ONLY TWO ACTION GATES. Every
+          other ConnectionRequestStatus.ACTIVE check in the codebase is
+          either the connection lifecycle itself (request_service,
+          connection_list_service) or VISIBILITY -- whether a photo,
+          contact details or collection address is shown, driven by the
+          supplier's own photo_visibility / share_contact_details
+          settings.
+
+          VISIBILITY WAS DELIBERATELY LEFT ALONE, and this is a consent
+          decision rather than a technical one. A supplier who set
+          share_contact_details=true was agreeing that CONNECTED
+          businesses could see their number. Flipping that to "anyone"
+          would silently change what they consented to. It needs a
+          supplier-facing re-consent, not a code change.
+
+          ONE GAP THIS CREATED, AND HOW IT IS COVERED. Ordering opened
+          up, so a business can now buy from a supplier it never
+          connected to -- and it cannot collect from an address it
+          cannot see. cart_service already returns the collection
+          address on the cart, which is a genuinely narrow exposure (it
+          takes a real cart with that supplier, not browsing), so the
+          collect flow still works. The PROFILE endpoint's address gate
+          stays as it is, per the consent reasoning above.
+
+          can_place_order also gained a requiresConnection key so a
+          client can tell "you may just order" apart from "this supplier
+          approves buyers first" -- additive, and the mobile app ignores
+          fields it does not know. It also now raises SupplierNotFound
+          for a supplier that does not exist; it previously imported
+          SupplierProfileRepository without ever calling it and reported
+          SUPPLIER_HAS_NO_PRODUCTS instead, which was true and useless.
+
+          Tests: three gate tests and three checkout tests encoded the
+          old mandatory rule and were rescoped to requires_connection
+          =True rather than deleted -- including the disconnect-and-
+          re-request regression, which came from a real reported log and
+          still matters for an opt-in supplier. Two new tests state the
+          behaviour change directly at both layers.
+
+          632 tests green (315 network, 317 supplier + architecture +
+          catalogue) -- the 630 baseline plus these 2.
 
   STEP 5  PAYMENT PATH SPLIT
           Direct → request. Digital → purchase.

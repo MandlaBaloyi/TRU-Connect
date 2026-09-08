@@ -38,7 +38,13 @@ def _make_product(profile_id, name, category, price_cents, selling_unit):
     )
 
 
-def test_cannot_order_with_no_connection_and_no_products(make_business, make_supplier, make_supplier_profile):
+def test_an_empty_catalogue_is_the_reason_not_the_missing_connection(
+    make_business, make_supplier, make_supplier_profile
+):
+    """Before v2 step 4 this reported NOT_CONNECTED, because connection
+    was checked first and required of everyone. Now the default supplier
+    needs no connection at all, so the only real obstacle is the one
+    that was always the real obstacle: there is nothing to order."""
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Nothing Yet Co")
@@ -48,7 +54,8 @@ def test_cannot_order_with_no_connection_and_no_products(make_business, make_sup
     assert result["canOrder"] is False
     assert result["isConnected"] is False
     assert result["hasProducts"] is False
-    assert result["reason"] == "NOT_CONNECTED"
+    assert result["requiresConnection"] is False
+    assert result["reason"] == "SUPPLIER_HAS_NO_PRODUCTS"
 
 
 def test_cannot_order_when_connected_but_supplier_has_no_products(
@@ -67,9 +74,17 @@ def test_cannot_order_when_connected_but_supplier_has_no_products(
     assert result["reason"] == "SUPPLIER_HAS_NO_PRODUCTS"
 
 
-def test_cannot_order_when_supplier_has_products_but_not_connected(
+def test_a_business_can_order_from_a_stocked_supplier_without_connecting_first(
     make_business, make_supplier, make_supplier_profile
 ):
+    """THE V2 STEP 4 BEHAVIOUR CHANGE, stated as plainly as possible.
+
+    This exact scenario returned canOrder=False and NOT_CONNECTED
+    before. Connection approval was a gate on every supplier; it is now
+    a per-supplier option that defaults off, because order
+    accept/decline is a better control (per-transaction, better
+    information) and because a supplier whose orders arrive from their
+    own system has nobody to click approve."""
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="Has Stock No Connection Co")
@@ -77,10 +92,38 @@ def test_cannot_order_when_supplier_has_products_but_not_connected(
 
     result = ordering_gate.can_place_order(business.id, profile.id)
 
-    assert result["canOrder"] is False
-    assert result["isConnected"] is False
+    assert result["canOrder"] is True
+    assert result["isConnected"] is False, "and it did not quietly connect them"
     assert result["hasProducts"] is True
+    assert result["requiresConnection"] is False
+    assert result["reason"] is None
+
+
+def test_a_supplier_who_opts_in_still_gets_the_old_gate(
+    make_business, make_supplier, make_supplier_profile
+):
+    """Connection did not disappear, it became a choice.
+
+    A small supplier who genuinely wants to know who is buying before
+    stock moves turns requires_connection on and gets exactly the
+    behaviour every supplier used to have."""
+    business = make_business()
+    supplier_user = make_supplier()
+    profile = make_supplier_profile(
+        supplier_user, business_name="Approve First Co", requires_connection=True
+    )
+    _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
+
+    result = ordering_gate.can_place_order(business.id, profile.id)
+
+    assert result["canOrder"] is False
+    assert result["requiresConnection"] is True
     assert result["reason"] == "NOT_CONNECTED"
+
+    _make_active_connection(business, profile)
+    after = ordering_gate.can_place_order(business.id, profile.id)
+    assert after["canOrder"] is True
+    assert after["reason"] is None
 
 
 def test_can_order_when_both_conditions_are_met(make_business, make_supplier, make_supplier_profile):
@@ -98,10 +141,16 @@ def test_can_order_when_both_conditions_are_met(make_business, make_supplier, ma
 
 def test_pending_connection_is_not_sufficient(make_business, make_supplier, make_supplier_profile):
     """PENDING is not ACTIVE -- a request that hasn't been approved
-    yet must not count as connected for ordering purposes."""
+    yet must not count as connected for ordering purposes.
+
+    Only meaningful for a supplier who requires connection at all, so
+    the flag is set here. For everyone else a pending request is simply
+    irrelevant to ordering, which is the point of step 4."""
     business = make_business()
     supplier_user = make_supplier()
-    profile = make_supplier_profile(supplier_user, business_name="Still Pending Co")
+    profile = make_supplier_profile(
+        supplier_user, business_name="Still Pending Co", requires_connection=True
+    )
     request_service.request_connection(business.id, profile.id)  # stays PENDING
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
 

@@ -128,9 +128,18 @@ def _build_cart_dict(stock_order: StockOrder, supplier) -> dict:
         "supplierMinimumOrderCents": supplier.minimum_order_cents if supplier else None,
         # Where to collect, for the checkout screen's COLLECT branch,
         # which until now could only say "will appear here once they've
-        # added one". Reaching checkout requires an ACTIVE connection
-        # (checkout_service's own gate), which is the same condition
-        # the profile endpoint gates this address behind.
+        # added one".
+        #
+        # THIS IS NOW THE ONLY PLACE A COLLECTION ADDRESS REACHES AN
+        # UNCONNECTED BUSINESS, and that is deliberate rather than an
+        # oversight of v2 step 4. Connection stopped gating ordering, so
+        # a business can now buy from a supplier it never connected to
+        # -- and it cannot collect from an address it cannot see. The
+        # exposure is still narrow: it takes a real cart with that
+        # supplier, not browsing. The PROFILE endpoint's own address
+        # gate was deliberately left alone, because widening that one
+        # would change what every supplier who already opted into
+        # sharing was actually agreeing to.
         "supplierCollectionAddress": _collection_address_dict(supplier),
         "status": stock_order.status.value,
         "totalCents": stock_order.total_cents,

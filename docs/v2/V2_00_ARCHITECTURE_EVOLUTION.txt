@@ -256,12 +256,35 @@ WHY
       ORDERING is gated. The connection requirement is the last thing standing
       between the catalogue and a real discovery feed.
 
-WHAT DIES
+WHAT DIES -- CORRECTED 2026-09-08, AFTER BUILDING IT
 
-  - connection request / approve / decline flow and its notifications
-  - the disconnect flow
-  - "businesses connected" as a public track-record metric
-  - the contact-detail and collection-address gate
+The original draft of this section listed the request/approve/decline
+flow, the disconnect flow and the contact gate as things that die. That
+was wrong, and checking the mobile app is what showed it: the app
+actively calls those endpoints. Deleting them would break a shipped
+client for a change whose entire purpose is to make the platform more
+usable.
+
+What actually died is the word MANDATORY. Nothing was deleted.
+
+  - connection is no longer required to order (requires_connection,
+    default FALSE); request, approve, decline and disconnect all still
+    work for suppliers who opt in
+  - "businesses connected" as a public track-record metric still needs
+    replacing -- it is meaningless when most suppliers never use
+    connection at all
+
+THE CONTACT AND ADDRESS GATES STAYED, and that is a consent decision
+rather than an oversight. A supplier who set share_contact_details=true
+was agreeing that CONNECTED businesses could see their number. Quietly
+reinterpreting that as "anyone can" changes what they consented to
+without asking. It needs a supplier-facing re-consent, not a code
+change.
+
+The one gap this leaves is covered: a business ordering for COLLECTION
+from a supplier it never connected to still sees the collection address,
+because the cart returns it. That exposure is narrow by construction --
+it takes a real cart with that supplier, not browsing.
 
 WHAT REPLACES THE CONTACT GATE
 

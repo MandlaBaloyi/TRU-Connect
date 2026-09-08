@@ -48,10 +48,7 @@ from src.extensions import db
 from src.shared.audit.audit import publish
 from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
 from src.shared.audit.event_types.business import BusinessAuditEvent
-from src.domains.network.connections.models.connection_request import ConnectionRequestStatus
-from src.domains.network.connections.repositories.connection_request_repository import (
-    ConnectionRequestRepository,
-)
+from src.domains.network.connections.services.storefront import ordering_gate
 from src.domains.network.orders.errors import (
     BelowMinimumOrderError,
     CartAlreadySubmittedError,
@@ -452,16 +449,21 @@ def submit_checkout(
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    # THE REAL, CONFIRMED CONSTRAINT this domain never actually
-    # enforced until now -- see SupplierNotConnectedError's own
-    # docstring for the full reasoning. Browsing and building a cart
-    # both stay allowed without an active connection (nothing changes
-    # in cart_service.py); only the real financial commitment,
-    # actually submitting an order, requires it.
-    connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
-    if not connection or connection.status != ConnectionRequestStatus.ACTIVE:
+    # CONNECTION IS NOW THE SUPPLIER'S CHOICE, NOT A PLATFORM RULE
+    # (v2 step 4, V2_00 section 2.3). Almost every supplier has
+    # requires_connection=False, so almost every checkout passes this
+    # without a connection existing at all.
+    #
+    # THE RULE LIVES IN ordering_gate, NOT HERE, and that matters: it
+    # used to be written out twice -- once in the gate and once in this
+    # function -- which is exactly how they would drift. Flipping only
+    # the gate would have left the app saying "you can order" on the
+    # product screen and then refusing at checkout with "send a
+    # connection request first", which is worse than the old behaviour
+    # because it is incoherent rather than merely strict.
+    if not ordering_gate.connection_requirement_met(business_id, supplier):
         raise SupplierNotConnectedError(
-            "You need an active connection with this supplier before you can check out. "
+            "This supplier approves businesses before accepting orders. "
             "Send a connection request first."
         )
 
