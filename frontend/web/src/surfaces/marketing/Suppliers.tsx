@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { buttonClass } from "@/design-system/primitives/Button";
 import { Section } from "@/design-system/patterns/Section";
+import { CatalogueRoutes } from "@/surfaces/marketing/CatalogueRoutes";
 import { routes } from "@/config/routes";
 import { ClosingCta } from "@/surfaces/marketing/ClosingCta";
 import { InfoCardGrid } from "@/surfaces/marketing/InfoCardGrid";
@@ -116,6 +117,8 @@ export function Suppliers() {
           </div>
         </div>
       </Section>
+
+      <CatalogueRoutes />
 
       <Section space="lg">
         <ClosingCta

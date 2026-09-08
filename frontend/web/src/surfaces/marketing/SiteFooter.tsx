@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Container } from "@/design-system/primitives/Container";
-import { Wordmark } from "@/design-system/primitives/Wordmark";
+import { Logo } from "@/design-system/primitives/Logo";
 import { routes } from "@/config/routes";
 
 /**
@@ -20,13 +20,15 @@ import { routes } from "@/config/routes";
 
 const SUPPLIER_LINKS = [
   { href: routes.suppliers, label: "Why TruConnect", strong: false },
+  { href: routes.pricing, label: "Pricing", strong: false },
+  { href: routes.howItWorks, label: "How it works", strong: false },
   { href: routes.signUp, label: "Create a supplier account", strong: true },
   { href: routes.signIn, label: "Supplier sign in", strong: false },
 ];
 
 const COMPANY_LINKS = [
   { href: routes.about, label: "About" },
-  { href: routes.contact, label: "Contact" },
+  { href: routes.contact, label: "Contact sales" },
   { href: routes.terms, label: "Terms of Service" },
   { href: routes.privacy, label: "Privacy Policy" },
 ];
@@ -37,7 +39,7 @@ export function SiteFooter() {
       <Container className="py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <Wordmark className="text-lg" />
+            <Logo className="text-lg" />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-muted">
               The supply network for South Africa&rsquo;s independent businesses.
             </p>

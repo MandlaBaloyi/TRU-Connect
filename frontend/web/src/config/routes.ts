@@ -8,6 +8,8 @@
 export const routes = {
   home: "/",
   suppliers: "/suppliers",
+  howItWorks: "/how-it-works",
+  pricing: "/pricing",
   about: "/about",
   contact: "/contact",
   terms: "/terms",

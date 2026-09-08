@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Field } from "@/design-system/primitives/Field";
+import { SocialSignIn } from "@/domains/auth/components/SocialSignIn";
 import { NotWiredError, signIn } from "@/domains/auth/services/authApi";
 
 /**
@@ -55,7 +56,9 @@ export default function SignInPage() {
         Manage your catalogue, terms and profile.
       </p>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-5">
+      <SocialSignIn action="sign in" />
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <Field
           id="email"
           label="Email address"

@@ -4,6 +4,7 @@ import { buttonClass } from "@/design-system/primitives/Button";
 import { PageHeading } from "@/design-system/primitives/PageHeading";
 import { Section } from "@/design-system/patterns/Section";
 import { routes } from "@/config/routes";
+import { CONTACT_EMAIL } from "@/surfaces/marketing/siteContent";
 
 /**
  * Contact.
@@ -20,7 +21,9 @@ import { routes } from "@/config/routes";
  * it is empty the page says how to reach us in the app rather than
  * offering a `mailto:` to nowhere.
  */
-const CONTACT_EMAIL: string = "";
+// Defined in siteContent, not here -- it is the one string the owner
+// has to fill in, and having it in two files is how one of them gets
+// filled and the other does not.
 
 const CHANNELS = [
   {

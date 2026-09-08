@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { buttonClass } from "@/design-system/primitives/Button";
 import { Section } from "@/design-system/patterns/Section";
+import { CatalogueRoutes } from "@/surfaces/marketing/CatalogueRoutes";
 import { routes } from "@/config/routes";
 import { ClosingCta } from "@/surfaces/marketing/ClosingCta";
 import { GetTheApp } from "@/surfaces/marketing/GetTheApp";
@@ -130,6 +131,8 @@ export function Landing() {
           </div>
         </div>
       </Section>
+
+      <CatalogueRoutes tone="plain" />
 
       <Section tone="wash" divide space="lg">
         <ClosingCta
