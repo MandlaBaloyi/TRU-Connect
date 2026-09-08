@@ -10,12 +10,11 @@ it. V1 built the right table and gave it the wrong name, and the wrong
 name is what made "who sells this cheaper" unaskable: two suppliers'
 rows for the same physical thing had no relationship to each other.
 
-WHAT COMES NEXT, AND WHAT DOES NOT EXIST YET. A shared catalogue
-`Product` (brand, barcode, consumer unit) arrives in the next step, and
-this model gains a NULLABLE product_id pointing at it. Nullable is the
-whole trick: an unmatched offer behaves exactly as this row does today,
-so nothing breaks on the day the catalogue lands and it can be empty
-while matching fills in over time.
+THE LINK TO THE CATALOGUE IS NULLABLE, and that is the whole trick.
+product_id points at catalogue.products, and an offer with it unset
+behaves exactly as this row did before the catalogue existed. So the
+catalogue could ship empty, nothing broke on the day it landed, and
+matching fills the column in over time with no flag day.
 
 PACK SIZE STAYS HERE, on the offer, not on that future Product
 (V2_00 2.1, decided 2026-09-08). The catalogue Product is the CONSUMER
@@ -56,7 +55,6 @@ supplier, and gets its own schema.
 """
 from __future__ import annotations
 
-import enum
 
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -64,59 +62,25 @@ from src.core.base_model import BaseModel
 from src.extensions import db
 
 
-class ProductCategory(str, enum.Enum):
-    """TRU-Connect-controlled taxonomy, matching the frontend's own
-    CATEGORY_OPTIONS exactly (16 values). Every member's NAME equals
-    its VALUE (e.g. BEVERAGES = "BEVERAGES") -- deliberately, not by
-    accident: SQLAlchemy's Enum(PyEnumClass) persists the member's
-    .name to Postgres, not its .value. This codebase already hit that
-    exact mismatch once (ConnectionRequestStatus, whose lowercase
-    values differ from its uppercase names, needed the Postgres enum's
-    stored values corrected to match what actually gets persisted).
-    Keeping name == value here sidesteps that whole class of bug by
-    construction, and it also means the string this returns over the
-    API is exactly what the frontend's own ProductCategory union
-    expects -- no lowercase/uppercase translation layer needed
-    anywhere.
-    """
-
-    FOOD_GROCERY = "FOOD_GROCERY"
-    BEVERAGES = "BEVERAGES"
-    SNACKS_CONFECTIONERY = "SNACKS_CONFECTIONERY"
-    BAKERY = "BAKERY"
-    DAIRY_CHILLED = "DAIRY_CHILLED"
-    FRESH_PRODUCE = "FRESH_PRODUCE"
-    MEAT_FROZEN = "MEAT_FROZEN"
-    HOUSEHOLD_CLEANING = "HOUSEHOLD_CLEANING"
-    PERSONAL_CARE = "PERSONAL_CARE"
-    BABY_FAMILY = "BABY_FAMILY"
-    STATIONERY_SCHOOL = "STATIONERY_SCHOOL"
-    HARDWARE_GENERAL = "HARDWARE_GENERAL"
-    ELECTRONICS_ACCESSORIES = "ELECTRONICS_ACCESSORIES"
-    PACKAGING_DISPOSABLE = "PACKAGING_DISPOSABLE"
-    CLOTHING_APPAREL = "CLOTHING_APPAREL"
-    OTHER = "OTHER"
-
-
-class ProductUnit(str, enum.Enum):
-    """Matches the frontend's own UNIT_OPTIONS exactly (12 values).
-    Same name==value convention as ProductCategory, same reasoning.
-    Used for BOTH selling_unit and unit_measure -- one enum, two
-    columns, matching the frontend's own single ProductUnit type
-    serving both roles."""
-
-    EACH = "EACH"
-    PACK = "PACK"
-    BOX = "BOX"
-    CASE = "CASE"
-    BAG = "BAG"
-    BOTTLE = "BOTTLE"
-    CAN = "CAN"
-    DOZEN = "DOZEN"
-    KG = "KG"
-    G = "G"
-    L = "L"
-    ML = "ML"
+# ProductCategory and ProductUnit MOVED to the catalogue domain in v2
+# step 2 -- a category is a fact about a product, not about one
+# supplier's offer of it. Re-exported here because this module's own
+# columns use them and because a dozen call sites already import them
+# from this path; the re-export keeps that working while the single
+# definition lives where it belongs.
+# LOAD-BEARING IMPORT, NOT AN UNUSED ONE. Models only reach
+# db.metadata by being imported, and this app has no model registry --
+# they arrive transitively through blueprint imports in create_app. The
+# catalogue has no API yet, so nothing else would import it, its tables
+# would be absent from create_all() in tests, and the FK above would
+# fail to resolve. Do not "tidy" this away.
+from src.domains.catalogue.products.models import brand as _brand  # noqa: F401
+from src.domains.catalogue.products.models import product as _product  # noqa: F401
+from src.domains.catalogue.products.models.taxonomy import (  # noqa: F401
+    TAXONOMY_TYPE_SCHEMA,
+    ProductCategory,
+    ProductUnit,
+)
 
 
 class SupplierOffer(BaseModel):
@@ -166,6 +130,21 @@ class SupplierOffer(BaseModel):
     supplier_profile_id = db.Column(
         UUID(as_uuid=True), db.ForeignKey("supplier.supplier_profiles.id"), nullable=False
     )
+    # THE CATALOGUE LINK. Nullable, and null is a perfectly good state:
+    # an unmatched offer is a normal offer, it simply cannot be compared
+    # against another supplier's yet. Matching sets this later, gated on
+    # confidence -- a WRONG match is worse than no match, because it
+    # makes the price comparison a lie about two different things
+    # (V2_00 section 2.7).
+    #
+    # ondelete is deliberately NOT cascade. Removing a catalogue product
+    # must never delete a supplier's offer and the order history hanging
+    # off it; the correct outcome is the offer falling back to unmatched.
+    product_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("catalogue.products.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name = db.Column(db.String(200), nullable=False)
     category = db.Column(
         db.Enum(ProductCategory, name="product_category", schema="supplier"), nullable=False
@@ -185,7 +164,7 @@ class SupplierOffer(BaseModel):
         db.Enum(ProductUnit, name="product_unit", schema="supplier"), nullable=False
     )
     # Schema-ready, not yet surfaced in any UI form -- see the
-    # frontend's own SupplierOffer.unitQuantity/unitMeasure docstring for the
+    # frontend's own Product.unitQuantity/unitMeasure docstring for the
     # full "1 Case = 24 Bottles" reasoning. Both nullable: a plain
     # "sold each" product never needs them populated.
     unit_quantity = db.Column(db.Integer, nullable=True)

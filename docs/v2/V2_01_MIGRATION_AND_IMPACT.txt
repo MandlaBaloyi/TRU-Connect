@@ -264,9 +264,59 @@ The FK rename touches six tables, so it goes first and alone.
           preserved, capability defaults backfilled. The downgrade was
           run too, and re-upgraded: both directions preserve all 53 rows.
 
-  STEP 2  CATALOGUE TABLE + NULLABLE product_id
-          Dormant. Nothing reads it yet.
-          Settle Open Decision #1 (pack size) BEFORE this lands.
+  STEP 2  CATALOGUE TABLE + NULLABLE product_id       DONE 2026-09-08
+          Migration 9abc21f6810f.
+
+          New area src/domains/catalogue/products/ with two models:
+          Brand (name, slug, mark_url) and Product (name,
+          normalized_name, brand_id, category, unit_quantity,
+          unit_measure, gtin, image_url). supplier_offers gains a
+          NULLABLE product_id.
+
+          BRAND IS A TABLE, NOT A STRING, decided up front because
+          migrating away from a string column is the expensive one. Two
+          things need it: matching narrows candidates by brand before
+          comparing names, and a free-text column yields "Coca-Cola",
+          "Coca Cola" and "COKE" as three brands; and the image cascade
+          (V2_00 2.8) resolves through a brand mark, which needs
+          somewhere to live.
+
+          THE TAXONOMY MOVED, THE POSTGRES TYPES DID NOT. ProductCategory
+          and ProductUnit are now defined in
+          catalogue/products/models/taxonomy.py -- a category is a fact
+          about a product, not about one supplier's offer of it, and
+          leaving them in supplier would have forced catalogue to import
+          from supplier, which is backwards. supplier_offer.py
+          re-exports them, so all fifteen existing import sites keep
+          working unchanged and the diff stayed small. The Postgres
+          TYPES stay in the supplier schema: moving a type between
+          schemas means recreating it and rewriting every dependent
+          column, which is real risk on live data for a cosmetic gain.
+          They move when the catalogue becomes authoritative for
+          categories, in that same change.
+
+          DORMANCY IS TESTED, NOT ASSERTED. The safety argument for this
+          step is "an unmatched offer behaves exactly as before", so the
+          first test creates an offer the ordinary way and asserts
+          product_id is null and harmless. Six tests: dormancy,
+          matching, two suppliers sharing one product, duplicate GTIN
+          rejected, barcodeless products allowed and not colliding, and
+          SET-NULL-not-CASCADE on catalogue deletion.
+
+          VERIFIED AGAINST THE DEV DATABASE: both catalogue tables match
+          model metadata exactly (all five BaseModel columns present),
+          the FK carries confdeltype 'n' (SET NULL), and all 53 existing
+          offers are unmatched -- genuinely dormant. Downgrade drops the
+          schema and the column and re-upgrade restores them, 53 rows
+          preserved throughout.
+
+          TRAP HIT AND RECORDED: the first revision id chosen collided
+          with an existing migration (c2d3e4f5a6b7, already used by
+          loan_book_tables), producing "Multiple head revisions". This
+          project hand-writes sequential-looking hex revision ids rather
+          than using alembic's generated ones, so collisions are likely
+          -- grep the versions directory before assigning one. An audit
+          of all 54 migrations found no other duplicates.
 
   STEP 3  IMPORT STAGING + UPSERT
           Fixes a live bug. Independent of steps 1-2 in principle, but
