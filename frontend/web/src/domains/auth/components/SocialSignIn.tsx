@@ -1,35 +1,55 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
 /**
- * Continue with Google — visible, and honestly disabled.
+ * Continue with Google.
  *
- * THERE IS NO SOCIAL LOGIN ON THE BACKEND. Not a stub, not a
- * half-finished route: the auth domain contains no reference to Google,
- * OAuth or any provider at all. Building a button that silently did
- * nothing would be the same failure as a sign-in form that pretends to
- * log you in, and worse here, because a supplier who taps it and gets
- * nothing concludes the whole product is broken.
+ * IT LOOKS LIVE AND TELLS YOU ON CLICK, rather than sitting there greyed
+ * out under a "coming soon" caption. The caption version was honest and
+ * bad: a permanently disabled control is dead weight on the page, it
+ * reads as something broken rather than something planned, and it
+ * explains an internal roadmap to a supplier who did not ask.
  *
- * SO IT IS SHOWN, AND IT SAYS SO. Disabled, greyed, with the reason on
- * it. That is a real pattern on real products and it costs nothing to be
- * straight about -- a supplier reads "coming soon" and uses their email,
- * which is what they were going to do anyway.
+ * The rule it still obeys is the one that matters -- NOBODY IS EVER LEFT
+ * WONDERING WHAT HAPPENED. A button that silently does nothing is the
+ * failure to avoid. Saying it when they reach for it costs them one tap
+ * and tells them exactly as much as they need.
  *
- * The mark is inline SVG in Google's own brand colours rather than an
- * image: no network request, and no asset to keep in sync.
+ * THE MESSAGE IS A LIVE REGION, not just coloured text. A sighted user
+ * sees it appear under their finger; a screen reader announces it. A
+ * notice nobody is told about is the same as no notice.
  *
- * WHEN IT BECOMES REAL it is a genuine piece of backend work -- provider
+ * IT CLEARS ITSELF after a few seconds so a second attempt gets fresh
+ * feedback rather than looking at a stale line -- and the timer is torn
+ * down on unmount, because a setState after the component is gone is a
+ * warning in development and a leak in a long session.
+ *
+ * WHEN THIS BECOMES REAL it is genuine backend work: provider
  * integration, account linking, and deciding what happens when a Google
  * address matches an existing password account. That is a project, not a
- * button.
+ * button, which is exactly why the button is not pretending otherwise.
  */
 export function SocialSignIn({ action }: { action: "sign in" | "sign up" }) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  function handleClick() {
+    setNotice(`Google ${action} is coming soon — use your email address for now.`);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setNotice(null), 6000);
+  }
+
   return (
     <div>
       <button
         type="button"
-        disabled
-        aria-disabled
-        title="Google sign-in is not available yet"
-        className="flex w-full cursor-not-allowed items-center justify-center gap-3 rounded-lg border border-line bg-white px-4 py-3 text-base font-semibold text-ink-muted opacity-60"
+        onClick={handleClick}
+        className="flex w-full items-center justify-center gap-3 rounded-lg border border-line bg-white px-4 py-3 text-base font-semibold text-ink shadow-sm transition-colors hover:border-ink-muted hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
           <path
@@ -51,11 +71,18 @@ export function SocialSignIn({ action }: { action: "sign in" | "sign up" }) {
         </svg>
         Continue with Google
       </button>
-      <p className="mt-2 text-center text-xs text-ink-muted">
-        Google {action} is coming soon. Use your email address for now.
-      </p>
 
-      <div className="my-6 flex items-center gap-4">
+      {/* Reserves no space when empty -- an always-present slot would
+          reintroduce the caption this replaced. */}
+      <div aria-live="polite" role="status">
+        {notice && (
+          <p className="mt-3 rounded-lg bg-brand-blue/5 px-3 py-2 text-center text-sm text-brand-blue">
+            {notice}
+          </p>
+        )}
+      </div>
+
+      <div className="my-7 flex items-center gap-4">
         <span className="h-px flex-1 bg-line" />
         <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">or</span>
         <span className="h-px flex-1 bg-line" />

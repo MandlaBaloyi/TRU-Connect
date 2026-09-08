@@ -6,15 +6,16 @@ import { useState } from "react";
 import { Field } from "@/design-system/primitives/Field";
 import { SocialSignIn } from "@/domains/auth/components/SocialSignIn";
 import { NotWiredError, signIn } from "@/domains/auth/services/authApi";
+import { routes } from "@/config/routes";
 
 /**
  * Supplier sign in.
  *
- * THERE IS NO BUSINESS SIGN IN HERE, and that is not an omission. A
- * business has no web surface (V2_00 section 2.9) -- if one arrives on
- * this page they have taken a wrong turn, so the page says so plainly at
- * the bottom rather than letting them try credentials that will never
- * work.
+ * DELIBERATELY THE SAME SHAPE AS SIGN-UP -- same heading scale, same
+ * social block, same field styling, same footer link. They were
+ * noticeably different before, and two pages a supplier moves between in
+ * one session looking like two different products is the cheapest
+ * possible way to seem unfinished.
  */
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -48,15 +49,13 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 py-16 sm:py-24">
-      <h1 className="text-3xl font-bold tracking-tight text-brand-blue">
-        Supplier sign in
-      </h1>
-      <p className="mt-3 text-ink-muted">
-        Manage your catalogue, terms and profile.
-      </p>
+    <>
+      <h1 className="text-3xl font-bold tracking-tight text-brand-blue">Welcome back</h1>
+      <p className="mt-2 text-ink-muted">Sign in to manage your catalogue and orders.</p>
 
-      <SocialSignIn action="sign in" />
+      <div className="mt-8">
+        <SocialSignIn action="sign in" />
+      </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <Field
@@ -65,21 +64,38 @@ export default function SignInPage() {
           type="email"
           inputMode="email"
           autoComplete="email"
+          placeholder="you@yourbusiness.co.za"
           value={email}
           onChange={setEmail}
           error={errors.email}
           required
+          autoFocus
         />
-        <Field
-          id="password"
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={setPassword}
-          error={errors.password}
-          required
-        />
+
+        <div>
+          <Field
+            id="password"
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            value={password}
+            onChange={setPassword}
+            error={errors.password}
+            required
+          />
+          {/* Under the field it belongs to, not floating beside the
+              label -- someone reaches for this AFTER a password has
+              failed them, which is exactly where their eye already is. */}
+          <div className="mt-2 text-right">
+            <Link
+              href={routes.contact}
+              className="text-sm font-medium text-brand-blue hover:text-brand-green"
+            >
+              Forgot your password?
+            </Link>
+          </div>
+        </div>
 
         {formError && (
           <div
@@ -93,26 +109,18 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg bg-brand-blue px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-brand-blue-light disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+          className="w-full rounded-lg bg-brand-blue px-6 py-3.5 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-blue-light disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
-      <p className="mt-8 text-sm text-ink-muted">
-        Do not have an account?{" "}
-        <Link
-          href="/sign-up"
-          className="font-semibold text-brand-blue hover:text-brand-green"
-        >
+      <p className="mt-8 text-center text-sm text-ink-muted">
+        New to TruConnect?{" "}
+        <Link href={routes.signUp} className="font-semibold text-brand-blue hover:text-brand-green">
           Create a supplier account
         </Link>
       </p>
-
-      <p className="mt-6 border-t border-line/60 pt-6 text-sm text-ink-muted">
-        Buying stock for your business? TruConnect for businesses is in the app
-        — there is nothing to sign in to here.
-      </p>
-    </div>
+    </>
   );
 }
