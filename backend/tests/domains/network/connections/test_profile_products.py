@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.supplier_profile.services import pinned_products_service
 from src.shared.media.mixins import MediaScanStatus
 
@@ -33,7 +33,7 @@ def _make_product(
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
     from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
 
-    product = ProductRepository.create(
+    product = SupplierOfferRepository.create(
         supplier_profile_id=profile_id,
         name=name,
         category=category,

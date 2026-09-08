@@ -1,5 +1,5 @@
 """
-Product media HTTP-layer tests, same pattern as test_products_api.py.
+SupplierOffer media HTTP-layer tests, same pattern as test_products_api.py.
 FakeMediaProvider is duplicated here rather than imported from
 test_product_media_service.py -- this codebase has no top-level
 tests/__init__.py, so cross-test-file imports aren't reliable; small
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.shared.media import folder_naming
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload
@@ -89,7 +89,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 def _patch_provider(monkeypatch) -> FakeMediaProvider:

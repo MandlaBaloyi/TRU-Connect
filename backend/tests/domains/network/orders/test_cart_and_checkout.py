@@ -15,8 +15,8 @@ import pytest
 from src.domains.network.orders.services.commission import calculate_platform_commission_cents
 from src.domains.business.order_limits.tiers.free import LIMITS as FREE_LIMITS
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_service
 from src.extensions import db
 from src.domains.network.orders.errors import (
@@ -52,7 +52,7 @@ def _make_product(profile_id, name="Product", category=ProductCategory.OTHER, pr
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    product = ProductRepository.create(
+    product = SupplierOfferRepository.create(
         profile_id, name, category, price_cents, selling_unit,
         sku=generate_sku(profile_id), product_code=generate_product_code(),
     )

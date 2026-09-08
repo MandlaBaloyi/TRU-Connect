@@ -8,7 +8,7 @@ from typing import List
 from uuid import UUID
 
 from src.extensions import db
-from src.domains.supplier.products.models.product import Product
+from src.domains.supplier.products.models.supplier_offer import SupplierOffer
 from src.domains.supplier.supplier_profile.models.supplier_storefront import (
     SupplierStorefrontSection,
     SupplierStorefrontSectionProduct,
@@ -51,10 +51,10 @@ class SupplierStorefrontRepository:
         )
 
     @staticmethod
-    def list_products_for_section(section_id: str | UUID) -> List[Product]:
+    def list_products_for_section(section_id: str | UUID) -> List[SupplierOffer]:
         """The supplier's chosen products, in the order they chose.
 
-        JOINS THROUGH TO Product AND FILTERS THERE, rather than
+        JOINS THROUGH TO SupplierOffer AND FILTERS THERE, rather than
         returning the join rows: a product the supplier archived or
         deleted after adding it to a strip must vanish from that strip
         immediately, without anyone having to remember to clean the
@@ -63,16 +63,16 @@ class SupplierStorefrontRepository:
         always in.
         """
         return (
-            db.session.query(Product)
+            db.session.query(SupplierOffer)
             .join(
                 SupplierStorefrontSectionProduct,
-                SupplierStorefrontSectionProduct.product_id == Product.id,
+                SupplierStorefrontSectionProduct.product_id == SupplierOffer.id,
             )
             .filter(
                 SupplierStorefrontSectionProduct.section_id == section_id,
                 SupplierStorefrontSectionProduct.is_deleted.is_(False),
-                Product.is_deleted.is_(False),
-                Product.is_archived.is_(False),
+                SupplierOffer.is_deleted.is_(False),
+                SupplierOffer.is_archived.is_(False),
             )
             .order_by(SupplierStorefrontSectionProduct.position.asc())
             .all()

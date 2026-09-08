@@ -40,7 +40,7 @@ from src.domains.supplier.order_limits.tiers import get_direct_payment_limits
 # both under one name would be a silent, type-checker-invisible bug.
 from src.domains.supplier.tiers.resolver import get_current_tier as get_current_supplier_tier
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
 )
@@ -122,7 +122,7 @@ def _validate_cart_is_fresh(stock_order) -> None:
     for item in stock_order.items:
         if item.is_deleted:
             continue
-        product = ProductRepository.get_by_id_and_supplier(item.product_id, stock_order.supplier_profile_id)
+        product = SupplierOfferRepository.get_by_id_and_supplier(item.product_id, stock_order.supplier_profile_id)
         if not product or product.is_archived:
             stale_product_ids.append(str(item.product_id))
             continue

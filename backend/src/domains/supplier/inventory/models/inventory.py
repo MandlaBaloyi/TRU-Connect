@@ -35,7 +35,7 @@ from src.extensions import db
 
 class LowStockAlertChannel(str, enum.Enum):
     """Matches the frontend's own LowStockAlertChannel exactly. Same
-    name==value convention as Product's own enums, same reasoning
+    name==value convention as SupplierOffer's own enums, same reasoning
     (see that model's own ProductCategory docstring)."""
 
     IN_APP = "IN_APP"
@@ -51,11 +51,11 @@ class Inventory(BaseModel):
 
     product_id = db.Column(
         UUID(as_uuid=True),
-        db.ForeignKey("supplier.products.id"),
+        db.ForeignKey("supplier.supplier_offers.id"),
         nullable=False,
         unique=True,  # one inventory record per product, enforced at the DB level
     )
-    # Denormalized, matching Product.supplier_profile_id's own
+    # Denormalized, matching SupplierOffer.supplier_profile_id's own
     # reasoning -- lets ownership checks (and the future summary/list
     # queries) filter by supplier without a join through products.
     supplier_profile_id = db.Column(

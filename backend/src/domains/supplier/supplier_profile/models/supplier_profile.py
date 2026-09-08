@@ -81,6 +81,32 @@ class VisibleImageSource(str, enum.Enum):
     NONE = "none"
 
 
+class SupplierIngestionMode(str, enum.Enum):
+    """How a supplier's offers get into TruConnect.
+
+    MANUAL  -- typed in, one at a time, on the phone or the web.
+    CSV     -- a spreadsheet or price file, uploaded and mapped.
+    API     -- pushed from the supplier's own system.
+
+    NOT A TIER AND NOT A PERMISSION -- see the ingestion_mode column's
+    own comment below. It selects which surface to offer, nothing more;
+    every path writes the identical SupplierOffer.
+
+    NAME == VALUE, deliberately, unlike PhotoVisibility and
+    VisibleImageSource above. SQLAlchemy's Enum(PyEnumClass) persists a
+    member's NAME to Postgres, not its .value, so an enum whose values
+    differ in case from its names stores something other than what it
+    reads like. This codebase has already had to correct a Postgres enum
+    for exactly that mismatch (ConnectionRequestStatus). Matching them
+    sidesteps the whole class of bug by construction, the same way
+    ProductCategory and ProductUnit do.
+    """
+
+    MANUAL = "MANUAL"
+    CSV = "CSV"
+    API = "API"
+
+
 class SupplierProfile(BaseModel):
     __tablename__ = "supplier_profiles"
     __table_args__ = (
@@ -208,6 +234,59 @@ class SupplierProfile(BaseModel):
     # shopfront -- supplier_profile_service refuses it.
     accepts_direct_payment = db.Column(db.Boolean, nullable=False, default=True, server_default="true")
     accepts_digital_payment = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
+
+    # ------------------------------------------------------------------
+    # SUPPLIER CAPABILITIES
+    #
+    # CAPABILITIES, NOT A TIER ENUM, and that is the whole point
+    # (docs/v2/V2_00_ARCHITECTURE_EVOLUTION section 2.2). It is tempting
+    # to write SupplierTier = SMALL | MEDIUM | LARGE and branch on it,
+    # and it is wrong: "tier" is really five independent axes that merely
+    # correlate. A hustler who wants digital-only is reasonable. A large
+    # wholesaler who wants approval for NEW customers only is reasonable.
+    # One enum makes both unrepresentable, and the first supplier who
+    # does not fit the box arrives in week two.
+    #
+    # This codebase already made that mistake once at smaller scale:
+    # cash and proof-of-payment carried two separate per-transaction
+    # caps until it turned out the differentiation was not real, and
+    # they collapsed into the single direct_transaction_cap_cents the
+    # comment above describes. A tier enum is that bug at five times the
+    # size.
+    #
+    # The two accepts_* booleans above are already capabilities; these
+    # simply join them. Nothing in the codebase asks "what tier is this
+    # supplier" -- it asks "can this supplier do X".
+    # ------------------------------------------------------------------
+
+    # "Businesses must be connected to me before they can order."
+    #
+    # DEFAULT FALSE, which reverses V1. Connection used to be a hard gate
+    # on ordering; in v2 it becomes a choice, and most suppliers should
+    # not want it. It exists for the small supplier who genuinely wants
+    # to know who is buying before stock moves.
+    #
+    # A supplier whose orders arrive from their own system CANNOT use
+    # this -- there is nobody sitting there to click accept -- which is
+    # exactly why it is a capability and not a platform rule.
+    requires_connection = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="false"
+    )
+
+    # How this supplier's offers reach TruConnect.
+    #
+    # NOT A PERMISSION AND NOT A SIZE. It records how the catalogue is
+    # maintained so the right surface can be offered -- a MANUAL supplier
+    # is not shown a column-mapping screen, an API supplier is not asked
+    # to retype 3,000 rows. Every ingestion path writes the SAME
+    # SupplierOffer; this only says which door it came through
+    # (V2_00 section 2.5).
+    ingestion_mode = db.Column(
+        db.Enum(SupplierIngestionMode, name="supplier_ingestion_mode", schema="supplier"),
+        nullable=False,
+        default=SupplierIngestionMode.MANUAL,
+        server_default=SupplierIngestionMode.MANUAL.value,
+    )
 
     # "Show businesses when I was last online."
     #

@@ -11,7 +11,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
@@ -48,7 +48,7 @@ def _get_valid_product(supplier_profile_id: str | UUID, product_id: str | UUID):
     clearly-named error (never the generic ProductNotFoundError,
     since "out of stock" and "doesn't exist" are genuinely different
     facts the frontend needs to tell apart to show the right message)."""
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product or product.is_archived:
         raise ProductNotFoundError("Product not found.")
 
@@ -101,7 +101,7 @@ def _build_cart_dict(stock_order: StockOrder, supplier) -> dict:
     for item in stock_order.items:
         if item.is_deleted:
             continue
-        product = ProductRepository.get_by_id_and_supplier(item.product_id, stock_order.supplier_profile_id)
+        product = SupplierOfferRepository.get_by_id_and_supplier(item.product_id, stock_order.supplier_profile_id)
         items.append(
             {
                 "productId": str(item.product_id),

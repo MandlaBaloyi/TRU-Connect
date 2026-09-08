@@ -354,10 +354,10 @@ class StockOrderItem(BaseModel):
     # docstring for how a since-archived or since-deleted product is
     # actually handled at checkout time (rejected with a clear error,
     # never silently let through).
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.products.id"), nullable=False)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.supplier_offers.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     # THE REAL PRICE-DRIFT PROTECTION -- captured once, at the moment
-    # this item is added, and never re-read from the live Product row
+    # this item is added, and never re-read from the live SupplierOffer row
     # again. A supplier changing a price after a business has already
     # added the item to their cart must never silently change what
     # that business sees they're about to pay; a genuine price change

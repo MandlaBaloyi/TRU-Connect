@@ -16,8 +16,8 @@ from src.domains.network.connections.services import (
 )
 from src.domains.network.connections.services.storefront import catalog_service, ordering_gate
 from src.domains.network.connections.services.errors import InvalidCatalogQueryError, ProductNotFoundError, SupplierNotFoundError
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.extensions import db
 
 
@@ -32,7 +32,7 @@ def _make_product(profile_id, name, category, price_cents, selling_unit):
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    return ProductRepository.create(
+    return SupplierOfferRepository.create(
         profile_id, name, category, price_cents, selling_unit,
         sku=generate_sku(profile_id), product_code=generate_product_code(),
     )
@@ -193,7 +193,7 @@ def test_list_supplier_products_includes_compare_at_price_when_a_product_has_a_r
     business = make_business()
     supplier_user = make_supplier()
     profile = make_supplier_profile(supplier_user, business_name="On Sale Co")
-    ProductRepository.create(
+    SupplierOfferRepository.create(
         profile.id, "Perfume", ProductCategory.OTHER, 25000, ProductUnit.EACH,
         sku=generate_sku(profile.id), product_code=generate_product_code(), compare_at_price_cents=31250,
     )
@@ -210,7 +210,7 @@ def test_list_supplier_products_excludes_archived(make_business, make_supplier, 
     profile = make_supplier_profile(supplier_user, business_name="Half Archived Co")
     _make_product(profile.id, "Bread loaves", ProductCategory.BAKERY, 2500, ProductUnit.EACH)
     archived = _make_product(profile.id, "Old Stock", ProductCategory.OTHER, 100, ProductUnit.EACH)
-    ProductRepository.archive(archived)
+    SupplierOfferRepository.archive(archived)
 
     products = catalog_service.list_supplier_products(business.id, profile.id)["products"]
 

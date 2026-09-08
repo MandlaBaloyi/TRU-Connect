@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from src.domains.supplier.products.models.product import Product
+from src.domains.supplier.products.models.supplier_offer import SupplierOffer
 from src.domains.supplier.products.models.product_media import ProductMedia
 from src.extensions import db
 from src.shared.media.mixins import MediaScanStatus
@@ -114,18 +114,18 @@ class ProductMediaRepository:
         scan_status was (approved/rejected/pending all get cleaned up
         the same way once the parent product is gone).
 
-        ORDERED BY Product.deleted_at, oldest first -- meaningful now
+        ORDERED BY SupplierOffer.deleted_at, oldest first -- meaningful now
         that the sweep caps how many PRODUCTS it processes per run
         (see the sweep's own MAX_PRODUCTS_PER_RUN docstring): whatever
         doesn't fit in this run's cap should be whatever's been
         waiting the SHORTEST time, not an arbitrary DB-decided order."""
         return (
-            ProductMedia.query.join(Product, ProductMedia.product_id == Product.id)
+            ProductMedia.query.join(SupplierOffer, ProductMedia.product_id == SupplierOffer.id)
             .filter(
                 ProductMedia.is_deleted.is_(False),
-                Product.is_deleted.is_(True),
-                Product.deleted_at < cutoff,
+                SupplierOffer.is_deleted.is_(True),
+                SupplierOffer.deleted_at < cutoff,
             )
-            .order_by(Product.deleted_at.asc())
+            .order_by(SupplierOffer.deleted_at.asc())
             .all()
         )

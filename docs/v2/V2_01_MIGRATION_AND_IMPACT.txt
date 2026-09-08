@@ -230,11 +230,39 @@ PART 4 — MIGRATION ORDER
 
 The FK rename touches six tables, so it goes first and alone.
 
-  STEP 1  RENAME + CAPABILITIES
+  STEP 1  RENAME + CAPABILITIES                      DONE 2026-09-08
           products → supplier_offers. Capability columns.
-          Purely mechanical. No behaviour change.
-          GATE: every existing test stays green. If any test needed changing
-          beyond a symbol rename, the step did too much.
+          Migration b1c2d3e4f5a6.
+
+          GATE MET: 617 tests green (304 supplier+architecture, 313
+          network) -- identical to the v1.0.0 baseline. No test needed a
+          change beyond a symbol rename.
+
+          SCOPE, and what was deliberately left alone. Renamed: the
+          table, the Product model class -> SupplierOffer,
+          ProductRepository -> SupplierOfferRepository, their two files,
+          the six FK targets, and the table's own indexes and unique
+          constraints. NOT renamed: the domain folder, services, schemas,
+          API routes, JSON keys, or the ProductCategory / ProductUnit
+          enums.
+
+          The API is untouched ON PURPOSE. The mobile app is a shipped
+          client calling /api/v1/supplier-discovery/products; renaming
+          routes or response keys would break it for a rename that is
+          internal. Verified after migrating: 26 product routes still
+          registered, 18 blueprints.
+
+          The two enums keep their names because they describe the
+          CATALOGUE concept, not the offer, and will move to the
+          catalogue domain in step 2 rather than being renamed twice.
+
+          VERIFIED AGAINST THE DEV DATABASE, not just the suite, because
+          conftest builds from metadata and never runs a migration -- a
+          wrong migration passes every test. Checked directly: old table
+          gone, model columns == database columns exactly, indexes and
+          constraints renamed, all six inbound FKs intact, 53 offer rows
+          preserved, capability defaults backfilled. The downgrade was
+          run too, and re-upgraded: both directions preserve all 53 rows.
 
   STEP 2  CATALOGUE TABLE + NULLABLE product_id
           Dormant. Nothing reads it yet.

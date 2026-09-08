@@ -16,7 +16,7 @@ import zipfile
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload, UploadedAsset
 
 
@@ -101,7 +101,7 @@ def test_submit_import_returns_202_and_job_is_completed_on_poll(
     assert data["status"] == "COMPLETED"
     assert data["created_rows"] == 1
 
-    products = ProductRepository.list_for_supplier(profile.id)
+    products = SupplierOfferRepository.list_for_supplier(profile.id)
     assert len(products) == 1
 
 

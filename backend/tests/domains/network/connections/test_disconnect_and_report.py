@@ -20,8 +20,8 @@ from src.domains.network.connections.services.errors import (
     ConnectionRequestNotFoundError,
     SupplierNotFoundError,
 )
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.extensions import db
 
 
@@ -29,7 +29,7 @@ def _make_product(profile_id, name, category, price_cents, selling_unit):
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    return ProductRepository.create(
+    return SupplierOfferRepository.create(
         profile_id, name, category, price_cents, selling_unit,
         sku=generate_sku(profile_id), product_code=generate_product_code(),
     )

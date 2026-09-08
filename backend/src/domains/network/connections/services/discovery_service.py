@@ -115,7 +115,7 @@ def _resolve_last_active(supplier, supplier_user) -> Optional[dict]:
 
 def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
     from src.domains.auth.models.user import User
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
@@ -132,7 +132,7 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
     )
 
     profile = supplier.to_profile_preview_dict(connection_status, visible_photo_url)
-    profile["productCount"] = ProductRepository.count_for_supplier(supplier_profile_id)
+    profile["productCount"] = SupplierOfferRepository.count_for_supplier(supplier_profile_id)
 
     # Brand assets -- deliberately UNGATED, unlike photoUrl above.
     # A supplier's business photo and cover banner are their public

@@ -96,7 +96,7 @@ def _to_dto(product, pinned_ids: set | None = None) -> dict:
         "description": product.description,
         # NEVER present in CreateProductSchema/UpdateProductSchema --
         # see product.py's own product_code column docstring. Read-only
-        # everywhere it's shown (Product screen, Inventory), enforced
+        # everywhere it's shown (SupplierOffer screen, Inventory), enforced
         # by never accepting it as input, not by a frontend-only rule.
         "product_code": product.product_code,
         "sku": product.sku,

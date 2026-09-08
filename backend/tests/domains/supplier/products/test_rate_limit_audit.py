@@ -13,8 +13,8 @@ from __future__ import annotations
 from flask_jwt_extended import create_access_token
 
 from src.domains.security.audit.models.audit_event import AuditEventRecord
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
 
 
@@ -58,7 +58,7 @@ def test_bulk_archive_rate_limit_is_recorded_in_audit_trail(client, db_session, 
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    product = ProductRepository.create(
+    product = SupplierOfferRepository.create(
         profile.id, "Bread", ProductCategory.BAKERY, 100, ProductUnit.EACH,
         sku=generate_sku(profile.id), product_code=generate_product_code(),
     )

@@ -1,8 +1,8 @@
 """
-Product Service -- the SINGLE place a product row gets created or
+SupplierOffer Service -- the SINGLE place a product row gets created or
 updated. Per direct review: "don't have single-product validation !=
-bulk-product validation... instead, one Product Service, same
-validation rules, one Product DB." create_product/update_product are
+bulk-product validation... instead, one SupplierOffer Service, same
+validation rules, one SupplierOffer DB." create_product/update_product are
 the only two write entry points this whole domain has; the future
 Bulk Import worker calls these same two functions once per row rather
 than growing its own copy. Neither knows the other exists.
@@ -21,8 +21,8 @@ from uuid import UUID
 
 from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
 from src.domains.supplier.products.algorithms.sku_generator import generate_sku
-from src.domains.supplier.products.models.product import Product, ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import SupplierOffer, ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services.errors import ProductNotFoundError, ProductValidationError
 
 MAX_NAME_LENGTH = 200
@@ -73,7 +73,7 @@ def create_product(
     sku: Optional[str] = None,
     description: Optional[str] = None,
     compare_at_price_cents: Optional[int] = None,
-) -> Product:
+) -> SupplierOffer:
     _validate_common_fields(name, price_cents, compare_at_price_cents, description)
 
     sku = sku.strip() if sku else None
@@ -82,7 +82,7 @@ def create_product(
             raise ProductValidationError(
                 "Check the highlighted fields.", errors=[f"SKU must be {MAX_SKU_LENGTH} characters or fewer."]
             )
-        if ProductRepository.sku_exists_for_supplier(supplier_profile_id, sku):
+        if SupplierOfferRepository.sku_exists_for_supplier(supplier_profile_id, sku):
             raise ProductValidationError(
                 "Check the highlighted fields.", errors=[f'SKU "{sku}" is already used by another product.']
             )
@@ -96,7 +96,7 @@ def create_product(
     # algorithms/product_code_generator.py's own docstring.
     product_code = generate_product_code()
 
-    return ProductRepository.create(
+    return SupplierOfferRepository.create(
         supplier_profile_id=supplier_profile_id,
         name=name.strip(),
         category=category,
@@ -123,8 +123,8 @@ def update_product(
     compare_at_price_cents: Optional[int] = None,
     unit_quantity: Optional[int] = None,
     unit_measure: Optional[ProductUnit] = None,
-) -> Product:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+) -> SupplierOffer:
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
 
@@ -155,14 +155,14 @@ def update_product(
             raise ProductValidationError(
                 "Check the highlighted fields.", errors=[f"SKU must be {MAX_SKU_LENGTH} characters or fewer."]
             )
-        if sku != product.sku and ProductRepository.sku_exists_for_supplier(supplier_profile_id, sku):
+        if sku != product.sku and SupplierOfferRepository.sku_exists_for_supplier(supplier_profile_id, sku):
             raise ProductValidationError(
                 "Check the highlighted fields.", errors=[f'SKU "{sku}" is already used by another product.']
             )
     else:
         sku = product.sku
 
-    return ProductRepository.update(
+    return SupplierOfferRepository.update(
         product,
         name=name.strip(),
         category=category,
@@ -176,8 +176,8 @@ def update_product(
     )
 
 
-def get_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> Product:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+def get_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> SupplierOffer:
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
     return product
@@ -187,28 +187,28 @@ def list_products(
     supplier_profile_id: str | UUID,
     is_archived: Optional[bool] = False,
     search_term: Optional[str] = None,
-) -> List[Product]:
-    return ProductRepository.list_for_supplier(
+) -> List[SupplierOffer]:
+    return SupplierOfferRepository.list_for_supplier(
         supplier_profile_id, is_archived=is_archived, search_term=search_term
     )
 
 
-def archive_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> Product:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+def archive_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> SupplierOffer:
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
-    return ProductRepository.archive(product)
+    return SupplierOfferRepository.archive(product)
 
 
-def unarchive_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> Product:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+def unarchive_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> SupplierOffer:
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
-    return ProductRepository.unarchive(product)
+    return SupplierOfferRepository.unarchive(product)
 
 
-def delete_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> Product:
-    """Soft delete only -- see ProductRepository.soft_delete's own
+def delete_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> SupplierOffer:
+    """Soft delete only -- see SupplierOfferRepository.soft_delete's own
     docstring. The product vanishes from every screen instantly; the
     real row (and Inventory/ProductMedia rows still pointing at it)
     stays intact. Cloudinary's own real files get cleaned up later, on
@@ -216,10 +216,10 @@ def delete_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> P
     synchronously here, matching the exact same "don't do slow
     external-service work inside a request handler" discipline as
     every other media operation in this build."""
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
-    return ProductRepository.soft_delete(product)
+    return SupplierOfferRepository.soft_delete(product)
 
 
 def bulk_adjust_price(
@@ -228,7 +228,7 @@ def bulk_adjust_price(
     direction: str,
     adjustment_type: str,
     value: int,
-) -> List[Product]:
+) -> List[SupplierOffer]:
     """direction: "INCREASE" | "DECREASE". adjustment_type: "PERCENTAGE"
     | "FIXED". value: whole percentage points if PERCENTAGE, integer
     CENTS if FIXED -- matching bulk-products' own PriceAdjustment
@@ -239,7 +239,7 @@ def bulk_adjust_price(
     price cut is exactly the kind of request this backend must never
     trust the client's own math for.
     """
-    products = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    products = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
 
     def apply(current_price_cents: int) -> int:
         if adjustment_type == "PERCENTAGE":
@@ -249,14 +249,14 @@ def bulk_adjust_price(
         signed_delta = delta if direction == "INCREASE" else -delta
         return max(0, current_price_cents + signed_delta)
 
-    return ProductRepository.bulk_adjust_price(products, apply)
+    return SupplierOfferRepository.bulk_adjust_price(products, apply)
 
 
 def bulk_set_discount(
     product_ids: List[str | UUID],
     supplier_profile_id: str | UUID,
     discount_percent: int,
-) -> List[Product]:
+) -> List[SupplierOffer]:
     """Sets compare_at_price_cents on every selected product, computed
     from EACH product's own CURRENT price_cents -- price_cents itself
     is never touched. The real supplier problem this solves: putting a
@@ -283,7 +283,7 @@ def bulk_set_discount(
             "Check the highlighted fields.", errors=["Discount must be between 1% and 99%."]
         )
 
-    products = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    products = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
 
     def compute_compare_at_price(current_price_cents: int) -> int:
         computed = round(current_price_cents / (1 - discount_percent / 100))
@@ -303,21 +303,21 @@ def bulk_set_discount(
             )
         return computed
 
-    return ProductRepository.bulk_set_compare_at_price(products, compute_compare_at_price)
+    return SupplierOfferRepository.bulk_set_compare_at_price(products, compute_compare_at_price)
 
 
-def bulk_archive(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[Product]:
-    products = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
-    return ProductRepository.bulk_archive(products)
+def bulk_archive(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[SupplierOffer]:
+    products = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    return SupplierOfferRepository.bulk_archive(products)
 
 
-def bulk_unarchive(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[Product]:
-    products = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
-    return ProductRepository.bulk_unarchive(products)
+def bulk_unarchive(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[SupplierOffer]:
+    products = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    return SupplierOfferRepository.bulk_unarchive(products)
 
 
-def bulk_delete(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[Product]:
+def bulk_delete(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[SupplierOffer]:
     """Same deferred-Cloudinary-cleanup reasoning as delete_product's
     own docstring, just for a whole batch at once."""
-    products = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
-    return ProductRepository.bulk_soft_delete(products)
+    products = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    return SupplierOfferRepository.bulk_soft_delete(products)

@@ -56,13 +56,13 @@ def get_supplier_product_categories(supplier_profile_id: str | UUID) -> List[str
     recomputed on every page change (a supplier's own category set
     doesn't change just because the business viewing it turned a
     page)."""
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    return ProductRepository.list_distinct_categories_for_supplier(supplier_profile_id)
+    return SupplierOfferRepository.list_distinct_categories_for_supplier(supplier_profile_id)
 
 
 def list_supplier_products(
@@ -75,7 +75,7 @@ def list_supplier_products(
     search_term: Optional[str] = None,
 ) -> dict:
     """Real, and now genuinely useful -- name/category/price/unit,
-    matching Product's own grown shape (Phase 1: Products). Viewable by
+    matching SupplierOffer's own grown shape (Phase 1: Products). Viewable by
     ANY authenticated business regardless of connection status --
     browsing stays open; only ordering is gated (can_place_order).
     Archived products excluded.
@@ -99,7 +99,7 @@ def list_supplier_products(
     enforcement that makes this a genuine API protection, not just a
     UI suggestion a client could ignore by asking for limit=10000.
     """
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     if page < 1:
         raise InvalidCatalogQueryError("Page must be 1 or greater.")
@@ -109,7 +109,7 @@ def list_supplier_products(
     if sort not in VALID_CATALOG_SORT_OPTIONS:
         raise InvalidCatalogQueryError(f"Invalid sort value. Must be one of: {', '.join(sorted(VALID_CATALOG_SORT_OPTIONS))}.")
     if category is not None:
-        from src.domains.supplier.products.models.product import ProductCategory
+        from src.domains.supplier.products.models.supplier_offer import ProductCategory
 
         try:
             ProductCategory(category)
@@ -131,7 +131,7 @@ def list_supplier_products(
             "tiktokHandle": supplier.tiktok_handle,
         }
 
-    products, total_count = ProductRepository.list_for_supplier_paginated(
+    products, total_count = SupplierOfferRepository.list_for_supplier_paginated(
         supplier_profile_id, page=page, limit=limit, sort=sort, category=category, search_term=search_term
     )
     total_pages = max(1, math.ceil(total_count / limit))
@@ -162,7 +162,7 @@ def list_supplier_products(
 
 
 def list_related_products(business_id: str | UUID, supplier_profile_id: str | UUID, product_id: str | UUID) -> dict:
-    """"More from [Supplier]" -- see ProductRepository.
+    """"More from [Supplier]" -- see SupplierOfferRepository.
     list_related_products' own docstring for the full backfill
     reasoning. Genuinely related (same category) products come first,
     then any other product from this same supplier fills the
@@ -174,17 +174,17 @@ def list_related_products(business_id: str | UUID, supplier_profile_id: str | UU
     browsing the rest of the catalogue -- viewable by any
     authenticated business regardless of connection status.
     """
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product or product.is_archived:
         raise ProductNotFoundError("Product not found.")
 
-    related = ProductRepository.list_related_products(supplier_profile_id, product.category, product.id, limit=5)
+    related = SupplierOfferRepository.list_related_products(supplier_profile_id, product.category, product.id, limit=5)
     return {"products": build_catalog_product_dicts(related)}
 
 
@@ -214,14 +214,14 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
     """
     from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
     from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
     from src.domains.supplier.products.services import product_media_service
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product or product.is_archived:
         raise ProductNotFoundError("Product not found.")
 
@@ -304,7 +304,7 @@ def list_buy_it_again(business_id: str | UUID, supplier_profile_id: str | UUID) 
     something that no longer exists is worse than not offering.
     """
     from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
@@ -319,7 +319,7 @@ def list_buy_it_again(business_id: str | UUID, supplier_profile_id: str | UUID) 
     # product read in this domain uses.
     by_id = {
         product.id: product
-        for product in ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+        for product in SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
         if not product.is_archived
     }
     # Preserve the repository's own most-recent-first ordering, which a

@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.extensions import db
 from src.shared.media.jobs import stuck_media_sweep
 from src.shared.media.mixins import MediaScanStatus
@@ -27,7 +27,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 def test_sweep_marks_old_pending_media_as_error(make_supplier, make_supplier_profile):

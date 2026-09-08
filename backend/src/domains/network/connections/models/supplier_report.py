@@ -67,7 +67,7 @@ class SupplierReport(BaseModel):
     # table, one email template, one review flow either way -- a
     # product-level report is genuinely still a report ABOUT that
     # supplier, just with a real product attached for context.
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.products.id"), nullable=True)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.supplier_offers.id"), nullable=True)
     reason = db.Column(
         db.Enum(SupplierReportReason, name="supplier_report_reason", schema="network"), nullable=False
     )

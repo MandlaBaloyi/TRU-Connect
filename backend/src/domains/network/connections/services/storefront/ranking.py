@@ -48,7 +48,7 @@ def showcase_sort_key(d: dict, pinned_ids: set):
          a supplier gives without doing any extra work; it comes free
          from a compare-at price they already set.
       4. NEWEST -- falls out of the caller's own ordering
-         (ProductRepository.list_for_supplier sorts created_at DESC) via
+         (SupplierOfferRepository.list_for_supplier sorts created_at DESC) via
          Python's stable sort, so it needs no key of its own and no
          timestamp added to the product dict.
     """

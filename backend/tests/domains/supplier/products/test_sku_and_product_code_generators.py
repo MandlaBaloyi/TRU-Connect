@@ -9,7 +9,7 @@ import re
 
 from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
 from src.domains.supplier.products.algorithms.sku_generator import generate_sku
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 
 class TestGenerateProductCode:
@@ -37,7 +37,7 @@ class TestGenerateProductCode:
         and confirms a second, different code is produced instead of
         the function giving up or returning the taken one anyway."""
         call_count = {"n": 0}
-        original_exists = ProductRepository.product_code_exists
+        original_exists = SupplierOfferRepository.product_code_exists
 
         def _first_call_says_taken(code):
             call_count["n"] += 1
@@ -45,7 +45,7 @@ class TestGenerateProductCode:
                 return True  # simulate: this exact code is already in use
             return original_exists(code)
 
-        monkeypatch.setattr(ProductRepository, "product_code_exists", _first_call_says_taken)
+        monkeypatch.setattr(SupplierOfferRepository, "product_code_exists", _first_call_says_taken)
 
         code = generate_product_code()
 

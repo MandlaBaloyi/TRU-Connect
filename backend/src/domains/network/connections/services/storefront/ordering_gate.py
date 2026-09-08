@@ -24,12 +24,12 @@ from src.domains.supplier.supplier_profile.repositories.supplier_profile_reposit
 
 
 def can_place_order(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     connection = ConnectionRequestRepository.get_for_business_and_supplier(business_id, supplier_profile_id)
     is_connected = connection is not None and connection.status == ConnectionRequestStatus.ACTIVE
 
-    product_count = ProductRepository.count_for_supplier(supplier_profile_id)
+    product_count = SupplierOfferRepository.count_for_supplier(supplier_profile_id)
     has_products = product_count > 0
 
     if is_connected and has_products:

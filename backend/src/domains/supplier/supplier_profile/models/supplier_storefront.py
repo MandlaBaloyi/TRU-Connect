@@ -123,5 +123,5 @@ class SupplierStorefrontSectionProduct(BaseModel):
         db.ForeignKey("supplier.supplier_storefront_sections.id"),
         nullable=False,
     )
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.products.id"), nullable=False)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.supplier_offers.id"), nullable=False)
     position = db.Column(db.Integer, nullable=False, default=0, server_default="0")

@@ -211,22 +211,22 @@ def _query_computed_products(supplier_profile_id: str | UUID, section_type: Stor
     most" quietly wrong -- popularity and availability are different
     facts.
     """
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
     if section_type == StorefrontSectionType.ON_SALE:
-        return ProductRepository.list_on_sale(supplier_profile_id, limit=MAX_PRODUCTS_PER_SECTION)
+        return SupplierOfferRepository.list_on_sale(supplier_profile_id, limit=MAX_PRODUCTS_PER_SECTION)
 
     if section_type == StorefrontSectionType.BEST_SELLERS:
-        return ProductRepository.list_best_selling(supplier_profile_id, limit=MAX_PRODUCTS_PER_SECTION)
+        return SupplierOfferRepository.list_best_selling(supplier_profile_id, limit=MAX_PRODUCTS_PER_SECTION)
 
     if section_type == StorefrontSectionType.NEW_ARRIVALS:
         since = datetime.now(timezone.utc) - timedelta(days=NEW_ARRIVAL_WINDOW_DAYS)
-        return ProductRepository.list_recently_added(
+        return SupplierOfferRepository.list_recently_added(
             supplier_profile_id, since=since, limit=MAX_PRODUCTS_PER_SECTION
         )
 
     if section_type == StorefrontSectionType.BULK_VALUE:
-        return ProductRepository.list_best_unit_value(
+        return SupplierOfferRepository.list_best_unit_value(
             supplier_profile_id, limit=MAX_PRODUCTS_PER_SECTION
         )
 

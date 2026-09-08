@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from src.domains.supplier.products.jobs import deleted_product_media_sweep
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
 from src.domains.supplier.products.services import product_media_service, product_service
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload, UploadedAsset
@@ -105,9 +105,9 @@ def _make_product(supplier_profile_id, name="Test Product"):
 
 def _backdate_product_delete(product_id, days_ago: int) -> None:
     from src.extensions import db
-    from src.domains.supplier.products.models.product import Product
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
 
-    row = db.session.get(Product, product_id)
+    row = db.session.get(SupplierOffer, product_id)
     row.deleted_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
     db.session.commit()
 
@@ -154,7 +154,7 @@ def test_sweep_leaves_media_for_active_products_alone(fake_provider, make_suppli
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
     product_media_service.upload_and_register_from_bytes(product.id, profile.id, b"fake bytes")
-    # Product is never deleted at all.
+    # SupplierOffer is never deleted at all.
 
     result = deleted_product_media_sweep.run()
 

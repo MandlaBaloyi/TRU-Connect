@@ -41,7 +41,7 @@ def build_catalog_product_dicts(products: List) -> List[dict]:
             "compareAtPriceCents": p.compare_at_price_cents,
             "sellingUnit": p.selling_unit.value,
             # WHAT'S ACTUALLY IN THE PACK. Both columns existed on
-            # Product from the start and were never sent to a business,
+            # SupplierOffer from the start and were never sent to a business,
             # so "Pack" was all a buyer ever saw -- a pack of 6 and a
             # pack of 24 looked identical at the same price. For
             # wholesale this is the number the whole decision turns on:

@@ -14,7 +14,7 @@ from typing import Set
 from uuid import UUID
 
 from src.core.exceptions import NotFoundError
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.supplier_profile.repositories.supplier_pinned_product_repository import (
     SupplierPinnedProductRepository,
 )
@@ -24,7 +24,7 @@ MAX_PINNED = 6
 
 
 def pin(supplier_profile_id: str | UUID, product_id: str | UUID) -> None:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if product is None:
         raise NotFoundError("Product not found.", code="PRODUCT_NOT_FOUND")
     if product.is_archived:

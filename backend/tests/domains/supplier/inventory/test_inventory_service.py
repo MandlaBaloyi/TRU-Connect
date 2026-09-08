@@ -19,8 +19,8 @@ from src.domains.supplier.inventory.services.errors import (
     InventoryValidationError,
     ProductNotFoundError,
 )
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 
 def _make_product(profile_id, **overrides):
@@ -37,7 +37,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 # --- Lazy creation -----------------------------------------------------

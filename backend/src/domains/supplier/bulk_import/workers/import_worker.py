@@ -5,10 +5,10 @@ audit_service._write_async already establishes as this codebase's own
 pattern for exactly this problem (a bare worker thread has no Flask
 context of its own).
 
-PER ROW, THIS CALLS THE EXACT SAME FUNCTIONS Add Product'S OWN SCREEN
+PER ROW, THIS CALLS THE EXACT SAME FUNCTIONS Add SupplierOffer'S OWN SCREEN
 CALLS -- product_service.create_product, then inventory_service.
 adjust_stock if a quantity was given. Per direct review: "don't have
-single-product validation != bulk-product validation... one Product
+single-product validation != bulk-product validation... one SupplierOffer
 Service, same validation rules." This file contains NO product-
 creation logic of its own; it's an orchestrator, not a second
 implementation.
@@ -252,7 +252,7 @@ def _run(
             )
         except ProductValidationError as exc:
             # The row passed THIS file's own validation but the shared
-            # Product Service found something else wrong (e.g. a
+            # SupplierOffer Service found something else wrong (e.g. a
             # length cap) -- recorded as a real error; the row simply
             # doesn't create a product. Never crashes the whole job.
             ImportJobRepository.add_error(job.id, row.row_number, "_product", "; ".join(exc.errors))

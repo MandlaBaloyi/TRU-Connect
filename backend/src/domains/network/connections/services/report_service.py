@@ -44,7 +44,7 @@ def report_supplier(
     """
     from flask import current_app
 
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
     from src.shared.email.email import EmailService
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
@@ -54,7 +54,7 @@ def report_supplier(
     verified_product_id = None
     product_name = None
     if product_id is not None:
-        product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+        product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
         if product:
             verified_product_id = product.id
             product_name = product.name

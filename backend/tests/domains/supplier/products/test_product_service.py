@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_service
 from src.domains.supplier.products.services.errors import ProductNotFoundError, ProductValidationError
 
@@ -29,7 +29,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 # --- Repository ------------------------------------------------------------
@@ -58,8 +58,8 @@ def test_get_by_id_and_supplier_excludes_other_suppliers_products(make_supplier,
 
     product = _make_product(owner_profile.id)
 
-    assert ProductRepository.get_by_id_and_supplier(product.id, owner_profile.id) is not None
-    assert ProductRepository.get_by_id_and_supplier(product.id, other_profile.id) is None
+    assert SupplierOfferRepository.get_by_id_and_supplier(product.id, owner_profile.id) is not None
+    assert SupplierOfferRepository.get_by_id_and_supplier(product.id, other_profile.id) is None
 
 
 def test_list_for_supplier_excludes_archived_by_default(make_supplier, make_supplier_profile):
@@ -67,9 +67,9 @@ def test_list_for_supplier_excludes_archived_by_default(make_supplier, make_supp
     profile = make_supplier_profile(supplier)
     active = _make_product(profile.id, name="Active Product")
     archived = _make_product(profile.id, name="Archived Product")
-    ProductRepository.archive(archived)
+    SupplierOfferRepository.archive(archived)
 
-    results = ProductRepository.list_for_supplier(profile.id)
+    results = SupplierOfferRepository.list_for_supplier(profile.id)
 
     names = {p.name for p in results}
     assert names == {"Active Product"}
@@ -84,7 +84,7 @@ def test_list_for_supplier_search_is_substring_not_prefix(make_supplier, make_su
     _make_product(profile.id, name="Coca-Cola 500ml")
     _make_product(profile.id, name="Fanta Orange 500ml")
 
-    results = ProductRepository.list_for_supplier(profile.id, search_term="500ml")
+    results = SupplierOfferRepository.list_for_supplier(profile.id, search_term="500ml")
 
     assert len(results) == 2
 
@@ -393,9 +393,9 @@ def test_delete_product_never_actually_removes_the_row(make_supplier, make_suppl
     product_service.delete_product(product.id, profile.id)
 
     from src.extensions import db
-    from src.domains.supplier.products.models.product import Product
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
 
-    raw_row = db.session.get(Product, product.id)
+    raw_row = db.session.get(SupplierOffer, product.id)
     assert raw_row is not None
     assert raw_row.name == "Still Really Here"
     assert raw_row.is_deleted is True
@@ -425,8 +425,8 @@ def test_bulk_unarchive_only_affects_owned_products(make_supplier, make_supplier
 
     product_service.bulk_unarchive([mine.id, theirs.id], profile.id)
 
-    assert ProductRepository.get_by_id(mine.id).is_archived is False
-    assert ProductRepository.get_by_id(theirs.id).is_archived is True
+    assert SupplierOfferRepository.get_by_id(mine.id).is_archived is False
+    assert SupplierOfferRepository.get_by_id(theirs.id).is_archived is True
 
 
 def test_bulk_delete_only_affects_owned_products(make_supplier, make_supplier_profile):
@@ -440,14 +440,14 @@ def test_bulk_delete_only_affects_owned_products(make_supplier, make_supplier_pr
     product_service.bulk_delete([mine.id, theirs.id], profile.id)
 
     from src.extensions import db
-    from src.domains.supplier.products.models.product import Product
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
 
     # get_by_id correctly filters out deleted rows (is_deleted=False),
     # so it can never be used to confirm a row WAS deleted -- querying
     # the raw row directly instead, same as
     # test_delete_product_never_actually_removes_the_row above.
-    assert db.session.get(Product, mine.id).is_deleted is True
-    assert db.session.get(Product, theirs.id).is_deleted is False
+    assert db.session.get(SupplierOffer, mine.id).is_deleted is True
+    assert db.session.get(SupplierOffer, theirs.id).is_deleted is False
 
 
 # --- Service: list filtering, including the real archived-tab bug ----------
@@ -513,8 +513,8 @@ def test_bulk_adjust_price_percentage_increase(make_supplier, make_supplier_prof
 
     product_service.bulk_adjust_price([p1.id, p2.id], profile.id, "INCREASE", "PERCENTAGE", 10)
 
-    assert ProductRepository.get_by_id(p1.id).price_cents == 1100
-    assert ProductRepository.get_by_id(p2.id).price_cents == 2200
+    assert SupplierOfferRepository.get_by_id(p1.id).price_cents == 1100
+    assert SupplierOfferRepository.get_by_id(p2.id).price_cents == 2200
 
 
 def test_bulk_adjust_price_fixed_decrease(make_supplier, make_supplier_profile):
@@ -524,7 +524,7 @@ def test_bulk_adjust_price_fixed_decrease(make_supplier, make_supplier_profile):
 
     product_service.bulk_adjust_price([p1.id], profile.id, "DECREASE", "FIXED", 300)
 
-    assert ProductRepository.get_by_id(p1.id).price_cents == 700
+    assert SupplierOfferRepository.get_by_id(p1.id).price_cents == 700
 
 
 def test_bulk_adjust_price_clamps_at_zero_never_negative(make_supplier, make_supplier_profile):
@@ -534,7 +534,7 @@ def test_bulk_adjust_price_clamps_at_zero_never_negative(make_supplier, make_sup
 
     product_service.bulk_adjust_price([p1.id], profile.id, "DECREASE", "FIXED", 500)
 
-    assert ProductRepository.get_by_id(p1.id).price_cents == 0
+    assert SupplierOfferRepository.get_by_id(p1.id).price_cents == 0
 
 
 def test_bulk_adjust_price_excludes_other_suppliers_products(make_supplier, make_supplier_profile):
@@ -549,7 +549,7 @@ def test_bulk_adjust_price_excludes_other_suppliers_products(make_supplier, make
     )
 
     assert result == []
-    assert ProductRepository.get_by_id(victim_product.id).price_cents == 1000
+    assert SupplierOfferRepository.get_by_id(victim_product.id).price_cents == 1000
 
 
 # --- Service: bulk set discount ---------------------------------------------
@@ -562,7 +562,7 @@ def test_bulk_set_discount_computes_correct_compare_at_price(make_supplier, make
 
     product_service.bulk_set_discount([product.id], profile.id, 20)
 
-    refreshed = ProductRepository.get_by_id(product.id)
+    refreshed = SupplierOfferRepository.get_by_id(product.id)
     assert refreshed.compare_at_price_cents == 31250
     # Real price is NEVER touched -- this sets compare_at_price only.
     assert refreshed.price_cents == 25000
@@ -575,7 +575,7 @@ def test_bulk_set_discount_never_touches_the_real_price(make_supplier, make_supp
 
     product_service.bulk_set_discount([product.id], profile.id, 15)
 
-    assert ProductRepository.get_by_id(product.id).price_cents == 1850
+    assert SupplierOfferRepository.get_by_id(product.id).price_cents == 1850
 
 
 def test_bulk_set_discount_result_round_trips_to_the_same_percentage():
@@ -603,8 +603,8 @@ def test_bulk_set_discount_applies_across_multiple_products_using_each_products_
 
     product_service.bulk_set_discount([p1.id, p2.id], profile.id, 10)
 
-    assert ProductRepository.get_by_id(p1.id).compare_at_price_cents == 1111
-    assert ProductRepository.get_by_id(p2.id).compare_at_price_cents == 5556
+    assert SupplierOfferRepository.get_by_id(p1.id).compare_at_price_cents == 1111
+    assert SupplierOfferRepository.get_by_id(p2.id).compare_at_price_cents == 5556
 
 
 def test_bulk_set_discount_rejects_zero_percent(make_supplier, make_supplier_profile):
@@ -670,8 +670,8 @@ def test_bulk_set_discount_is_all_or_nothing_across_a_batch(make_supplier, make_
         product_service.bulk_set_discount([ordinary_product.id, extreme_product.id], profile.id, 99)
 
     # Neither product was touched -- the whole batch was rejected.
-    assert ProductRepository.get_by_id(ordinary_product.id).compare_at_price_cents is None
-    assert ProductRepository.get_by_id(extreme_product.id).compare_at_price_cents is None
+    assert SupplierOfferRepository.get_by_id(ordinary_product.id).compare_at_price_cents is None
+    assert SupplierOfferRepository.get_by_id(extreme_product.id).compare_at_price_cents is None
 
 
 def test_bulk_set_discount_excludes_other_suppliers_products(make_supplier, make_supplier_profile):
@@ -684,7 +684,7 @@ def test_bulk_set_discount_excludes_other_suppliers_products(make_supplier, make
     result = product_service.bulk_set_discount([victim_product.id], owner_profile.id, 20)
 
     assert result == []
-    assert ProductRepository.get_by_id(victim_product.id).compare_at_price_cents is None
+    assert SupplierOfferRepository.get_by_id(victim_product.id).compare_at_price_cents is None
 
 
 def test_bulk_archive_only_affects_owned_products(make_supplier, make_supplier_profile):
@@ -697,5 +697,5 @@ def test_bulk_archive_only_affects_owned_products(make_supplier, make_supplier_p
 
     product_service.bulk_archive([mine.id, theirs.id], owner_profile.id)
 
-    assert ProductRepository.get_by_id(mine.id).is_archived is True
-    assert ProductRepository.get_by_id(theirs.id).is_archived is False
+    assert SupplierOfferRepository.get_by_id(mine.id).is_archived is True
+    assert SupplierOfferRepository.get_by_id(theirs.id).is_archived is False

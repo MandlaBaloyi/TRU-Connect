@@ -21,7 +21,7 @@ from src.domains.supplier.bulk_import.validators.row_validator import (
     parse_quantity,
     validate_row,
 )
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 
 
 class TestRowValidator:

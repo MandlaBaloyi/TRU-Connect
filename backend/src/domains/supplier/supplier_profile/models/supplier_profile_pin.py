@@ -39,5 +39,5 @@ class SupplierPinnedProduct(BaseModel):
     supplier_profile_id = db.Column(
         UUID(as_uuid=True), db.ForeignKey("supplier.supplier_profiles.id"), nullable=False
     )
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.products.id"), nullable=False)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.supplier_offers.id"), nullable=False)
     pin_order = db.Column(db.Integer, nullable=False, default=0)

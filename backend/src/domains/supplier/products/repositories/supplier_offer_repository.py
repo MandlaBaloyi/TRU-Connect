@@ -1,5 +1,5 @@
 """
-Product repository -- ONLY talks to SQLAlchemy, no business rules
+SupplierOffer repository -- ONLY talks to SQLAlchemy, no business rules
 (same rule as every other repository in this codebase). Grown from the
 deliberately minimal version that only needed create/list/count for
 the ordering gate; now the full CRUD + bulk surface the real Products
@@ -19,11 +19,11 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from src.domains.supplier.products.models.product import Product, ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import SupplierOffer, ProductCategory, ProductUnit
 from src.extensions import db
 
 
-class ProductRepository:
+class SupplierOfferRepository:
     @staticmethod
     def create(
         supplier_profile_id: str | UUID,
@@ -37,8 +37,8 @@ class ProductRepository:
         unit_measure: Optional[ProductUnit] = None,
         description: Optional[str] = None,
         compare_at_price_cents: Optional[int] = None,
-    ) -> Product:
-        product = Product(
+    ) -> SupplierOffer:
+        product = SupplierOffer(
             supplier_profile_id=supplier_profile_id,
             name=name,
             category=category,
@@ -63,7 +63,7 @@ class ProductRepository:
         different product just because the original was deleted, same
         "never reused" discipline as the SKU sequence counter."""
         return db.session.query(
-            Product.query.filter_by(product_code=product_code).exists()
+            SupplierOffer.query.filter_by(product_code=product_code).exists()
         ).scalar()
 
     @staticmethod
@@ -74,20 +74,20 @@ class ProductRepository:
         supplier typing one by hand genuinely could accidentally repeat
         an existing one."""
         return db.session.query(
-            Product.query.filter_by(supplier_profile_id=supplier_profile_id, sku=sku, is_deleted=False).exists()
+            SupplierOffer.query.filter_by(supplier_profile_id=supplier_profile_id, sku=sku, is_deleted=False).exists()
         ).scalar()
 
     @staticmethod
-    def get_by_id(product_id: str | UUID) -> Optional[Product]:
-        return Product.query.filter_by(id=product_id, is_deleted=False).first()
+    def get_by_id(product_id: str | UUID) -> Optional[SupplierOffer]:
+        return SupplierOffer.query.filter_by(id=product_id, is_deleted=False).first()
 
     @staticmethod
-    def get_by_id_and_supplier(product_id: str | UUID, supplier_profile_id: str | UUID) -> Optional[Product]:
+    def get_by_id_and_supplier(product_id: str | UUID, supplier_profile_id: str | UUID) -> Optional[SupplierOffer]:
         """Ownership-scoped lookup -- used by every mutation (update,
         archive, bulk actions) so a supplier can never affect a product
         that isn't theirs, same IDOR-safety shape as every other
         domain's own get_by_id_and_<owner> repository method."""
-        return Product.query.filter_by(
+        return SupplierOffer.query.filter_by(
             id=product_id, supplier_profile_id=supplier_profile_id, is_deleted=False
         ).first()
 
@@ -96,7 +96,7 @@ class ProductRepository:
         supplier_profile_id: str | UUID,
         is_archived: Optional[bool] = False,
         search_term: Optional[str] = None,
-    ) -> List[Product]:
+    ) -> List[SupplierOffer]:
         # REAL BUG FOUND DURING DEVICE TESTING: this used to be a plain
         # `include_archived: bool`. include_archived=True only ever
         # meant "stop excluding archived rows" -- it never meant "show
@@ -111,7 +111,7 @@ class ProductRepository:
         #                                  real caller needs this today,
         #                                  kept for a genuine future need
         #                                  rather than removed outright)
-        query = Product.query.filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False)
+        query = SupplierOffer.query.filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False)
         if is_archived is not None:
             query = query.filter_by(is_archived=is_archived)
         if search_term:
@@ -121,8 +121,8 @@ class ProductRepository:
             # uses prefix-only matching for the enumeration-vector
             # reasons documented there. That reasoning doesn't apply to
             # a supplier searching their own products.
-            query = query.filter(Product.name.ilike(f"%{search_term}%"))
-        return query.order_by(Product.created_at.desc()).all()
+            query = query.filter(SupplierOffer.name.ilike(f"%{search_term}%"))
+        return query.order_by(SupplierOffer.created_at.desc()).all()
 
     @staticmethod
     def _apply_ranked_sort(query, sort: str, supplier_profile_id: str | UUID):
@@ -168,9 +168,9 @@ class ProductRepository:
                 .group_by(StockOrderItem.product_id)
                 .subquery()
             )
-            return query.outerjoin(sold, sold.c.product_id == Product.id).order_by(
+            return query.outerjoin(sold, sold.c.product_id == SupplierOffer.id).order_by(
                 db.func.coalesce(sold.c.units, 0).desc(),
-                Product.created_at.desc(),
+                SupplierOffer.created_at.desc(),
             )
 
         # RECOMMENDED
@@ -186,19 +186,19 @@ class ProductRepository:
         discount = db.case(
             (
                 db.and_(
-                    Product.compare_at_price_cents.isnot(None),
-                    Product.compare_at_price_cents > Product.price_cents,
+                    SupplierOffer.compare_at_price_cents.isnot(None),
+                    SupplierOffer.compare_at_price_cents > SupplierOffer.price_cents,
                 ),
-                (Product.compare_at_price_cents - Product.price_cents)
+                (SupplierOffer.compare_at_price_cents - SupplierOffer.price_cents)
                 * 1.0
-                / db.func.nullif(Product.compare_at_price_cents, 0),
+                / db.func.nullif(SupplierOffer.compare_at_price_cents, 0),
             ),
             else_=0.0,
         )
-        return query.outerjoin(Inventory, Inventory.product_id == Product.id).order_by(
+        return query.outerjoin(Inventory, Inventory.product_id == SupplierOffer.id).order_by(
             (available > 0).desc(),
             discount.desc(),
-            Product.created_at.desc(),
+            SupplierOffer.created_at.desc(),
         )
 
     @staticmethod
@@ -209,7 +209,7 @@ class ProductRepository:
         sort: str,
         category: Optional[str],
         search_term: Optional[str] = None,
-    ) -> tuple[List[Product], int]:
+    ) -> tuple[List[SupplierOffer], int]:
         """A SEPARATE method from list_for_supplier above, deliberately
         -- that one is shared by the supplier's own Products screen and
         other callers that want the full, unpaginated list; adding
@@ -245,9 +245,9 @@ class ProductRepository:
         page 3. Ranking has to happen before LIMIT/OFFSET, which means
         it has to happen in the database.
         """
-        from src.domains.supplier.products.models.product import ProductCategory
+        from src.domains.supplier.products.models.supplier_offer import ProductCategory
 
-        query = Product.query.filter_by(
+        query = SupplierOffer.query.filter_by(
             supplier_profile_id=supplier_profile_id, is_deleted=False, is_archived=False
         )
         if category is not None:
@@ -263,20 +263,20 @@ class ProductRepository:
             from src.shared.validation.identifiers import escape_like_pattern
 
             pattern = f"%{escape_like_pattern(search_term.strip())}%"
-            query = query.filter(Product.name.ilike(pattern, escape="\\"))
+            query = query.filter(SupplierOffer.name.ilike(pattern, escape="\\"))
 
         total_count = query.count()
 
         if sort in ("RECOMMENDED", "BEST_SELLING"):
-            query = ProductRepository._apply_ranked_sort(query, sort, supplier_profile_id)
+            query = SupplierOfferRepository._apply_ranked_sort(query, sort, supplier_profile_id)
         elif sort == "NAME_ASC":
-            query = query.order_by(Product.name.asc())
+            query = query.order_by(SupplierOffer.name.asc())
         elif sort == "PRICE_ASC":
-            query = query.order_by(Product.price_cents.asc())
+            query = query.order_by(SupplierOffer.price_cents.asc())
         elif sort == "PRICE_DESC":
-            query = query.order_by(Product.price_cents.desc())
+            query = query.order_by(SupplierOffer.price_cents.desc())
         else:  # "NEWEST" and any unrecognised value both fall back to this
-            query = query.order_by(Product.created_at.desc())
+            query = query.order_by(SupplierOffer.created_at.desc())
 
         offset = (page - 1) * limit
         products = query.offset(offset).limit(limit).all()
@@ -298,7 +298,7 @@ class ProductRepository:
         a filter option that only exists because of something the
         supplier pulled from sale."""
         rows = (
-            db.session.query(Product.category)
+            db.session.query(SupplierOffer.category)
             .filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False, is_archived=False)
             .distinct()
             .all()
@@ -308,7 +308,7 @@ class ProductRepository:
     @staticmethod
     def list_related_products(
         supplier_profile_id: str | UUID, category: ProductCategory, exclude_product_id: str | UUID, limit: int = 5
-    ) -> List[Product]:
+    ) -> List[SupplierOffer]:
         """"More from [Supplier]" -- genuinely related products FIRST
         (same category, same supplier, excluding the one currently
         being viewed), THEN backfilled with any OTHER product from
@@ -339,13 +339,13 @@ class ProductRepository:
         stock and price. Across categories there is no relevance at
         all, so popularity is the only honest ordering left."""
         related = (
-            ProductRepository._apply_ranked_sort(
-                Product.query.filter(
-                    Product.supplier_profile_id == supplier_profile_id,
-                    Product.category == category,
-                    Product.id != exclude_product_id,
-                    Product.is_deleted.is_(False),
-                    Product.is_archived.is_(False),
+            SupplierOfferRepository._apply_ranked_sort(
+                SupplierOffer.query.filter(
+                    SupplierOffer.supplier_profile_id == supplier_profile_id,
+                    SupplierOffer.category == category,
+                    SupplierOffer.id != exclude_product_id,
+                    SupplierOffer.is_deleted.is_(False),
+                    SupplierOffer.is_archived.is_(False),
                 ),
                 "RECOMMENDED",
                 supplier_profile_id,
@@ -360,12 +360,12 @@ class ProductRepository:
 
         already_included_ids = [exclude_product_id] + [p.id for p in related]
         backfill = (
-            ProductRepository._apply_ranked_sort(
-                Product.query.filter(
-                    Product.supplier_profile_id == supplier_profile_id,
-                    Product.id.notin_(already_included_ids),
-                    Product.is_deleted.is_(False),
-                    Product.is_archived.is_(False),
+            SupplierOfferRepository._apply_ranked_sort(
+                SupplierOffer.query.filter(
+                    SupplierOffer.supplier_profile_id == supplier_profile_id,
+                    SupplierOffer.id.notin_(already_included_ids),
+                    SupplierOffer.is_deleted.is_(False),
+                    SupplierOffer.is_archived.is_(False),
                 ),
                 # Popularity, not recency -- see this method's docstring
                 # on why the two passes rank differently.
@@ -387,11 +387,11 @@ class ProductRepository:
         pre-existing behaviour -- worth a deliberate look once Orders
         is built, since an archived product arguably shouldn't count.
         """
-        return Product.query.filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False).count()
+        return SupplierOffer.query.filter_by(supplier_profile_id=supplier_profile_id, is_deleted=False).count()
 
     @staticmethod
     def update(
-        product: Product,
+        product: SupplierOffer,
         name: str,
         category: ProductCategory,
         price_cents: int,
@@ -401,7 +401,7 @@ class ProductRepository:
         compare_at_price_cents: Optional[int] = None,
         unit_quantity: Optional[int] = None,
         unit_measure: Optional[ProductUnit] = None,
-    ) -> Product:
+    ) -> SupplierOffer:
         product.name = name
         product.category = category
         product.price_cents = price_cents
@@ -427,19 +427,19 @@ class ProductRepository:
         return product
 
     @staticmethod
-    def archive(product: Product) -> Product:
+    def archive(product: SupplierOffer) -> SupplierOffer:
         product.is_archived = True
         db.session.commit()
         return product
 
     @staticmethod
-    def unarchive(product: Product) -> Product:
+    def unarchive(product: SupplierOffer) -> SupplierOffer:
         product.is_archived = False
         db.session.commit()
         return product
 
     @staticmethod
-    def soft_delete(product: Product) -> Product:
+    def soft_delete(product: SupplierOffer) -> SupplierOffer:
         # BaseModel's own real, ready-to-use soft_delete() -- sets
         # is_deleted=True and deleted_at, never actually removes the
         # row. Every existing query in this repository already filters
@@ -452,7 +452,7 @@ class ProductRepository:
         return product
 
     @staticmethod
-    def bulk_adjust_price(products: List[Product], apply_fn) -> List[Product]:
+    def bulk_adjust_price(products: List[SupplierOffer], apply_fn) -> List[SupplierOffer]:
         """`apply_fn(current_price_cents: int) -> int` -- the actual
         percentage/fixed math lives in the SERVICE layer (same
         "repository has no business rules" line every other repository
@@ -464,7 +464,7 @@ class ProductRepository:
         return products
 
     @staticmethod
-    def bulk_set_compare_at_price(products: List[Product], compute_fn) -> List[Product]:
+    def bulk_set_compare_at_price(products: List[SupplierOffer], compute_fn) -> List[SupplierOffer]:
         """`compute_fn(current_price_cents: int) -> int` -- the actual
         discount-percentage math lives in the SERVICE layer, same
         "repository has no business rules" split as bulk_adjust_price
@@ -496,37 +496,37 @@ class ProductRepository:
         return products
 
     @staticmethod
-    def bulk_archive(products: List[Product]) -> List[Product]:
+    def bulk_archive(products: List[SupplierOffer]) -> List[SupplierOffer]:
         for product in products:
             product.is_archived = True
         db.session.commit()
         return products
 
     @staticmethod
-    def bulk_unarchive(products: List[Product]) -> List[Product]:
+    def bulk_unarchive(products: List[SupplierOffer]) -> List[SupplierOffer]:
         for product in products:
             product.is_archived = False
         db.session.commit()
         return products
 
     @staticmethod
-    def bulk_soft_delete(products: List[Product]) -> List[Product]:
+    def bulk_soft_delete(products: List[SupplierOffer]) -> List[SupplierOffer]:
         for product in products:
             product.soft_delete()
         db.session.commit()
         return products
 
     @staticmethod
-    def list_by_ids_and_supplier(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[Product]:
+    def list_by_ids_and_supplier(product_ids: List[str | UUID], supplier_profile_id: str | UUID) -> List[SupplierOffer]:
         """Used by both bulk endpoints -- fetches only the rows this
         supplier actually owns among the requested ids, so a bulk
         request that includes someone else's product id silently
         excludes it rather than erroring the whole batch or, worse,
         acting on it."""
-        return Product.query.filter(
-            Product.id.in_(product_ids),
-            Product.supplier_profile_id == supplier_profile_id,
-            Product.is_deleted.is_(False),
+        return SupplierOffer.query.filter(
+            SupplierOffer.id.in_(product_ids),
+            SupplierOffer.supplier_profile_id == supplier_profile_id,
+            SupplierOffer.is_deleted.is_(False),
         ).all()
 
     # ------------------------------------------------------------------
@@ -548,14 +548,14 @@ class ProductRepository:
 
     @staticmethod
     def _storefront_base(supplier_profile_id: str | UUID):
-        return Product.query.filter(
-            Product.supplier_profile_id == supplier_profile_id,
-            Product.is_deleted.is_(False),
-            Product.is_archived.is_(False),
+        return SupplierOffer.query.filter(
+            SupplierOffer.supplier_profile_id == supplier_profile_id,
+            SupplierOffer.is_deleted.is_(False),
+            SupplierOffer.is_archived.is_(False),
         )
 
     @staticmethod
-    def list_on_sale(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+    def list_on_sale(supplier_profile_id: str | UUID, limit: int) -> List[SupplierOffer]:
         """Genuinely reduced, deepest discount first.
 
         compare_at MUST BE GREATER THAN the price, not merely present.
@@ -569,23 +569,23 @@ class ProductRepository:
         even though the second saves more rands.
         """
         discount_fraction = (
-            (Product.compare_at_price_cents - Product.price_cents)
+            (SupplierOffer.compare_at_price_cents - SupplierOffer.price_cents)
             * 1.0
-            / db.func.nullif(Product.compare_at_price_cents, 0)
+            / db.func.nullif(SupplierOffer.compare_at_price_cents, 0)
         )
         return (
-            ProductRepository._storefront_base(supplier_profile_id)
+            SupplierOfferRepository._storefront_base(supplier_profile_id)
             .filter(
-                Product.compare_at_price_cents.isnot(None),
-                Product.compare_at_price_cents > Product.price_cents,
+                SupplierOffer.compare_at_price_cents.isnot(None),
+                SupplierOffer.compare_at_price_cents > SupplierOffer.price_cents,
             )
-            .order_by(discount_fraction.desc(), Product.created_at.desc())
+            .order_by(discount_fraction.desc(), SupplierOffer.created_at.desc())
             .limit(limit)
             .all()
         )
 
     @staticmethod
-    def list_best_selling(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+    def list_best_selling(supplier_profile_id: str | UUID, limit: int) -> List[SupplierOffer]:
         """Units actually sold, from CONFIRMED orders only.
 
         INNER JOIN HERE, unlike _apply_ranked_sort's outer one, and the
@@ -618,15 +618,15 @@ class ProductRepository:
             .subquery()
         )
         return (
-            ProductRepository._storefront_base(supplier_profile_id)
-            .join(sold, sold.c.product_id == Product.id)
-            .order_by(sold.c.units.desc(), Product.created_at.desc())
+            SupplierOfferRepository._storefront_base(supplier_profile_id)
+            .join(sold, sold.c.product_id == SupplierOffer.id)
+            .order_by(sold.c.units.desc(), SupplierOffer.created_at.desc())
             .limit(limit)
             .all()
         )
 
     @staticmethod
-    def list_recently_added(supplier_profile_id: str | UUID, since, limit: int) -> List[Product]:
+    def list_recently_added(supplier_profile_id: str | UUID, since, limit: int) -> List[SupplierOffer]:
         """Added within the window, newest first.
 
         WINDOWED, NOT JUST SORTED. "Just added" is a claim about
@@ -637,15 +637,15 @@ class ProductRepository:
         makes it disappear.
         """
         return (
-            ProductRepository._storefront_base(supplier_profile_id)
-            .filter(Product.created_at >= since)
-            .order_by(Product.created_at.desc())
+            SupplierOfferRepository._storefront_base(supplier_profile_id)
+            .filter(SupplierOffer.created_at >= since)
+            .order_by(SupplierOffer.created_at.desc())
             .limit(limit)
             .all()
         )
 
     @staticmethod
-    def list_best_unit_value(supplier_profile_id: str | UUID, limit: int) -> List[Product]:
+    def list_best_unit_value(supplier_profile_id: str | UUID, limit: int) -> List[SupplierOffer]:
         """Multi-unit packs, cheapest per item first.
 
         unit_quantity > 1 IS THE WHOLE FILTER. A product sold as Each
@@ -659,11 +659,11 @@ class ProductRepository:
         sorting after the fact would sort whichever six rows the
         database happened to return, not the six cheapest per unit.
         """
-        per_unit = Product.price_cents * 1.0 / db.func.nullif(Product.unit_quantity, 0)
+        per_unit = SupplierOffer.price_cents * 1.0 / db.func.nullif(SupplierOffer.unit_quantity, 0)
         return (
-            ProductRepository._storefront_base(supplier_profile_id)
-            .filter(Product.unit_quantity.isnot(None), Product.unit_quantity > 1)
-            .order_by(per_unit.asc(), Product.created_at.desc())
+            SupplierOfferRepository._storefront_base(supplier_profile_id)
+            .filter(SupplierOffer.unit_quantity.isnot(None), SupplierOffer.unit_quantity > 1)
+            .order_by(per_unit.asc(), SupplierOffer.created_at.desc())
             .limit(limit)
             .all()
         )

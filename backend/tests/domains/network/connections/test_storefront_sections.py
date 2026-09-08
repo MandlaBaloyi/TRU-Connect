@@ -12,8 +12,8 @@ from datetime import datetime, timedelta, timezone
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.extensions import db
 
 
@@ -35,7 +35,7 @@ def _make_product(
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    product = ProductRepository.create(
+    product = SupplierOfferRepository.create(
         supplier_profile_id=profile_id,
         name=name,
         category=ProductCategory.BEVERAGES,

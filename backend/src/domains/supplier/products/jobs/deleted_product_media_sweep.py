@@ -52,7 +52,7 @@ products ever built up, one run processing all of them could take
 longer to finish than the interval between runs. Whatever doesn't fit
 in this run's cap is simply picked up by the next one -- nothing is
 lost, just deferred, and the repository's own query orders by
-Product.deleted_at ascending so the products waiting longest always go
+SupplierOffer.deleted_at ascending so the products waiting longest always go
 first.
 
 DOES NOT LIVE IN shared/media/jobs/ -- unlike the other two sweeps,

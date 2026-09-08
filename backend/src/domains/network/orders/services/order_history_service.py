@@ -11,7 +11,7 @@ from uuid import UUID
 
 from src.domains.network.orders.errors import OrderNotFoundError, SupplierNotFoundError
 from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
@@ -114,7 +114,7 @@ def get_order_detail(business_id: str | UUID, supplier_profile_id: str | UUID, o
         # been archived or deleted -- still shown here (this order
         # genuinely contained it), never silently hidden, same
         # reasoning as cart_service's own isStale handling.
-        product = ProductRepository.get_by_id_and_supplier(item.product_id, supplier_profile_id)
+        product = SupplierOfferRepository.get_by_id_and_supplier(item.product_id, supplier_profile_id)
         items.append(
             {
                 "productId": str(item.product_id),

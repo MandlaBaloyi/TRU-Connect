@@ -1,5 +1,5 @@
 """
-Product media routes -- the two supplier-facing endpoints
+SupplierOffer media routes -- the two supplier-facing endpoints
 (request_media_upload_signature, register_media). The webhook itself
 lives in shared/media/api/webhook_routes.py, not here, since it's not
 supplier-scoped at all.

@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 
 def _token_for(user, role: str) -> str:
@@ -32,7 +32,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 # --- List / detail / summary --------------------------------------------

@@ -12,8 +12,8 @@ import uuid
 import pytest
 
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.network.orders.models.stock_order import StockOrder
 from src.domains.network.orders.services import cart_service, checkout_service
 from src.domains.supplier.stock_order_management.errors import (
@@ -31,7 +31,7 @@ def _make_product(profile_id, name="Product", price_cents=1000, in_stock=True):
     from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
     from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 
-    product = ProductRepository.create(
+    product = SupplierOfferRepository.create(
         profile_id, name, ProductCategory.OTHER, price_cents, ProductUnit.EACH,
         sku=generate_sku(profile_id), product_code=generate_product_code(),
     )

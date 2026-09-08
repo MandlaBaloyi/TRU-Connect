@@ -6,7 +6,7 @@ rules live here; InventoryRepository/InventorySettingsRepository stay
 pure SQL, same split as every other domain.
 
 CROSS-DOMAIN READ, NOT A CIRCULAR IMPORT -- this service reads
-ProductRepository directly (inventory depends on products), but
+SupplierOfferRepository directly (inventory depends on products), but
 products/services/product_service.py never imports anything from
 here. That's a one-directional dependency, the same shape
 connections' catalog_service already has on products (reads it for the
@@ -32,7 +32,7 @@ from src.domains.supplier.inventory.repositories.inventory_repository import (
 )
 from src.domains.supplier.inventory.services.errors import InsufficientStockError, InventoryValidationError
 from src.domains.supplier.inventory.services.errors import ProductNotFoundError as InventoryProductNotFoundError
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 
 def _compose(product, inventory: Inventory) -> dict:
@@ -44,7 +44,7 @@ def _compose(product, inventory: Inventory) -> dict:
 def get_inventory_list(
     supplier_profile_id: str | UUID, status_filter: Optional[str] = None, search_term: Optional[str] = None
 ) -> List[dict]:
-    products = ProductRepository.list_for_supplier(supplier_profile_id, search_term=search_term)
+    products = SupplierOfferRepository.list_for_supplier(supplier_profile_id, search_term=search_term)
     items = [
         _compose(product, InventoryRepository.get_or_create_for_product(product.id, supplier_profile_id))
         for product in products
@@ -55,7 +55,7 @@ def get_inventory_list(
 
 
 def get_inventory_item(product_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise InventoryProductNotFoundError("Product not found.")
     inventory = InventoryRepository.get_or_create_for_product(product_id, supplier_profile_id)
@@ -73,7 +73,7 @@ def get_inventory_summary(supplier_profile_id: str | UUID) -> dict:
 
 
 def adjust_stock(product_id: str | UUID, supplier_profile_id: str | UUID, quantity_delta: int, reason: str) -> dict:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise InventoryProductNotFoundError("Product not found.")
 
@@ -98,7 +98,7 @@ def adjust_stock(product_id: str | UUID, supplier_profile_id: str | UUID, quanti
 
 
 def set_low_stock_threshold(product_id: str | UUID, supplier_profile_id: str | UUID, threshold: int) -> dict:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise InventoryProductNotFoundError("Product not found.")
     if threshold < 0:

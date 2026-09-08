@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from marshmallow import Schema, fields, validate
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 
 _CATEGORY_VALUES = [c.value for c in ProductCategory]
 _UNIT_VALUES = [u.value for u in ProductUnit]

@@ -41,14 +41,14 @@ def list_profile_products(business_id: str | UUID, supplier_profile_id: str | UU
     business_id is accepted (currently unused) for signature symmetry
     with every other business-facing read in this module.
     """
-    from src.domains.supplier.products.repositories.product_repository import ProductRepository
+    from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
     from src.domains.supplier.supplier_profile.services import pinned_products_service
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
-    products = ProductRepository.list_for_supplier(supplier_profile_id, is_archived=False)
+    products = SupplierOfferRepository.list_for_supplier(supplier_profile_id, is_archived=False)
     dicts = build_catalog_product_dicts(products)
     imaged = [d for d in dicts if d["images"]]
     pinned_ids = {str(pid) for pid in pinned_products_service.list_pinned_product_ids(supplier_profile_id)}
@@ -67,7 +67,7 @@ def _group_profile_showcase(imaged_dicts: List[dict], pinned_ids: set) -> List[d
     order the query returned" -- effectively arbitrary beyond the pins.
     See showcase_sort_key for the real ranking that replaced it and
     for why it uses supplier-owned signals only."""
-    from src.domains.supplier.products.models.product import ProductCategory
+    from src.domains.supplier.products.models.supplier_offer import ProductCategory
 
     canonical_order = {c.value: i for i, c in enumerate(ProductCategory)}
 

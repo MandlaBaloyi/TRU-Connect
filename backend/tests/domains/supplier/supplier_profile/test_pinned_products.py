@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 
 from src.core.exceptions import NotFoundError
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.supplier_profile.services import pinned_products_service
 from src.domains.supplier.supplier_profile.services.errors import ProfileValidationError
 
@@ -29,7 +29,7 @@ def _make_product(profile_id, name="Coke 500ml", **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 def test_pin_then_list_pinned_ids(make_supplier, make_supplier_profile):
@@ -93,7 +93,7 @@ def test_pin_rejects_archived_product(make_supplier, make_supplier_profile):
     supplier = make_supplier()
     profile = make_supplier_profile(supplier)
     product = _make_product(profile.id)
-    ProductRepository.archive(product)
+    SupplierOfferRepository.archive(product)
 
     with pytest.raises(ProfileValidationError):
         pinned_products_service.pin(profile.id, product.id)

@@ -24,7 +24,7 @@ from typing import Iterable, List
 from uuid import UUID
 
 from src.core.exceptions import NotFoundError
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.supplier_profile.models.supplier_storefront import (
     CHOSEN_SECTION_TYPES,
     StorefrontSectionType,
@@ -244,7 +244,7 @@ def _assert_products_are_sellable(supplier_profile_id: str | UUID, product_ids: 
     if not product_ids:
         return
 
-    found = ProductRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
+    found = SupplierOfferRepository.list_by_ids_and_supplier(product_ids, supplier_profile_id)
     found_by_id = {str(product.id): product for product in found}
 
     for product_id in product_ids:

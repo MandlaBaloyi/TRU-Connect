@@ -17,7 +17,7 @@ from src.domains.supplier.bulk_import.models.import_job import ImportJobStatus
 from src.domains.supplier.bulk_import.repositories.import_job_repository import ImportJobRepository
 from src.domains.supplier.bulk_import.workers.import_worker import run_import
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.shared.media.providers.provider import MediaProvider, ScanResult, SignedUpload, UploadedAsset
 
@@ -93,7 +93,7 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         names = {p.name for p in products}
         assert names == {"Coca-Cola 500ml", "Bread"}
 
@@ -113,7 +113,7 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        product = ProductRepository.list_for_supplier(profile.id)[0]
+        product = SupplierOfferRepository.list_for_supplier(profile.id)[0]
         assert product.sku == "BREAD-CASE-24"
         assert product.description == "3 loaves per case."
         assert product.compare_at_price_cents == 2500
@@ -128,14 +128,14 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        product = ProductRepository.list_for_supplier(profile.id)[0]
+        product = SupplierOfferRepository.list_for_supplier(profile.id)[0]
         assert product.sku == "SKU-000001"
 
     def test_duplicate_sku_in_a_real_import_is_a_row_error_not_a_crash(
         self, fake_provider, make_supplier, make_supplier_profile
     ):
         """The row passed the FILE's own shape validation but the
-        shared Product Service found a real uniqueness collision --
+        shared SupplierOffer Service found a real uniqueness collision --
         must be recorded as a real row error, never crash the whole
         job (same pattern as every other ProductValidationError this
         worker already handles)."""
@@ -150,7 +150,7 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 1  # only the first row's product was created
         errors = ImportJobRepository.list_errors(job.id)
         assert any("SAME-SKU" in e.message for e in errors)
@@ -163,7 +163,7 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        product = ProductRepository.list_for_supplier(profile.id)[0]
+        product = SupplierOfferRepository.list_for_supplier(profile.id)[0]
         inventory = InventoryRepository.get_by_product_id(product.id)
         assert inventory.quantity_on_hand == 47
 
@@ -180,7 +180,7 @@ class TestBasicImport:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        product = ProductRepository.list_for_supplier(profile.id)[0]
+        product = SupplierOfferRepository.list_for_supplier(profile.id)[0]
         inventory = InventoryRepository.get_or_create_for_product(product.id, profile.id)
         assert inventory.quantity_on_hand == 0
 
@@ -243,7 +243,7 @@ class TestImageHandling:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, "images.zip", zip_bytes)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 0  # the row failed entirely, no product created
 
         errors = ImportJobRepository.list_errors(job.id)
@@ -259,7 +259,7 @@ class TestImageHandling:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, None, None)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 0
         errors = ImportJobRepository.list_errors(job.id)
         assert any("no ZIP was uploaded" in e.message for e in errors)
@@ -278,7 +278,7 @@ class TestImageHandling:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, "images.zip", zip_bytes)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 1  # the row succeeded despite the case mismatch
         assert len(fake_provider.uploaded) == 1
         errors = ImportJobRepository.list_errors(job.id)
@@ -298,7 +298,7 @@ class TestImageHandling:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, "images.zip", zip_bytes)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 0  # still a hard error, never auto-corrected
 
         errors = ImportJobRepository.list_errors(job.id)
@@ -340,7 +340,7 @@ class TestUnsafeFileHandling:
 
         refreshed = ImportJobRepository.get_by_id_and_supplier(job.id, profile.id)
         assert refreshed.status == ImportJobStatus.FAILED
-        assert ProductRepository.list_for_supplier(profile.id) == []
+        assert SupplierOfferRepository.list_for_supplier(profile.id) == []
 
 
 class TestTierGatedLimits:
@@ -361,7 +361,7 @@ class TestTierGatedLimits:
 
         refreshed = ImportJobRepository.get_by_id_and_supplier(job.id, profile.id)
         assert refreshed.status == ImportJobStatus.FAILED
-        assert ProductRepository.list_for_supplier(profile.id) == []
+        assert SupplierOfferRepository.list_for_supplier(profile.id) == []
         errors = ImportJobRepository.list_errors(job.id)
         assert any("your plan allows up to" in e.message.lower() for e in errors)
 
@@ -387,7 +387,7 @@ class TestTierGatedLimits:
 
         run_import(job.id, profile.id, "import.csv", csv_bytes, "images.zip", zip_bytes)
 
-        products = ProductRepository.list_for_supplier(profile.id)
+        products = SupplierOfferRepository.list_for_supplier(profile.id)
         assert len(products) == 20  # every row still creates a product
 
         assert len(fake_provider.uploaded) == 15  # capped at the tier's own ceiling

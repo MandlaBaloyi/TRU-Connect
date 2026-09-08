@@ -30,7 +30,7 @@ from src.domains.network.orders.notification_templates.stock_order_templates imp
 )
 from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
 from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.domains.supplier.stock_order_management.errors import (
     DigitalPaymentCancellationNotSupportedError,
@@ -114,7 +114,7 @@ def get_order_detail(supplier_profile_id: str | UUID, order_id: str | UUID) -> d
     for item in order.items:
         if item.is_deleted:
             continue
-        product = ProductRepository.get_by_id_and_supplier(item.product_id, supplier_profile_id)
+        product = SupplierOfferRepository.get_by_id_and_supplier(item.product_id, supplier_profile_id)
         items.append(
             {
                 "productId": str(item.product_id),

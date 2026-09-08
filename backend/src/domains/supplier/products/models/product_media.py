@@ -5,7 +5,7 @@ reason this table lives in products/, not shared/media/ (see
 shared/media/mixins.py's own docstring for the full reasoning).
 
 sort_order IS the "which photo is the cover" mechanism -- position 0
-is the cover image, matching the frontend's own Product.images: ORDERED
+is the cover image, matching the frontend's own SupplierOffer.images: ORDERED
 array convention exactly (no separate isPrimary flag on either side).
 """
 from __future__ import annotations
@@ -25,4 +25,4 @@ class ProductMedia(BaseModel, MediaAssetMixin):
         {"schema": "supplier"},
     )
 
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.products.id"), nullable=False)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey("supplier.supplier_offers.id"), nullable=False)

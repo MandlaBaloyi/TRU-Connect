@@ -22,7 +22,7 @@ table is the upload/scan bookkeeping behind them: it's what the
 orphan-upload sweep, the stuck-media sweep, and the scan webhook all
 need a real row to reconcile against, and what lets a replaced image's
 old Cloudinary asset be found and cleaned up rather than silently
-orphaned. Same split as Product.images (the derived, approved-only
+orphaned. Same split as SupplierOffer.images (the derived, approved-only
 list) vs. ProductMedia (the rows behind it).
 """
 from __future__ import annotations

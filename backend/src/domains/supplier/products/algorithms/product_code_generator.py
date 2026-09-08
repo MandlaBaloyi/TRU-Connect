@@ -10,7 +10,7 @@ aloud or typed by hand and those pairs are easy to misread. 32^6 is a
 little over 1 billion possible codes.
 
 UNIQUENESS IS A GUARANTEE, NOT A PROBABILITY -- every generated code is
-checked against the database before being accepted (ProductRepository.
+checked against the database before being accepted (SupplierOfferRepository.
 product_code_exists, which includes soft-deleted rows on purpose: a
 code must never be reissued to a different product just because the
 original was deleted -- an old order or report referencing that code
@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import secrets
 
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 # Deliberately excludes 0/O and 1/I -- meant to be read aloud or typed
 # by hand without ambiguity.
@@ -42,7 +42,7 @@ def generate_product_code() -> str:
     for _ in range(_MAX_ATTEMPTS):
         suffix = "".join(secrets.choice(_ALPHABET) for _ in range(_CODE_LENGTH))
         candidate = f"TRU-{suffix}"
-        if not ProductRepository.product_code_exists(candidate):
+        if not SupplierOfferRepository.product_code_exists(candidate):
             return candidate
 
     # Astronomically unlikely at this address space (32^6 is just over

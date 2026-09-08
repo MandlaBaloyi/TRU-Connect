@@ -40,7 +40,7 @@ from uuid import UUID
 
 from src.domains.supplier.products.models.product_media import ProductMedia
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services.errors import ProductNotFoundError
 from src.domains.supplier.products.tiers import get_products_limits
 from src.domains.supplier.tiers.resolver import get_current_tier
@@ -87,7 +87,7 @@ def _check_photo_limit(product_id: str | UUID, limit: int) -> None:
 
 
 def request_upload_signature(product_id: str | UUID, supplier_profile_id: str | UUID) -> SignedUpload:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
 
@@ -119,7 +119,7 @@ def register_uploaded_media(
     height: Optional[int],
     bytes_: Optional[int],
 ) -> ProductMedia:
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
 
@@ -186,7 +186,7 @@ def upload_and_register_from_bytes(product_id: str | UUID, supplier_profile_id: 
     all enforced identically to the signed-upload path; only the
     transport differs.
     """
-    product = ProductRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
+    product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
 

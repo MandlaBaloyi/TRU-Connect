@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.product_media_repository import ProductMediaRepository
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service
 from src.domains.supplier.products.services.errors import ProductNotFoundError
 from src.shared.media import folder_naming
@@ -94,7 +94,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 # --- request_upload_signature -------------------------------------------

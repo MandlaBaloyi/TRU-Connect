@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from flask_jwt_extended import create_access_token
 
-from src.domains.supplier.products.models.product import ProductCategory, ProductUnit
-from src.domains.supplier.products.repositories.product_repository import ProductRepository
+from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
 
 def _token_for(user, role: str) -> str:
@@ -38,7 +38,7 @@ def _make_product(profile_id, **overrides):
         product_code=generate_product_code(),
     )
     defaults.update(overrides)
-    return ProductRepository.create(**defaults)
+    return SupplierOfferRepository.create(**defaults)
 
 
 # --- Create ------------------------------------------------------------
@@ -120,7 +120,7 @@ def test_list_products_excludes_archived_by_default(client, make_supplier, make_
     profile = make_supplier_profile(supplier)
     _make_product(profile.id, name="Active")
     archived = _make_product(profile.id, name="Archived")
-    ProductRepository.archive(archived)
+    SupplierOfferRepository.archive(archived)
 
     response = client.get("/api/v1/supplier-discovery/products", headers=_auth(supplier, "supplier"))
 
@@ -311,7 +311,7 @@ def test_bulk_unarchive_via_http(client, make_supplier, make_supplier_profile):
     )
 
     assert response.status_code == 200
-    assert ProductRepository.get_by_id(p1.id).is_archived is False
+    assert SupplierOfferRepository.get_by_id(p1.id).is_archived is False
 
 
 def test_bulk_delete_via_http(client, make_supplier, make_supplier_profile):
@@ -326,7 +326,7 @@ def test_bulk_delete_via_http(client, make_supplier, make_supplier_profile):
     )
 
     assert response.status_code == 200
-    assert ProductRepository.get_by_id(p1.id) is None  # correctly filtered out now it's deleted
+    assert SupplierOfferRepository.get_by_id(p1.id) is None  # correctly filtered out now it's deleted
 
 
 def test_bulk_delete_rejects_empty_product_ids(client, make_supplier, make_supplier_profile):
@@ -480,7 +480,7 @@ def test_bulk_adjust_price_via_http(client, make_supplier, make_supplier_profile
     )
 
     assert response.status_code == 200
-    assert ProductRepository.get_by_id(p1.id).price_cents == 1200
+    assert SupplierOfferRepository.get_by_id(p1.id).price_cents == 1200
 
 
 def test_bulk_archive_via_http(client, make_supplier, make_supplier_profile):
@@ -495,7 +495,7 @@ def test_bulk_archive_via_http(client, make_supplier, make_supplier_profile):
     )
 
     assert response.status_code == 200
-    assert ProductRepository.get_by_id(p1.id).is_archived is True
+    assert SupplierOfferRepository.get_by_id(p1.id).is_archived is True
 
 
 def test_bulk_archive_rejects_empty_product_ids(client, make_supplier, make_supplier_profile):
