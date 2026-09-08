@@ -15,8 +15,12 @@ auth guard.
 | Group | URL prefix | Chrome | Auth |
 |---|---|---|---|
 | `(marketing)` | none | site header + footer | none |
+| `(marketing)/(legal)` | none | inherits marketing | none |
 | `(auth)` | none | bare centred shell | none |
 | `(portal)` | none | portal shell + nav | cookie + supplier role |
+
+`(legal)` groups `/terms` and `/privacy` for organisation only — it adds no
+layout of its own, so the pages keep the marketing header and footer.
 
 ## The root layout stays empty
 

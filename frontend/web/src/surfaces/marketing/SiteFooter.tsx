@@ -1,31 +1,45 @@
 import Link from "next/link";
 
+import { Container } from "@/design-system/primitives/Container";
 import { Wordmark } from "@/design-system/primitives/Wordmark";
+import { routes } from "@/config/routes";
 
 /**
  * The site footer, and the FOR SUPPLIERS column is the point of it.
  *
  * This is the agreed route into the portal: a supplier arrives on the
- * public site, finds "For suppliers" in the footer, and from there can
- * sign up or sign in. The header carries the same path for anyone who
- * looks up rather than down, but the footer is where a visitor who has
- * read the page ends up, so the column is given real estate rather than
- * a single link.
+ * public site, finds "For suppliers" here, and from there can sign up or
+ * sign in. The header carries the same path for anyone who looks up
+ * rather than down, but the footer is where a visitor who has read the
+ * page ends up, so the column is given real estate.
  *
- * Routes marked TODO are deliberately not linked yet. A footer full of
- * dead links reads worse than a short footer, and every one of these is
- * cheap to add the day the page behind it exists.
+ * The footer is also where the site's secondary navigation lives in
+ * full -- About, Contact and the legal pages -- since the header stays
+ * deliberately thin.
  */
+
+const SUPPLIER_LINKS = [
+  { href: routes.suppliers, label: "Why TruConnect", strong: false },
+  { href: routes.signUp, label: "Create a supplier account", strong: true },
+  { href: routes.signIn, label: "Supplier sign in", strong: false },
+];
+
+const COMPANY_LINKS = [
+  { href: routes.about, label: "About" },
+  { href: routes.contact, label: "Contact" },
+  { href: routes.terms, label: "Terms of Service" },
+  { href: routes.privacy, label: "Privacy Policy" },
+];
+
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-line/60 bg-wash">
-      <div className="mx-auto max-w-6xl px-5 py-14">
+      <Container className="py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Wordmark className="text-lg" />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-muted">
-              The supply network for South Africa&rsquo;s independent
-              businesses.
+              The supply network for South Africa&rsquo;s independent businesses.
             </p>
           </div>
 
@@ -34,48 +48,39 @@ export function SiteFooter() {
               For suppliers
             </h2>
             <ul className="mt-4 space-y-2.5 text-sm">
-              <li>
-                <Link
-                  href="/suppliers"
-                  className="text-ink-muted transition-colors hover:text-brand-blue"
-                >
-                  Why TruConnect
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/sign-up"
-                  className="font-semibold text-brand-blue transition-colors hover:text-brand-green"
-                >
-                  Create a supplier account
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/sign-in"
-                  className="text-ink-muted transition-colors hover:text-brand-blue"
-                >
-                  Supplier sign in
-                </Link>
-              </li>
+              {SUPPLIER_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={
+                      link.strong
+                        ? "font-semibold text-brand-blue transition-colors hover:text-brand-green"
+                        : "text-ink-muted transition-colors hover:text-brand-blue"
+                    }
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-ink">
-              For businesses
+              Company
             </h2>
-            <ul className="mt-4 space-y-2.5 text-sm text-ink-muted">
-              <li>Get the app on Android</li>
-              <li>Get the app on iPhone</li>
-              <li>
-                <Link
-                  href="/#how-it-works"
-                  className="transition-colors hover:text-brand-blue"
-                >
-                  How it works
-                </Link>
-              </li>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              {COMPANY_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-ink-muted transition-colors hover:text-brand-blue"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+              <li className="text-ink-muted">Get the app &mdash; coming soon</li>
             </ul>
           </div>
         </div>
@@ -86,7 +91,7 @@ export function SiteFooter() {
           </p>
           <p>Built in South Africa.</p>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }
