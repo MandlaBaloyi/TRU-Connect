@@ -454,8 +454,66 @@ The FK rename touches six tables, so it goes first and alone.
           632 tests green (315 network, 317 supplier + architecture +
           catalogue) -- the 630 baseline plus these 2.
 
-  STEP 5  PAYMENT PATH SPLIT
-          Direct → request. Digital → purchase.
+  STEP 5  PAYMENT PATH SPLIT                          DONE 2026-09-08
+          No migration -- the database already had everything.
+
+          THE RULE WAS ALREADY THE DESIGN. StockOrderStatus's own
+          docstring already said a verified gateway payment "needs no
+          supplier approval at all", and CheckoutOutcome already carried
+          order_status so the provider decides it. Step 5 was therefore
+          not about inventing the rule; it was about making it ASKABLE
+          in one place instead of implied in several.
+
+          THE BUG THIS SURFACED. DIRECT replaced CASH and
+          PROOF_OF_PAYMENT as the single off-platform method. It was
+          added to the order enum and to the Postgres type -- and to
+          NOTHING ELSE:
+
+            checkout_schemas.py       OneOf([CASH, PROOF_OF_PAYMENT,
+                                      PAYFAST]) -- rejected "DIRECT"
+                                      outright, above the service layer
+            providers/composition.py  enumerated CASH and
+                                      PROOF_OF_PAYMENT by hand, so
+                                      DIRECT fell through to
+                                      PaymentProviderNotConfiguredError
+            manual_provider.py        no DIRECT branch
+            stock_order_payment.py    db.Enum listed three values; the
+                                      database itself already had four
+
+          The backend could not complete a DIRECT checkout at all.
+
+          LATENT, NOT LIVE. The mobile app still sends CASH and
+          PROOF_OF_PAYMENT -- its PaymentMethod type does not include
+          DIRECT -- so no business hit it. It would have broken on the
+          day the frontend switched over, which is the obvious next step
+          of the work that introduced DIRECT.
+
+          WHY NOTHING CAUGHT IT, which matters more than the bug. Tests
+          exercised DIRECT only on the REJECTION path, where the
+          spending cap fires before a provider is ever reached. A
+          successful DIRECT checkout had never once been run. Two of the
+          three faults also lived ABOVE the service layer, and the
+          orders suite tests services directly, never routes.
+
+          THE FIX IS ONE DEFINITION: DIRECT_PAYMENT_METHODS and
+          is_direct_payment() in models/stock_order.py, beside the enum.
+          Composition, checkout_service's two tuples and the payment
+          repository all ask it rather than listing. Same shape as step
+          4's connection rule, and the same root cause: a rule written
+          out N times drifts at the first change.
+
+          VERIFIED BY BREAKING IT. The old hand-written list was
+          restored temporarily and three tests failed, including the
+          HTTP one returning the exact error a real user would have
+          seen: "Must be one of: CASH, PROOF_OF_PAYMENT, PAYFAST."
+          Restored, all ten pass.
+
+          The new test file goes through the HTTP ROUTE, not the
+          service, precisely because that is where two of the faults
+          were.
+
+          642 tests green (325 network, 317 supplier + architecture +
+          catalogue) -- the 632 baseline plus these 10.
 
   STEP 6  MATCHING AGENT
           Behind the confidence gate. Column mapping first (one call per

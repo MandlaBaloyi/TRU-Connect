@@ -61,7 +61,12 @@ from src.domains.network.orders.errors import (
     SupplierNotConnectedError,
     SupplierNotFoundError,
 )
-from src.domains.network.orders.models.stock_order import StockOrderDeliveryType, StockOrderPaymentMethod, StockOrderStatus
+from src.domains.network.orders.models.stock_order import (
+    DIRECT_PAYMENT_METHODS,
+    StockOrderDeliveryType,
+    StockOrderPaymentMethod,
+    StockOrderStatus,
+)
 from src.domains.network.orders.models.stock_order_payment import StockOrderPaymentStatus
 from src.domains.network.orders.providers.composition import get_payment_provider
 from src.domains.network.orders.repositories.stock_order_payment_repository import StockOrderPaymentRepository
@@ -81,11 +86,12 @@ logger = logging.getLogger(__name__)
 # distinction was never enforceable. The old values remain accepted on
 # the way IN (an app build from before the merge, a resumed session)
 # and are treated identically; they are simply never offered.
-_AVAILABLE_PAYMENT_METHODS = (
-    StockOrderPaymentMethod.DIRECT,
-    StockOrderPaymentMethod.CASH,
-    StockOrderPaymentMethod.PROOF_OF_PAYMENT,
-)
+# THE DIRECT RAIL IS THE ONLY THING ON OFFER TODAY, and this is now the
+# same tuple the provider composition and the payment repository use --
+# see DIRECT_PAYMENT_METHODS in models/stock_order.py for why that
+# matters (the list used to be written out five times and DIRECT was
+# missed in three of them).
+_AVAILABLE_PAYMENT_METHODS = DIRECT_PAYMENT_METHODS
 
 # The same methods are subject to spending limits -- PAYFAST never is,
 # since a real gateway confirms payment before the order proceeds, so

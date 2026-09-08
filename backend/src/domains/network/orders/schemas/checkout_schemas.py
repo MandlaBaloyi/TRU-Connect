@@ -29,7 +29,7 @@ class SubmitCheckoutSchema(Schema):
     # a genuinely valid payment method on this platform, just not a
     # reachable choice in this pass).
     payment_method = fields.Str(
-        required=True, data_key="paymentMethod", validate=validate.OneOf(["CASH", "PROOF_OF_PAYMENT", "PAYFAST"])
+        required=True, data_key="paymentMethod", validate=validate.OneOf(["DIRECT", "CASH", "PROOF_OF_PAYMENT", "PAYFAST"])
     )
     delivery_type = fields.Str(required=True, data_key="deliveryType", validate=validate.OneOf(["DELIVER", "COLLECT"]))
     delivery_address_text = fields.Str(

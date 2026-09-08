@@ -175,6 +175,66 @@ class StockOrderPaymentMethod(str, enum.Enum):
     PAYFAST = "PAYFAST"  # not reachable by anything in this pass -- see providers/payfast_provider.py
 
 
+#: THE DIRECT RAIL, DEFINED ONCE.
+#:
+#: Money that moves outside TRU Connect: notes on delivery, an EFT, a
+#: bank deposit. The platform observes none of it, and that -- not the
+#: instrument -- is what makes these one thing.
+#:
+#: THIS CONSTANT EXISTS BECAUSE THE LIST WAS WRITTEN OUT FIVE TIMES and
+#: DIRECT was missed in three of them. When DIRECT was introduced to
+#: replace CASH and PROOF_OF_PAYMENT it was added to this enum and to
+#: the database, but NOT to the checkout request schema (which rejected
+#: it outright), NOT to the provider composition (which could not route
+#: it), and NOT to the manual provider. The result: the payment method
+#: the platform is supposed to offer could not complete a checkout at
+#: all.
+#:
+#: Nothing caught it. The tests only ever exercised DIRECT on the
+#: REJECTION path, where the spending cap fires before a provider is
+#: ever reached, so a successful DIRECT checkout had never once been
+#: run.
+#:
+#: LATENT RATHER THAN LIVE, and worth stating plainly rather than
+#: dressing up: the mobile app still sends CASH and PROOF_OF_PAYMENT, so
+#: no business ever hit this. It would have broken the day the frontend
+#: switched over -- which is the obvious next step of the work that
+#: introduced DIRECT in the first place.
+#:
+#: Anything that needs to ask "is this the direct rail?" imports this
+#: rather than writing the tuple again.
+DIRECT_PAYMENT_METHODS = (
+    StockOrderPaymentMethod.DIRECT,
+    # Historical, still accepted on the way in from older app builds --
+    # see the enum's own comment. Treated identically everywhere.
+    StockOrderPaymentMethod.CASH,
+    StockOrderPaymentMethod.PROOF_OF_PAYMENT,
+)
+
+
+def is_direct_payment(payment_method) -> bool:
+    """Does this method move money outside TRU Connect?
+
+    Accepts the enum or its string value, because callers come from both
+    sides of the wire -- a request schema hands over a string, a model
+    column hands over the enum.
+
+    WHY THIS QUESTION DECIDES SO MUCH (V2_00 section 2.4). Direct means
+    the supplier is releasing stock against an unsecured promise, so the
+    order is a REQUEST: accept/decline is real and spending caps apply.
+    Digital means the money already moved, so the order is a PURCHASE
+    that needs no approval, and cancelling it is a refund rather than a
+    decline. Accept/decline was never a supplier feature; it is a
+    consequence of cash.
+    """
+    if isinstance(payment_method, str):
+        try:
+            payment_method = StockOrderPaymentMethod(payment_method)
+        except ValueError:
+            return False
+    return payment_method in DIRECT_PAYMENT_METHODS
+
+
 class StockOrderDeliveryType(str, enum.Enum):
     DELIVER = "DELIVER"
     COLLECT = "COLLECT"

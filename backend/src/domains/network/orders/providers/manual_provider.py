@@ -1,5 +1,6 @@
 """
-ManualPaymentProvider -- handles CASH and PROOF_OF_PAYMENT. REAL, not a
+ManualPaymentProvider -- handles the DIRECT rail (and the historical
+CASH / PROOF_OF_PAYMENT values it replaced). REAL, not a
 stub -- this is what actually runs today. Makes ZERO external network
 calls, ZERO reads of any third-party credential or config -- which is
 the whole point: cash and proof-of-payment checkout must work exactly
@@ -15,6 +16,21 @@ from src.domains.network.orders.providers.provider import CheckoutOutcome, Payme
 
 class ManualPaymentProvider(PaymentProvider):
     def process_checkout(self, stock_order, payment_method: StockOrderPaymentMethod) -> CheckoutOutcome:
+        # PENDING_SUPPLIER_APPROVAL FOR EVERY DIRECT METHOD, and that is
+        # the rule rather than an implementation detail: the supplier is
+        # releasing stock against an unsecured promise, so the order is
+        # a REQUEST and their accept/decline is real. A digital payment
+        # has already moved the money, so it is a PURCHASE and skips
+        # this entirely (V2_00 section 2.4).
+        if payment_method == StockOrderPaymentMethod.DIRECT:
+            return CheckoutOutcome(
+                order_status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+                instructions=(
+                    "Pay the supplier directly — cash on delivery or collection, or by transfer. "
+                    "They will confirm your order shortly."
+                ),
+            )
+
         if payment_method == StockOrderPaymentMethod.CASH:
             return CheckoutOutcome(
                 order_status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,

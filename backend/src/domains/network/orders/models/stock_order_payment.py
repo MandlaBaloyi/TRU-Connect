@@ -98,7 +98,17 @@ class StockOrderPayment(BaseModel):
     # distinct provider column then, not something to guess the shape
     # of now.
     payment_method = db.Column(
-        db.Enum("CASH", "PROOF_OF_PAYMENT", "PAYFAST", name="stock_order_payment_method", schema="checkout"),
+        # DIRECT was added to this Postgres type by migration d0e1f2345678
+        # but never to this list, so SQLAlchemy did not know the value
+        # its own database already accepted.
+        db.Enum(
+            "DIRECT",
+            "CASH",
+            "PROOF_OF_PAYMENT",
+            "PAYFAST",
+            name="stock_order_payment_method",
+            schema="checkout",
+        ),
         nullable=False,
     )
     status = db.Column(
