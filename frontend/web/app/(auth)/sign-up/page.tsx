@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Field } from "@/components/ui/Field";
-import { NotWiredError, signUpSupplier } from "@/lib/api/authApi";
+import { Field } from "@/design-system/primitives/Field";
+import { NotWiredError, signUpSupplier } from "@/domains/auth/services/authApi";
 
 /**
  * Supplier sign up.

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Wordmark } from "@/components/ui/Wordmark";
+import { Wordmark } from "@/design-system/primitives/Wordmark";
 
 /**
  * The site footer, and the FOR SUPPLIERS column is the point of it.

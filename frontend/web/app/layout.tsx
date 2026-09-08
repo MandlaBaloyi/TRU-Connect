@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
-import { SiteFooter } from "@/components/marketing/SiteFooter";
-import { SiteHeader } from "@/components/marketing/SiteHeader";
-
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,18 +9,17 @@ const geistSans = Geist({
 });
 
 /**
- * ROOT LAYOUT -- currently the PUBLIC layout, and that is a temporary
- * simplification worth flagging rather than hiding.
+ * ROOT LAYOUT -- <html>, <body>, fonts, and nothing else.
  *
- * The header and footer live here because every route on the site today
- * is public marketing. They do NOT belong on the supplier portal or the
- * admin control centre. When those land, this file keeps only <html>,
- * <body>, and the font, and the marketing chrome moves into a
- * (marketing) route group beside (portal) and (admin) -- the same route
- * group pattern the mobile app already uses for (auth) and (dashboard).
+ * NO CHROME LIVES HERE, deliberately. An earlier version put the
+ * marketing header and footer in this file, which meant the supplier
+ * portal would have inherited them the moment it existed. Chrome belongs
+ * to the route group that owns it: (marketing) gets the public site
+ * header and footer, (auth) gets a bare centred shell, (portal) gets the
+ * signed-in shell and its role guard.
  *
- * Doing that split NOW would mean creating two empty groups to hold one
- * real one, so it waits until there is a second audience to separate.
+ * Keeping this file empty of surface concerns is what makes each group's
+ * layout the ONE place its shell is decided.
  */
 export const metadata: Metadata = {
   metadataBase: new URL("https://truconnect.co.za"),
@@ -45,11 +41,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en-ZA" className={`${geistSans.variable} h-full`}>
-      <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
-      </body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

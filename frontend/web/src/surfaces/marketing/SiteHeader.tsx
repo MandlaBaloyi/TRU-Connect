@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Wordmark } from "@/components/ui/Wordmark";
+import { Wordmark } from "@/design-system/primitives/Wordmark";
 
 /**
  * The public site's top bar.
