@@ -182,6 +182,24 @@ def log_login_locked_out(email: str, ip_address: Optional[str]) -> None:
     )
 
 
+def log_login_wrong_portal(user_id: str, ip_address: Optional[str]) -> None:
+    """V2: a `business` account signing in at the supplier web portal.
+
+    LOGGED AT info, NOT warning. The credentials were correct and the
+    account is fine -- this is somebody at the wrong door, not an
+    attack, and filing it next to login_failed would put honest noise in
+    the one stream that is supposed to be worth reading. Carries the
+    user_id rather than the email, because at this point we have
+    verified who they are.
+    """
+    logger.info("login_wrong_portal user_id=%s ip=%s", user_id, ip_address or "unknown")
+    _emit(
+        AuthAuditEvent.LOGIN_WRONG_PORTAL, AuditStatus.FAILURE,
+        module="auth_service", user_id=user_id, ip_address=ip_address,
+        failure_reason="role_not_permitted_on_this_surface",
+    )
+
+
 def log_login_blocked_unverified(email: str, ip_address: Optional[str]) -> None:
     logger.info("login_blocked_unverified email=%s ip=%s", mask_email(email), ip_address or "unknown")
     _emit(
@@ -341,6 +359,68 @@ def log_token_revoked(user_id: str, reason: str = "logout") -> None:
         AuthAuditEvent.TOKEN_REVOKED, AuditStatus.SUCCESS,
         module="auth_service", user_id=user_id,
         metadata={"reason": reason},
+    )
+
+
+# =============================================================================
+# API KEYS (V2) — the machine door.
+#
+# NOTHING HERE EVER RECEIVES A RAW KEY. Every function below takes the
+# key's id or prefix, never the secret. An audit trail that records the
+# credential it is auditing is a second copy of that credential in a
+# table built to be read by more people than the first one.
+# =============================================================================
+
+def log_api_key_created(user_id: str, key_id: str, name: str, scopes: list) -> None:
+    logger.info("api_key_created user_id=%s key_id=%s", user_id, key_id)
+    _emit(
+        AuthAuditEvent.API_KEY_CREATED, AuditStatus.SUCCESS,
+        module="api_key_service", user_id=user_id,
+        metadata={"key_id": key_id, "name": name, "scopes": sorted(scopes)},
+    )
+
+
+def log_api_key_revoked(user_id: str, key_id: str) -> None:
+    logger.info("api_key_revoked user_id=%s key_id=%s", user_id, key_id)
+    _emit(
+        AuthAuditEvent.API_KEY_REVOKED, AuditStatus.SUCCESS,
+        module="api_key_service", user_id=user_id,
+        metadata={"key_id": key_id},
+    )
+
+
+def log_api_key_auth_failed(prefix: Optional[str], ip_address: Optional[str], reason: str) -> None:
+    """A rejected key presentation.
+
+    THE PREFIX, NOT THE KEY. The prefix is the public half we print in
+    the portal list precisely so a supplier can tell their keys apart --
+    it identifies which key was tried without being usable as one. When
+    the header was malformed there may be no prefix at all, and that is
+    a legitimate None rather than something to invent a placeholder for.
+    """
+    logger.warning(
+        "api_key_auth_failed prefix=%s ip=%s reason=%s", prefix or "none", ip_address or "unknown", reason
+    )
+    _emit(
+        AuthAuditEvent.API_KEY_AUTH_FAILED, AuditStatus.FAILURE,
+        module="api_key_service", ip_address=ip_address,
+        failure_reason=reason, metadata={"prefix": prefix},
+    )
+
+
+def log_api_key_scope_denied(user_id: str, key_id: str, required: list, granted: list) -> None:
+    """Separate from AUTH_FAILED because the caller IS authenticated.
+
+    Records what was asked for AND what the key holds, because the
+    supplier debugging their own integration needs both halves and this
+    is where the answer lives.
+    """
+    logger.warning("api_key_scope_denied user_id=%s key_id=%s", user_id, key_id)
+    _emit(
+        AuthAuditEvent.API_KEY_SCOPE_DENIED, AuditStatus.FAILURE,
+        module="api_key_service", user_id=user_id,
+        failure_reason="insufficient_scope",
+        metadata={"key_id": key_id, "required": sorted(required), "granted": sorted(granted)},
     )
 
 

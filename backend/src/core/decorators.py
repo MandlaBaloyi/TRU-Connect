@@ -171,6 +171,71 @@ def role_required(*allowed_roles: str):
     return decorator
 
 
+def api_key_required(*required_scopes: str):
+    """Authenticates a MACHINE caller by API key (V2 2.10).
+
+    THE THIRD AUTHENTICATION MECHANISM, alongside the mobile app's
+    bearer JWT and the web portal's cookie. It exists because a
+    supplier's ERP has no human: nobody to type a password, read an OTP,
+    or hold a session. It pushes a catalogue at 03:00 and needs a
+    credential a server can hold.
+
+    DELIBERATELY NOT STACKED WITH @jwt_required. A request authenticated
+    by key has no JWT at all, so get_jwt_identity() is empty on these
+    routes -- read the caller from `g.api_key_user_id` instead. Mixing
+    the two would produce an endpoint where a missing key silently falls
+    back to a session, which is the kind of "convenience" that turns
+    into an authentication bypass.
+
+    THE SCOPE CHECK IS PART OF THE DECORATOR, not a separate one to
+    remember. An endpoint that authenticates a key without also
+    declaring what the key must be allowed to do is an endpoint every
+    key can reach, and that mistake is invisible in review -- the route
+    looks protected.
+
+    Sets on `g`:
+        g.api_key          the ApiKey record
+        g.api_key_user_id  the owning supplier's id (str)
+    """
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            from flask import g, request
+
+            from src.domains.auth.api_keys.services.api_key_service import ApiKeyService
+            from src.domains.auth.models.user import AccountStatus
+
+            # Authorization: Bearer <key>, the same header shape every
+            # integration developer already expects, distinguished from
+            # a JWT by the key's own "tck_" prefix rather than by a
+            # bespoke header nobody would guess.
+            header = request.headers.get("Authorization", "")
+            raw_key = header[7:].strip() if header.startswith("Bearer ") else None
+
+            key = ApiKeyService.authenticate(raw_key, ip_address=request.remote_addr)
+            ApiKeyService.require_scopes(key, required_scopes)
+
+            # The KEY being valid is not the same as the ACCOUNT being
+            # usable. A supplier deactivated this morning still holds
+            # keys minted last year, and those must stop working the
+            # moment the account does -- the same database-fresh check
+            # the human decorators make, for the same reason.
+            from src.domains.auth.repositories.user_repository import UserRepository
+
+            owner = UserRepository.get_by_id(key.user_id)
+            if owner is None or owner.account_status != AccountStatus.ACTIVE:
+                raise AccountInactiveError("This account is not active.")
+
+            g.api_key = key
+            g.api_key_user_id = str(key.user_id)
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def permission_required(*required_permissions: str):
     """UNCHANGED -- structural placeholder for granular permissions;
      for the full rationale."""

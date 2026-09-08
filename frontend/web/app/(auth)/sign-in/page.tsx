@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Field } from "@/design-system/primitives/Field";
 import { SocialSignIn } from "@/domains/auth/components/SocialSignIn";
-import { NotWiredError, signIn } from "@/domains/auth/services/authApi";
+import { AUTH_CODES, ApiError, signIn } from "@/domains/auth/services/authApi";
 import { routes } from "@/config/routes";
 
 /**
@@ -16,17 +17,24 @@ import { routes } from "@/config/routes";
  * noticeably different before, and two pages a supplier moves between in
  * one session looking like two different products is the cheapest
  * possible way to seem unfinished.
+ *
+ * NO TOKEN IS HANDLED HERE. signIn() returns the user; the session
+ * itself arrives as an httpOnly cookie this code cannot read. There is
+ * nothing to store, which is the entire point.
  */
 export default function SignInPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [wrongPortal, setWrongPortal] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setFormError(null);
+    setWrongPortal(false);
 
     const next: Record<string, string> = {};
     if (!email.trim()) next.email = "Enter your email address.";
@@ -37,12 +45,21 @@ export default function SignInPage() {
     setBusy(true);
     try {
       await signIn({ email: email.trim(), password });
+      router.push(routes.portal.dashboard);
     } catch (error) {
-      setFormError(
-        error instanceof NotWiredError
-          ? error.message
-          : "Something went wrong. Please try again.",
-      );
+      if (error instanceof ApiError) {
+        // A business at the supplier door. Their credentials were
+        // correct -- treating this as "wrong password" would send a
+        // real user round in circles, which is why the backend gives
+        // it a code of its own.
+        if (error.code === AUTH_CODES.WRONG_PORTAL) {
+          setWrongPortal(true);
+        } else {
+          setFormError(error.message);
+        }
+      } else {
+        setFormError("Something went wrong. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
@@ -56,6 +73,20 @@ export default function SignInPage() {
       <div className="mt-8">
         <SocialSignIn action="sign in" />
       </div>
+
+      {/* THE MESSAGE, NOT THE EXPLANATION. The earlier version added two
+          lines about the app and about their details being correct --
+          true, and nobody reads it. Someone who typed a business email
+          knows what a business account is; they need to be told which
+          one they used, not taught the product's shape. */}
+      {wrongPortal && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-brand-blue/25 bg-brand-blue/5 px-4 py-3"
+        >
+          <p className="font-semibold text-brand-blue">This is a business account.</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <Field

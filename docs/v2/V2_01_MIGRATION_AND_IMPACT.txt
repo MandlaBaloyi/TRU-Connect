@@ -646,7 +646,115 @@ The FK rename touches six tables, so it goes first and alone.
     6f  ONE MEASURED LIVE RUN                         NOT BUILT
         Needs credits and an explicit go-ahead.
 
-  STEP 7  WEB PORTAL AUTH + API KEYS
+  STEP 7  WEB PORTAL AUTH + API KEYS                  DONE 2026-09-08
+        Migration a51f7fb3e75e.
+
+        THE ONE LINE THAT MADE IT CHEAP
+          JWT_TOKEN_LOCATION went from ["headers"] to
+          ["headers", "cookies"]. flask_jwt_extended then reads the
+          token from whichever location a request actually carries, so
+          @fully_authenticated, @role_required and @verified_required
+          serve the app and the portal unchanged. Adding "cookies" does
+          not make cookies required. There was no mobile-facing change
+          in the whole step, and three tests assert exactly that.
+
+        WHAT WAS BUILT
+          /api/v1/auth/web/{login,refresh,logout,session}, a SECOND
+          blueprint beside the mobile one rather than flags inside it.
+          The shipped app's /auth routes were not edited.
+
+          Cookies: httpOnly + Secure + SameSite=Lax. The refresh pair is
+          scoped to Path=/api/v1/auth/web so the long-lived credential
+          is not attached to ordinary API calls. Max-age is passed
+          explicitly, because the library's default writes a SESSION
+          cookie (gone on browser close) that has nothing to do with the
+          token's real 7-day life.
+
+          CSRF: flask_jwt_extended's double-submit, NOT hand-rolled.
+          Enforced only on cookie-borne requests, so bearer callers
+          never see it. Two CSRF cookies exist and are not
+          interchangeable -- csrf_refresh_token for /refresh and
+          /logout, csrf_access_token everywhere else. Sending the wrong
+          one 401s in a way that reads exactly like an expired session.
+
+          CORS: Flask-Cors, scoped to /api/v1/*, explicit origin
+          allowlist from WEB_ORIGINS, supports_credentials=True. Never
+          "*" -- browsers refuse credentialed requests to a wildcard, so
+          a wildcard breaks the portal rather than loosening it.
+          X-CSRF-TOKEN had to be allowed explicitly; it is not
+          CORS-safelisted, so without it every portal write dies at
+          preflight.
+
+          Session lifetime: 30 min access / 7 day refresh, separate env
+          vars from mobile's 15 min / 30 days. Carried as a
+          session_kind claim on the token so a refresh renews the kind
+          of session it actually is, rather than trusting the caller.
+
+          Role routing: a `business` at the portal gets 403 WRONG_PORTAL
+          -- its own code, because the only useful response is "your
+          side is the app", and the client can only say that if it can
+          tell this apart from every other refusal. The check runs AFTER
+          the password and BEFORE tokens are issued: checking first
+          would let an anonymous caller discover which emails are
+          business accounts.
+
+          API keys: auth.api_keys. SHA-256 (not bcrypt -- see the
+          model's docstring: 32 bytes of CSPRNG has no dictionary to
+          run against it, and a per-request bcrypt on an integration
+          endpoint is a self-inflicted DoS). Prefix stored separately so
+          a failed attempt names WHICH key. Scoped, revocable, last-used
+          tracked with a 5-minute throttle. @api_key_required(*scopes)
+          folds authentication and the scope check into one decorator,
+          because a route that authenticates a key without declaring
+          what it may do is a route every key can reach, and that
+          mistake is invisible in review.
+
+        UNCHANGED, as planned: sign-up, OTP, verification, lockout,
+        rate limiting.
+
+        TRAPS HIT AND RECORDED
+          1. secrets.token_urlsafe draws from an alphabet containing
+             "_", which is this key format's own separator. A secret
+             holding one would have parsed into four parts and been
+             rejected as malformed -- intermittently, depending on the
+             random bytes. Switched to token_hex. Caught while writing
+             the code, not by a test; the test that now covers it
+             asserts the ALPHABET rather than sampling keys, because
+             sampling can pass by luck.
+          2. The web client read a cookie named csrf_token. The backend
+             issues csrf_access_token and csrf_refresh_token. Silent
+             401s, forever.
+          3. `new RegExp(`(?:^|;\s*)...`)` in a template literal:
+             "\s" collapses to a bare "s", so the cookie regex matched
+             nothing. Presents as "signed out for no reason".
+          4. The web sign-up form collected a phone number that
+             registration does not accept, and sent business_name where
+             the schema declares data_key "businessName". Both would
+             have been dropped in silence. It also missed
+             confirmPassword and acceptTerms, which are REQUIRED --
+             so sign-up would have 422'd on every attempt.
+
+        VERIFICATION
+          tests/domains/auth        44 passed (14 web session, 21 API
+                                    keys, 9 pre-existing)
+          tests/architecture        8 passed
+          Migration applied to dev; table compared column-by-column
+          against the model -- 13/13 including deleted_at, nullability,
+          FK CASCADE, both unique constraints, three indexes.
+          CORS verified over real HTTP: the allowlisted origin gets
+          Allow-Credentials, an unlisted one gets no Allow-Origin.
+          frontend/web: tsc clean, eslint clean, build 13 routes.
+
+        NOT DONE, AND DELIBERATELY
+          No live end-to-end login smoke test. Every path past a CORS
+          preflight writes an audit row and a refresh-token row, and
+          write smoke tests do not run against the dev database. The
+          cookie, CSRF and role behaviour is covered against the test
+          database instead, which is where it belongs.
+
+          Password reset for the portal. "Forgot your password?" points
+          at /contact. The mobile reset flow exists and emails a link;
+          pointing the portal at it is its own small piece of work.
 
 Steps 1 and 2 are safe to start immediately. Step 4 is the one that deletes
 code and deserves the most care.

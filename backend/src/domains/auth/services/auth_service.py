@@ -66,6 +66,7 @@ from src.core.exceptions import (
     ConflictError,
     EmailNotVerifiedError,
     UnauthorizedError,
+    WrongPortalError,
 )
 from src.domains.auth.models.user import AccountStatus, User, UserRole, VerificationStatus
 from src.domains.auth.repositories.refresh_token_repository import RefreshTokenRepository
@@ -241,7 +242,27 @@ class AuthService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def login(email: str, password: str, ip_address: Optional[str] = None) -> Tuple[User, dict]:
+    def login(
+        email: str,
+        password: str,
+        ip_address: Optional[str] = None,
+        allowed_roles: Optional[tuple] = None,
+        session_kind: str = "mobile",
+    ) -> Tuple[User, dict]:
+        """
+        allowed_roles / session_kind are V2 additions for the supplier
+        WEB PORTAL, which has no business screens at all and must turn a
+        `business` away (V2 2.10, "role routing"). Both default to the
+        mobile behaviour, so every existing caller is unchanged.
+
+        THE ROLE GATE LIVES HERE rather than in the web service, and
+        that placement is the point: it has to run AFTER the password is
+        verified and BEFORE tokens are issued. Checking the role first
+        would tell an anonymous caller which role an email belongs to
+        without proving they own it; checking it after issuing would
+        leave a live refresh-token row behind for a session that was
+        refused.
+        """
         lockout_key = _login_lockout_key(email)
         max_attempts = current_app.config.get(
             "LOGIN_MAX_FAILED_ATTEMPTS", DEFAULT_LOGIN_MAX_FAILED_ATTEMPTS
@@ -296,10 +317,21 @@ class AuthService:
                 },
             )
 
+        # The password was right, the account is real, verified and
+        # active -- and this surface still may not serve it. See the
+        # docstring on why this sits exactly here.
+        if allowed_roles is not None and user.role.value not in allowed_roles:
+            audit.log_login_wrong_portal(str(user.id), ip_address)
+            raise WrongPortalError(
+                "TruConnect for businesses is in the mobile app — there is no web sign-in for "
+                "business accounts.",
+                data={"role": user.role.value},
+            )
+
         # Success -- clear the failed-attempt counter for this email.
         cache.reset(lockout_key)
         UserRepository.update_last_login(user)
-        tokens = AuthService._issue_tokens(user, ip_address=ip_address)
+        tokens = AuthService._issue_tokens(user, ip_address=ip_address, session_kind=session_kind)
         audit.log_login_success(str(user.id), ip_address)
         return user, tokens
 
@@ -309,8 +341,22 @@ class AuthService:
 
     @staticmethod
     def _issue_tokens(
-        user: User, device_id: Optional[str] = None, ip_address: Optional[str] = None
+        user: User,
+        device_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        session_kind: str = "mobile",
     ) -> dict:
+        """
+        session_kind picks the LIFETIME, not the transport. "mobile"
+        uses the app-wide JWT_*_EXPIRES the app has always run on;
+        "web" uses the shorter WEB_* pair, because a browser session and
+        a phone in someone's pocket are not the same risk (config.py
+        carries that reasoning).
+
+        Passed per-call rather than read from a global so both kinds can
+        be live at once -- the same supplier can have the app open and
+        the portal open, and neither reconfigures the other.
+        """
         # FALLBACK: OTPService.verify_otp() issues the very first token
         # pair on a fresh account and does not pass ip_address/device_id
         # explicitly. Rather than threading those through every call site
@@ -322,12 +368,32 @@ class AuthService:
         ip_address = ip_address or audit_context.get_ip_address()
         device_id = device_id or audit_context.get_device_id()
 
-        additional_claims = {"role": user.role.value}
-        access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
-        refresh_token = create_refresh_token(identity=str(user.id), additional_claims=additional_claims)
+        if session_kind == "web":
+            access_expires = current_app.config["WEB_ACCESS_TOKEN_EXPIRES"]
+            refresh_expires = current_app.config["WEB_REFRESH_TOKEN_EXPIRES"]
+        else:
+            access_expires = current_app.config["JWT_ACCESS_TOKEN_EXPIRES"]
+            refresh_expires = current_app.config["JWT_REFRESH_TOKEN_EXPIRES"]
+
+        # The claim is carried on the token itself so a refresh can tell
+        # which kind of session it is renewing WITHOUT trusting the
+        # caller to say -- otherwise a mobile refresh could quietly hand
+        # itself a browser's rules, or the reverse.
+        additional_claims = {"role": user.role.value, "session_kind": session_kind}
+        access_token = create_access_token(
+            identity=str(user.id), additional_claims=additional_claims, expires_delta=access_expires
+        )
+        refresh_token = create_refresh_token(
+            identity=str(user.id), additional_claims=additional_claims, expires_delta=refresh_expires
+        )
 
         jti = get_jti(refresh_token)
-        expires_at = utcnow() + current_app.config["JWT_REFRESH_TOKEN_EXPIRES"]
+        # Tracks the token that was ACTUALLY issued. Reading the global
+        # config here instead would have written a 30-day expiry on a
+        # 7-day web token, and is_valid() would then keep accepting a
+        # row whose JWT had already expired -- a revocation table that
+        # disagrees with the credential it tracks is worse than none.
+        expires_at = utcnow() + refresh_expires
         RefreshTokenRepository.create(
             user_id=user.id,
             jti_hash=_hash_jti(jti),
@@ -351,8 +417,20 @@ class AuthService:
 
     @staticmethod
     def refresh(
-        current_jti: str, user_id: str, device_id: Optional[str] = None, ip_address: Optional[str] = None
+        current_jti: str,
+        user_id: str,
+        device_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        session_kind: str = "mobile",
     ) -> dict:
+        """
+        session_kind must be read from the EXPIRING TOKEN'S OWN CLAIM by
+        the caller, never from the request body. Otherwise a mobile
+        client could refresh its way into a browser's rules, or a
+        browser session could quietly promote itself to a 30-day
+        refresh window -- a session's lifetime has to be a property of
+        the session, not a per-request request.
+        """
         token_record = RefreshTokenRepository.get_by_jti_hash(_hash_jti(current_jti))
 
         if token_record is None or not token_record.is_valid():
@@ -372,7 +450,9 @@ class AuthService:
         if user.account_status != AccountStatus.ACTIVE:
             raise AccountInactiveError("This account has been deactivated.")
 
-        tokens = AuthService._issue_tokens(user, device_id=device_id, ip_address=ip_address)
+        tokens = AuthService._issue_tokens(
+            user, device_id=device_id, ip_address=ip_address, session_kind=session_kind
+        )
         # AUDIT: _issue_tokens() already logged TOKEN_CREATED above — this
         # additional event specifically marks "issued via the refresh
         # flow", since TOKEN_CREATED alone doesn't distinguish a refresh

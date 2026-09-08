@@ -57,8 +57,97 @@ class BaseConfig:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(
         days=int(os.environ.get("JWT_REFRESH_TOKEN_EXPIRES_DAYS", 30))
     )
-    JWT_TOKEN_LOCATION = ["headers"]
+    # BOTH LOCATIONS, ON PURPOSE, and this one line is what makes the
+    # whole web-portal session work without touching a single existing
+    # decorator. flask_jwt_extended looks for the token in each listed
+    # location in order and uses whichever it finds: the mobile app
+    # keeps sending `Authorization: Bearer`, the browser sends a cookie
+    # it cannot read, and @fully_authenticated / @role_required /
+    # @verified_required all keep working unchanged for both.
+    #
+    # Adding "cookies" does NOT make cookies required -- a request with
+    # a bearer header and no cookie is still perfectly valid. There is
+    # no mobile-facing change here.
+    JWT_TOKEN_LOCATION = ["headers", "cookies"]
     JWT_HEADER_TYPE = "Bearer"
+
+    # --- V2: browser session cookies (supplier web portal) ---
+    #
+    # WHY COOKIES AND NOT THE BEARER TOKEN THE APP USES. Anything a
+    # browser tab can read, an XSS on that page can read -- and a JWT in
+    # localStorage is exactly that. An httpOnly cookie is not reachable
+    # from JavaScript at all, so a script injected into the portal can
+    # still ACT as the user while the page is open, but it cannot steal
+    # a credential and replay it later from somewhere else. That
+    # difference is the entire point.
+    #
+    # WHAT COOKIES COST YOU IS CSRF. A browser attaches cookies to a
+    # request no matter who caused it, so a form on someone else's site
+    # can fire an authenticated request at us. Bearer tokens are immune
+    # because nothing attaches them automatically. flask_jwt_extended's
+    # double-submit is switched on below: it sets a SECOND, JS-readable
+    # cookie and requires its value echoed back in a header, which an
+    # attacker's page cannot read cross-origin.
+    #
+    # HAND-ROLLING THAT WAS THE REJECTED ALTERNATIVE. The library's
+    # implementation is enforced ONLY on requests whose token came from
+    # a cookie, so mobile never sees a CSRF check -- and CSRF is a thing
+    # to be subtly wrong about exactly once.
+    JWT_COOKIE_SECURE = os.environ.get("JWT_COOKIE_SECURE", "True").lower() in ("true", "1", "yes")
+    JWT_COOKIE_SAMESITE = os.environ.get("JWT_COOKIE_SAMESITE", "Lax")
+    JWT_COOKIE_CSRF_PROTECT = True
+    JWT_CSRF_IN_COOKIES = True
+    JWT_ACCESS_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
+    JWT_REFRESH_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
+
+    # The API and the portal are different hosts in production
+    # (api.truconnect.co.za / portal.truconnect.co.za). The CSRF cookie
+    # has to be READABLE by the portal's JavaScript, which means the
+    # cookie must be issued for the shared parent domain rather than the
+    # API host alone. Left unset in dev: localhost:3000 and
+    # localhost:5000 are the same cookie host already (cookies ignore
+    # the port), so nothing is needed there.
+    JWT_COOKIE_DOMAIN = os.environ.get("JWT_COOKIE_DOMAIN") or None
+
+    # The refresh cookie is scoped to the auth routes instead of "/", so
+    # it is simply not attached to the hundreds of ordinary API calls a
+    # portal session makes. The one long-lived credential should travel
+    # as rarely as possible. Not narrowed to /refresh alone because
+    # logout needs it too -- that is what revokes the row.
+    JWT_ACCESS_COOKIE_PATH = "/"
+    JWT_REFRESH_COOKIE_PATH = "/api/v1/auth/web"
+
+    # SEPARATE LIFETIMES FROM MOBILE, deliberately -- these are read by
+    # WebSessionService and passed per-token, they do NOT change the
+    # JWT_*_EXPIRES values above that the app runs on.
+    #
+    # A supplier keeps a portal tab open all day, so 30 minutes of
+    # access is fine: the refresh cookie renews it silently and they
+    # never see it. 7 days rather than mobile's 30 because a browser
+    # session is often on a shared depot machine that the person who
+    # signed in has since walked away from; a phone is not.
+    WEB_ACCESS_TOKEN_EXPIRES = timedelta(
+        minutes=int(os.environ.get("WEB_ACCESS_TOKEN_EXPIRES_MINUTES", 30))
+    )
+    WEB_REFRESH_TOKEN_EXPIRES = timedelta(
+        days=int(os.environ.get("WEB_REFRESH_TOKEN_EXPIRES_DAYS", 7))
+    )
+
+    # --- V2: CORS ---
+    #
+    # NEVER "*", and not out of caution -- a browser refuses to send
+    # credentials to a wildcard origin, so a wildcard would break the
+    # cookie session outright rather than merely loosen it. An explicit
+    # allowlist is the only thing that works AND the only thing that is
+    # safe, which is a pleasant coincidence.
+    #
+    # The mobile app is native, sends no Origin header, and is entirely
+    # unaffected by any of this.
+    WEB_ORIGINS = [
+        origin.strip()
+        for origin in os.environ.get("WEB_ORIGINS", "http://localhost:3000").split(",")
+        if origin.strip()
+    ]
 
     # --- Auth Hardening additions ---
     # Base URL for the password-reset browser bounce page
@@ -94,6 +183,13 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or BaseConfig._build_database_uri()
+    # A Secure cookie is never sent over plain http, so leaving the
+    # production default on here would make the portal silently fail to
+    # log in against a local http backend -- with no error, because a
+    # cookie the browser refuses to store looks exactly like a cookie
+    # the server never set. Overridden here rather than in .env so a
+    # forgotten env var cannot ship this to production.
+    JWT_COOKIE_SECURE = False
 
 
 class TestingConfig(BaseConfig):
@@ -110,6 +206,8 @@ class TestingConfig(BaseConfig):
     # synchronously so tests can assert against it immediately.
     MAIL_PROVIDER = "fake"
     MAIL_ASYNC = False
+    # Same reason as DevelopmentConfig: the test client speaks http.
+    JWT_COOKIE_SECURE = False
 
 
 class ProductionConfig(BaseConfig):

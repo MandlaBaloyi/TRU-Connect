@@ -89,7 +89,16 @@ def register():
 
 
 @auth_bp.post("/login")
-@limiter.limit(rate_limit_policies.LOGIN, key_func=rate_limit_policies.login_key_func)
+# shared_limit, NOT limit(scope=...). Passing a scope to limit() still
+# prefixes the endpoint onto it ("api.auth.login:auth_login"), so the two
+# login routes would keep separate counters and look correct doing it.
+# shared_limit is the API that actually drops the endpoint from the key.
+# The number here is unchanged; the bucket is now the portal's too.
+@limiter.shared_limit(
+    rate_limit_policies.LOGIN,
+    rate_limit_policies.LOGIN_SCOPE,
+    key_func=rate_limit_policies.login_key_func,
+)
 def login():
     payload = request.get_json(silent=True) or {}
     try:

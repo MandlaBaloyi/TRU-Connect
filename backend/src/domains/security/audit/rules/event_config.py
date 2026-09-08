@@ -41,6 +41,27 @@ EVENT_POLICIES: dict[AuditEventNameType, EventPolicy] = {
     AuthAuditEvent.PASSWORD_RESET_RATE_LIMITED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
     AuthAuditEvent.OTP_REQUEST_RATE_LIMITED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
     AuthAuditEvent.OTP_VERIFY_RATE_LIMITED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
+    # --- V2: web portal + API keys ---
+    #
+    # WRONG_PORTAL is INFO, not MEDIUM, and that is the whole reason it
+    # is listed here rather than left on the default: it is a person at
+    # the wrong door with correct credentials. Filing it at the same
+    # severity as a rate-limit breach would train whoever reads this
+    # table to skim past the rows that matter.
+    AuthAuditEvent.LOGIN_WRONG_PORTAL: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.INFO, WriteMode.SYNC),
+    # A key being minted or killed is a permanent fact about a
+    # supplier's integration, and the kind of thing that gets asked
+    # about months later ("who turned our feed off?"). SYNC because
+    # losing it to a dropped background thread would defeat the point.
+    AuthAuditEvent.API_KEY_CREATED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
+    AuthAuditEvent.API_KEY_REVOKED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
+    # Repeated failures against the machine door are what a credential
+    # guessing run looks like -- this is the row an investigator counts.
+    AuthAuditEvent.API_KEY_AUTH_FAILED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.MEDIUM, WriteMode.SYNC),
+    # Usually a misconfigured integration rather than an attack, so INFO
+    # -- but still recorded, because it is also what a stolen key being
+    # probed for reach looks like.
+    AuthAuditEvent.API_KEY_SCOPE_DENIED: EventPolicy(AuditCategory.AUTHENTICATION, AuditSeverity.INFO, WriteMode.SYNC),
 }
 
 

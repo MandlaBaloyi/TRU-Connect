@@ -29,9 +29,9 @@
  * The cost is CSRF, which bearer tokens do not have. `unsafeRequest`
  * below attaches the CSRF token for every mutating verb.
  *
- * NEITHER HALF EXISTS ON THE BACKEND YET (V2_00 section 2.10). This file
- * is written against the shape it will have, and the auth endpoints stay
- * unwired until it does.
+ * BOTH HALVES ARE NOW REAL (backend step 7). The Flask app issues the
+ * session and CSRF cookies from /api/v1/auth/web and enforces the
+ * double-submit on every cookie-borne write.
  * ─────────────────────────────────────────────────────────────────────
  */
 import { API_BASE_URL } from "@/config/env";
@@ -78,10 +78,28 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  * on another origin can cause the session cookie to be sent, but cannot
  * read this one to build the matching header -- which is the whole
  * mechanism.
+ *
+ * THERE ARE TWO OF THEM, and sending the wrong one fails with a 401
+ * that looks exactly like an expired session. The backend verifies a
+ * REFRESH token on /auth/web/refresh and /auth/web/logout, and an
+ * ACCESS token everywhere else; each has its own CSRF companion and
+ * they are not interchangeable.
  */
-function readCsrfToken(): string | null {
+const REFRESH_TOKEN_ROUTES = ["/auth/web/refresh", "/auth/web/logout"];
+
+function csrfCookieNameFor(path: string): string {
+  return REFRESH_TOKEN_ROUTES.some((route) => path.startsWith(route))
+    ? "csrf_refresh_token"
+    : "csrf_access_token";
+}
+
+function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  // The backslash is doubled because this is a template literal, where
+  // "\s" collapses to a bare "s" -- the regex would then look for
+  // ";ss*" and silently match nothing, which presents as "signed out
+  // for no reason" rather than as an error.
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -97,7 +115,9 @@ async function request<T>(
   }
 
   if (UNSAFE_METHODS.has(method)) {
-    const csrf = readCsrfToken();
+    // Header name is case-insensitive per RFC 9110; the backend reads
+    // it as X-CSRF-TOKEN.
+    const csrf = readCookie(csrfCookieNameFor(path));
     if (csrf) headers.set("X-CSRF-Token", csrf);
   }
 

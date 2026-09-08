@@ -47,3 +47,10 @@ openpyxl==3.1.5
 # Reached ONLY through src/shared/ai/providers/claude_provider.py -- see
 # tests/architecture/test_ai_boundaries.py, which enforces that.
 anthropic==1.4.0
+
+# --- TRU Connect V2 web portal: browser sessions ---
+# The mobile app is native and never needed CORS. A browser on the
+# portal origin calling the API on another origin does, and it must be
+# an explicit allowlist rather than "*" -- credentialed requests are
+# rejected by every browser when the allowed origin is a wildcard.
+Flask-Cors==6.0.1

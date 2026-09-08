@@ -65,6 +65,33 @@ def _register_extensions(app: Flask) -> None:
     from src.domains.security.rate_limit.limiter import limiter
     limiter.init_app(app)
 
+    # CORS -- V2, and needed only because the supplier WEB PORTAL exists.
+    # The mobile app is native, sends no Origin header, and is unaffected
+    # by every line of this.
+    #
+    # SCOPED TO /api/v1/*, NOT THE WHOLE APP. The password-reset bounce
+    # page (reset_password_bp) is a server-rendered page a person opens
+    # from an email, not an API a browser app calls -- widening CORS to
+    # cover it would loosen something for no caller.
+    #
+    # supports_credentials is the entire point: without it the browser
+    # sends no cookie and the session simply does not work. It is also
+    # why WEB_ORIGINS can never be "*" -- browsers refuse credentialed
+    # requests to a wildcard origin, so a wildcard here breaks the
+    # portal rather than merely loosening it.
+    from flask_cors import CORS
+
+    CORS(
+        app,
+        resources={r"/api/v1/*": {"origins": app.config["WEB_ORIGINS"]}},
+        supports_credentials=True,
+        # X-CSRF-TOKEN has to be allowed explicitly: it is not one of
+        # the CORS-safelisted headers, so without this the browser's
+        # preflight rejects every state-changing portal request before
+        # it is ever sent.
+        allow_headers=["Content-Type", "Authorization", "X-CSRF-TOKEN"],
+    )
+
 
 def _register_apiless_models() -> None:
     """Models that no blueprint reaches, imported so their tables exist.

@@ -48,6 +48,11 @@ class AuthAuditEvent(str, enum.Enum):
     LOGIN_LOCKED = "auth.login_locked"
     LOGIN_RATE_LIMITED = "auth.login_rate_limited"
     LOGIN_UNVERIFIED = "auth.login_unverified"
+    # V2: correct password, right account, WRONG SURFACE -- a business
+    # signing in at the supplier web portal. Its own event because it is
+    # not a failed sign-in and must not read like one when someone is
+    # scanning for attacks; it is a person on the wrong door.
+    LOGIN_WRONG_PORTAL = "auth.login_wrong_portal"
 
     # --- Rate limiting ---
     REGISTER_RATE_LIMITED = "auth.register_rate_limited"
@@ -81,6 +86,18 @@ class AuthAuditEvent(str, enum.Enum):
     ACCOUNT_UNLOCKED = "auth.account_unlocked"
     ROLE_CHANGED = "auth.role_changed"
     PERMISSION_CHANGED = "auth.permission_changed"
+
+    # --- API keys (V2: the machine door -- a supplier's own ERP) ---
+    #
+    # A key is a long-lived credential a human never types, which is
+    # exactly why its lifecycle needs a paper trail: CREATED and REVOKED
+    # are the two moments a supplier will one day need to prove, and
+    # AUTH_FAILED is what a brute-force attempt against the integration
+    # endpoint actually looks like.
+    API_KEY_CREATED = "auth.api_key_created"
+    API_KEY_REVOKED = "auth.api_key_revoked"
+    API_KEY_AUTH_FAILED = "auth.api_key_auth_failed"
+    API_KEY_SCOPE_DENIED = "auth.api_key_scope_denied"
 
     # --- Platform / system, auth-owned lifecycle sweep ---
     UNVERIFIED_ACCOUNT_EXPIRED = "auth.unverified_account_expired"
