@@ -108,8 +108,21 @@ class MatchProposal:
     #: Why, in words a supplier could be shown. Never a debug string.
     reason: str
 
+    #: TWO CANDIDATES SCORED TOO CLOSE TO SEPARATE. Recorded rather than
+    #: folded into the confidence, because they are genuinely different
+    #: facts: "I am 94% sure" and "I am 94% sure about each of two
+    #: different products" mean opposite things about whether anyone
+    #: should act. Lowering the number instead would have thrown that
+    #: away and left a reviewer wondering why a strong match was queued.
+    ambiguous: bool = False
+
     @property
     def decision(self) -> MatchDecision:
+        if self.ambiguous:
+            # Confident but contested is exactly what the review band is
+            # for. Auto-linking here is how "Coca-Cola 2L" ends up
+            # attached to Coca-Cola Zero.
+            return MatchDecision.REVIEW
         return decide(self.confidence)
 
 
@@ -129,6 +142,7 @@ def score_rules_match(
     text_similarity: float,
     brand_agrees: Optional[bool],
     pack_agrees: Optional[bool],
+    row_words_all_present: Optional[bool] = None,
 ) -> float:
     """Tier 3's confidence, from how much actually agreed.
 
@@ -157,5 +171,23 @@ def score_rules_match(
         score += 0.05
     elif pack_agrees is False:
         score -= 0.40
+
+    # CONTAINMENT: every word the supplier wrote appears in the
+    # catalogue name, which usually means they simply wrote less of it.
+    #
+    # MEASURED, NOT INVENTED. A two-supplier trial found that every
+    # remaining miss had this exact shape -- "COLGATE TOOTHPASTE"
+    # against "Colgate Regular Toothpaste", "RAMA MARGARINE" against
+    # "Rama Original Margarine". Trigram similarity PENALISES the extra
+    # words in the catalogue name, so a correct subset match scores
+    # lower than it deserves.
+    #
+    # SMALLER THAN THE PACK PENALTY, deliberately. Containment is
+    # suggestive, not decisive: "Coca-Cola 2L" is equally a subset of
+    # "Coca-Cola Original 2L" and "Coca-Cola Zero 2L". That ambiguity is
+    # caught separately (MatchProposal.ambiguous) rather than by making
+    # this bonus timid enough to be useless.
+    if row_words_all_present is True:
+        score += 0.12
 
     return max(0.0, min(1.0, score))

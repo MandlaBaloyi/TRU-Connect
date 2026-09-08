@@ -28,7 +28,7 @@ slowly, never one that fills in wrongly.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from src.domains.catalogue.matching.algorithms import normalise
 from src.domains.catalogue.matching.algorithms.confidence import (
@@ -53,6 +53,11 @@ from src.domains.catalogue.products.repositories.product_repository import (
 #: candidate is not plausible, and scoring more only makes a wrong one
 #: more likely to sneak past on a lucky brand agreement.
 _CANDIDATE_LIMIT = 5
+
+#: How far apart the top two candidates must score before the better one
+#: can be acted on alone. Below this they are indistinguishable, and the
+#: honest answer is a person -- see the ambiguity check in propose_match.
+_AMBIGUITY_MARGIN = 0.05
 
 
 def propose_match(
@@ -117,24 +122,47 @@ def propose_match(
     row_pack = pack if pack is not None and not pack.is_empty else extract_pack_size(name)
     row_brand = BrandRepository.resolve(normalise.brand_slug(brand)) if brand else None
 
-    best: Optional[MatchProposal] = None
+    row_words = set(normalised.split(" ")) if normalised else set()
+
+    scored: List[MatchProposal] = []
     for candidate, similarity in CatalogueProductRepository.search_similar(
         normalised, limit=_CANDIDATE_LIMIT
     ):
+        candidate_words = set((candidate.normalized_name or "").split(" "))
         confidence = score_rules_match(
             text_similarity=similarity,
             brand_agrees=_brand_agreement(row_brand, candidate),
             pack_agrees=_pack_agreement(row_pack, candidate),
+            row_words_all_present=bool(row_words) and row_words <= candidate_words,
         )
-        if best is None or confidence > best.confidence:
-            best = MatchProposal(
+        scored.append(
+            MatchProposal(
                 product_id=candidate.id,
                 tier=MatchTier.RULES,
                 confidence=confidence,
                 reason=_explain(similarity, row_brand, row_pack, candidate),
             )
+        )
 
-    if best is not None:
+    if scored:
+        scored.sort(key=lambda proposal: proposal.confidence, reverse=True)
+        best = scored[0]
+
+        # TWO CANDIDATES TOO CLOSE TO SEPARATE is not a strong match, it
+        # is a question. "Coca-Cola 2L" is equally a subset of
+        # "Coca-Cola Original 2L" and "Coca-Cola Zero 2L", and picking
+        # whichever sorted first would be a coin toss presented as a
+        # fact. Flagged rather than scored down, so a reviewer sees a
+        # real confidence next to a real reason.
+        if len(scored) > 1 and (best.confidence - scored[1].confidence) < _AMBIGUITY_MARGIN:
+            return MatchProposal(
+                product_id=best.product_id,
+                tier=best.tier,
+                confidence=best.confidence,
+                reason=best.reason + " Another product scored almost as closely.",
+                ambiguous=True,
+            )
+
         return best
 
     # --- nothing plausible -------------------------------------------------

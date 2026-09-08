@@ -25,7 +25,10 @@ from src.domains.catalogue.matching.algorithms.pack_size import PackSize, extrac
 @pytest.mark.parametrize(
     "raw,expected",
     [
-        ("Coca-Cola 2LT", "coca cola 2lt"),
+        # 2lt collapses to 2l -- see the measure normalisation tests
+        # below. Suppliers write the same size three ways and trigram
+        # similarity treats them as three different strings.
+        ("Coca-Cola 2LT", "coca cola 2l"),
         ("COCA COLA", "coca cola"),
         ("  Coca   Cola  ", "coca cola"),
         ("Sunlight (Dishwashing) 750ml", "sunlight dishwashing 750ml"),
@@ -245,3 +248,121 @@ def test_agreement_helps_but_cannot_manufacture_certainty():
     # here -- bonuses must never manufacture certainty past it.
     assert score_rules_match(text_similarity=0.60, brand_agrees=True, pack_agrees=True) == pytest.approx(0.70)
     assert score_rules_match(text_similarity=1.0, brand_agrees=True, pack_agrees=True) == 1.0
+
+
+# --- abbreviation expansion ------------------------------------------------
+#
+# EVERY CASE HERE CAME OUT OF A MEASUREMENT, not imagination. A
+# two-supplier trial resolved 40% of matchable rows; reading the misses
+# showed none were ambiguous, they were shorthand. Adding these took the
+# same file to 80%, for free and permanently.
+
+
+@pytest.mark.parametrize(
+    "written,expanded",
+    [
+        ("W/STAR SUPER MAIZE 10KG", "white star super maize 10kg"),
+        ("SIMBA S&V CHIPS 125G", "simba salt vinegar chips 125g"),
+        ("5 ROSES TEA 100S", "five roses tea 100s"),
+        ("SUNLIGHT DISHWASH LIQ 750ML", "sunlight dishwashing liquid 750ml"),
+        ("KOO BAKED BEANS TOM SAUCE 410G", "koo baked beans tomato sauce 410g"),
+        ("OMO WASHING PWDR 2KG", "omo washing powder 2kg"),
+    ],
+)
+def test_supplier_shorthand_is_expanded(written, expanded):
+    assert normalise_text(written) == expanded
+
+
+def test_punctuation_is_stripped_before_expansion():
+    """"W/STAR" and "S&V" are meaningless as single tokens and
+    unambiguous as phrases -- which only works because the slash and
+    ampersand are already spaces by the time expansion runs."""
+    assert "white star" in normalise_text("W/STAR MAIZE")
+    assert "salt vinegar" in normalise_text("S&V CHIPS")
+
+
+def test_words_that_are_not_shorthand_are_left_alone():
+    """This never invents, only replaces what it recognises."""
+    assert normalise_text("Castle Lager Draught") == "castle lager draught"
+
+
+@pytest.mark.parametrize(
+    "a,b",
+    [
+        ("Sprite 2 Litre", "Sprite 2L"),
+        ("Sunfoil Oil 2LT", "Sunfoil Oil 2l"),
+        ("Clover Milk 1LT", "Clover Milk 1L"),
+        ("Omo 2 KG", "Omo 2kg"),
+        ("Sunlight 750 ML", "Sunlight 750ml"),
+    ],
+)
+def test_the_same_size_written_differently_normalises_the_same(a, b):
+    """SPRITE 2 LITRE failed to match a catalogue "Sprite 2L" until
+    measures were canonicalised. Three spellings, one string."""
+    assert normalise_text(a) == normalise_text(b)
+
+
+def test_a_measure_is_not_invented_where_there_is_none():
+    assert normalise_text("Melrose Cheese Special") == "melrose cheese special"
+
+
+# --- containment and ambiguity ---------------------------------------------
+
+
+def test_a_subset_of_the_catalogue_name_scores_higher():
+    """MEASURED: every remaining miss after abbreviations had this shape
+    -- "COLGATE TOOTHPASTE" against "Colgate Regular Toothpaste". The
+    supplier simply wrote less, and trigram similarity PENALISES the
+    extra words in the catalogue name."""
+    from src.domains.catalogue.matching.algorithms.confidence import score_rules_match
+
+    without = score_rules_match(text_similarity=0.80, brand_agrees=None, pack_agrees=None)
+    with_containment = score_rules_match(
+        text_similarity=0.80, brand_agrees=None, pack_agrees=None, row_words_all_present=True
+    )
+    assert with_containment > without
+
+
+def test_containment_is_worth_less_than_a_pack_disagreement_costs():
+    """Containment is suggestive; a pack mismatch is decisive. A subset
+    match with the WRONG SIZE must never out-score its own penalty."""
+    from src.domains.catalogue.matching.algorithms.confidence import (
+        MatchDecision,
+        decide,
+        score_rules_match,
+    )
+
+    subset_wrong_size = score_rules_match(
+        text_similarity=0.95,
+        brand_agrees=True,
+        pack_agrees=False,
+        row_words_all_present=True,
+    )
+    assert decide(subset_wrong_size) is not MatchDecision.AUTO_LINK
+
+
+def test_two_close_candidates_are_a_question_not_a_match():
+    """"Coca-Cola 2L" is equally a subset of "Coca-Cola Original 2L" and
+    "Coca-Cola Zero 2L". Picking whichever sorted first would be a coin
+    toss presented as a fact."""
+    from src.domains.catalogue.matching.algorithms.confidence import (
+        MatchDecision,
+        MatchProposal,
+        MatchTier,
+    )
+
+    contested = MatchProposal(
+        product_id=None, tier=MatchTier.RULES, confidence=0.98, reason="x", ambiguous=True
+    )
+    assert contested.decision is MatchDecision.REVIEW
+
+
+def test_a_clear_winner_is_still_auto_linked():
+    from src.domains.catalogue.matching.algorithms.confidence import (
+        MatchDecision,
+        MatchProposal,
+        MatchTier,
+    )
+
+    clear = MatchProposal(product_id=None, tier=MatchTier.RULES, confidence=0.98, reason="x")
+    assert clear.decision is MatchDecision.AUTO_LINK

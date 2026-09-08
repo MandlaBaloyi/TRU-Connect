@@ -32,6 +32,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from src.domains.catalogue.matching.algorithms import abbreviations
+
 #: Anything that is not a letter, digit or space becomes a space. Kept
 #: deliberately broad -- hyphens, slashes, brackets, ampersands and
 #: asterisks all appear in real supplier files and none of them carry
@@ -48,17 +50,29 @@ def strip_accents(value: str) -> str:
 
 
 def normalise_text(value: str | None) -> str:
-    """Lowercased, unaccented, punctuation-free, single-spaced.
+    """Lowercased, unaccented, punctuation-free, single-spaced, with
+    known shorthand expanded.
 
     The readable form. Word order is PRESERVED, because this is what
     trigram similarity indexes and trigrams carry positional information
     that sorting would destroy.
+
+    ABBREVIATION EXPANSION HAPPENS HERE, at the end, and that placement
+    is the point: both a catalogue product's stored normalized_name and
+    an incoming supplier row pass through this one function, so both
+    sides are expanded identically. Expanding only the query would
+    compare "white star" against a stored "w star" and match nothing.
+
+    Punctuation is stripped BEFORE expansion, which is what turns
+    "W/STAR" into "w star" and "S&V" into "s v" -- meaningless as single
+    tokens, unambiguous as phrases. See abbreviations.py.
     """
     if not value:
         return ""
     text = strip_accents(value).lower()
     text = _NON_ALNUM.sub(" ", text)
-    return _WHITESPACE.sub(" ", text).strip()
+    text = _WHITESPACE.sub(" ", text).strip()
+    return abbreviations.expand(text)
 
 
 def matching_key(value: str | None) -> str:

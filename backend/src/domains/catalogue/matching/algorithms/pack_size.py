@@ -34,7 +34,7 @@ from typing import Optional
 #: Written form -> canonical ProductUnit value. Deliberately generous on
 #: the left: these are the spellings that turn up in real files, not the
 #: ones a style guide would prefer.
-_MEASURE_ALIASES = {
+MEASURE_ALIASES = {
     "l": "L",
     "lt": "L",
     "ltr": "L",
@@ -65,7 +65,7 @@ _MEASURE_ALIASES = {
 _BASE_FACTORS = {"ML": 1, "L": 1000, "G": 1, "KG": 1000}
 _BASE_OF = {"ML": "ML", "L": "ML", "G": "G", "KG": "G"}
 
-_MEASURE_WORDS = "|".join(sorted(_MEASURE_ALIASES, key=len, reverse=True))
+_MEASURE_WORDS = "|".join(sorted(MEASURE_ALIASES, key=len, reverse=True))
 
 #: "2lt", "750 ml", "1.5kg". Longest alias first (see _MEASURE_WORDS)
 #: so "ml" never wins against "mls" and "l" never eats the "l" in "lt".
@@ -162,7 +162,7 @@ def extract_pack_size(text: str | None) -> PackSize:
     measure_match = _MEASURE.search(text)
     if measure_match:
         quantity = _as_int(measure_match.group(1))
-        alias = _MEASURE_ALIASES.get(measure_match.group(2).lower())
+        alias = MEASURE_ALIASES.get(measure_match.group(2).lower())
         if quantity is not None and alias is not None:
             unit_quantity = quantity
             unit_measure = alias

@@ -582,11 +582,66 @@ The FK rename touches six tables, so it goes first and alone.
         catalogue existed, so a matching problem costs the supplier
         nothing -- their products are already saved when it runs.
 
+    6g  FREE-TIER IMPROVEMENTS, MEASURED             DONE 2026-09-08
+        No migration.
+
+        THE MEASUREMENT THAT DROVE IT. Two realistic SA wholesaler files
+        were run through the ladder: supplier A (clean names, barcodes)
+        builds a 25-product catalogue, supplier B is a DIFFERENT
+        wholesaler whose export shares almost no phrasing -- 30 rows, of
+        which 25 should match and 5 are genuinely new.
+
+        Reading the misses was the whole exercise. NONE were ambiguous.
+        Every one was shorthand or a spelling difference:
+
+          W/STAR SUPER MAIZE          White Star
+          SIMBA S&V CHIPS             Salt & Vinegar
+          5 ROSES TEA                 Five Roses
+          SUNLIGHT DISHWASH LIQ       Dishwashing Liquid
+          COLGATE TOOTHPASTE          Colgate REGULAR Toothpaste
+          SPRITE 2 LITRE              Sprite 2L
+
+        THREE FREE FIXES, EACH RE-MEASURED ON THE SAME FILE:
+
+          abbreviation dictionary        40% -> 60%
+          containment + ambiguity guard  60% -> 72%
+          measure canonicalisation       72% -> 80%
+
+        AND THE SHAPE MATTERS MORE THAN THE NUMBER. At 80%, CREATE_NEW
+        is exactly 5 -- precisely the five genuinely new products, and
+        nothing spurious. Every one of the 20 auto-links was checked
+        against the catalogue by hand and is correct. ZERO WRONG LINKS
+        at any stage of the three iterations. The 5 rows left in review
+        are correct matches sitting between 0.71 and 0.91, which a
+        person clears in seconds.
+
+        CONTAINMENT NEEDED A GUARD, and that is the one genuinely
+        subtle piece. "Every word the supplier wrote appears in the
+        catalogue name" is strong evidence -- and "Coca-Cola 2L" is
+        equally a subset of "Coca-Cola Original 2L" and "Coca-Cola Zero
+        2L". So the bonus is paired with an ambiguity check: when the
+        top two candidates score within 0.05 the proposal is flagged
+        contested and goes to review regardless of how high it scored.
+        Flagged rather than scored down, because "94% sure" and "94%
+        sure about each of two products" are different facts and folding
+        one into the other loses the reason.
+
+        WHAT THIS SAYS ABOUT THE PAID TIER. Tier 4 would now see 20% of
+        matchable rows rather than 60%. It is still worth building for
+        the genuine tail, but it should never have been paid to work out
+        that S&V means salt and vinegar. Every future entry in the
+        abbreviation dictionary or the brand alias table shrinks the
+        paid tier permanently, at no running cost.
+
+        The measurement script is throwaway (scratchpad, not committed)
+        and ran against the dev database inside a transaction that
+        rolled back -- catalogue 0 rows before and after.
+
     6c  EXTRACTION (job A)                            NOT BUILT
     6d  ADJUDICATION (job B)                          NOT BUILT
-        The paid tier. Deliberately deferred until 6e produces a
-        measurement of how much of a real supplier file the free tiers
-        already resolve.
+        The paid tier. Deferred again, and now with a number behind the
+        decision: the free tiers resolve 80% of a deliberately hostile
+        file, so tier 4 is a 20% tail rather than the main engine.
 
     6f  ONE MEASURED LIVE RUN                         NOT BUILT
         Needs credits and an explicit go-ahead.
