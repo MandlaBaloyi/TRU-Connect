@@ -48,6 +48,7 @@ from src.domains.supplier.bulk_import.models.import_job import ImportJobStatus, 
 from src.domains.supplier.bulk_import.parsers.spreadsheet_parser import UnsafeSpreadsheetError, parse_spreadsheet
 from src.domains.supplier.bulk_import.parsers.zip_parser import UnsafeZipError, extract_image_bytes, inspect_zip
 from src.domains.supplier.bulk_import.repositories.import_job_repository import ImportJobRepository
+from src.domains.catalogue.matching.services import linking_service as matching_linking_service
 from src.domains.supplier.bulk_import.services import abuse_tracking
 from src.domains.supplier.bulk_import.validators.row_validator import RowError
 from src.domains.supplier.inventory.services import inventory_service
@@ -308,6 +309,8 @@ def _run(
                     sku=row.sku,
                     description=row.description,
                     compare_at_price_cents=row.compare_at_price_cents,
+                    unit_quantity=row.unit_quantity,
+                    unit_measure=row.unit_measure,
                 )
             else:
                 product = product_service.create_product(
@@ -319,6 +322,8 @@ def _run(
                     sku=row.sku,
                     description=row.description,
                     compare_at_price_cents=row.compare_at_price_cents,
+                    unit_quantity=row.unit_quantity,
+                    unit_measure=row.unit_measure,
                 )
         except ProductValidationError as exc:
             # The row passed THIS file's own validation but the shared
@@ -337,6 +342,26 @@ def _run(
             failed_count += 1
             ImportJobRepository.commit()
             continue
+
+        # MATCH IT AGAINST THE CATALOGUE, and never let that fail the
+        # import. An unmatched offer is exactly how every offer behaved
+        # before the catalogue existed, so a matching problem must cost
+        # the supplier nothing -- their products are already saved by
+        # this point.
+        try:
+            matching_linking_service.match_and_link(
+                supplier_offer=product,
+                name=row.name,
+                category=row.category,
+                barcode=row.barcode,
+                brand=row.brand,
+                unit_quantity=row.unit_quantity,
+                unit_measure=row.unit_measure,
+            )
+        except Exception:  # noqa: BLE001 -- deliberately broad, see above
+            logger.exception(
+                "catalogue matching failed for import job %s row %s", job.id, row.row_number
+            )
 
         if row.sku:
             skus_written_this_job.add(row.sku)

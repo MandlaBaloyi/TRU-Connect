@@ -515,9 +515,81 @@ The FK rename touches six tables, so it goes first and alone.
           642 tests green (325 network, 317 supplier + architecture +
           catalogue) -- the 632 baseline plus these 10.
 
-  STEP 6  MATCHING AGENT
-          Behind the confidence gate. Column mapping first (one call per
-          file), per-row extraction second.
+  STEP 6  MATCHING -- SPLIT INTO FREE AND PAID, AND RE-ORDERED
+
+    6a  THE FREE TIERS                                DONE 2026-09-08
+        Migration c32c5e454643.
+        Barcode, learned alias, normalised exact, rules + pg_trgm. The
+        confidence gate, the alias table, the review queue. No model, no
+        key, no cost, and nothing depends on the paid tier ever being
+        switched on.
+
+    6b  THE PROVIDER SEAM                             DONE 2026-09-08
+        Migration 2876c4df29c3.
+        AIProvider, FakeAIProvider, ClaudeAIProvider, composition, and
+        the decision ledger that makes the budget ceiling real. Three
+        independent guards each default closed. Exactly one file imports
+        a vendor SDK, enforced by an AST architecture test.
+
+    6e  CSV COLUMNS + WIRING                          DONE 2026-09-08
+        No migration -- the columns are read, not stored separately.
+
+        DONE BEFORE 6c/6d ON PURPOSE, and the reasoning is the point.
+        The obvious order was to build the paid tier next. But the
+        matcher was not connected to anything -- propose_match existed
+        and nothing called it -- and the CSV could not carry a barcode,
+        so tier 0, the free and certain rung, was unreachable from a
+        real import.
+
+        Building the paid tier first would have meant paying for a model
+        without knowing what fraction of rows reaches it. This order
+        produces that number instead.
+
+        THE CANONICAL FIELD SET (bulk_import/fields.py) defines the
+        import contract once. The CSV parser derives its required and
+        known column lists from it, and the future API push will derive
+        its request schema from the same place. Written now because this
+        codebase has hit "the same rule written out N times" TWICE in
+        consecutive steps -- the connection gate in step 4, the payment
+        rail in step 5 -- and the API adapter is not written yet, so
+        this was the last cheap moment.
+
+        FOUR NEW COLUMNS, ALL OPTIONAL: barcode, brand, pack_quantity,
+        pack_unit. Optional because a required column added today breaks
+        every template a supplier already has, for no gain they asked
+        for. A test asserts an old-style file still imports unchanged.
+
+        barcode is the one that matters commercially: an exact GTIN
+        match is a database lookup, so every row carrying one is matched
+        free, forever. The supplier-facing help text says so plainly,
+        which aligns their effort with the platform's bill.
+
+        A REAL GAP CLOSED: unit_quantity/unit_measure existed on the
+        model and on the single-product form but NO import could set
+        them, so a supplier with 3,000 pack products had to enter pack
+        sizes one at a time by hand.
+
+        A REAL BUG FOUND BY A TEST: with MATCHING_ENABLED=false,
+        propose_match returned confidence 0.0 -- indistinguishable from
+        "no plausible candidate" -- so the gate said CREATE_NEW and the
+        KILL SWITCH QUIETLY FILLED THE CATALOGUE with a new product for
+        every imported row. "Off" and "found nothing" must not share a
+        representation. Fixed with MatchDecision.SKIPPED and a check
+        before anything is proposed.
+
+        Matching runs inside the import and can never fail it. An
+        unmatched offer is exactly how every offer behaved before the
+        catalogue existed, so a matching problem costs the supplier
+        nothing -- their products are already saved when it runs.
+
+    6c  EXTRACTION (job A)                            NOT BUILT
+    6d  ADJUDICATION (job B)                          NOT BUILT
+        The paid tier. Deliberately deferred until 6e produces a
+        measurement of how much of a real supplier file the free tiers
+        already resolve.
+
+    6f  ONE MEASURED LIVE RUN                         NOT BUILT
+        Needs credits and an explicit go-ahead.
 
   STEP 7  WEB PORTAL AUTH + API KEYS
 

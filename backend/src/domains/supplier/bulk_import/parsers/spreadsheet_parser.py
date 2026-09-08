@@ -24,13 +24,20 @@ from typing import List
 
 import openpyxl
 
+from src.domains.supplier.bulk_import.fields import KNOWN_FIELD_NAMES, REQUIRED_FIELD_NAMES
 from src.domains.supplier.bulk_import.validators.row_validator import IMAGE_COLUMN_HEADERS, ParsedRow, validate_row
 
-REQUIRED_COLUMNS = ["name", "category", "price", "unit"]
-# sku/description/compare_at_price are OPTIONAL -- same "leave it
-# blank if you don't need it" pattern as quantity and the image
-# columns, never added to REQUIRED_COLUMNS.
-KNOWN_COLUMNS = REQUIRED_COLUMNS + ["quantity", "sku", "description", "compare_at_price"] + IMAGE_COLUMN_HEADERS
+# DERIVED, NEVER HAND-MAINTAINED. The field set is defined once in
+# bulk_import/fields.py so the CSV parser and the future API push share
+# one list rather than two that drift -- see that module's docstring for
+# the two times this codebase has already paid for a rule written out
+# more than once.
+#
+# Everything beyond name/category/price/unit is OPTIONAL, including the
+# matching fields added in v2 step 6. A required column added today
+# would break every template a supplier already has.
+REQUIRED_COLUMNS = list(REQUIRED_FIELD_NAMES)
+KNOWN_COLUMNS = list(KNOWN_FIELD_NAMES)
 
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20MB -- a spreadsheet this large is already suspicious
 MAX_ROWS = 10_000

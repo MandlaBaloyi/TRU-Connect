@@ -21,10 +21,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from src.domains.supplier.bulk_import.fields import IMAGE_FIELD_NAMES
 from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.services.product_service import MAX_DESCRIPTION_LENGTH, MAX_SKU_LENGTH
 
-IMAGE_COLUMN_HEADERS = ["image_1", "image_2", "image_3", "image_4", "image_5"]
+# Derived from the canonical field set (bulk_import/fields.py) so the
+# image columns cannot drift apart from the rest of the contract.
+IMAGE_COLUMN_HEADERS = list(IMAGE_FIELD_NAMES)
 
 _CATEGORY_BY_CODE = {c.value.lower(): c for c in ProductCategory}
 _UNIT_BY_CODE = {u.value.lower(): u for u in ProductUnit}
@@ -145,6 +148,20 @@ class ParsedRow:
     sku: Optional[str] = None
     description: Optional[str] = None
     compare_at_price_cents: Optional[int] = None
+    # --- v2 step 6: what the matching ladder reads ---------------------
+    #: The barcode on the item. The single most valuable field a supplier
+    #: can fill in: it matches against the catalogue exactly, instantly,
+    #: and with no model call at all.
+    barcode: Optional[str] = None
+    #: Who makes it. Narrows candidate search and feeds the brand
+    #: agreement signal in tier 3.
+    brand: Optional[str] = None
+    #: The CONSUMER size -- 2 for a 2L bottle -- and its measure. These
+    #: reach SupplierOffer.unit_quantity/unit_measure, which until now
+    #: were unreachable through an import at all: a supplier with 3,000
+    #: pack products could only set them one at a time by hand.
+    unit_quantity: Optional[int] = None
+    unit_measure: Optional[ProductUnit] = None
     image_references: List[ImageReference] = field(default_factory=list)
     errors: List[RowError] = field(default_factory=list)
 
@@ -226,6 +243,70 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
                 RowError("compare_at_price", "Compare-at price must be higher than the actual price to show as a discount.")
             )
 
+    # --- v2 step 6: the matching fields --------------------------------
+    #
+    # ALL FOUR ARE OPTIONAL AND NONE OF THEM CAN FAIL A ROW. A supplier
+    # who has never heard of them uploads exactly the file they always
+    # did. A malformed value here means "we could not read it", which
+    # sends the row to a later matching tier -- never a rejected import.
+    barcode_raw = raw.get("barcode", "").strip()
+    barcode = None
+    if barcode_raw:
+        # Digits only. Spreadsheets love to reformat barcodes with
+        # spaces or dashes, and a GTIN is a string of digits by
+        # definition -- leading zeros are significant, which is also why
+        # this is never parsed as an integer.
+        digits = re.sub(r"\D", "", barcode_raw)
+        if 8 <= len(digits) <= 14:
+            barcode = digits
+        else:
+            errors.append(
+                RowError("barcode", f'Barcode does not look right: "{barcode_raw}". Expected 8 to 14 digits.')
+            )
+
+    brand_raw = raw.get("brand", "").strip()
+    brand = brand_raw[:120] or None
+
+    unit_quantity_raw = raw.get("pack_quantity", "").strip()
+    unit_quantity = None
+    if unit_quantity_raw:
+        try:
+            parsed_quantity = int(float(unit_quantity_raw.replace(",", ".")))
+        except ValueError:
+            parsed_quantity = None
+        if parsed_quantity is None or parsed_quantity < 1:
+            # A PACK SIZE BELOW 1 IS NOT A PACK -- the same rule
+            # product_service applies to the single-product form, for
+            # the same reason: dividing a price by nothing puts a
+            # meaningless per-unit figure on a product card.
+            errors.append(
+                RowError("pack_quantity", f'Pack size must be a whole number of 1 or more: "{unit_quantity_raw}".')
+            )
+        else:
+            unit_quantity = parsed_quantity
+
+    unit_measure_raw = raw.get("pack_unit", "").strip()
+    unit_measure = match_unit(unit_measure_raw) if unit_measure_raw else None
+    if unit_measure_raw and not unit_measure:
+        message = f'Pack unit not recognised: "{unit_measure_raw}".'
+        suggestion = _suggest_closest(unit_measure_raw, list(_UNIT_LABELS.values()))
+        if suggestion:
+            message += f' Did you mean "{suggestion}"?'
+        errors.append(RowError("pack_unit", message))
+
+    # THE PAIR IS ALL OR NOTHING. "2" with no measure is not a size, and
+    # "L" with no number is not one either -- storing half of it would
+    # put "2 " or " L" on a card and make the per-unit maths impossible.
+    if (unit_quantity is None) != (unit_measure is None):
+        errors.append(
+            RowError(
+                "pack_quantity",
+                "Give both pack_quantity and pack_unit together, or leave both blank.",
+            )
+        )
+        unit_quantity = None
+        unit_measure = None
+
     image_references = [
         ImageReference(column=col, filename=raw.get(col, "").strip())
         for col in IMAGE_COLUMN_HEADERS
@@ -243,6 +324,10 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         sku=sku,
         description=description,
         compare_at_price_cents=compare_at_price_cents,
+        barcode=barcode,
+        brand=brand,
+        unit_quantity=unit_quantity,
+        unit_measure=unit_measure,
         image_references=image_references,
         errors=errors,
     )

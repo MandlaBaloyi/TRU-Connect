@@ -58,6 +58,18 @@ class MatchDecision(str, enum.Enum):
     REVIEW = "REVIEW"
     CREATE_NEW = "CREATE_NEW"
 
+    #: NOTHING WAS ATTEMPTED -- matching is switched off. Never returned
+    #: by decide(); only by the linking service, which checks the kill
+    #: switch before proposing anything.
+    #:
+    #: THIS EXISTS BECAUSE OF A REAL BUG A TEST CAUGHT. Disabled matching
+    #: used to surface as a confidence of 0.0, which is exactly what
+    #: "no plausible candidate" looks like -- so the gate read it as
+    #: CREATE_NEW and the kill switch quietly filled the catalogue with a
+    #: new product for every imported row. "Off" and "found nothing" must
+    #: not share a representation.
+    SKIPPED = "SKIPPED"
+
 
 #: Inherent confidence of the free tiers, before any per-candidate
 #: scoring. Tier 3 does NOT appear here -- its confidence is computed
