@@ -154,13 +154,43 @@ An unmatched Offer behaves exactly like a V1 product. Nothing breaks on the day
 the split lands, and the catalogue can be empty. Matching enriches over time.
 This is what turns a rewrite into a migration.
 
-THE OPEN QUESTION (see Part 8)
+PACK SIZE — DECIDED 2026-09-08
 
-Where pack size lives. "Coca-Cola 2L" and "Coca-Cola 2L case of 6" have
-different barcodes and are arguably two Products. Alternatively the Product is
-the consumer unit and the pack is a property of the Offer. This must be
-decided before the catalogue has rows in it, because it is not cheaply
-reversible.
+Pack size lives on the OFFER. The catalogue Product is the CONSUMER UNIT.
+
+  catalogue.products
+    name        Coca-Cola Original
+    brand       Coca-Cola
+    unit_qty    2
+    unit_meas   L
+    gtin        5449000054227        consumer-unit barcode
+
+  supplier_offers
+    product_id      ──────────▶ exactly one Product
+    selling_unit    CASE
+    pack_quantity   6
+    case_gtin       15449000054224   optional, for scanning and matching
+    price_cents     8999
+
+WHY
+
+Comparison is the entire point of the split, and putting pack size on the
+Product breaks it in the common case. If "Coke 2L x 6" and "Coke 2L x 12" are
+separate Products, a supplier selling 6-packs and one selling 12-packs never
+compare — even though the business simply wants Coke 2L cheaply. With pack size
+on the Offer, every supplier selling that product maps to ONE Product
+regardless of how they pack it, and price-per-unit compares directly.
+
+This also makes the existing `unitEconomics` per-unit price the comparison key,
+which is what a restocking buyer actually reads.
+
+THE COST, STATED HONESTLY
+
+Case barcodes (GTIN-14) no longer map 1:1 to Products. They live on the Offer
+as an optional second identifier. Matching accepts either: a scanned case
+barcode resolves through the Offer, a consumer barcode through the Product.
+This is a small amount of special-casing in one place, traded for comparison
+working everywhere.
 
 
 2.2 SUPPLIERS HAVE CAPABILITIES, NOT TIERS
@@ -528,18 +558,53 @@ Supplier-uploaded with a rights warranty is what every marketplace does —
 Takealot, Amazon and Shopify do not own their product images either.
 
 
-2.9 THE SUPPLIER HUB IS WEB-FIRST
+2.9 THE WEB IS THE PLATFORM SURFACE; THE APP IS THE DAILY SURFACE
 
 THE CHANGE
 
-The supplier's working surface moves to the web. The app remains for the
-smallest suppliers and for on-the-go checks.
+`frontend/web/` is not a supplier tool. It is the whole TRU Connect web
+presence, and it was always intended to be:
 
-WHY
+  - Public landing page and marketing
+  - "For Suppliers" — sign up, sign in, and the supplier portal
+  - The TRU Connect admin control centre, hidden from the public
+    (private network or equivalent)
+  - Future: a lender surface
 
-Managing 3,000 products, a weekly price file, and an order queue is desk work.
-It requires a keyboard, a wide screen, and a file picker. No amount of mobile
-design makes bulk catalogue management good on a phone.
+THE SPLIT IS BY TASK, NOT BY SUPPLIER SIZE
+
+An earlier draft of this section said the app remains "for the smallest
+suppliers". That was wrong — it tiered by supplier, which is exactly the
+mistake 2.2 exists to prevent. The real division is what the work IS:
+
+  WEB — SETUP AND DESK WORK, done once or periodically
+    Catalogue management at volume, import and column mapping, the weekly
+    price file, API credentials, analytics, account configuration.
+    Requires a keyboard, a wide screen, and a file picker. No amount of
+    mobile design makes bulk catalogue management good on a phone.
+
+  APP — DAILY OPERATIONS, done continuously
+    Accepting and declining cash orders, connection decisions where the
+    supplier has turned that on, notifications, checking an order on the
+    move.
+
+A supplier of ANY size uses both. A hustler with 30 products still sets up on
+the web if they prefer a keyboard; a large wholesaler still wants order
+notifications on a phone. Size correlates with which surface dominates, but it
+does not determine access.
+
+WHY THE APP KEEPS A SUPPLIER ROLE AT ALL
+
+Because suppliers are heterogeneous, and the daily actions are genuinely
+mobile: a cash order needs a decision now, wherever the person is. Moving all
+supplier work to the web would make the platform unusable exactly where it is
+most time-sensitive.
+
+BUSINESSES HAVE NO WEB SURFACE
+
+Deliberately, and it is not an oversight. An informal business has their phone
+on them all day; that IS their computer. Their problem does not require a desk.
+Building a business web app would be building for a need that does not exist.
 
 WHAT STAYS THE SAME IN THE APP
 
@@ -547,10 +612,17 @@ Sign up and sign in are unchanged. Home, Account (business tools live here),
 Community, Discovery, and the More tab all stay. Notifications stay. Stock
 orders stay, with modification per 2.4.
 
-WHAT THE HUB ADDS
+BUILD ORDER FOR THE WEB
 
-Catalogue management at volume, import and mapping, order queue, price file
-upload, API credentials, and analytics.
+Landing page first. It is pure frontend, has no backend coupling, and is
+cheap to change later — so it does not need to be right on the first pass.
+Then the "For Suppliers" route from the footer into sign up / sign in, reusing
+the existing auth domain. Then the portal dashboard, which is where the real
+work lives.
+
+Note the coupling: the landing page and auth pages touch NOTHING in the
+product model, so they can be built before the Part 8 rename. The catalogue
+and import screens cannot — they must wait for it.
 
 
 2.10 AUTHENTICATION SPLITS THREE WAYS
@@ -741,11 +813,9 @@ PART 6 — OPEN DECISIONS
 These are not yet decided. They are recorded here so they are decided
 deliberately rather than by accident in a pull request.
 
-  1. PACK SIZE PLACEMENT — Product or Offer?
-     "Coca-Cola 2L" and "Coca-Cola 2L case of 6" have different barcodes.
-     Either both are Products, or the Product is the consumer unit and the pack
-     is an Offer property. Must be settled BEFORE the catalogue has rows.
-     Not cheaply reversible.
+  1. PACK SIZE PLACEMENT — RESOLVED 2026-09-08.
+     On the Offer; the Product is the consumer unit. See 2.1. Step 2 of the
+     migration is unblocked.
 
   2. INVENTORY OWNERSHIP for integrated suppliers.
      Does stock live in our table, or is it a mirror of their ERP?

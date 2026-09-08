@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/**
+ * Brand tokens, mirrored from src/lib/brand.ts so Tailwind utilities
+ * (bg-blue, text-green) resolve to the same values the TS constants do.
+ *
+ * COMMITTED TO A LIGHT PALETTE, no prefers-color-scheme block. This is a
+ * public marketing site with a deliberate look, not an app surface that
+ * has to sit inside someone's system theme. The supplier PORTAL, once it
+ * exists behind sign-in, is a different question and can answer it
+ * differently.
+ */
+@theme {
+  --color-brand-blue: #0b2447;
+  --color-brand-blue-light: #19376d;
+  --color-brand-blue-dark: #051230;
+
+  --color-brand-green: #0fa968;
+  --color-brand-green-light: #3fcb8c;
+  --color-brand-green-dark: #0a7a4c;
+
+  --color-ink: #111417;
+  --color-ink-muted: #6b7280;
+  --color-line: #d0d4d9;
+  --color-wash: #f4f6f8;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect a reader who has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
