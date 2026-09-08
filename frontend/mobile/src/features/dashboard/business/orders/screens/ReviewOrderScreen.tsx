@@ -16,12 +16,8 @@ import { useCart } from "../hooks/useCart";
 import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { useCheckout } from "../hooks/useCheckout";
 import type { DeliveryType, PaymentMethod } from "../types";
+import { PAYMENT_METHOD_LABELS } from "@/features/dashboard/shared/payment/paymentMethods";
 
-const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: "Cash",
-  PROOF_OF_PAYMENT: "Proof of Payment",
-  PAYFAST: "Pay Online",
-};
 
 /**
  * Step 2 of 3 -- the real items, the real address, the real payment

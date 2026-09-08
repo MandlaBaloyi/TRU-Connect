@@ -5,7 +5,13 @@
  * (/api/v1/supplier/stock-orders routes).
  */
 
-export type PaymentMethod = "CASH" | "PROOF_OF_PAYMENT" | "PAYFAST";
+// PaymentMethod is DEFINED ONCE, in dashboard/shared/payment. It used
+// to be declared here AND in the other role's types.ts, identically --
+// which is exactly how the backend ended up with a DIRECT value that
+// three of five places had never heard of. Re-exported rather than
+// moved so every existing import path keeps working.
+import type { PaymentMethod } from "@/features/dashboard/shared/payment/paymentMethods";
+export type { PaymentMethod };
 export type DeliveryType = "DELIVER" | "COLLECT";
 // CANCELLED included even though the backend's own model comment
 // marks it "reserved, not reachable by anything in this pass" --

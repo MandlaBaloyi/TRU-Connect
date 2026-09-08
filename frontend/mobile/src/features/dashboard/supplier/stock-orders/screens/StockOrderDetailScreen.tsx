@@ -18,12 +18,8 @@ import { DeclineReasonSheet } from "../components/DeclineReasonSheet";
 import { CancelReasonSheet } from "../components/CancelReasonSheet";
 import { ANY_CANCEL_REASON_LABELS, DECLINE_REASON_LABELS, getStatusLabel } from "../types";
 import type { CancelReason, DeclineReason } from "../types";
+import { paymentMethodLabel } from "@/features/dashboard/shared/payment/paymentMethods";
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: "Cash",
-  PROOF_OF_PAYMENT: "Proof of Payment",
-  PAYFAST: "Pay Online",
-};
 
 /** Same convention as business/orders' own OrderDetailSheet --
  *  duplicated locally rather than shared across the domain boundary,
@@ -228,7 +224,7 @@ export default function StockOrderDetailScreen() {
 
         <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: theme.colors.onSurface }]}>Payment</Text>
         <Text style={[styles.plainText, { color: theme.colors.onSurface }]}>
-          {order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod : "—"}
+          {paymentMethodLabel(order.paymentMethod)}
         </Text>
 
         <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: theme.colors.onSurface }]}>

@@ -17,7 +17,15 @@ interface Props {
   onPress: () => void;
 }
 
-const PAYMENT_ICONS = { CASH: Banknote, PROOF_OF_PAYMENT: Receipt, PAYFAST: Receipt };
+// DIRECT gets the banknote: it is money moving outside TruConnect,
+// which is what the icon has always meant here. Historical values keep
+// the icons they had so an old order looks the way it did.
+const PAYMENT_ICONS: Record<string, typeof Banknote> = {
+  DIRECT: Banknote,
+  CASH: Banknote,
+  PROOF_OF_PAYMENT: Receipt,
+  PAYFAST: Receipt,
+};
 
 /** The accent bar's own colour reads as the order's real state at a
  *  glance, across all three tabs -- amber for "still needs you,"

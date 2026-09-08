@@ -18,6 +18,7 @@ import { useCancelOrder } from "../hooks/useCancelOrder";
 import { CancelReasonSheet } from "./CancelReasonSheet";
 import { ANY_CANCEL_REASON_LABELS, DECLINE_REASON_LABELS, getStatusLabel } from "../types";
 import type { CancelReason } from "../types";
+import { paymentMethodLabel } from "@/features/dashboard/shared/payment/paymentMethods";
 
 interface Props {
   visible: boolean;
@@ -26,11 +27,6 @@ interface Props {
   onClose: () => void;
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: "Cash",
-  PROOF_OF_PAYMENT: "Proof of Payment",
-  PAYFAST: "Pay Online",
-};
 
 /** Same date convention as OrderHistorySheet's own formatDate,
  *  extended with a time -- the exact moment matters here (how long a
@@ -181,7 +177,7 @@ export function OrderDetailSheet({ visible, supplierId, orderId, onClose }: Prop
               Payment method
             </Text>
             <Text style={[styles.plainText, { color: theme.colors.onSurface }]}>
-              {order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod : "—"}
+              {paymentMethodLabel(order.paymentMethod)}
             </Text>
 
             <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: theme.colors.onSurface }]}>Status</Text>

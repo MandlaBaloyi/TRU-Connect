@@ -49,7 +49,7 @@ const orders = new Map<string, OrderDetail>([
       status: "PENDING_SUPPLIER_APPROVAL",
       totalCents: 58000,
       itemCount: 1,
-      paymentMethod: "PROOF_OF_PAYMENT",
+      paymentMethod: "DIRECT",
       deliveryType: "COLLECT",
       submittedAt: hoursAgo(28), // deliberately past the real 24h reminder threshold
       decidedAt: null,

@@ -17,12 +17,8 @@ import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { OrderDetailSheet } from "../components/OrderDetailSheet";
 import { getStatusLabel } from "../types";
 import type { OrderHistoryEntry } from "../types";
+import { paymentMethodLabel } from "@/features/dashboard/shared/payment/paymentMethods";
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: "Cash",
-  PROOF_OF_PAYMENT: "Proof of payment",
-  PAYFAST: "Pay online",
-};
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
@@ -102,7 +98,7 @@ export default function OrderHistoryScreen() {
       <Text style={[styles.date, { color: theme.colors.onSurfaceVariant }]}>{formatDate(item.submittedAt)}</Text>
       <Text style={[styles.detail, { color: theme.colors.onSurfaceVariant }]}>
         {item.itemCount} {item.itemCount === 1 ? "item" : "items"} ·{" "}
-        {item.paymentMethod ? PAYMENT_METHOD_LABELS[item.paymentMethod] ?? item.paymentMethod : "—"} ·{" "}
+        {paymentMethodLabel(item.paymentMethod)} ·{" "}
         {item.deliveryType === "COLLECT" ? "Collect" : "Deliver"}
       </Text>
       <Text style={[styles.status, { color: theme.colors.primary }]}>{getStatusLabel(item.status)}</Text>

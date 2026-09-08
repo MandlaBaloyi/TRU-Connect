@@ -180,9 +180,10 @@ export async function submitCheckout(supplierId: string, request: SubmitCheckout
   if (!cart || cart.items.length === 0) throw new Error("Your cart is empty.");
 
   // PENDING_SUPPLIER_APPROVAL, matching the real backend's own status
-  // model exactly -- CASH/PROOF_OF_PAYMENT are neither verified in
-  // real time, so the order genuinely isn't settled the moment it's
-  // placed.
+  // model exactly. Money on the DIRECT rail moves outside TruConnect
+  // and is never verified in real time, so the order genuinely isn't
+  // settled the moment it's placed -- the supplier's accept/decline is
+  // a real decision, not a formality.
   const status = "PENDING_SUPPLIER_APPROVAL";
   const orderReference = generateMockOrderReference(supplierId);
 
@@ -191,10 +192,15 @@ export async function submitCheckout(supplierId: string, request: SubmitCheckout
     orderReference,
     status,
     totalCents: cart.totalCents,
+    // Word-for-word what ManualPaymentProvider returns for DIRECT on the
+    // real backend. A mock that says something the server would not is
+    // a mock that teaches the wrong copy.
     instructions:
-      request.paymentMethod === "CASH"
-        ? "Pay in cash on delivery or collection. The supplier will confirm your order shortly."
-        : "Make your payment directly to the supplier, then send them your proof of payment.",
+      request.paymentMethod === "DIRECT"
+        ? "Pay the supplier directly — cash on delivery or collection, or by transfer. They will confirm your order shortly."
+        : request.paymentMethod === "CASH"
+          ? "Pay in cash on delivery or collection. The supplier will confirm your order shortly."
+          : "Make your payment directly to the supplier, then send them your proof of payment.",
     redirectUrl: null,
   };
 

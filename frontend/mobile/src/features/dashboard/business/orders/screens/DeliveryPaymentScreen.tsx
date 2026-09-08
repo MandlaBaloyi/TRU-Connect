@@ -15,6 +15,11 @@ import { SearchAddressModal } from "@/features/dashboard/shared/location-picker/
 import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import type { DeliveryType, PaymentMethod } from "../types";
 import { useCart } from "../hooks/useCart";
+import {
+  PAYMENT_METHOD_DESCRIPTIONS,
+  PAYMENT_METHOD_LABELS,
+  SELECTABLE_PAYMENT_METHODS,
+} from "@/features/dashboard/shared/payment/paymentMethods";
 import { useSupplierIdentity } from "../hooks/useSupplierIdentity";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 
@@ -23,15 +28,18 @@ const DELIVERY_OPTIONS: { value: DeliveryType; label: string }[] = [
   { value: "COLLECT", label: "Collect" },
 ];
 
-const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; description: string; Icon: typeof Banknote }[] = [
-  { value: "CASH", label: "Cash", description: "Pay on delivery or collection", Icon: Banknote },
-  {
-    value: "PROOF_OF_PAYMENT",
-    label: "Proof of Payment",
-    description: "Pay the supplier directly, then send proof",
-    Icon: Receipt,
-  },
-];
+// DERIVED FROM SELECTABLE_PAYMENT_METHODS, not listed again here. Cash
+// and Proof of Payment were never two rails -- TruConnect observed
+// neither, so a buyer who picked proof-of-payment and then handed over
+// notes was indistinguishable from one who transferred. They are one
+// thing, DIRECT, described honestly.
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; description: string; Icon: typeof Banknote }[] =
+  SELECTABLE_PAYMENT_METHODS.map((value) => ({
+    value,
+    label: PAYMENT_METHOD_LABELS[value],
+    description: PAYMENT_METHOD_DESCRIPTIONS[value],
+    Icon: value === "PAYFAST" ? Receipt : Banknote,
+  }));
 
 /**
  * Step 1 of 3 -- a real, full screen, not a bottom sheet.

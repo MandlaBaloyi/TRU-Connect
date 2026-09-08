@@ -56,14 +56,21 @@ export interface CartCollectionAddress {
   longitude: number | null;
 }
 
-export type PaymentMethod = "CASH" | "PROOF_OF_PAYMENT" | "PAYFAST";
+// PaymentMethod is DEFINED ONCE, in dashboard/shared/payment. It used
+// to be declared here AND in the other role's types.ts, identically --
+// which is exactly how the backend ended up with a DIRECT value that
+// three of five places had never heard of. Re-exported rather than
+// moved so every existing import path keeps working.
+import type { PaymentMethod } from "@/features/dashboard/shared/payment/paymentMethods";
+export type { PaymentMethod };
 export type DeliveryType = "DELIVER" | "COLLECT";
 
 /**
  * The real status model, matching the backend's own StockOrderStatus
- * exactly. PENDING_SUPPLIER_APPROVAL is where CASH/PROOF_OF_PAYMENT
- * orders land -- neither is verified in real time, so the order
- * genuinely isn't settled yet. CONFIRMED is where a real PAYFAST
+ * exactly. PENDING_SUPPLIER_APPROVAL is where DIRECT orders land --
+ * money that moves outside TruConnect is not verified in real time, so
+ * the order genuinely isn't settled yet and the supplier's own
+ * accept/decline is a real decision. CONFIRMED is where a real PAYFAST
  * payment lands immediately (no supplier approval needed at all), and
  * where a pending order moves once a supplier approves it -- not
  * reachable yet, the approve action itself is real, separate,

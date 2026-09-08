@@ -14,6 +14,7 @@ import { typography } from "@/theme/typography";
 
 import { useSupplierProducts } from "../../find-supplier/hooks/useSupplierProducts";
 import type { PaymentMethod } from "../types";
+import { isDirectPayment } from "@/features/dashboard/shared/payment/paymentMethods";
 
 /**
  * Step 3 of 3 -- the real Stock Order ID, real instructions, and for
@@ -128,9 +129,17 @@ export default function OrderPlacedScreen() {
           <Text style={[styles.instructions, { color: theme.colors.onSurface }]}>{instructions}</Text>
         ) : null}
 
-        {paymentMethod === "PROOF_OF_PAYMENT" && (
+        {/* SHOWN FOR THE WHOLE DIRECT RAIL, not just the old
+            PROOF_OF_PAYMENT value. Cash and proof-of-payment were never
+            two things -- a buyer choosing "direct" might hand over notes
+            OR transfer, and TruConnect cannot tell which. So this is
+            offered rather than demanded: useful if they paid by
+            transfer, ignorable if they did not. Historical
+            PROOF_OF_PAYMENT orders still match, which is why the check
+            is isDirectPayment rather than an equality test. */}
+        {isDirectPayment(paymentMethod) && (
           <View style={styles.proofSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Send your proof of payment</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Paid by transfer? Send your proof</Text>
             <Pressable
               onPress={handleSendViaWhatsApp}
               style={[styles.proofButton, { backgroundColor: theme.colors.surfaceVariant }]}
