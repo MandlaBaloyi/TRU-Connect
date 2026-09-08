@@ -78,6 +78,26 @@ class SupplierOfferRepository:
         ).scalar()
 
     @staticmethod
+    def get_by_sku_for_supplier(supplier_profile_id: str | UUID, sku: str) -> Optional[SupplierOffer]:
+        """The offer a supplier's own SKU refers to, or None.
+
+        THE UPSERT KEY FOR BULK IMPORT. sku_exists_for_supplier above
+        answers "would this collide"; this answers "which row is it", so
+        a re-imported price file can UPDATE the offer the supplier
+        already has instead of colliding with it.
+
+        INCLUDES ARCHIVED OFFERS deliberately. A supplier who archives a
+        line and then sends a price file still containing it means to
+        bring it back, and the unique constraint on
+        (supplier_profile_id, sku) does not care about is_archived
+        anyway -- excluding them here would just reintroduce the
+        collision this method exists to prevent.
+        """
+        return SupplierOffer.query.filter_by(
+            supplier_profile_id=supplier_profile_id, sku=sku, is_deleted=False
+        ).first()
+
+    @staticmethod
     def get_by_id(product_id: str | UUID) -> Optional[SupplierOffer]:
         return SupplierOffer.query.filter_by(id=product_id, is_deleted=False).first()
 

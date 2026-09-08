@@ -5,13 +5,20 @@ audit_service._write_async already establishes as this codebase's own
 pattern for exactly this problem (a bare worker thread has no Flask
 context of its own).
 
-PER ROW, THIS CALLS THE EXACT SAME FUNCTIONS Add SupplierOffer'S OWN SCREEN
-CALLS -- product_service.create_product, then inventory_service.
-adjust_stock if a quantity was given. Per direct review: "don't have
-single-product validation != bulk-product validation... one SupplierOffer
-Service, same validation rules." This file contains NO product-
-creation logic of its own; it's an orchestrator, not a second
-implementation.
+PER ROW, THIS CALLS THE EXACT SAME FUNCTIONS THE SINGLE-PRODUCT
+SCREENS CALL -- product_service.create_product or update_product, then
+inventory_service.adjust_stock if a quantity was given. Per direct
+review: "don't have single-product validation != bulk-product
+validation... one Product Service, same validation rules." This file
+contains NO product-creation logic of its own; it's an orchestrator,
+not a second implementation.
+
+IT UPSERTS ON THE SUPPLIER'S OWN SKU, and that is the whole point of
+this worker existing rather than a create loop. A real supplier sends a
+price file every week -- the recurring update IS the relationship, and
+the one-time import is the exception. See the long comment on the row
+loop for what create-only actually did (it broke in two different ways
+depending on whether the file had SKUs in it).
 
 TWO TIER-GATED CHECKS LIVE HERE, NOT IN THE PARSERS -- bulk_max_rows_
 per_job and bulk_max_images_per_job (products/tiers/*.py). The parsers
@@ -37,13 +44,14 @@ import tempfile
 from typing import Dict, Optional
 from uuid import UUID
 
-from src.domains.supplier.bulk_import.models.import_job import ImportJobStatus
+from src.domains.supplier.bulk_import.models.import_job import ImportJobStatus, ImportRowOutcome
 from src.domains.supplier.bulk_import.parsers.spreadsheet_parser import UnsafeSpreadsheetError, parse_spreadsheet
 from src.domains.supplier.bulk_import.parsers.zip_parser import UnsafeZipError, extract_image_bytes, inspect_zip
 from src.domains.supplier.bulk_import.repositories.import_job_repository import ImportJobRepository
 from src.domains.supplier.bulk_import.services import abuse_tracking
 from src.domains.supplier.bulk_import.validators.row_validator import RowError
 from src.domains.supplier.inventory.services import inventory_service
+from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services import product_media_service, product_service
 from src.domains.supplier.products.services.errors import ProductValidationError
 from src.domains.supplier.products.tiers import get_products_limits
@@ -226,7 +234,17 @@ def _run(
 
     ImportJobRepository.set_status(job, ImportJobStatus.PROCESSING)
 
+    # SKUs ALREADY WRITTEN BY THIS JOB. Two rows in ONE file sharing a
+    # SKU is a different thing from a SKU that exists from LAST week's
+    # import, and only the second is an update. Without this set the
+    # first row would create an offer and the second would silently
+    # overwrite it -- the supplier loses a line and is never told,
+    # which is worse than the collision error they used to get.
+    skus_written_this_job: set[str] = set()
+
     created_count = 0
+    updated_count = 0
+    failed_count = 0
     images_matched_count = 0
     # Tier's own JOB-WIDE image ceiling -- distinct from
     # photos_per_product (enforced per-product, one layer down, inside
@@ -239,27 +257,104 @@ def _run(
     bulk_image_cap_hit = False
 
     for row in valid_rows:
-        try:
-            product = product_service.create_product(
-                supplier_profile_id=supplier_profile_id,
-                name=row.name,
-                category=row.category,
-                price_cents=row.price_cents,
-                selling_unit=row.selling_unit,
-                sku=row.sku,
-                description=row.description,
-                compare_at_price_cents=row.compare_at_price_cents,
+        # UPSERT, NOT CREATE. The supplier's own SKU is the only stable
+        # identity they control, so it is the key: a row whose SKU
+        # already belongs to one of their offers UPDATES that offer.
+        #
+        # THIS FIXES A REAL BUG, not a hypothetical one. A supplier
+        # above hustler scale sends a price file every week -- the
+        # one-time import is the exception, the recurring update IS the
+        # relationship -- and create-only broke both ways. With SKUs in
+        # the file, every row collided with the unique constraint on
+        # (supplier_profile_id, sku) and came back "SKU is already used
+        # by another product", so the second import created nothing and
+        # blamed the supplier for their own correct data. Without SKUs,
+        # every row silently duplicated.
+        #
+        # A ROW WITH NO SKU STILL CREATES, and that is the honest
+        # outcome rather than a shortcoming: nothing in a blank-SKU row
+        # identifies WHICH existing offer it means. Matching on name
+        # would be a guess, and a wrong guess overwrites a real price.
+        # The supplier controls this by including their SKU column.
+        if row.sku and row.sku in skus_written_this_job:
+            message = f'SKU "{row.sku}" appears more than once in this file.'
+            ImportJobRepository.add_error(job.id, row.row_number, "sku", message)
+            ImportJobRepository.add_row(
+                job.id,
+                row.row_number,
+                ImportRowOutcome.FAILED,
+                supplier_sku=row.sku,
+                message=message,
             )
+            failed_count += 1
+            ImportJobRepository.commit()
+            continue
+
+        existing = (
+            SupplierOfferRepository.get_by_sku_for_supplier(supplier_profile_id, row.sku)
+            if row.sku
+            else None
+        )
+
+        try:
+            if existing is not None:
+                product = product_service.update_product(
+                    product_id=existing.id,
+                    supplier_profile_id=supplier_profile_id,
+                    name=row.name,
+                    category=row.category,
+                    price_cents=row.price_cents,
+                    selling_unit=row.selling_unit,
+                    sku=row.sku,
+                    description=row.description,
+                    compare_at_price_cents=row.compare_at_price_cents,
+                )
+            else:
+                product = product_service.create_product(
+                    supplier_profile_id=supplier_profile_id,
+                    name=row.name,
+                    category=row.category,
+                    price_cents=row.price_cents,
+                    selling_unit=row.selling_unit,
+                    sku=row.sku,
+                    description=row.description,
+                    compare_at_price_cents=row.compare_at_price_cents,
+                )
         except ProductValidationError as exc:
             # The row passed THIS file's own validation but the shared
             # SupplierOffer Service found something else wrong (e.g. a
             # length cap) -- recorded as a real error; the row simply
             # doesn't create a product. Never crashes the whole job.
-            ImportJobRepository.add_error(job.id, row.row_number, "_product", "; ".join(exc.errors))
+            message = "; ".join(exc.errors)
+            ImportJobRepository.add_error(job.id, row.row_number, "_product", message)
+            ImportJobRepository.add_row(
+                job.id,
+                row.row_number,
+                ImportRowOutcome.FAILED,
+                supplier_sku=row.sku,
+                message=message[:500],
+            )
+            failed_count += 1
             ImportJobRepository.commit()
             continue
 
-        created_count += 1
+        if row.sku:
+            skus_written_this_job.add(row.sku)
+
+        if existing is not None:
+            updated_count += 1
+            outcome = ImportRowOutcome.UPDATED
+        else:
+            created_count += 1
+            outcome = ImportRowOutcome.CREATED
+
+        ImportJobRepository.add_row(
+            job.id,
+            row.row_number,
+            outcome,
+            supplier_sku=row.sku,
+            supplier_offer_id=product.id,
+        )
 
         if row.quantity and row.quantity > 0:
             inventory_service.adjust_stock(
@@ -299,5 +394,18 @@ def _run(
 
         ImportJobRepository.commit()
 
-    ImportJobRepository.update_counts(job, created_rows=created_count, images_matched=images_matched_count)
+    # error_rows IS RECOUNTED HERE, not left as the parse-time figure.
+    # It was set before processing began and counted only rows that
+    # failed VALIDATION -- a row that parsed fine and then failed at
+    # save time (a service-level rule, a media limit) was never added
+    # to it. So a supplier could see "0 errors" on a job whose report
+    # listed two, which is the kind of small dishonesty that makes
+    # someone stop trusting every other number on the screen.
+    ImportJobRepository.update_counts(
+        job,
+        created_rows=created_count,
+        updated_rows=updated_count,
+        error_rows=len(error_rows) + failed_count,
+        images_matched=images_matched_count,
+    )
     ImportJobRepository.set_status(job, ImportJobStatus.COMPLETED)

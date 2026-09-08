@@ -318,9 +318,73 @@ The FK rename touches six tables, so it goes first and alone.
           -- grep the versions directory before assigning one. An audit
           of all 54 migrations found no other duplicates.
 
-  STEP 3  IMPORT STAGING + UPSERT
-          Fixes a live bug. Independent of steps 1-2 in principle, but
-          cheaper after the rename.
+  STEP 3  IMPORT STAGING + UPSERT                     DONE 2026-09-08
+          Migration 38197be69f75.
+
+          THE BUG WAS MEASURED BEFORE IT WAS FIXED, and it was worse
+          than "duplicates". A throwaway probe ran the same file twice
+          and found create-only broke in TWO different ways:
+
+            with SKUs in the file -- every row collided with the unique
+            constraint on (supplier_profile_id, sku), so the second
+            import created 0 offers and returned one error per row
+            reading "SKU is already used by another product". A
+            supplier's correct weekly price file was rejected wholesale
+            and the message blamed them for their own data.
+
+            without SKUs -- silent duplicates. "Coca-Cola 2L" twice,
+            SKU-000001 and SKU-000002.
+
+          THE UPSERT KEY IS THE SUPPLIER'S OWN SKU, because it is the
+          only stable identity they control. A row whose SKU already
+          belongs to one of their offers updates that offer in place --
+          same row, same id, so orders, inventory, storefront sections
+          and pins all stay attached.
+
+          A ROW WITH NO SKU STILL CREATES, and that is recorded as an
+          honest limit rather than a gap. Nothing in a blank-SKU row
+          says WHICH existing offer it means; matching on name would be
+          a guess and a wrong guess overwrites a real price. The
+          supplier controls this by including their SKU column.
+
+          A REPEAT SKU INSIDE ONE FILE IS STILL AN ERROR. An existing
+          test caught this gap in the first implementation: two rows in
+          the same file sharing a SKU would have had the first create
+          and the second silently overwrite it, losing a line without
+          telling anyone. "This SKU exists from last week" and "this SKU
+          appears twice in the file I just sent" are different things
+          and only the first is an update.
+
+          import_rows records the outcome of EVERY row -- created,
+          updated or failed, with the offer it produced -- so the report
+          can name the lines that changed rather than only counting
+          them. It is also the seam the preview gate and API ingestion
+          land in later; neither exists yet and neither will need a
+          second staging concept.
+
+          THE FLOW DID NOT CHANGE. Still upload-then-process, no preview
+          gate, because that is a UI change and the mobile app is a
+          shipped client. The table is what makes the gate possible
+          later without another migration.
+
+          SECOND BUG FOUND AND FIXED: error_rows was frozen at the
+          parse-time figure and never counted rows that failed at SAVE
+          time, so a job could report 0 errors while its own report
+          listed two. Recounted at the end.
+
+          DELIBERATELY NOT DONE: FULL_CATALOGUE vs PARTIAL_UPDATE
+          deletion semantics. Deciding what a row's ABSENCE from this
+          week's file means needs a supplier-facing choice, and guessing
+          wrong silently deletes a catalogue. Its own step.
+
+          630 tests green (317 supplier + architecture + catalogue,
+          313 network) -- the 623 baseline plus these 7.
+
+          Verified on the dev database: import_rows columns match model
+          metadata exactly with all five BaseModel columns, both FKs
+          present with confdeltype 'n' on supplier_offer_id (SET NULL,
+          so deleting an offer never erases how it got there). Downgrade
+          and re-upgrade clean, 53 offers preserved.
 
   STEP 4  CONNECTION GATE REMOVAL
           The deletion pass. Own commit. Careful test pass.
