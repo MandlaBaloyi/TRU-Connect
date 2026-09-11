@@ -51,3 +51,5 @@ yarn-error.log*
 # ==========================
 .DS_Store
 Thumbs.db
+# Excel/Word lock files -- created while a document is open, never ours to commit
+~$*
