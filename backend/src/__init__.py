@@ -20,6 +20,12 @@ def create_app(env_name: str | None = None) -> Flask:
     _register_blueprints(app)
     _register_error_handlers(app)
 
+    # `flask catalogue reviews|accept|reject` -- working the match review
+    # queue until the admin control centre exists. See src/cli.
+    from src.cli import register_cli
+
+    register_cli(app)
+
     configure_logging(app)
     app.logger.info(
         "TRU Connect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
