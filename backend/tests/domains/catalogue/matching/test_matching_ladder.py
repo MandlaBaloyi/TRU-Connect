@@ -356,3 +356,76 @@ def test_a_barcode_with_nothing_to_contradict_it_still_auto_links(db_session):
     assert proposal.product_id == product.id
     assert proposal.contradicted is False
     assert proposal.decision is MatchDecision.AUTO_LINK
+
+
+# --- the evidence record ---------------------------------------------------
+#
+# `confidence` says how sure. `evidence` says on what grounds, and they
+# are different questions -- 0.94 from a barcode and 0.94 from a lucky
+# trigram look identical in one column and are not the same claim.
+
+
+def test_a_barcode_match_records_what_it_saw(db_session):
+    coke = BrandRepository.get_or_create("Coca-Cola", "cocacola")
+    _product(
+        "Coca-Cola Original 2L", gtin="6001108028044", brand_id=coke.id,
+        quantity=2, measure=ProductUnit.L,
+    )
+
+    proposal = matching_service.propose_match(
+        name="COKE 2LT", barcode="6001108028044", brand="Coca-Cola"
+    )
+
+    assert proposal.evidence["barcode_matched"] is True
+    assert proposal.evidence["brand_agrees"] is True
+    # 600-601 is GS1 South Africa -- recorded, never used to reject.
+    assert proposal.evidence["barcode_south_african"] is True
+
+
+def test_rules_tier_records_every_signal_behind_its_score(db_session):
+    """The tier whose confidence is COMPUTED rather than constant is the
+    one where the grounds matter most."""
+    _product("Coca-Cola Original 2L", quantity=2, measure=ProductUnit.L)
+
+    # NOT word-for-word -- an exact word set is tier 2 (NORMALISED) and
+    # never reaches the scoring tier at all. The extra word is what
+    # pushes it down to tier 3.
+    proposal = matching_service.propose_match(name="Coca-Cola Original Bottle 2L")
+
+    assert proposal.tier is MatchTier.RULES
+    ev = proposal.evidence
+    assert 0.0 <= ev["text_similarity"] <= 1.0
+    assert "brand_agrees" in ev and "pack_agrees" in ev
+    assert "words_contained" in ev
+
+
+def test_evidence_distinguishes_no_signal_from_disagreement(db_session):
+    """NULL INSIDE MEANS "NO SIGNAL", never "disagreed" -- the same
+    distinction _brand_agreement draws. A product with no brand is not a
+    product whose brand was wrong, and a training set that confuses the
+    two learns something false."""
+    _product("Building Sand 40kg")  # no brand, no barcode
+
+    # Again deliberately not word-for-word, so it reaches tier 3 where
+    # brand agreement is actually evaluated.
+    proposal = matching_service.propose_match(name="Building Sand 40kg bag")
+
+    assert proposal.evidence["brand_agrees"] is None, "absent, not disagreeing"
+
+
+def test_a_contradicted_barcode_records_the_disagreement(db_session):
+    """The row a reviewer will actually want to understand."""
+    coke = BrandRepository.get_or_create("Coca-Cola", "cocacola")
+    BrandRepository.get_or_create("Liqui Fruit", "liquifruit")
+    _product(
+        "Coca-Cola Original 2L", gtin="6001108028044", brand_id=coke.id,
+        quantity=2, measure=ProductUnit.L,
+    )
+
+    proposal = matching_service.propose_match(
+        name="Liqui Fruit Orange 2L", barcode="6001108028044", brand="Liqui Fruit"
+    )
+
+    assert proposal.contradicted is True
+    assert proposal.evidence["barcode_matched"] is True
+    assert proposal.evidence["brand_agrees"] is False, "the disagreement itself is the record"

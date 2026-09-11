@@ -122,6 +122,12 @@ def propose_match(
                     or f"Barcode {barcode} matches this product exactly."
                 ),
                 contradicted=contradiction is not None,
+                evidence={
+                    "barcode_matched": True,
+                    "barcode_south_african": gtin.is_south_african_prefix(barcode),
+                    "brand_agrees": _brand_agreement(row_brand, product),
+                    "pack_agrees": _pack_agreement(row_pack, product),
+                },
             )
 
     normalised = normalise.normalise_text(name)
@@ -137,6 +143,7 @@ def propose_match(
                 tier=MatchTier.ALIAS,
                 confidence=TIER_CONFIDENCE[MatchTier.ALIAS],
                 reason="This exact description has been matched to this product before.",
+                evidence={"alias_hit": True, "matching_key": key},
             )
 
     # --- tier 2: same words, any order ------------------------------------
@@ -148,6 +155,7 @@ def propose_match(
                 tier=MatchTier.NORMALISED,
                 confidence=TIER_CONFIDENCE[MatchTier.NORMALISED],
                 reason="The description matches this product word for word.",
+                evidence={"normalised_exact": True, "matching_key": key},
             )
 
     # --- tier 3: brand, pack and fuzzy text -------------------------------
@@ -160,11 +168,19 @@ def propose_match(
         normalised, limit=_CANDIDATE_LIMIT
     ):
         candidate_words = set((candidate.normalized_name or "").split(" "))
+        # Computed ONCE and used twice -- by the score, and by the
+        # evidence that explains it. Calling the agreement helpers again
+        # for the record would risk the stored evidence and the stored
+        # confidence disagreeing about the same candidate, which is
+        # exactly the thing this record exists to make impossible.
+        brand_agrees = _brand_agreement(row_brand, candidate)
+        pack_agrees = _pack_agreement(row_pack, candidate)
+        contained = bool(row_words) and row_words <= candidate_words
         confidence = score_rules_match(
             text_similarity=similarity,
-            brand_agrees=_brand_agreement(row_brand, candidate),
-            pack_agrees=_pack_agreement(row_pack, candidate),
-            row_words_all_present=bool(row_words) and row_words <= candidate_words,
+            brand_agrees=brand_agrees,
+            pack_agrees=pack_agrees,
+            row_words_all_present=contained,
         )
         scored.append(
             MatchProposal(
@@ -172,6 +188,13 @@ def propose_match(
                 tier=MatchTier.RULES,
                 confidence=confidence,
                 reason=_explain(similarity, row_brand, row_pack, candidate),
+                evidence={
+                    "text_similarity": round(float(similarity), 4),
+                    "brand_agrees": brand_agrees,
+                    "pack_agrees": pack_agrees,
+                    "words_contained": contained,
+                    "candidates_considered": len(scored) + 1,
+                },
             )
         )
 

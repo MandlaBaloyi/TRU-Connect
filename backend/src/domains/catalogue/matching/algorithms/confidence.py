@@ -27,7 +27,7 @@ misinformation with TRU Connect's name on it.
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 from uuid import UUID
 
@@ -131,6 +131,13 @@ class MatchProposal:
     #: confidence would have been wrong twice over: it would hide why,
     #: and tier 0's confidence is a constant 1.0 with nothing to lower.
     contradicted: bool = False
+
+    #: THE SIGNALS BEHIND THE NUMBER. Every tier records what it
+    #: actually observed; nothing is invented to fill a slot. A missing
+    #: key means "this tier had no such signal", which is not the same
+    #: as a zero -- see MatchReview.evidence for the full argument and
+    #: for why it is stored as JSONB rather than a column per signal.
+    evidence: dict = field(default_factory=dict)
 
     @property
     def decision(self) -> MatchDecision:

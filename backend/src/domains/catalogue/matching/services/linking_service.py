@@ -110,6 +110,7 @@ def match_and_link(
             confidence=proposal.confidence,
             reason=proposal.reason,
             status=ReviewStatus.PENDING,
+            evidence=proposal.evidence,
         )
         # The offer stays UNMATCHED while it waits. That is deliberate:
         # applying a proposal nobody confirmed would defeat the point of
@@ -132,6 +133,7 @@ def _apply_link(supplier_offer, proposal: MatchProposal, name: str, barcode: Opt
         confidence=proposal.confidence,
         reason=proposal.reason,
         status=ReviewStatus.AUTO_APPLIED,
+        evidence=proposal.evidence,
     )
 
     # AN ALIAS IS ONLY LEARNED FROM A BARCODE, never from fuzzy text.
@@ -216,6 +218,12 @@ def _create_and_link(
         confidence=proposal.confidence,
         reason="No existing product matched, so this one was added to the catalogue.",
         status=ReviewStatus.AUTO_APPLIED,
+        # The evidence of what was CONSIDERED and rejected is the useful
+        # part of a CREATE_NEW: "nothing matched" is only trustworthy if
+        # you can see what was weighed. A row with no candidates at all
+        # and a row whose best candidate scored 0.71 are very different
+        # stories about the same outcome.
+        evidence=proposal.evidence,
     )
 
     if barcode:

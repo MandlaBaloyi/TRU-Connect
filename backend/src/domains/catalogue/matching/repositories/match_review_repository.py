@@ -21,6 +21,8 @@ class MatchReviewRepository:
         confidence: float,
         reason: str,
         status: ReviewStatus,
+        evidence: Optional[dict] = None,
+        decided_by_source: str = "SYSTEM",
     ) -> MatchReview:
         """NOT committed here -- the caller batches, the same way
         ImportJobRepository.add_row does, because a 10,000-row file must
@@ -33,6 +35,12 @@ class MatchReviewRepository:
             confidence=round(float(confidence), 3),
             reason=(reason or "")[:300],
             status=status,
+            # `or {}` rather than a mutable default, and never None: the
+            # column is NOT NULL so that "no evidence recorded" and "an
+            # older row from before evidence existed" are the same empty
+            # object rather than two different absences to handle.
+            evidence=evidence or {},
+            decided_by_source=decided_by_source,
         )
         db.session.add(review)
         return review

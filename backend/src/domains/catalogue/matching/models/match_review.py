@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from src.core.base_model import BaseModel
 from src.extensions import db
@@ -105,3 +105,53 @@ class MatchReview(BaseModel):
         UUID(as_uuid=True), db.ForeignKey("auth.users.id"), nullable=True
     )
     decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    #: EVERY SIGNAL THAT PRODUCED THE CONFIDENCE, not just the number.
+    #:
+    #: `confidence` answers "how sure". This answers "on what grounds",
+    #: and they are different questions. 0.94 from a barcode and 0.94
+    #: from a lucky trigram score look identical in one column and are
+    #: not remotely the same claim.
+    #:
+    #: THREE THINGS THIS PAYS FOR:
+    #:
+    #:   DEBUGGING. "Why is this supplier's juice linked to Coca-Cola"
+    #:   gets a real answer instead of a shrug.
+    #:
+    #:   DISPUTES. A supplier challenging a match is owed the reasoning
+    #:   -- already promised in V2_00: "so a disputed match can be
+    #:   explained". A sentence is a courtesy; the numbers behind it are
+    #:   the evidence.
+    #:
+    #:   THE TRAINING SET. Every reviewed row is a labelled example on a
+    #:   genuinely hard case -- hard by construction, because the easy
+    #:   ones never reached a human. Recording the features AT DECISION
+    #:   TIME is the difference between having a dataset in a year and
+    #:   wishing the columns had been there. They cannot be recovered
+    #:   afterwards: the catalogue will have changed.
+    #:
+    #: JSONB RATHER THAN A COLUMN PER SIGNAL, deliberately. The signal
+    #: set is not stable -- category agreement, image attributes and an
+    #: external GTIN lookup are all planned (V2_11) and none exist yet.
+    #: A column each would mean a migration per signal and a table full
+    #: of nulls for the ones a given tier cannot produce. A tier records
+    #: what it actually observed and nothing else.
+    #:
+    #: NULL INSIDE MEANS "NO SIGNAL", never "disagreed" -- the same
+    #: distinction _brand_agreement draws, for the same reason. A
+    #: product with no brand is not a product whose brand was wrong.
+    evidence = db.Column(JSONB, nullable=False, default=dict, server_default="{}")
+
+    #: WHO OR WHAT DECIDED. A stable column rather than a key in
+    #: `evidence`, because an audit must be able to separate "a person
+    #: said so" from "a model said so" without parsing JSON -- and
+    #: because the day a model's judgements are used as training labels,
+    #: distinguishing them from human ones is the difference between a
+    #: dataset and a rumour.
+    #:
+    #: SYSTEM  the deterministic ladder (tiers 0-3). The default today.
+    #: HUMAN   a reviewer.
+    #: MODEL   the paid tier, when it exists. Never built yet.
+    decided_by_source = db.Column(
+        db.String(10), nullable=False, default="SYSTEM", server_default="SYSTEM"
+    )
