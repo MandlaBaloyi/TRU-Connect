@@ -103,40 +103,67 @@ class TestTransactionalEmails:
         assert message["to"] == user.email
         assert "live" in message["subject"].lower()
 
-    def test_revocation_never_leaks_the_internal_reason(
+    def test_revocation_sends_NOTHING(
         self, app, db_session, mailbox, make_supplier, make_supplier_profile, make_admin_user
     ):
-        """THE MOST IMPORTANT TEST IN THIS FILE. The reason is an
-        internal note. If it reaches the body, we have emailed somebody
-        our private assessment of them."""
-        user = make_supplier("live@example.com")
-        make_supplier_profile(user, business_name="Live Traders")
-        secret = "documents appear altered, watching this account"
+        """DELIBERATE, and previously the opposite.
 
-        verification_service.revoke(
-            user.id, decided_by_user_id=str(make_admin_user().id), reason=secret
-        )
+        A revocation email was built and then removed. The supplier
+        already sees the state in Settings the moment they look, and an
+        unsolicited email about a decision whose real reason we will not
+        put in writing invites a reply nobody can answer honestly in a
+        template.
 
-        assert len(mailbox.sent_emails) == 1
-        body = mailbox.sent_emails[0]["html_body"]
-        assert secret not in body
-        assert "altered" not in body
-        assert "watching" not in body
-
-    def test_revocation_says_their_work_is_safe(
-        self, app, db_session, mailbox, make_supplier, make_supplier_profile, make_admin_user
-    ):
-        """A supplier whose shop goes dark assumes the worst. The email
-        has to say the catalogue still exists."""
+        This test exists so that decision cannot be silently reversed by
+        somebody who assumes the missing email is an oversight. If you
+        are deliberately adding one, delete this test and say why in the
+        commit.
+        """
         user = make_supplier("live@example.com")
         make_supplier_profile(user, business_name="Live Traders")
 
         verification_service.revoke(
-            user.id, decided_by_user_id=str(make_admin_user().id), reason="internal note"
+            user.id,
+            decided_by_user_id=str(make_admin_user().id),
+            reason="documents appear altered, watching this account",
         )
 
-        body = mailbox.sent_emails[0]["html_body"].lower()
-        assert "deleted" in body or "as you left them" in body
+        assert mailbox.sent_emails == []
+
+    def test_the_revocation_is_recorded_where_a_regulator_would_look(
+        self, app, db_session, mailbox, make_supplier, make_supplier_profile, make_admin_user
+    ):
+        """NOT SENDING AN EMAIL IS NOT THE SAME AS NOT RECORDING IT.
+
+        "Why was this supplier removed, by whom, and when" has to be
+        answerable years later. The audit row is where that lives, and
+        it carries the FROM status as well as the TO -- "became
+        unverified" and "was never verified" are different facts, and
+        only the first one is what the question is about.
+        """
+        from src.extensions import db as _db
+
+        user = make_supplier("live@example.com")
+        make_supplier_profile(user, business_name="Live Traders")
+        staff = make_admin_user()
+
+        verification_service.revoke(
+            user.id, decided_by_user_id=str(staff.id), reason="Documents expired."
+        )
+
+        row = _db.session.execute(
+            _db.text(
+                "SELECT user_id, metadata FROM security.audit_events "
+                "WHERE event_name = 'verification.supplier_revoked' "
+                "ORDER BY timestamp DESC LIMIT 1"
+            )
+        ).fetchone()
+
+        assert row is not None, "a revocation left no audit trail"
+        assert str(row[0]) == str(staff.id)
+        assert row[1]["reason"] == "Documents expired."
+        assert row[1]["from_status"] == "verified"
+        assert row[1]["to_status"] == "unverified"
 
 
 class TestTheLadder:

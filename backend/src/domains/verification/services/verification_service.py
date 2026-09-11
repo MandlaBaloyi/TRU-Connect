@@ -82,6 +82,7 @@ def approve(supplier_id, *, decided_by_user_id: str, reason: str) -> SupplierPro
         raise ValidationError("Say why this supplier was approved — the record is the point.")
 
     profile = _get_profile(supplier_id)
+    was = profile.verification_status
     profile.verification_status = SupplierVerificationStatus.VERIFIED
     # CLEAN SLATE, so that if this supplier is ever revoked later the
     # ladder starts from that moment rather than from an account
@@ -90,8 +91,10 @@ def approve(supplier_id, *, decided_by_user_id: str, reason: str) -> SupplierPro
     profile.verification_reminder_stage = 0
     profile.verification_reminder_sent_at = None
     db.session.commit()
-    _record(profile, VerificationAuditEvent.SUPPLIER_APPROVED, decided_by_user_id, reason)
-    _notify(profile, "approved")
+    _record(
+        profile, VerificationAuditEvent.SUPPLIER_APPROVED, decided_by_user_id, reason, was=was
+    )
+    _notify_approved(profile)
     return profile
 
 
@@ -115,19 +118,39 @@ def revoke(supplier_id, *, decided_by_user_id: str, reason: str) -> SupplierProf
         raise ValidationError("Say why this supplier's verification was revoked.")
 
     profile = _get_profile(supplier_id)
+    was = profile.verification_status
     profile.verification_status = SupplierVerificationStatus.UNVERIFIED
     # THE LADDER'S CLOCK RESTARTS HERE, not at account creation. Both
     # fields together mean "nothing sent yet, and the wait began now".
     profile.verification_reminder_stage = 0
     profile.verification_reminder_sent_at = utcnow()
     db.session.commit()
-    _record(profile, VerificationAuditEvent.SUPPLIER_REVOKED, decided_by_user_id, reason)
-    # THE REASON IS NOT PASSED, deliberately -- see _notify.
-    _notify(profile, "hidden")
+    _record(
+        profile, VerificationAuditEvent.SUPPLIER_REVOKED, decided_by_user_id, reason, was=was
+    )
+
+    # NO EMAIL IS SENT ON REVOCATION, and this is a decision rather than
+    # an omission -- one that was made, reversed, and is worth writing
+    # down so nobody "fixes" it later.
+    #
+    # A revocation email was built and then removed. The case for it was
+    # that a supplier whose shop goes dark with no explanation concludes
+    # the platform is broken. The case against, which won: the supplier
+    # is NOT actually in the dark -- Settings -> Supplier visibility
+    # shows "your shop is ready, buyers cannot see it yet" the moment
+    # they look -- and an unsolicited email about a decision we made,
+    # whose real reason we will not put in writing, invites a reply we
+    # cannot answer honestly in a template.
+    #
+    # THE RECORD IS THE AUDIT TRAIL, not the inbox. _record above keeps
+    # who decided, when, why, and the status it moved from -- which is
+    # what a regulator asking "why was this supplier removed" actually
+    # needs, and it survives long after any email would have been
+    # deleted.
     return profile
 
 
-def _record(profile, event, decided_by_user_id: Optional[str], reason: str) -> None:
+def _record(profile, event, decided_by_user_id: Optional[str], reason: str, was=None) -> None:
     """Write the decision to the audit trail.
 
     NEVER RAISES. The decision is already committed above; an audit
@@ -158,6 +181,18 @@ def _record(profile, event, decided_by_user_id: Optional[str], reason: str) -> N
                     "business_name": profile.business_name,
                     "reason": reason,
                     "source": "CLI",
+                    # THE TRANSITION, NOT JUST THE DESTINATION. "Became
+                    # unverified" and "was never verified" are different
+                    # facts, and a regulator asking why a supplier was
+                    # removed is asking about the first one. Recording
+                    # only the new status would lose that distinction
+                    # permanently.
+                    "from_status": was.value if was is not None else None,
+                    "to_status": (
+                        profile.verification_status.value
+                        if profile.verification_status is not None
+                        else None
+                    ),
                 },
             )
         )
@@ -165,8 +200,8 @@ def _record(profile, event, decided_by_user_id: Optional[str], reason: str) -> N
         pass
 
 
-def _notify(profile, kind: str) -> None:
-    """Tell the supplier what just happened to their shop.
+def _notify_approved(profile) -> None:
+    """Tell the supplier their shop is live.
 
     NEVER RAISES, for the same reason _record does not: the decision is
     already committed. An unreachable mail server must not turn a
@@ -174,12 +209,10 @@ def _notify(profile, kind: str) -> None:
     failure, and EmailService.send_template swallows its own errors
     anyway -- this guard covers the lookup and rendering around it.
 
-    THE INTERNAL REASON IS NOT AN ARGUMENT TO THIS FUNCTION, and that
-    is the point rather than an omission. A revocation reason is
-    written for us and may say "documents appear altered"; passing it
-    here would put it one interpolation away from the inbox of the
-    person it describes. The audit trail keeps it; the supplier gets a
-    support address.
+    APPROVAL ONLY. Revocation deliberately sends nothing -- see
+    revoke() for that reasoning. This function takes no reason
+    argument at all, so the internal note recorded against a decision
+    cannot reach an inbox even by accident.
     """
     try:
         from src.domains.auth.repositories.user_repository import UserRepository
@@ -190,15 +223,14 @@ def _notify(profile, kind: str) -> None:
         if user is None or not user.email:
             return
 
-        builder = verification_emails.approved if kind == "approved" else verification_emails.hidden
-        template_name, subject, context = builder(user, profile)
+        template_name, subject, context = verification_emails.approved(user, profile)
         EmailService.send_template(
             to=user.email, template_name=template_name, subject=subject, context=context
         )
     except Exception:  # noqa: BLE001
         from flask import current_app
 
-        current_app.logger.exception("verification: failed to send '%s' email", kind)
+        current_app.logger.exception("verification: failed to send the approval email")
 
 
 def list_by_status(status: Optional[SupplierVerificationStatus] = None, limit: int = 50):

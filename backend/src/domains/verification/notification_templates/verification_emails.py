@@ -56,7 +56,7 @@ def approved(user, profile) -> tuple[str, str, dict]:
     """
     return (
         "supplier/verification_approved.html",
-        f"{profile.business_name or 'Your shop'} is now live on TRU Connect",
+        f"{profile.business_name or 'Your shop'} is now live on TruConnect",
         {
             "owner_name": _greeting_name(user, profile),
             "business_name": profile.business_name or "Your shop",
@@ -65,24 +65,13 @@ def approved(user, profile) -> tuple[str, str, dict]:
     )
 
 
-def hidden(user, profile) -> tuple[str, str, dict]:
-    """(template, subject, context) for a revocation.
-
-    SENT EVEN THOUGH IT IS UNWELCOME. A supplier whose shop goes dark
-    with no explanation concludes the platform is broken and keeps
-    building into a void. Being told is worse news and better
-    treatment.
-    """
-    return (
-        "supplier/verification_hidden.html",
-        f"{profile.business_name or 'Your shop'} is not visible on TRU Connect",
-        {
-            "owner_name": _greeting_name(user, profile),
-            "business_name": profile.business_name or "Your shop",
-            "support_email": _support_email(),
-            "decided_on": _today(),
-        },
-    )
+# NO REVOCATION EMAIL EXISTS, and it is absent on purpose rather than
+# unwritten. One was built and removed: the supplier already sees the
+# state in Settings -> Supplier visibility the moment they look, and an
+# unsolicited email about a decision whose real reason we will not put
+# in writing invites a reply nobody can answer honestly in a template.
+# The record lives in the audit trail instead -- see
+# verification_service.revoke, which explains the full reasoning.
 
 
 #: The reminder ladder, by stage. THREE RUNGS AND THEN SILENCE -- a
