@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { SwitchCard } from "@/components/lists/CardListUI";
 import { OptionCardList } from "@/features/dashboard/shared/settings/components/OptionPickerScreen";
 import { useSupplierProfileField } from "@/features/dashboard/supplier/my-account/hooks/useSupplierProfileField";
+import { VerificationStatusCard } from "@/features/dashboard/supplier/verification/components/VerificationStatusCard";
 import { TrackRecordPanel } from "@/features/dashboard/supplier/my-account/components/TrackRecordPanel";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -106,6 +107,19 @@ function VisibilityForm({
   return (
     <ScreenContainer hasNativeHeader paddingHorizontal={0}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ---- CAN ANYONE SEE YOU AT ALL ----
+            FIRST, because it overrides everything below it. Every other
+            control on this screen answers "who can see this?", and
+            while verification is pending the honest answer to all of
+            them is NOBODY -- so a supplier setting their photo to
+            "Everyone" should read why that currently changes nothing
+            BEFORE they set it, not after. Not a control: this one is
+            decided by us, which is exactly why it is the only thing
+            here with no switch. */}
+        <View style={styles.body}>
+          <VerificationStatusCard />
+        </View>
+
         {/* ---- PHOTO ----
             Three states, not a switch: "everyone" and "connections
             only" are both real, sensible answers and a boolean cannot
