@@ -19,7 +19,10 @@ import type {
   DisplayNameInput,
 } from "../types";
 
-const latency = () => new Promise<void>((resolve) => setTimeout(resolve, 300));
+// Callers pass a duration for operations that should feel slower or
+// snappier than the default; it was declared with no parameter at
+// all, so every one of those calls failed typecheck.
+const latency = (ms = 300) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const USE_MOCK: boolean = process.env.EXPO_PUBLIC_USE_MOCK_API !== "false";
 
 // --- Contact details --------------------------------------------------

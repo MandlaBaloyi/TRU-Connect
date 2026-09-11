@@ -1,11 +1,14 @@
 import React from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
+import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { useTheme } from "react-native-paper";
 import { radius, spacing } from "@/theme/spacing";
 
 interface AppCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  // StyleProp<ViewStyle>, not ViewStyle: callers pass the ordinary
+  // [base, condition && override] array, which a bare ViewStyle
+  // rejects. The component already spreads it into a style array.
+  style?: StyleProp<ViewStyle>;
   selected?: boolean;
 }
 

@@ -39,7 +39,10 @@ import type {
   PaymentMethod,
 } from "../types";
 
-const latency = () => new Promise<void>((resolve) => setTimeout(resolve, 300));
+// Callers pass a duration for operations that should feel slower or
+// snappier than the default; it was declared with no parameter at
+// all, so every one of those calls failed typecheck.
+const latency = (ms = 300) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
