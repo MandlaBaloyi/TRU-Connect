@@ -116,9 +116,25 @@ class MatchProposal:
     #: away and left a reviewer wondering why a strong match was queued.
     ambiguous: bool = False
 
+    #: THE EVIDENCE ACTIVELY DISAGREES WITH THE IDENTIFIER. Kept apart
+    #: from `ambiguous` for the same reason `ambiguous` was kept apart
+    #: from the confidence: they are different facts about the world.
+    #:
+    #:   ambiguous    "two products fit equally well"
+    #:   contradicted "one product was named exactly, and everything
+    #:                 else about the row says it is not that product"
+    #:
+    #: The second is what a mistyped or mis-entered barcode looks like.
+    #: A GTIN is an exact identifier, so a barcode hit whose brand or
+    #: pack size DISAGREES is not a weak match -- it is evidence that
+    #: the barcode is on the wrong product. Folding that into the
+    #: confidence would have been wrong twice over: it would hide why,
+    #: and tier 0's confidence is a constant 1.0 with nothing to lower.
+    contradicted: bool = False
+
     @property
     def decision(self) -> MatchDecision:
-        if self.ambiguous:
+        if self.ambiguous or self.contradicted:
             # Confident but contested is exactly what the review band is
             # for. Auto-linking here is how "Coca-Cola 2L" ends up
             # attached to Coca-Cola Zero.

@@ -289,8 +289,32 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         # "matches this product exactly". See algorithms/gtin.py for
         # the full argument; that is the worst link this system can
         # produce and the check digit catches every single-digit slip.
-        if gtin.is_valid_gtin(digits):
+        if gtin.is_catalogue_usable(digits):
             barcode = digits
+        elif gtin.is_restricted_circulation(digits):
+            # AN IN-STORE CODE, NOT A GLOBAL BARCODE. Prefixes 020-029,
+            # 040-049 and 200-299 are restricted circulation -- numbers a
+            # shop assigns itself for weighed produce and deli goods.
+            # The check digit is sound; the number is only unique inside
+            # that one shop, so it cannot identify a shared catalogue
+            # product. Worth explaining rather than rejecting silently,
+            # because the supplier did nothing wrong: they scanned the
+            # label that was on the shelf.
+            warnings.append(
+                RowError(
+                    "barcode",
+                    f'"{barcode_raw}" is an in-store barcode, not a global one, so it cannot '
+                    "be used to identify the product. The row was imported without it.",
+                )
+            )
+        elif gtin.is_non_product(digits):
+            warnings.append(
+                RowError(
+                    "barcode",
+                    f'"{barcode_raw}" is a book, coupon or receipt barcode rather than a '
+                    "product one. The row was imported without it.",
+                )
+            )
         elif len(digits) in gtin.VALID_GTIN_LENGTHS:
             # Right shape, wrong checksum -- almost certainly a typo,
             # and worth saying so precisely rather than as a length

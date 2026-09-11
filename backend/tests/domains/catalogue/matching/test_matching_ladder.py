@@ -261,3 +261,98 @@ def test_the_paid_tier_is_off_by_default(monkeypatch):
 
     monkeypatch.delenv("MATCHING_MODE", raising=False)
     assert matching_config.use_ai_tier() is False
+
+
+# --- tier 0: the barcode consistency check ---------------------------------
+#
+# A GTIN names exactly one trade item, so tier 0 returns 1.0 and the
+# words "matches this product exactly". That is what makes a WRONG
+# barcode dangerous rather than merely unhelpful: it is not a near miss,
+# it is a confident link to a different real product that nobody
+# reviews. See _barcode_contradiction for why only the STRUCTURED
+# signals are used and why text was measured and rejected.
+
+
+def test_a_barcode_whose_pack_size_disagrees_goes_to_review(db_session):
+    """THE CASE THAT COSTS REAL MONEY. "Coke 2L" and "Coke 500ml" read
+    almost identically as text; linking them puts a per-unit price on a
+    card that is out by a factor of four."""
+    from src.domains.catalogue.matching.algorithms.pack_size import PackSize
+
+    product = _product(
+        "Coca-Cola Original 2L", gtin="5449000054227", quantity=2, measure=ProductUnit.L
+    )
+
+    proposal = matching_service.propose_match(
+        name="Coca-Cola Original 500ml",
+        barcode="5449000054227",
+        # UPPERCASE, matching ProductUnit's name==value convention -- it is
+        # what every real caller passes (linking_service sends
+        # unit_measure.value), and _BASE_FACTORS is keyed that way.
+        pack=PackSize(unit_quantity=500, unit_measure="ML"),
+    )
+
+    assert proposal.product_id == product.id, "the barcode still identifies a candidate"
+    assert proposal.contradicted is True
+    assert proposal.decision is MatchDecision.REVIEW, "must NOT auto-link"
+    assert "pack size" in proposal.reason
+
+
+def test_a_barcode_whose_brand_disagrees_goes_to_review(db_session):
+    """A supplier typing the cooldrink's barcode onto a juice. The
+    number is valid; it is on the wrong product."""
+    coke = BrandRepository.get_or_create("Coca-Cola", "cocacola")
+    BrandRepository.get_or_create("Liqui Fruit", "liquifruit")
+    product = _product(
+        "Coca-Cola Original 2L", gtin="5449000054227", brand_id=coke.id,
+        quantity=2, measure=ProductUnit.L,
+    )
+
+    proposal = matching_service.propose_match(
+        name="Liqui Fruit Orange 2L",
+        barcode="5449000054227",
+        brand="Liqui Fruit",
+    )
+
+    assert proposal.product_id == product.id
+    assert proposal.contradicted is True
+    assert proposal.decision is MatchDecision.REVIEW
+    assert "brand" in proposal.reason
+
+
+def test_a_barcode_with_agreeing_evidence_still_auto_links(db_session):
+    """The check must not cost the 99% anything."""
+    from src.domains.catalogue.matching.algorithms.pack_size import PackSize
+
+    coke = BrandRepository.get_or_create("Coca-Cola", "cocacola")
+    product = _product(
+        "Coca-Cola Original 2L", gtin="5449000054227", brand_id=coke.id,
+        quantity=2, measure=ProductUnit.L,
+    )
+
+    proposal = matching_service.propose_match(
+        name="COKE 2LT PET",
+        barcode="5449000054227",
+        brand="Coca-Cola",
+        pack=PackSize(unit_quantity=2, unit_measure="L"),
+    )
+
+    assert proposal.product_id == product.id
+    assert proposal.contradicted is False
+    assert proposal.decision is MatchDecision.AUTO_LINK
+
+
+def test_a_barcode_with_nothing_to_contradict_it_still_auto_links(db_session):
+    """NONE IS NOT DISAGREEMENT. A row with no brand column and no
+    parseable pack size says nothing against the barcode, and a barcode
+    with nothing against it is still the best identifier there is."""
+    product = _product("Coca-Cola Original 2L", gtin="5449000054227")
+
+    proposal = matching_service.propose_match(
+        name="SOMETHING COMPLETELY UNLIKE THE CATALOGUE NAME",
+        barcode="5449000054227",
+    )
+
+    assert proposal.product_id == product.id
+    assert proposal.contradicted is False
+    assert proposal.decision is MatchDecision.AUTO_LINK

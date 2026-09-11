@@ -95,3 +95,69 @@ def test_normalise_returns_none_rather_than_a_bad_barcode():
     assert gtin.normalise_gtin("6001068668212") == "6001068668212"
     assert gtin.normalise_gtin("6001068668213") is None
     assert gtin.normalise_gtin(None) is None
+
+
+# ---------------------------------------------------------------------
+# GS1 PREFIX CLASSIFICATION
+# ---------------------------------------------------------------------
+
+def test_restricted_circulation_codes_are_not_catalogue_usable():
+    """THE CATALOGUE-INTEGRITY CASE, and it is not a matching bug.
+
+    Prefixes 020-029, 040-049 and 200-299 are restricted circulation:
+    numbers a shop assigns for its OWN use on weighed produce and deli
+    goods. They have valid check digits and they are NOT globally
+    unique -- two shops can each label something 2000001.
+
+    Product.gtin is UNIQUE. Admit one of these and the second shop's
+    completely different product silently links to the first shop's,
+    at tier 0, at confidence 1.0.
+    """
+    for body in ("200000100000", "020000100000", "045000100000"):
+        code = body + str(gtin.check_digit(body))
+        assert gtin.is_valid_gtin(code), f"{code} should be arithmetically sound"
+        assert gtin.is_restricted_circulation(code), code
+        assert not gtin.is_catalogue_usable(code), f"{code} must never identify a product"
+
+
+def test_books_and_coupons_are_not_trade_items():
+    """978/979 are ISBNs, 977 is ISSN, 981-983 and 990-999 are coupons,
+    980 is a refund receipt. None of them is a thing a spaza sells."""
+    assert gtin.is_valid_gtin("9780306406157")
+    assert gtin.is_non_product("9780306406157")
+    assert not gtin.is_catalogue_usable("9780306406157")
+
+
+def test_real_products_remain_usable():
+    """The classification must not cost the ordinary case anything."""
+    for code in ("6001108028044", "5449000054227"):
+        assert gtin.is_catalogue_usable(code), code
+        assert not gtin.is_restricted_circulation(code)
+        assert not gtin.is_non_product(code)
+
+
+def test_south_african_prefixes_are_recognised():
+    """600-601 is GS1 South Africa. Informational only -- imported
+    stock is completely normal, so this never rejects anything."""
+    assert gtin.is_south_african_prefix("6001108028044")      # Savanna, SA
+    assert not gtin.is_south_african_prefix("5449000054227")  # Coke, BE
+    # And being foreign is not a reason to refuse it.
+    assert gtin.is_catalogue_usable("5449000054227")
+
+
+def test_gtin_14_prefix_skips_the_packaging_indicator():
+    """A GTIN-14 prepends a packaging indicator digit that is NOT part
+    of the GS1 prefix. Reading it would shift every range by one and
+    misclassify almost everything."""
+    body = "1" + "600110802804"          # indicator 1 + an SA GTIN-13 body
+    code = body + str(gtin.check_digit(body))
+    assert gtin.is_valid_gtin(code)
+    assert gtin.is_south_african_prefix(code), "600 must still be seen through the indicator"
+
+
+def test_upc_a_is_treated_as_a_13_digit_code_with_a_leading_zero():
+    """GTIN-12 is a GTIN-13 whose leading zero is implied. Without that,
+    a US UPC would read as prefix '012' rather than '001'."""
+    assert gtin.is_valid_gtin("012000161155")
+    assert gtin.is_catalogue_usable("012000161155")
+    assert not gtin.is_restricted_circulation("012000161155")

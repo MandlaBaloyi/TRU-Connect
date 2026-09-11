@@ -26,7 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from src.domains.catalogue.matching.algorithms import normalise
+from src.domains.catalogue.matching.algorithms import gtin, normalise
 from src.domains.catalogue.matching.algorithms.confidence import (
     MatchDecision,
     MatchProposal,
@@ -183,7 +183,27 @@ def _create_and_link(
         # A barcode carried in only when it matched NOTHING -- otherwise
         # tier 0 would have found it. So it is safe to claim here, and
         # the unique constraint is the backstop if it is not.
-        gtin=barcode or None,
+        #
+        # is_catalogue_usable, NOT just "is it truthy". THIS IS THE LINE
+        # THAT WRITES A BARCODE INTO THE SHARED CATALOGUE, which makes
+        # it the one place a bad one does permanent damage. Two ways it
+        # could:
+        #
+        #   A RESTRICTED-CIRCULATION CODE (prefix 020-029, 040-049,
+        #   200-299) is unique only inside one shop. Written here, the
+        #   NEXT shop's completely different product carrying the same
+        #   in-store number matches it at tier 0 with confidence 1.0.
+        #   The unique constraint does not save us -- it is what makes
+        #   the collision silent, because the second row never gets
+        #   written and simply links to the first shop's product.
+        #
+        #   A FAILED CHECK DIGIT would claim a number that is not a
+        #   GTIN at all, and reserve it against the real one.
+        #
+        # Dropping it costs this product nothing: it still exists, still
+        # matches on text, and gains a barcode the day a supplier sends
+        # a sound one.
+        gtin=gtin.normalise_gtin(barcode) if gtin.is_catalogue_usable(barcode) else None,
     )
 
     supplier_offer.product_id = product.id

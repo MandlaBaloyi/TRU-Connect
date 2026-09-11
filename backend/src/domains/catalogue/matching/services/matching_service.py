@@ -81,26 +81,47 @@ def propose_match(
             reason="Matching is switched off.",
         )
 
+    # The row's own evidence, resolved ONCE. Tier 0's consistency check
+    # and tier 3's scoring both need the same two facts.
+    row_pack = pack if pack is not None and not pack.is_empty else extract_pack_size(name)
+    row_brand = BrandRepository.resolve(normalise.brand_slug(brand)) if brand else None
+
     # --- tier 0: barcode ---------------------------------------------------
     #
-    # THE CHECK DIGIT IS THE GATE, not the presence of a string. This
-    # tier returns confidence 1.0 and the words "matches this product
-    # exactly", so it must only ever run on a barcode that is
-    # arithmetically sound. A mistyped GTIN is not a near-miss -- it is
-    # frequently a DIFFERENT REAL PRODUCT, because barcodes are densely
-    # allocated within a manufacturer's range. See algorithms/gtin.py.
+    # THREE GATES, NOT ONE, because this tier returns confidence 1.0 and
+    # the words "matches this product exactly". Everything here exists to
+    # make sure that sentence is true when it is said.
     #
-    # Import already rejects bad check digits, but this is the second
-    # of the two doors into matching (the API is the other) and a rule
-    # enforced at only one entrance is not enforced.
-    if gtin.is_valid_gtin(barcode):
+    #   1. is_catalogue_usable -- sound check digit, a real GTIN length,
+    #      AND globally unique. A restricted-circulation code (an
+    #      in-store number for weighed produce, prefix 020-029 / 040-049
+    #      / 200-299) has a perfect check digit and is unique only
+    #      inside one shop; looking one up matches another shop's
+    #      unrelated product.
+    #
+    #   2. the lookup itself.
+    #
+    #   3. _barcode_contradiction -- the row's own brand and pack size
+    #      must not ARGUE AGAINST the product the barcode named. A valid
+    #      barcode on the wrong product is the one error the first two
+    #      gates cannot see.
+    #
+    # Import validates too, but this is the second of the two doors into
+    # matching (the API is the other) and a rule enforced at only one
+    # entrance is not enforced.
+    if gtin.is_catalogue_usable(barcode):
         product = CatalogueProductRepository.get_by_gtin(barcode)
         if product:
+            contradiction = _barcode_contradiction(row_brand, row_pack, product)
             return MatchProposal(
                 product_id=product.id,
                 tier=MatchTier.BARCODE,
                 confidence=TIER_CONFIDENCE[MatchTier.BARCODE],
-                reason=f"Barcode {barcode} matches this product exactly.",
+                reason=(
+                    contradiction
+                    or f"Barcode {barcode} matches this product exactly."
+                ),
+                contradicted=contradiction is not None,
             )
 
     normalised = normalise.normalise_text(name)
@@ -130,9 +151,8 @@ def propose_match(
             )
 
     # --- tier 3: brand, pack and fuzzy text -------------------------------
-    row_pack = pack if pack is not None and not pack.is_empty else extract_pack_size(name)
-    row_brand = BrandRepository.resolve(normalise.brand_slug(brand)) if brand else None
-
+    # row_pack and row_brand were resolved above, before tier 0, because
+    # the barcode consistency check needs the same two facts.
     row_words = set(normalised.split(" ")) if normalised else set()
 
     scored: List[MatchProposal] = []
@@ -185,6 +205,62 @@ def propose_match(
         confidence=0.0,
         reason="No catalogue product resembles this description.",
     )
+
+
+def _barcode_contradiction(row_brand, row_pack: PackSize, candidate: Product) -> Optional[str]:
+    """Does the row's own evidence ARGUE AGAINST the barcode's answer?
+
+    Returns the reason when it does, None when it does not.
+
+    WHY THIS EXISTS. A GTIN names exactly one trade item, so tier 0
+    returns confidence 1.0 and the words "matches this product exactly"
+    -- and that is precisely what makes a WRONG barcode dangerous. It is
+    not a near miss. A supplier who types a cooldrink's barcode onto a
+    juice, or slips one digit onto another live code, gets a confident
+    link to a different real product that no one reviews, because tier 0
+    is the tier nobody questions.
+
+    ONLY THE STRUCTURED SIGNALS ARE USED, AND THAT WAS MEASURED RATHER
+    THAN ASSUMED. Text similarity was the obvious candidate and it does
+    not work here. Measured on real rewordings against real mismatches:
+
+        COKE 2LT PET          -> Coca-Cola Original 2L   0.312  CORRECT
+        Clover Fresh Milk 2L  -> Coca-Cola Original 2L   0.439  WRONG
+
+    The wrong pair scores HIGHER than the right one, because supplier
+    shorthand ("COKE") is further from the catalogue name than an
+    unrelated product that happens to share a size and some letters.
+    Across ten legitimate rewordings and seven mismatches the ranges
+    overlapped with no threshold separating them. Any text gate here
+    would reject real matches to catch fake ones.
+
+    Brand and pack DISAGREEMENT are different: both are structured, both
+    are compared in normalised form, and both are already trusted enough
+    elsewhere that a pack disagreement costs -0.40 in tier 3.
+
+    NONE IS NOT DISAGREEMENT, the same rule the rest of this module
+    follows. A row with no brand column and no parseable pack size
+    contradicts nothing -- it simply has nothing to say, and a barcode
+    with nothing against it is still the best identifier there is.
+
+    WHAT THIS DOES NOT CATCH, said plainly so nobody assumes otherwise:
+    a wrong barcode on a product of the SAME pack size with no brand
+    column given. "Liqui Fruit Orange 2L" carrying Coke 2L's barcode has
+    no structured contradiction available. That case needs an external
+    GTIN lookup -- an independent source saying what the barcode really
+    is -- which is the next piece of work, not this one.
+    """
+    if _brand_agreement(row_brand, candidate) is False:
+        return (
+            "The barcode matches this product, but the brand does not. "
+            "Please check the barcode is on the right product."
+        )
+    if _pack_agreement(row_pack, candidate) is False:
+        return (
+            "The barcode matches this product, but the pack size does not. "
+            "Please check the barcode is on the right product."
+        )
+    return None
 
 
 def _brand_agreement(row_brand, candidate: Product) -> Optional[bool]:

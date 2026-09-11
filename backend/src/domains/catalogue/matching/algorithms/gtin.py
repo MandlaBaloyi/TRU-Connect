@@ -97,3 +97,97 @@ def normalise_gtin(value: Optional[str]) -> Optional[str]:
     forgetting is then a missed match, never a wrong one.
     """
     return value if is_valid_gtin(value) else None
+
+
+# ---------------------------------------------------------------------------
+# GS1 PREFIX CLASSIFICATION
+#
+# The first three digits of a GTIN-13 identify the GS1 Member
+# Organisation that issued the company prefix. Most of that is trivia we
+# do not need. THREE THINGS IN IT ARE NOT TRIVIA.
+# ---------------------------------------------------------------------------
+
+#: NOT GLOBALLY UNIQUE. These ranges are reserved for restricted
+#: circulation -- numbers a shop or a company assigns for its OWN
+#: internal use, on weighed produce, deli counters, in-store packing.
+#:
+#:   020-029   restricted circulation within a geographic region
+#:   040-049   restricted circulation within a company
+#:   200-299   restricted circulation within a geographic region
+#:                                      -- GS1 General Specifications
+#:
+#: THIS IS THE MOST IMPORTANT THING IN THIS FILE AFTER THE CHECK DIGIT,
+#: and it is a catalogue-integrity problem rather than a matching one.
+#: Two different shops can legitimately assign 2000001 to two completely
+#: different things -- loose tomatoes here, chicken pieces there. Both
+#: are valid barcodes. Both pass the check digit.
+#:
+#: Product.gtin carries a UNIQUE constraint, on the stated grounds that
+#: "two catalogue rows sharing a barcode means the catalogue is already
+#: wrong". Admit one restricted-circulation code and that constraint
+#: starts enforcing a falsehood: the SECOND shop's tomatoes get linked
+#: to the FIRST shop's chicken, at tier 0, at confidence 1.0.
+#:
+#: So these never become a catalogue identifier. The row still imports
+#: and still matches on its text -- it simply has no barcode.
+_RESTRICTED_PREFIX_RANGES = ((20, 29), (40, 49), (200, 299))
+
+#: Not trade items at all: periodicals, books, sheet music, refund
+#: receipts and coupons. A coupon is not a product a spaza sells.
+_NON_PRODUCT_PREFIX_RANGES = ((977, 977), (978, 979), (980, 980), (981, 983), (990, 999))
+
+#: GS1 South Africa issues 600 and 601, and also serves the wider SADC
+#: region. Informational only -- an imported product is perfectly
+#: normal, so this is never a reason to reject anything. It is one
+#: weak signal among several, useful mainly as "this claims to be a
+#: local product and its prefix says otherwise".
+_SOUTH_AFRICA_PREFIX_RANGES = ((600, 601),)
+
+
+def _prefix(value: str) -> Optional[int]:
+    """The 3-digit GS1 prefix. GTIN-14 carries a leading packaging
+    indicator digit that is NOT part of the prefix, so it is dropped
+    first -- reading it would shift every range by one and classify
+    almost everything wrongly."""
+    if not value or not value.isdigit():
+        return None
+    body = value[1:] if len(value) == 14 else value
+    # GTIN-12 (UPC-A) is a GTIN-13 with an implied leading zero.
+    if len(body) == 12:
+        body = "0" + body
+    return int(body[:3]) if len(body) >= 3 else None
+
+
+def _in(prefix: Optional[int], ranges) -> bool:
+    return prefix is not None and any(low <= prefix <= high for low, high in ranges)
+
+
+def is_restricted_circulation(value: Optional[str]) -> bool:
+    """True for a barcode that is only unique inside one shop or one
+    company, and must therefore never identify a catalogue product."""
+    return _in(_prefix(value), _RESTRICTED_PREFIX_RANGES)
+
+
+def is_non_product(value: Optional[str]) -> bool:
+    """True for ISSN, ISBN, sheet music, refund receipts and coupons."""
+    return _in(_prefix(value), _NON_PRODUCT_PREFIX_RANGES)
+
+
+def is_south_african_prefix(value: Optional[str]) -> bool:
+    """True for 600-601. Informational -- imported stock is normal."""
+    return _in(_prefix(value), _SOUTH_AFRICA_PREFIX_RANGES)
+
+
+def is_catalogue_usable(value: Optional[str]) -> bool:
+    """The ONE question the rest of the system should ask: may this
+    barcode be used as a shared catalogue identifier?
+
+    Valid check digit, real GTIN length, globally unique, and an actual
+    trade item. A caller that asks only is_valid_gtin() gets arithmetic
+    without meaning.
+    """
+    return (
+        is_valid_gtin(value)
+        and not is_restricted_circulation(value)
+        and not is_non_product(value)
+    )
