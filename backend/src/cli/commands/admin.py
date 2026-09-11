@@ -111,7 +111,7 @@ def create_admin(email: str, first_name: str, last_name: str) -> None:
     click.echo("")
     if existing:
         click.echo(f"  {len(existing)} admin account(s) already exist, so one of them must authorise this.\n")
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         _, by_email = require_admin(purpose="create other admins")
         click.echo(f"  Authorised by {by_email}.")

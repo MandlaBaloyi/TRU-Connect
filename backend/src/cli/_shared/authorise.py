@@ -46,9 +46,18 @@ back when there was no role to ask about. Keeping it as an optional
 live, and two sources of truth for one question is how a deployment
 ends up with an admin who cannot do the job they were created for --
 with the refusal blamed on the code rather than on a stale env var.
-One gate: the role. Split catalogue duty off into its own permission
-the day a finance admin actually exists, rather than pre-building the
-distinction in a text file.
+One gate: the role.
+
+WHAT CALL SITES ASK FOR IS A CAPABILITY, NOT A PERSON. Every command
+goes through require_capability(...), naming the job it needs doing --
+catalogue:review, supplier:verify -- and TODAY that resolves to "are
+you an active admin", because today one admin does everything. The
+names live in capabilities.py; see that module on why the seam is
+worth having while the machinery behind it is not.
+
+The practical consequence: when a second staff role arrives, the
+change is inside _has_capability below. No command file is touched,
+and nothing has to be excavated to work out what it assumed.
 """
 from __future__ import annotations
 
@@ -57,8 +66,46 @@ from typing import Optional, Tuple
 import click
 
 
-def require_admin(purpose: str = "do this") -> Tuple[Optional[str], str]:
+def _has_capability(user, capability: Optional[str]) -> bool:
+    """Does this account hold this capability?
+
+    THE ONE FUNCTION THAT CHANGES when staff stop being a single
+    undivided role. Today every active admin holds every capability,
+    which is the honest description of a one-person company: there is
+    nobody to withhold anything from, and a grants table would be a
+    join with one row per name and no second subject to distinguish.
+
+    When that changes -- a finance admin who must not teach product
+    aliases, a support agent who may verify suppliers but not mint
+    staff -- the grant lookup goes HERE, and every call site already
+    recorded which capability it wanted.
+
+    `capability=None` means "be staff at all", which is what
+    `admin create` genuinely needs.
+    """
+    from src.domains.auth.models.user import UserRole
+
+    return user.role == UserRole.ADMIN
+
+
+def require_capability(capability: str) -> Tuple[Optional[str], str]:
+    """Prompt for credentials, check this capability, return
+    (user_id, email) -- or abort.
+
+    THE ENTRY POINT EVERY PRIVILEGED COMMAND SHOULD USE. Ask for what
+    needs doing, not for who you believe may do it.
+    """
+    from src.cli._shared.capabilities import ALL
+
+    return require_admin(purpose=ALL.get(capability, capability), capability=capability)
+
+
+def require_admin(purpose: str = "do this", capability: Optional[str] = None) -> Tuple[Optional[str], str]:
     """Prompt for credentials and return (user_id, email), or abort.
+
+    Prefer require_capability() above -- this is the check underneath
+    it, called directly only by `admin create`, whose requirement
+    really is "be staff" rather than any narrower job.
 
     Verified against the SAME password hash the app uses. There is no
     second credential to leak, no shared token in .env that outlives the
@@ -80,11 +127,21 @@ def require_admin(purpose: str = "do this") -> Tuple[Optional[str], str]:
     user = UserRepository.get_by_email(email)
     if user is None or not verify_password(password, user.password_hash):
         raise click.ClickException("Those credentials are not valid.")
-    if user.role != UserRole.ADMIN:
-        raise click.ClickException(
-            f"{email} is not an admin account, so it may not {purpose}.\n"
-            "  An admin is made with:  flask admin create"
+    if not _has_capability(user, capability):
+        # TWO PHRASINGS, because they answer different questions. Asked
+        # for a capability, the useful sentence names the JOB refused
+        # ("may not work the product match review queue"). Asked only
+        # to be staff, it names the ROLE -- saying "may not do this"
+        # there would be true and useless.
+        reason = (
+            f"{email} may not {purpose}."
+            if capability
+            else f"{email} is not an admin account, so it may not {purpose}."
         )
+        raise click.ClickException(reason + "\n  An admin is made with:  flask admin create")
+    # CHECKED AFTER the capability, deliberately. "Your account is
+    # suspended" is useful to learn only once it is established that
+    # the account was the right one to be asking about.
     if user.account_status != AccountStatus.ACTIVE:
         raise click.ClickException("That account is not active.")
 
@@ -92,9 +149,3 @@ def require_admin(purpose: str = "do this") -> Tuple[Optional[str], str]:
     return str(user.id), email
 
 
-def require_reviewer() -> Tuple[Optional[str], str]:
-    """Catalogue review duty. Kept as its own name rather than calling
-    require_admin everywhere, so that the day reviewing stops being an
-    admin-only act, there is one function to change instead of every
-    call site."""
-    return require_admin(purpose="work the review queue")

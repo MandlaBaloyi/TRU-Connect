@@ -18,8 +18,8 @@ from flask import Flask
 
 
 def register_cli(app: Flask) -> None:
-    from src.cli.admin_cli import admin_cli
-    from src.cli.catalogue_cli import catalogue_cli
+    from src.cli.commands.admin import admin_cli
+    from src.cli.commands.catalogue import catalogue_cli
 
     app.cli.add_command(admin_cli)
     app.cli.add_command(catalogue_cli)

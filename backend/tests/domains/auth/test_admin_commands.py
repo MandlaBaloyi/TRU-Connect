@@ -22,7 +22,7 @@ from __future__ import annotations
 import click
 import pytest
 
-from src.cli.admin_cli import ENV_ADMIN_EMAIL, ENV_ADMIN_PASSWORD
+from src.cli.commands.admin import ENV_ADMIN_EMAIL, ENV_ADMIN_PASSWORD
 from src.domains.auth.models.user import AccountStatus, UserRole, VerificationStatus
 
 PASSWORD = "Str0ng!Passw0rd"
@@ -66,7 +66,7 @@ def _seed_fn():
     __wrapped__ is the undecorated function, which runs inside the
     app context the fixtures already set up.
     """
-    from src.cli.admin_cli import seed_admin
+    from src.cli.commands.admin import seed_admin
 
     return seed_admin.callback.__wrapped__()
 
@@ -83,7 +83,7 @@ def _answer(monkeypatch, *responses):
 
 class TestRequireAdmin:
     def test_an_admin_with_the_right_password_is_let_through(self, app, make_admin, monkeypatch):
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         admin = make_admin()
         _answer(monkeypatch, admin.email, PASSWORD)
@@ -97,7 +97,7 @@ class TestRequireAdmin:
         """THE POINT OF THE WHOLE CHANGE. This used to be answered by an
         env allowlist of emails, which could drift from the permission
         system the rest of the app uses. Now it is the same role."""
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         user = make_user(
             "shop@example.com",
@@ -115,7 +115,7 @@ class TestRequireAdmin:
         """The order of checks is the security property: password
         first, role second. Otherwise this prompt enumerates our staff
         for anyone who can guess an email."""
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         admin = make_admin()
         _answer(monkeypatch, admin.email, "wrong-password")
@@ -126,7 +126,7 @@ class TestRequireAdmin:
         assert "admin" not in str(exc.value).lower()
 
     def test_an_unknown_email_fails_the_same_way_as_a_wrong_password(self, app, monkeypatch):
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         _answer(monkeypatch, "nobody@example.com", PASSWORD)
 
@@ -134,7 +134,7 @@ class TestRequireAdmin:
             require_admin()
 
     def test_a_deactivated_admin_is_refused(self, app, make_admin, monkeypatch):
-        from src.cli.authorise import require_admin
+        from src.cli._shared.authorise import require_admin
 
         admin = make_admin(account_status=AccountStatus.DEACTIVATED)
         _answer(monkeypatch, admin.email, PASSWORD)
@@ -147,7 +147,7 @@ class TestBootstrap:
     def test_bootstrap_closes_behind_itself(self, app, make_admin, db_session):
         """One admin existing is what flips `admin create` from the
         unauthenticated bootstrap path to the authorised one."""
-        from src.cli.admin_cli import _existing_admins
+        from src.cli.commands.admin import _existing_admins
 
         assert _existing_admins() == []
 
@@ -157,7 +157,7 @@ class TestBootstrap:
     def test_a_soft_deleted_admin_does_not_hold_the_door_shut(self, app, make_admin, db_session):
         """If a removed admin still counted, deleting the last one would
         leave a platform nobody can administer and no way back in."""
-        from src.cli.admin_cli import _existing_admins
+        from src.cli.commands.admin import _existing_admins
 
         admin = make_admin()
         admin.is_deleted = True
@@ -204,7 +204,7 @@ class TestSeedFromEnv:
         self._seed(monkeypatch, "seeded@truconnect.co.za", PASSWORD)
         self._seed(monkeypatch, "seeded@truconnect.co.za", PASSWORD)  # must not raise
 
-        from src.cli.admin_cli import _existing_admins
+        from src.cli.commands.admin import _existing_admins
 
         assert len(_existing_admins()) == 1
 
@@ -234,3 +234,74 @@ class TestSeedFromEnv:
     def test_missing_variables_say_which_ones(self, app, db_session, monkeypatch):
         with pytest.raises(click.ClickException, match=ENV_ADMIN_EMAIL):
             _seed_fn()
+
+
+class TestCapabilities:
+    """The seam: call sites ask for a JOB, not for a person.
+
+    These tests exist to pin the seam's SHAPE, not today's answer.
+    Today every active admin holds every capability, and that is the
+    honest description of a one-person company. What must not rot is
+    that the question being asked is "may you review the catalogue",
+    so that the day it stops being admin-shaped, the change is one
+    function and not an excavation.
+    """
+
+    def test_an_admin_holds_every_capability_today(self, app, make_admin, monkeypatch):
+        from src.cli._shared.authorise import require_capability
+        from src.cli._shared.capabilities import ALL
+
+        admin = make_admin()
+        for capability in ALL:
+            _answer(monkeypatch, admin.email, PASSWORD)
+            user_id, _ = require_capability(capability)
+            assert user_id == str(admin.id), capability
+
+    def test_a_business_holds_none_of_them(self, app, make_user, db_session, monkeypatch):
+        from src.cli._shared.authorise import require_capability
+        from src.cli._shared.capabilities import ALL
+
+        user = make_user(
+            "shop@example.com",
+            role=UserRole.BUSINESS,
+            verification_status=VerificationStatus.VERIFIED,
+            password=PASSWORD,
+        )
+        db_session.commit()
+
+        for capability in ALL:
+            _answer(monkeypatch, user.email, PASSWORD)
+            with pytest.raises(click.ClickException):
+                require_capability(capability)
+
+    def test_the_refusal_names_the_job_not_the_capability_string(
+        self, app, make_user, db_session, monkeypatch
+    ):
+        """An error reading "you may not work the product match review
+        queue" is actionable. One reading "missing catalogue:review" is
+        a support ticket."""
+        from src.cli._shared.authorise import require_capability
+        from src.cli._shared.capabilities import ALL, CATALOGUE_REVIEW
+
+        user = make_user("shop2@example.com", role=UserRole.BUSINESS, password=PASSWORD)
+        db_session.commit()
+        _answer(monkeypatch, user.email, PASSWORD)
+
+        with pytest.raises(click.ClickException) as exc:
+            require_capability(CATALOGUE_REVIEW)
+
+        assert ALL[CATALOGUE_REVIEW] in str(exc.value)
+        assert CATALOGUE_REVIEW not in str(exc.value)
+
+    def test_every_capability_has_a_human_sentence(self):
+        """A name with no description would produce exactly the
+        unactionable error the test above forbids."""
+        from src.cli._shared import capabilities
+
+        declared = {
+            value
+            for name, value in vars(capabilities).items()
+            if name.isupper() and name != "ALL" and isinstance(value, str)
+        }
+        assert declared == set(capabilities.ALL)
+        assert all(capabilities.ALL.values())
