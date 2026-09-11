@@ -47,9 +47,18 @@ class UserRole(str, enum.Enum):
 
     BUSINESS = "business"
     SUPPLIER = "supplier"
-    # Reserved for a future admin/financial-partner role
-    # --
-    # not used by any current registration path.
+
+    # STAFF. Not a participant: an admin neither buys nor sells here,
+    # which is the whole point of core.decorators.participants_only --
+    # the marketplace endpoints refuse this role rather than treating
+    # "authenticated" as "is a business".
+    #
+    # DELIBERATELY UNREACHABLE FROM REGISTRATION. There is no sign-up
+    # path that produces one and there must not be; the only way to
+    # mint an admin is `flask admin create`, run by somebody already
+    # holding the server's credentials. A self-service route to a role
+    # that can reshape the shared catalogue would be a hole, not a
+    # feature.
     ADMIN = "admin"
 
 

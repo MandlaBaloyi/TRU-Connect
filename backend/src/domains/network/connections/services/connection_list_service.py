@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
+from src.core.exceptions import ForbiddenError
 from src.domains.network.connections.models.connection_request import (
     ConnectionEndReason,
     ConnectionRequestStatus,
@@ -77,6 +78,15 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
                 )
             )
         return results
+
+    # EXHAUSTIVE, not a fall-through. This was reached by anything that
+    # was not "supplier", which silently meant "treat them as a
+    # business". Harmless while two roles existed; wrong the moment a
+    # staff account can hold a token. A read that returns an empty list
+    # for the wrong reason is worse than an error, because nobody
+    # investigates an empty list.
+    if user_role != "business":
+        raise ForbiddenError("Connections belong to a business or a supplier account.")
 
     requests = ConnectionRequestRepository.list_active_for_business(user_id)
     results = []

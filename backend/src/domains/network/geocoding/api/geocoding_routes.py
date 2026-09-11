@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from flask import Blueprint, request
 
-from src.core.decorators import fully_authenticated
+from src.core.decorators import fully_authenticated, participants_only
 from src.core.responses import error_response, success_response
 from src.domains.network.geocoding.providers.composition import get_geocoding_provider
 from src.domains.network.geocoding.rate_limit import policies as rate_limit_policies
@@ -23,6 +23,7 @@ geocoding_bp = Blueprint("geocoding", __name__)
 
 @geocoding_bp.route("/api/v1/geocoding/reverse", methods=["GET"])
 @fully_authenticated
+@participants_only
 @limiter.limit(rate_limit_policies.REVERSE_GEOCODE, key_func=rate_limit_policies.user_key_func)
 def reverse_geocode():
     # Query params, not a JSON body -- this is a GET/lookup, not a
@@ -57,6 +58,7 @@ def reverse_geocode():
 
 @geocoding_bp.route("/api/v1/geocoding/search", methods=["GET"])
 @fully_authenticated
+@participants_only
 @limiter.limit(rate_limit_policies.SEARCH_SUGGEST, key_func=rate_limit_policies.user_key_func)
 def search_suggest():
     """Part one of the Search Box companion to the pin-drop picker --
@@ -89,6 +91,7 @@ def search_suggest():
 
 @geocoding_bp.route("/api/v1/geocoding/search/retrieve", methods=["GET"])
 @fully_authenticated
+@participants_only
 @limiter.limit(rate_limit_policies.SEARCH_RETRIEVE, key_func=rate_limit_policies.user_key_func)
 def search_retrieve():
     """Part two -- resolves a tapped suggestion to real coordinates.

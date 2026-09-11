@@ -42,6 +42,10 @@ def _load_current_user():
 # ACTIVE user, not one per request.
 LAST_ACTIVE_THROTTLE_MINUTES = 1
 
+#: Roles that BUY or SELL on the platform, as opposed to operating it.
+#: Staff accounts are deliberately absent -- see participants_only.
+PARTICIPANT_ROLES = ("business", "supplier")
+
 
 def _touch_last_active(user) -> None:
     """Record that this user is using the app, at most once every
@@ -169,6 +173,47 @@ def role_required(*allowed_roles: str):
         return wrapper
 
     return decorator
+
+
+def participants_only(fn):
+    """Business or supplier -- somebody who BUYS or SELLS on TruConnect.
+
+    WHAT THIS IS FOR, and it is not a synonym for "logged in". Fifty
+    authenticated endpoints pin no role at all, because for a long time
+    there were only two roles and "authenticated" and "is a participant"
+    were the same sentence. They stop being the same sentence the moment
+    a STAFF account can hold a token.
+
+    The endpoints in question are the Loan Book, the Order Book, the
+    business profile, notifications and the two shared connections
+    routes. None of them belong to a staff account: an admin has no
+    customers who owe them money, no suppliers, and no shopfront.
+
+    THE CONCRETE HARM THIS PREVENTS. Several of those routes branch on
+    the caller's role, and at least one of them WROTE: photo settings
+    did `if supplier ... else <business>`, so a staff token reaching it
+    would have created a business profile row and quietly made an admin
+    into a marketplace participant. Those branches are now exhaustive
+    (they raise on an unknown role), and this decorator is the second
+    layer -- refusing at the door rather than three calls deep, so the
+    failure is a clear 403 instead of an exception from a service that
+    was never meant to see this caller.
+
+    WHY NOT role_required("business", "supplier"). It would behave the
+    same today and say something different: that list is a coincidence
+    of which roles happen to exist. This name states the RULE -- staff
+    are not participants -- so when a fourth role arrives, whoever adds
+    it can tell at a glance which side of the line it belongs on.
+    """
+
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        if get_jwt().get("role") not in PARTICIPANT_ROLES:
+            raise ForbiddenError("This is only available to business and supplier accounts.")
+        return fn(*args, **kwargs)
+
+    return wrapper
 
 
 def api_key_required(*required_scopes: str):

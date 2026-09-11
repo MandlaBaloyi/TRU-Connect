@@ -30,7 +30,7 @@ import uuid
 
 from flask import Blueprint, request
 
-from src.core.decorators import fully_authenticated, role_required
+from src.core.decorators import fully_authenticated, participants_only, role_required
 from src.core.responses import success_response
 from src.domains.network.connections.rate_limit import policies as rate_limit_policies
 from src.domains.network.connections.services import (
@@ -393,6 +393,7 @@ def validate_invitation():
 
 @connections_bp.route("/api/v1/supplier-discovery/connections", methods=["GET"])
 @fully_authenticated
+@participants_only
 def get_my_connections():
     """My Connections -- Community tab, both roles. Deliberately NOT
     role_required("business") or role_required("supplier") like every
@@ -409,6 +410,7 @@ def get_my_connections():
 
 @connections_bp.route("/api/v1/supplier-discovery/my-photo-settings", methods=["PATCH"])
 @fully_authenticated
+@participants_only
 def update_my_photo_settings():
     """Same shared-route reasoning as get_my_connections above."""
     from flask_jwt_extended import get_jwt, get_jwt_identity

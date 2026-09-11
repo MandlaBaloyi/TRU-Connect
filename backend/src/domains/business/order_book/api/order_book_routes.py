@@ -20,7 +20,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.core.decorators import fully_authenticated
+from src.core.decorators import fully_authenticated, role_required
 from src.domains.business.order_book.models.auto_clear_settings import AutoClearDuration
 from src.domains.business.order_book.models.order import OrderDeletionReason, OrderStatus
 from src.domains.business.order_book.schemas.order_book_schemas import (
@@ -119,6 +119,7 @@ def _auto_clear_settings_to_dict(settings) -> dict:
 
 @order_book_bp.route("/api/v1/order-book/orders", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def create_order():
     try:
         data = CreateOrderSchema().load(request.get_json(silent=True) or {})
@@ -155,6 +156,7 @@ def create_order():
 
 @order_book_bp.route("/api/v1/order-book/orders", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def list_orders():
     status_param = request.args.get("status")
     status = None
@@ -171,6 +173,7 @@ def list_orders():
 
 @order_book_bp.route("/api/v1/order-book/orders/<uuid:order_id>", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_order(order_id: uuid.UUID):
     try:
         view = OrderBookService.get_order(_business_id(), order_id)
@@ -181,6 +184,7 @@ def get_order(order_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/orders/<uuid:order_id>/complete", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def complete_order(order_id: uuid.UUID):
     try:
         view = OrderBookService.complete_order(_business_id(), order_id)
@@ -193,6 +197,7 @@ def complete_order(order_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/orders/<uuid:order_id>/cancel", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def cancel_order(order_id: uuid.UUID):
     data = CancelOrderSchema().load(request.get_json(silent=True) or {})
     try:
@@ -206,6 +211,7 @@ def cancel_order(order_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/orders/<uuid:order_id>", methods=["DELETE"])
 @fully_authenticated
+@role_required("business")
 def delete_order(order_id: uuid.UUID):
     data = DeleteReasonSchema().load(request.get_json(silent=True) or {})
     try:
@@ -219,6 +225,7 @@ def delete_order(order_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/orders/<uuid:order_id>/restore", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def restore_order(order_id: uuid.UUID):
     try:
         view = OrderBookService.restore_order(_business_id(), order_id)
@@ -229,6 +236,7 @@ def restore_order(order_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/orders/clear-completed", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def clear_completed_orders():
     cleared_count = OrderBookService.clear_all_completed_now(_business_id())
     return jsonify(success=True, data={"clearedCount": cleared_count})
@@ -238,6 +246,7 @@ def clear_completed_orders():
 
 @order_book_bp.route("/api/v1/order-book/customers/search", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def search_customers():
     term = request.args.get("term", "")
     customers = OrderBookService.search_customers(_business_id(), term)
@@ -246,6 +255,7 @@ def search_customers():
 
 @order_book_bp.route("/api/v1/order-book/customers/<uuid:customer_id>", methods=["DELETE"])
 @fully_authenticated
+@role_required("business")
 def delete_customer(customer_id: uuid.UUID):
     data = DeleteReasonSchema().load(request.get_json(silent=True) or {})
     try:
@@ -257,6 +267,7 @@ def delete_customer(customer_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/customers/<uuid:customer_id>/restore", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def restore_customer(customer_id: uuid.UUID):
     try:
         customer = OrderBookService.restore_customer(_business_id(), customer_id)
@@ -269,6 +280,7 @@ def restore_customer(customer_id: uuid.UUID):
 
 @order_book_bp.route("/api/v1/order-book/trash", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_trash():
     trash = OrderBookService.get_trash(_business_id())
     return jsonify(
@@ -295,6 +307,7 @@ def get_trash():
 
 @order_book_bp.route("/api/v1/order-book/history", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_history():
     events = OrderBookService.get_history(_business_id())
     return jsonify(success=True, data=[_history_event_to_dict(e) for e in events])
@@ -304,6 +317,7 @@ def get_history():
 
 @order_book_bp.route("/api/v1/order-book/balances/daily-revenue", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_daily_revenue():
     entries = OrderBookService.get_daily_revenue(_business_id())
     return jsonify(
@@ -317,6 +331,7 @@ def get_daily_revenue():
 
 @order_book_bp.route("/api/v1/order-book/balances/auto-clear-settings", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_auto_clear_settings():
     settings = AutoClearService.get_settings(_business_id())
     return jsonify(success=True, data=_auto_clear_settings_to_dict(settings))
@@ -324,6 +339,7 @@ def get_auto_clear_settings():
 
 @order_book_bp.route("/api/v1/order-book/balances/auto-clear-settings", methods=["PUT"])
 @fully_authenticated
+@role_required("business")
 def set_auto_clear_setting():
     try:
         data = SetAutoClearSettingSchema().load(request.get_json(silent=True) or {})
@@ -347,6 +363,7 @@ def set_auto_clear_setting():
 
 @order_book_bp.route("/api/v1/order-book/balances/auto-clear-sweep", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def run_auto_clear_sweep():
     """Manual trigger, scoped to the caller's own business only. A real
     scheduled job also exists now (jobs/auto_clear_sweep_job.py, every

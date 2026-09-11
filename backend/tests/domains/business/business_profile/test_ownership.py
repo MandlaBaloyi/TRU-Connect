@@ -139,8 +139,12 @@ class TestApiOwnership:
         business_b = make_business_user("api-b@example.com")
 
         with app.app_context():
-            token_a = create_access_token(identity=str(business_a.id))
-            token_b = create_access_token(identity=str(business_b.id))
+            token_a = create_access_token(
+                identity=str(business_a.id), additional_claims={"role": "business"}
+            )
+            token_b = create_access_token(
+                identity=str(business_b.id), additional_claims={"role": "business"}
+            )
 
         client.patch(
             "/api/v1/business-profile/business-details",
@@ -166,7 +170,9 @@ class TestApiOwnership:
     def test_invalid_category_is_rejected_with_422(self, app, client, make_business_user):
         business = make_business_user("invalid-category@example.com")
         with app.app_context():
-            token = create_access_token(identity=str(business.id))
+            token = create_access_token(
+                identity=str(business.id), additional_claims={"role": "business"}
+            )
 
         response = client.patch(
             "/api/v1/business-profile/business-details",

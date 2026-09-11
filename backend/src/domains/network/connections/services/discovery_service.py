@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
+from src.core.exceptions import ForbiddenError
 from src.domains.network.connections.models.connection_request import ConnectionRequestStatus
 from src.domains.network.connections.repositories.connection_request_repository import (
     ConnectionRequestRepository,
@@ -282,7 +283,24 @@ def update_my_photo_settings(
     photo_visibility: str | None = None,
 ) -> dict:
     """Only the fields actually provided get changed -- either
-    parameter left as None leaves that setting untouched."""
+    parameter left as None leaves that setting untouched.
+
+    THE ROLE BRANCH IS EXHAUSTIVE ON PURPOSE, and it did not used to be.
+    This was `if supplier ... else <business>`, which quietly encoded
+    "anything that is not a supplier is a business". That held while
+    there were exactly two roles and stops holding the moment there is a
+    third.
+
+    AND THIS IS THE WRITE SIDE, which is what made it dangerous rather
+    than merely untidy: get_or_create_for_business would have CREATED a
+    business profile for a staff account that should never be a
+    marketplace participant at all. Not an error anybody would see -- a
+    row appearing, silently, making an admin into a business.
+
+    An unrecognised role now raises. A role this function does not know
+    how to serve is a bug in the caller, and the loud version of that
+    bug is cheaper than a wrong row.
+    """
     if user_role == "supplier":
         from src.domains.supplier.supplier_profile.models.supplier_profile import (
             PhotoVisibility,
@@ -290,7 +308,7 @@ def update_my_photo_settings(
         )
 
         profile = SupplierProfileRepository.get_or_create_for_supplier(user_id)
-    else:
+    elif user_role == "business":
         from src.domains.business.business_profile.models.business_profile import (
             PhotoVisibility,
             VisibleImageSource,
@@ -300,6 +318,8 @@ def update_my_photo_settings(
         )
 
         profile = BusinessProfileRepository.get_or_create_for_business(user_id)
+    else:
+        raise ForbiddenError("Photo settings belong to a business or a supplier account.")
 
     if visible_image_source is not None:
         profile.visible_image_source = VisibleImageSource(visible_image_source)

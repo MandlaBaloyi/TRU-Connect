@@ -6,9 +6,11 @@ not having it. Anyone who can run `flask catalogue accept` already has
 shell access to the server and the database credentials in .env. They
 could bypass every line of this file with one UPDATE statement.
 
-  ─────────────────────────────────────────────────────────────────────
+
+
+  ---------------------------------------------------------------------
   THIS PROMPT IS NOT A WALL. IT IS A SIGNATURE.
-  ─────────────────────────────────────────────────────────────────────
+  ---------------------------------------------------------------------
 
 What it buys is three things a bare command does not:
 
@@ -23,71 +25,76 @@ What it buys is three things a bare command does not:
   for every supplier on the platform, forever. That pause is worth
   having on the one command whose blast radius is everybody.
 
-  A REAL ALLOWLIST. Shell access and permission to shape the shared
+  A REAL BOUNDARY. Shell access and permission to shape the shared
   catalogue are different things, and they stop being the same thing
   the moment anyone else can deploy.
 
-WHY NOT A ROLE. UserRole has BUSINESS and SUPPLIER; admin is a comment
-on the enum, "reserved for a future admin/financial-partner role", and
-inventing it here would mean a migration and a half-built permission
-system to gate one command. An env allowlist is honest about being
-temporary and disappears the day the control centre has real roles.
+THE GATE IS NOW A ROLE, and this is the change that made the rest of
+this file honest. It used to read an env allowlist of emails, with a
+docstring apologising that "UserRole has BUSINESS and SUPPLIER; admin
+is a comment on the enum". That is no longer true: UserRole.ADMIN is
+real, `flask admin create` mints one, and staff accounts are refused
+by every marketplace endpoint (core.decorators.participants_only).
+So the question "may you do this" is answered by the same permission
+system the rest of the app uses, rather than by a list in a file that
+could drift from it.
+
+AND THE EMAIL ALLOWLIST IS GONE. There used to be a
+CATALOGUE_REVIEWERS variable listing who could approve matches, from
+back when there was no role to ask about. Keeping it as an optional
+"narrowing" on top of the role was a second place for the answer to
+live, and two sources of truth for one question is how a deployment
+ends up with an admin who cannot do the job they were created for --
+with the refusal blamed on the code rather than on a stale env var.
+One gate: the role. Split catalogue duty off into its own permission
+the day a finance admin actually exists, rather than pre-building the
+distinction in a text file.
 """
 from __future__ import annotations
 
-import os
 from typing import Optional, Tuple
 
 import click
 
-#: Comma-separated emails permitted to work the review queue.
-#:
-#: EMPTY MEANS NOBODY, not everybody. A misconfigured deployment must
-#: fail closed -- the alternative is that forgetting to set one
-#: environment variable silently opens the catalogue to any shell.
-ALLOWLIST_ENV = "CATALOGUE_REVIEWERS"
 
-
-def _allowlist() -> list:
-    raw = os.environ.get(ALLOWLIST_ENV, "")
-    return [entry.strip().lower() for entry in raw.split(",") if entry.strip()]
-
-
-def require_reviewer() -> Tuple[Optional[str], str]:
+def require_admin(purpose: str = "do this") -> Tuple[Optional[str], str]:
     """Prompt for credentials and return (user_id, email), or abort.
 
     Verified against the SAME password hash the app uses. There is no
     second credential to leak, no shared token in .env that outlives the
     person who knew it, and revoking someone is the ordinary act of
-    deactivating their account.
+    deactivating their account or changing their role.
+
+    THE ORDER OF CHECKS IS DELIBERATE: password first, then role, then
+    status. Announcing "that account is not an admin" to someone who
+    has not proved they own it would turn this prompt into a way to
+    enumerate which of our users are staff.
     """
-    from src.domains.auth.models.user import AccountStatus
+    from src.domains.auth.models.user import AccountStatus, UserRole
     from src.domains.auth.repositories.user_repository import UserRepository
     from src.shared.security.security import verify_password
 
-    allowed = _allowlist()
-    if not allowed:
-        raise click.ClickException(
-            f"{ALLOWLIST_ENV} is not set, so nobody may work the review queue.\n"
-            "  Set it in .env to the emails permitted, e.g.\n"
-            f"    {ALLOWLIST_ENV}=you@truconnect.co.za"
-        )
-
-    email = click.prompt("  Reviewer email").strip().lower()
-    if email not in allowed:
-        # DELIBERATELY SAID PLAINLY. This is not a login form facing the
-        # internet -- it is a terminal on our own server, and being coy
-        # about which of the two things was wrong would only waste the
-        # time of the person who mistyped their own address.
-        raise click.ClickException(f"{email} is not in {ALLOWLIST_ENV}.")
-
+    email = click.prompt("  Email").strip().lower()
     password = click.prompt("  Password", hide_input=True)
 
     user = UserRepository.get_by_email(email)
     if user is None or not verify_password(password, user.password_hash):
         raise click.ClickException("Those credentials are not valid.")
+    if user.role != UserRole.ADMIN:
+        raise click.ClickException(
+            f"{email} is not an admin account, so it may not {purpose}.\n"
+            "  An admin is made with:  flask admin create"
+        )
     if user.account_status != AccountStatus.ACTIVE:
         raise click.ClickException("That account is not active.")
 
     click.echo(f"  Signed in as {email}\n")
     return str(user.id), email
+
+
+def require_reviewer() -> Tuple[Optional[str], str]:
+    """Catalogue review duty. Kept as its own name rather than calling
+    require_admin everywhere, so that the day reviewing stops being an
+    admin-only act, there is one function to change instead of every
+    call site."""
+    return require_admin(purpose="work the review queue")

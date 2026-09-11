@@ -1,14 +1,16 @@
 """
 Loan Book HTTP routes.
 
-AUTH DECORATOR ASSUMPTION, flagged rather than guessed silently: uses
-`fully_authenticated`, imported from `src.domains.auth.decorators`. This
-name is confirmed to be REAL (referenced by name in test_auth.py's own
-docstring: "@fully_authenticated re-checks the database, not the
-token"), but its exact IMPORT PATH has not been directly seen -- verify
-this against the real file and correct the import if it lives elsewhere
-(e.g. src.domains.auth.utils.decorators). Everything downstream of the
-import is independent of exactly where it lives.
+AUTH: @fully_authenticated + @role_required("business") on every
+route. The first is database-fresh (verified and active NOW, not when
+the token was minted); the second is the one that used to be missing
+-- these routes pinned no role at all, back when "authenticated" and
+"is a business" were the same sentence because only two roles existed.
+
+NOT participants_only, which is the weaker gate used on the genuinely
+shared routes (notifications, geocoding, connections). The Loan Book
+is not shared: it records which of a shop's CUSTOMERS owe it money. A
+supplier has no such book, and neither does a staff account.
 
 business_id is taken from get_jwt_identity() -- the authenticated
 caller's own user id -- NEVER from anything in the request body or URL.
@@ -27,7 +29,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.core.decorators import fully_authenticated  # VERIFY: exact import path
+from src.core.decorators import fully_authenticated, role_required
 from src.domains.business.loan_book.schemas.loan_book_schemas import (
     CreateCustomerSchema,
     CreateLoanEntrySchema,
@@ -93,6 +95,7 @@ def _customer_view_to_dict(view: dict) -> dict:
 
 @loan_book_bp.route("/api/v1/loan-book/customers", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def create_customer():
     try:
         data = CreateCustomerSchema().load(request.get_json(silent=True) or {})
@@ -107,6 +110,7 @@ def create_customer():
 
 @loan_book_bp.route("/api/v1/loan-book/customers", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def list_customers():
     views = LoanBookService.list_customer_views(_business_id())
     return jsonify(success=True, data=[_customer_view_to_dict(v) for v in views])
@@ -114,6 +118,7 @@ def list_customers():
 
 @loan_book_bp.route("/api/v1/loan-book/customers/<uuid:customer_id>", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_customer(customer_id: uuid.UUID):
     try:
         view = LoanBookService.get_customer_view(_business_id(), customer_id)
@@ -124,6 +129,7 @@ def get_customer(customer_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/customers/<uuid:customer_id>", methods=["DELETE"])
 @fully_authenticated
+@role_required("business")
 def delete_customer(customer_id: uuid.UUID):
     data = DeleteReasonSchema().load(request.get_json(silent=True) or {})
     try:
@@ -135,6 +141,7 @@ def delete_customer(customer_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/customers/<uuid:customer_id>/restore", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def restore_customer(customer_id: uuid.UUID):
     try:
         customer = LoanBookService.restore_customer(_business_id(), customer_id)
@@ -147,6 +154,7 @@ def restore_customer(customer_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/entries", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def create_entry():
     try:
         data = CreateLoanEntrySchema().load(request.get_json(silent=True) or {})
@@ -175,6 +183,7 @@ def create_entry():
 
 @loan_book_bp.route("/api/v1/loan-book/entries", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def list_entries():
     views = LoanBookService.list_entries(_business_id())
     return jsonify(success=True, data=[_entry_view_to_dict(v) for v in views])
@@ -182,6 +191,7 @@ def list_entries():
 
 @loan_book_bp.route("/api/v1/loan-book/entries/<uuid:entry_id>", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_entry(entry_id: uuid.UUID):
     try:
         view = LoanBookService.get_entry(_business_id(), entry_id)
@@ -192,6 +202,7 @@ def get_entry(entry_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/entries/<uuid:entry_id>", methods=["DELETE"])
 @fully_authenticated
+@role_required("business")
 def delete_entry(entry_id: uuid.UUID):
     data = DeleteReasonSchema().load(request.get_json(silent=True) or {})
     try:
@@ -203,6 +214,7 @@ def delete_entry(entry_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/entries/<uuid:entry_id>/restore", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def restore_entry(entry_id: uuid.UUID):
     try:
         entry = LoanBookService.restore_entry(_business_id(), entry_id)
@@ -216,6 +228,7 @@ def restore_entry(entry_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/entries/<uuid:entry_id>/payments", methods=["POST"])
 @fully_authenticated
+@role_required("business")
 def record_payment(entry_id: uuid.UUID):
     try:
         data = RecordPaymentSchema().load(request.get_json(silent=True) or {})
@@ -242,6 +255,7 @@ def record_payment(entry_id: uuid.UUID):
     "/api/v1/loan-book/entries/<uuid:entry_id>/payments/<uuid:payment_id>", methods=["DELETE"]
 )
 @fully_authenticated
+@role_required("business")
 def delete_payment(entry_id: uuid.UUID, payment_id: uuid.UUID):
     try:
         view = LoanBookService.delete_payment(_business_id(), entry_id, payment_id)
@@ -267,6 +281,7 @@ def _history_event_to_dict(event) -> dict:
 
 @loan_book_bp.route("/api/v1/loan-book/history", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_transaction_history():
     events = LoanBookService.get_transaction_history(_business_id())
     return jsonify(success=True, data=[_history_event_to_dict(e) for e in events])
@@ -276,6 +291,7 @@ def get_transaction_history():
 
 @loan_book_bp.route("/api/v1/loan-book/entries/<uuid:entry_id>/receipt", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_receipt(entry_id: uuid.UUID):
     from src.domains.business.loan_book.utils.receipt_builder import build_receipt_data
 
@@ -307,6 +323,7 @@ def get_receipt(entry_id: uuid.UUID):
 
 @loan_book_bp.route("/api/v1/loan-book/trash", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_trash():
     trash = LoanBookService.get_trash(_business_id())
     return jsonify(

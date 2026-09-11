@@ -18,23 +18,76 @@ behaved before the catalogue existed.
 1. ONE-TIME SETUP
 ===========================================================================
 
-Add yourself to the reviewer allowlist in backend/.env:
+From `backend/`, with the virtualenv active. PowerShell first, because
+that is what the dev machine runs:
 
-    CATALOGUE_REVIEWERS=you@truconnect.co.za
-
-Comma-separated for more than one person. If this is unset, NOBODY can
-approve anything -- that is deliberate. A missing environment variable
-must fail closed, because the alternative is that forgetting one line
-silently opens the shared catalogue to anyone with a shell.
-
-You also need the usual backend environment. From `backend/`:
-
-    export FLASK_APP=app.py
-    # plus SECRET_KEY, JWT_SECRET_KEY and the POSTGRES_* vars from .env
-
-Windows PowerShell:
-
+    .venv\Scripts\Activate.ps1
     $env:FLASK_APP = "app.py"
+
+bash / Linux / the production server:
+
+    source .venv/bin/activate
+    export FLASK_APP=app.py
+
+Everything else -- SECRET_KEY, JWT_SECRET_KEY, the POSTGRES_* vars --
+is read from backend/.env automatically. You do not export those by
+hand.
+
+YOU NEED AN ADMIN ACCOUNT. Reviewing is staff work, so the commands
+below ask you to sign in and refuse anyone whose role is not ADMIN.
+There is NO admin sign-up and there must not be -- a self-service route
+to a role that can reshape the shared catalogue would be a hole, not a
+feature. Check whether one exists yet:
+
+    flask admin list
+
+TWO WAYS TO MAKE THE FIRST ONE. Both work only while NO admin exists;
+after that each new admin must be authorised by an existing one. That
+door closes by itself -- nobody has to remember to lock it.
+
+  A. FROM .env, no typing:
+
+        APPLICATION_ADMIN_EMAIL=platform-admin@example.com
+        APPLICATION_ADMIN_PASSWORD=<a strong one>
+
+        flask admin seed
+
+     Read ONCE and bcrypt-hashed into the users table. Nothing ever
+     signs in against those variables afterwards -- the account's own
+     hash is what is checked, so the password can be changed from the
+     app and the variable cleared without breaking anything. Safe to
+     re-run: if the admin already exists it changes nothing, and it
+     REFUSES to promote an address that is already trading.
+
+  B. INTERACTIVELY:
+
+        flask admin create
+
+     Prompts for email, name, and a password (twice).
+
+WHICH EMAIL. Not your personal one -- the address is what appears in
+the decision record, and "who approved this" should name the platform
+rather than a person's private inbox.
+
+But it MUST be an inbox that actually receives mail. Password reset
+works by emailing a ticket (password_reset_service.py), and an admin
+created with an address nobody can read has no recovery path at all:
+forget the password and the only way back in is editing the database
+by hand.
+
+So today that means a Gmail owned by the platform --
+platform-admin@example.com -- NOT admin@truconnect.co.za, because mail
+for that domain does not exist yet (MAIL_SERVER in .env is still
+smtp.gmail.com). Move to a real company address once the domain has
+email; it is one new admin and one deactivation, not a migration.
+
+Either way, put the password in a password manager before you type it.
+
+AN ADMIN IS NOT A SUPER-BUSINESS. Staff are refused by every
+marketplace endpoint -- no Loan Book, no Order Book, no shopfront, no
+connections. Making one gives somebody a different job, not a better
+version of the app. Do not make your own trading account an admin;
+make a separate one.
 
 
 ===========================================================================
@@ -79,8 +132,13 @@ to run against production while you think.
 
 Both ask you to confirm, then ask for your email and password. The
 password is verified against your real TruConnect account -- there is no
-separate secret to leak, and revoking someone is just deactivating their
-account.
+separate secret to leak, and revoking someone is the ordinary act of
+deactivating their account or changing their role.
+
+If it tells you the account is not an admin, see section 1. The order
+of those checks is deliberate: it verifies the password BEFORE it
+mentions the role, so the prompt cannot be used to find out which of
+our users are staff.
 
 WHAT ACCEPT ACTUALLY DOES, because it is more than one row:
 
@@ -177,6 +235,10 @@ and when" is exactly the question asked after something goes wrong.
     flask catalogue review <id>          one row in full
     flask catalogue accept <id>          link it, and teach the alias
     flask catalogue reject <id> -r "..." refuse it, with a reason
+
+    flask admin list                     who operates this platform
+    flask admin seed                     first admin, from .env
+    flask admin create                   make a staff account
 
 ===========================================================================
 END

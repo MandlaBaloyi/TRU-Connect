@@ -1,9 +1,16 @@
 """
 Business Profile HTTP routes.
 
-AUTH DECORATOR: `fully_authenticated` from `src.core.decorators` --
-same mechanism as Loan Book/Order Book, verified at this import path
-in this same codebase already, not re-guessed here.
+AUTH: @fully_authenticated + @role_required("business"), same as Loan
+Book and Order Book.
+
+THE ROLE CHECK MATTERS MORE HERE THAN ANYWHERE ELSE IN THE DOMAIN,
+because GET /business-profile is a read that WRITES: get_profile calls
+BusinessProfileRepository.get_or_create_for_business. With no role
+pinned, merely LOOKING at this endpoint with a supplier's or a staff
+token created a BusinessProfile row keyed to them -- no error, no
+audit entry, just an account that is now also a business to every
+query that joins on this table.
 
 business_id is taken from get_jwt_identity() -- the authenticated
 caller's own user id -- NEVER from anything in the request body or
@@ -23,7 +30,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.core.decorators import fully_authenticated
+from src.core.decorators import fully_authenticated, role_required
 from src.domains.business.business_profile.schemas.business_profile_schemas import (
     UpdateBusinessDetailsSchema,
     UpdateContactDetailsSchema,
@@ -44,6 +51,7 @@ def _business_id():
 
 @business_profile_bp.route("/api/v1/business-profile", methods=["GET"])
 @fully_authenticated
+@role_required("business")
 def get_profile():
     return jsonify(success=True, data=BusinessProfileService.get_profile(_business_id()))
 
@@ -68,35 +76,41 @@ def _handle_update(schema_cls, service_fn):
 
 @business_profile_bp.route("/api/v1/business-profile/business-details", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_business_details():
     return _handle_update(UpdateBusinessDetailsSchema, BusinessProfileService.update_business_details)
 
 
 @business_profile_bp.route("/api/v1/business-profile/contact-details", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_contact_details():
     return _handle_update(UpdateContactDetailsSchema, BusinessProfileService.update_contact_details)
 
 
 @business_profile_bp.route("/api/v1/business-profile/location", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_location():
     return _handle_update(UpdateLocationSchema, BusinessProfileService.update_location)
 
 
 @business_profile_bp.route("/api/v1/business-profile/trading-details", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_trading_details():
     return _handle_update(UpdateTradingDetailsSchema, BusinessProfileService.update_trading_details)
 
 
 @business_profile_bp.route("/api/v1/business-profile/operating-history", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_operating_history():
     return _handle_update(UpdateOperatingHistorySchema, BusinessProfileService.update_operating_history)
 
 
 @business_profile_bp.route("/api/v1/business-profile/suppliers", methods=["PATCH"])
 @fully_authenticated
+@role_required("business")
 def update_supplier_info():
     return _handle_update(UpdateSupplierInfoSchema, BusinessProfileService.update_supplier_info)

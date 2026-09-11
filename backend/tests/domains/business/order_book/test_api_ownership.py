@@ -51,8 +51,12 @@ def two_businesses_with_a_real_order(app):
         )
 
         return {
-            "token_a": create_access_token(identity=str(business_a.id)),
-            "token_b": create_access_token(identity=str(business_b.id)),
+            "token_a": create_access_token(
+                identity=str(business_a.id), additional_claims={"role": "business"}
+            ),
+            "token_b": create_access_token(
+                identity=str(business_b.id), additional_claims={"role": "business"}
+            ),
             "order_id": str(a_order.id),
         }
 

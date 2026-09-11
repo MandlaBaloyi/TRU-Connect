@@ -16,7 +16,7 @@ import uuid
 
 from flask import Blueprint, request
 
-from src.core.decorators import fully_authenticated
+from src.core.decorators import fully_authenticated, participants_only
 from src.core.responses import success_response
 from src.domains.platform.notifications.services import notification_service
 
@@ -44,6 +44,7 @@ def _serialize(notification) -> dict:
 
 @notifications_bp.route("/api/v1/notifications", methods=["GET"])
 @fully_authenticated
+@participants_only
 def list_notifications():
     """?category=STOCK_ORDER or ?category=INBOX -- omit for both,
     matching the two real tabs this is built for."""
@@ -54,6 +55,7 @@ def list_notifications():
 
 @notifications_bp.route("/api/v1/notifications/unread-count", methods=["GET"])
 @fully_authenticated
+@participants_only
 def get_unread_count():
     count = notification_service.get_unread_count(_user_id())
     return success_response(data={"count": count})
@@ -61,6 +63,7 @@ def get_unread_count():
 
 @notifications_bp.route("/api/v1/notifications/<uuid:notification_id>/read", methods=["POST"])
 @fully_authenticated
+@participants_only
 def mark_as_read(notification_id: uuid.UUID):
     notification = notification_service.mark_as_read(_user_id(), notification_id)
     return success_response(data=_serialize(notification))
@@ -68,6 +71,7 @@ def mark_as_read(notification_id: uuid.UUID):
 
 @notifications_bp.route("/api/v1/notifications/read-all", methods=["POST"])
 @fully_authenticated
+@participants_only
 def mark_all_as_read():
     count = notification_service.mark_all_as_read(_user_id())
     return success_response(data={"markedRead": count})
