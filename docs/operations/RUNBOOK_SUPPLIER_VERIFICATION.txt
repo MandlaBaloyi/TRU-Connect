@@ -1,0 +1,192 @@
+===========================================================================
+RUNBOOK — SUPPLIER VERIFICATION (THE CURTAIN)
+===========================================================================
+
+Written 2026-09-11. An OPERATIONS document -- it tells you what to type.
+The reasoning is V2_12; the architecture is V2_03 Part 4.
+
+WHAT THIS CONTROLS. Whether a supplier can be SEEN by businesses.
+
+  ─────────────────────────────────────────────────────────────────────
+  A supplier builds EVERYTHING and sells NOTHING until verified.
+  ─────────────────────────────────────────────────────────────────────
+
+An unverified supplier can sign up, complete their profile, import a
+three-thousand-line catalogue, set their terms and invite connections.
+No business can find them, open their storefront, or order from them.
+The day you approve them, the whole shopfront turns on at once.
+
+WHAT IT DOES NOT TOUCH. Their catalogue, prices, inventory, connections
+and past orders all survive a revocation untouched. Revoking stops
+FUTURE trade; it does not erase trade that already happened, and a
+business's order history keeps showing orders from a supplier who was
+live at the time.
+
+
+===========================================================================
+1. SETUP
+===========================================================================
+
+From `backend/`, with the virtualenv active. PowerShell:
+
+    .venv\Scripts\Activate.ps1
+    $env:FLASK_APP = "app.py"
+
+bash / the production server:
+
+    source .venv/bin/activate
+    export FLASK_APP=app.py
+
+Database and secrets are read from backend/.env automatically.
+
+YOU NEED AN ADMIN ACCOUNT. The write commands ask you to sign in and
+refuse anyone whose role is not ADMIN. If you have not made one yet,
+see RUNBOOK_CATALOGUE_REVIEW.txt section 1 -- the same admin works for
+both queues.
+
+
+===========================================================================
+2. LOOKING
+===========================================================================
+
+Who is waiting, newest first:
+
+    flask verification pending
+    flask verification pending --limit 100
+
+One supplier, by EMAIL or by user id:
+
+    flask verification status owner@example.com
+    flask verification status 0e27415a-ea26-45fe-8a6b-6815ec636752
+
+The line that matters in that output is `buyers see them: YES / NO`.
+Everything else is context.
+
+BOTH COMMANDS ARE READ-ONLY and ask for no password. Safe to run
+against production while you think.
+
+
+===========================================================================
+3. DECIDING
+===========================================================================
+
+    flask verification approve <email|id> -r "what you checked"
+    flask verification revoke  <email|id> -r "why"
+
+Each one confirms first, then asks for YOUR ADMIN EMAIL and password --
+not the supplier's. The screen just above the prompt names the supplier
+being acted on; the prompt is asking who is DECIDING.
+
+THE REASON IS NOT OPTIONAL. Leave `-r` off and it will ask. A record
+saying a supplier was verified by somebody for reasons nobody wrote
+down is worthless in three months, and three months is exactly when it
+gets asked about. Write what you actually checked:
+
+    -r "CIPC 2019/123456/07 confirmed, director ID matched, 2026-09-11"
+    -r "Partnership agreement signed; verified during contracting"
+    -r "Documents expired, asked for re-submission 2026-09-11"
+
+Every decision is written to the audit trail with your user id and the
+time.
+
+
+===========================================================================
+4. WHAT TO CHECK BEFORE APPROVING
+===========================================================================
+
+PHASE 1 HOLDS NO DOCUMENTS. There is no upload, no queue of scanned
+certificates, nothing to click through. You verify a supplier
+OUT-OF-BAND -- a certificate photographed and sent over WhatsApp, a
+phone call, a company you have actually visited -- and then record the
+outcome here. The document pipeline is V2_12 Phase 2.
+
+THE QUESTION TO ASK IS NOT "do these documents look real". It is:
+
+    IS A BUSINESS ABOUT TO HAND MONEY TO SOMEBODY WE CANNOT IDENTIFY?
+
+Minimum for approval today:
+
+  · a real, contactable person behind the account
+  · a business name that matches what they trade as
+  · EITHER a CIPC registration number you have checked, OR an ID plus
+    a declared trading name for an unregistered trader
+
+AN UNREGISTERED TRADER IS NOT A REJECTION. Most of the informal supply
+chain is not CIPC-registered, and even Takealot does not require it. An
+unregistered trader who gives you a real, checkable identity is more
+accountable than an anonymous one. See V2_12 Part 3 (Tier 1, path b).
+
+WHEN IN DOUBT, DO NOT APPROVE. An unapproved supplier is invisible,
+which is a safe state -- exactly how every supplier behaved before any
+of this existed. A wrongly approved one is a stranger taking a shop
+owner's money with TruConnect's name on the introduction.
+
+VERIFICATION SAYS NOTHING ABOUT WHAT THEY SELL. That is the other gate
+entirely -- the catalogue review queue, RUNBOOK_CATALOGUE_REVIEW.txt.
+A supplier can be completely genuine and still list something that must
+not be sold through this platform.
+
+
+===========================================================================
+5. USING IT TO TEST THE APP
+===========================================================================
+
+The supplier app shows a banner across the top of EVERY supplier screen
+when that supplier is hidden:
+
+    "Your shop is ready — buyers cannot see it yet."
+
+To see it against a real backend, hide a supplier, look, then put them
+back:
+
+    flask verification revoke you@example.com -r "testing the banner"
+    ... open the app, pull to refresh ...
+    flask verification approve you@example.com -r "testing done"
+
+THE APP CACHES THE STATUS FOR FIVE MINUTES, so it will not flip the
+instant you run the command. Pull to refresh, or restart the app.
+
+REMEMBER THE SUPPLIER IS GENUINELY HIDDEN while revoked -- they will not
+appear in any business's search and their storefront returns
+not-found. On a dev database that is harmless. Do not do it on
+production to test something.
+
+IN MOCK MODE (EXPO_PUBLIC_USE_MOCK_API is not "false") the app does not
+call the backend at all and always shows the banner, because the mock
+returns the hidden state deliberately -- a banner that never appears in
+mock mode is one nobody notices is broken.
+
+
+===========================================================================
+6. WHAT THIS IS NOT
+===========================================================================
+
+NOT A DOCUMENT REVIEW SYSTEM. Phase 2 adds intake, storage and an
+audited queue, with documents deleted after the decision. Until then
+every approval rests on something you checked yourself, elsewhere.
+
+NOT A CONTENT CHECK. See section 4.
+
+DO NOT EDIT verification_status WITH SQL. Not because it would fail --
+it would work -- but because the decision, the reason, the actor and
+the timestamp have to move together, and "who approved this supplier,
+and on what grounds" is precisely the question asked after something
+goes wrong.
+
+
+===========================================================================
+7. QUICK REFERENCE
+===========================================================================
+
+    flask verification pending                    who is waiting
+    flask verification pending --limit 100        more of them
+    flask verification status <email|id>          one supplier
+    flask verification approve <email|id> -r "…"  open the curtain
+    flask verification revoke  <email|id> -r "…"  close it again
+
+    flask admin list                              who may decide
+    flask catalogue reviews                       the OTHER gate
+
+===========================================================================
+END
+===========================================================================

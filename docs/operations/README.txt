@@ -18,4 +18,15 @@ never read the architecture follow it correctly at 7am?
       the admin control centre exists. Who may approve, what the
       evidence means, and how to decide.
 
+  RUNBOOK_SUPPLIER_VERIFICATION.txt
+      Whether a supplier can be SEEN by businesses at all -- the
+      curtain. Approving, revoking, what to check first, and how to
+      use it to test the app's banner.
+
+TWO GATES, TWO RUNBOOKS, AND THEY ARE NOT THE SAME QUESTION.
+Verification asks WHO THIS SUPPLIER IS. Catalogue review asks WHAT THEY
+ARE SELLING. A supplier can be entirely genuine -- real company, real
+documents -- and still list something that must not be sold through
+this platform. Passing one gate says nothing about the other.
+
 ===========================================================================

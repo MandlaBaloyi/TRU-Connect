@@ -121,8 +121,13 @@ def require_admin(purpose: str = "do this", capability: Optional[str] = None) ->
     from src.domains.auth.repositories.user_repository import UserRepository
     from src.shared.security.security import verify_password
 
-    email = click.prompt("  Email").strip().lower()
-    password = click.prompt("  Password", hide_input=True)
+    # "YOUR ADMIN EMAIL", NOT "EMAIL". Every caller has just printed a
+    # screen naming the SUBJECT of the action -- the supplier being
+    # approved, the review being accepted -- so a bare "Email:" reads
+    # as asking for that one again. This prompt wants the person
+    # DECIDING, and the label has to say so.
+    email = click.prompt("  Your admin email").strip().lower()
+    password = click.prompt("  Your password", hide_input=True)
 
     user = UserRepository.get_by_email(email)
     if user is None or not verify_password(password, user.password_hash):
