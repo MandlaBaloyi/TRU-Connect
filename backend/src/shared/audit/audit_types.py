@@ -22,7 +22,9 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Union
 
 from src.shared.audit.event_types.auth import AuthAuditEvent
+from src.shared.audit.event_types.admin import AdminAuditEvent
 from src.shared.audit.event_types.business import BusinessAuditEvent
+from src.shared.audit.event_types.catalogue import CatalogueAuditEvent
 from src.shared.audit.event_types.network import NetworkAuditEvent
 from src.shared.audit.event_types.platform import PlatformAuditEvent
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
@@ -34,7 +36,9 @@ from src.shared.audit.event_types.verification import VerificationAuditEvent
 # from ANY domain, not just one. Grows by one member when a new domain
 # gets its own event_types/ file -- nothing else about this file changes.
 AuditEventNameType = Union[
+    AdminAuditEvent,
     AuthAuditEvent,
+    CatalogueAuditEvent,
     BusinessAuditEvent,
     NetworkAuditEvent,
     PlatformAuditEvent,
@@ -52,6 +56,7 @@ class AuditDomain(str, enum.Enum):
     MARKETPLACE = "marketplace"
     TRUST = "trust"
     VERIFICATION = "verification"
+    CATALOGUE = "catalogue"
     PLATFORM = "platform"
     SECURITY = "security"
     # Added for network/connections (file.txt Phase 1) -- a

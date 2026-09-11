@@ -35,6 +35,9 @@ import os
 import click
 from flask.cli import AppGroup
 
+from src.cli._shared import audit as cli_audit
+from src.shared.audit.event_types import AdminAuditEvent
+
 admin_cli = AppGroup("admin", help="Create and inspect platform staff accounts.")
 
 #: Credentials for the FIRST admin, read by `flask admin seed`.
@@ -113,12 +116,13 @@ def create_admin(email: str, first_name: str, last_name: str) -> None:
         click.echo(f"  {len(existing)} admin account(s) already exist, so one of them must authorise this.\n")
         from src.cli._shared.authorise import require_admin
 
-        _, by_email = require_admin(purpose="create other admins")
-        click.echo(f"  Authorised by {by_email}.")
+        _, authorised_by = require_admin(purpose="create other admins")
+        click.echo(f"  Authorised by {authorised_by}.")
     else:
         # THE ONLY UNAUTHENTICATED PATH IN THIS FILE, and it is
         # self-closing: it is reachable exactly once, because after it
         # runs _existing_admins() is no longer empty.
+        authorised_by = None
         click.echo("  BOOTSTRAP: no admin exists yet, so shell access is the authorisation.")
         click.echo("  This is the only time `admin create` will not ask you to sign in.\n")
 
@@ -148,6 +152,21 @@ def create_admin(email: str, first_name: str, last_name: str) -> None:
         account_status=AccountStatus.ACTIVE,
     )
 
+    # THE MOST PRIVILEGED ACT IN THE SYSTEM, and until now it left no
+    # trace outside shell history -- which is per-machine, per-user and
+    # trivially cleared. `authorised_by` is None for the bootstrap,
+    # which is itself the fact worth recording: that is the one admin
+    # nobody approved.
+    cli_audit.record(
+        AdminAuditEvent.STAFF_ACCOUNT_CREATED,
+        user_id=str(user.id),
+        email=user.email,
+        metadata={
+            "authorised_by": authorised_by,
+            "bootstrap": authorised_by is None,
+            "existing_admins": len(existing),
+        },
+    )
     click.echo(f"\n  Created {user.email} as ADMIN ({user.id}).")
     click.echo("  They can now work the review queue:  flask catalogue reviews\n")
 
@@ -222,6 +241,16 @@ def seed_admin() -> None:
         role=UserRole.ADMIN,
         verification_status=VerificationStatus.VERIFIED,
         account_status=AccountStatus.ACTIVE,
+    )
+    # SEPARATE EVENT FROM `create`. Both mint an admin; "a person typed
+    # this at a terminal" and "a deploy script read it from .env"
+    # answer the who question differently, and flattening them would
+    # lose that.
+    cli_audit.record(
+        AdminAuditEvent.STAFF_ACCOUNT_SEEDED,
+        user_id=str(user.id),
+        email=user.email,
+        metadata={"bootstrap": True},
     )
     click.echo(f"  Seeded {user.email} as ADMIN ({user.id}).")
     click.echo(f"  {ENV_ADMIN_PASSWORD} is now only a copy -- the account's own hash is authoritative.")

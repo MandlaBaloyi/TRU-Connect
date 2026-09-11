@@ -65,6 +65,9 @@ from typing import Optional, Tuple
 
 import click
 
+from src.cli._shared import audit as cli_audit
+from src.shared.audit.event_types import AdminAuditEvent
+
 
 def _has_capability(user, capability: Optional[str]) -> bool:
     """Does this account hold this capability?
@@ -131,6 +134,18 @@ def require_admin(purpose: str = "do this", capability: Optional[str] = None) ->
 
     user = UserRepository.get_by_email(email)
     if user is None or not verify_password(password, user.password_hash):
+        # THE LINE MOST WORTH HAVING. A SUCCESSFUL staff action leaves
+        # other traces -- a changed row, an email, a catalogue alias. A
+        # FAILED attempt at the privileged door leaves none at all, and
+        # repeated failures are exactly the signal somebody wants after
+        # an incident.
+        cli_audit.record(
+            AdminAuditEvent.CLI_SIGN_IN_FAILED,
+            success=False,
+            email=email,
+            failure_reason="invalid_credentials",
+            metadata={"capability": capability},
+        )
         raise click.ClickException("Those credentials are not valid.")
     if not _has_capability(user, capability):
         # TWO PHRASINGS, because they answer different questions. Asked
@@ -143,6 +158,18 @@ def require_admin(purpose: str = "do this", capability: Optional[str] = None) ->
             if capability
             else f"{email} is not an admin account, so it may not {purpose}."
         )
+        # A DIFFERENT FACT FROM A BAD PASSWORD, and a more interesting
+        # one: the credentials were right and the account still may not
+        # do this. Worth its own event rather than being folded into
+        # the failure above.
+        cli_audit.record(
+            AdminAuditEvent.CLI_CAPABILITY_DENIED,
+            success=False,
+            user_id=str(user.id),
+            email=email,
+            failure_reason="missing_capability",
+            metadata={"capability": capability, "role": user.role.value if user.role else None},
+        )
         raise click.ClickException(reason + "\n  An admin is made with:  flask admin create")
     # CHECKED AFTER the capability, deliberately. "Your account is
     # suspended" is useful to learn only once it is established that
@@ -150,6 +177,12 @@ def require_admin(purpose: str = "do this", capability: Optional[str] = None) ->
     if user.account_status != AccountStatus.ACTIVE:
         raise click.ClickException("That account is not active.")
 
+    cli_audit.record(
+        AdminAuditEvent.CLI_SIGN_IN_SUCCEEDED,
+        user_id=str(user.id),
+        email=email,
+        metadata={"capability": capability},
+    )
     click.echo(f"  Signed in as {email}\n")
     return str(user.id), email
 

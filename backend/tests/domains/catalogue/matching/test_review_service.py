@@ -161,3 +161,68 @@ def test_a_missing_review_is_not_found(db_session):
 
     with pytest.raises(NotFoundError):
         review_service.get(uuid.uuid4())
+
+
+def test_accepting_is_written_to_the_audit_trail(app, db_session, pending, make_user):
+    """ACCEPTING IS NOT A ONE-ROW CHANGE.
+
+    It writes a GLOBAL alias: from then on any supplier who types those
+    same words is matched automatically, forever. The blast radius is
+    every supplier on the platform, which is the threshold at which an
+    act belongs in the audit trail alongside every other privileged
+    thing a staff member can do.
+
+    match_reviews already records decided_by_user_id, and that is the
+    OPERATIONAL record -- what happened to this proposal. This is the
+    SECURITY record, in the one table where "what did this staff member
+    do" is a single query rather than a tour of per-domain tables
+    somebody has to know exist.
+    """
+    from src.domains.auth.models.user import UserRole, VerificationStatus
+
+    staff = make_user(
+        "staff-audit@truconnect.co.za",
+        role=UserRole.ADMIN,
+        verification_status=VerificationStatus.VERIFIED,
+    )
+    db.session.commit()
+
+    review_service.accept(pending.id, decided_by_user_id=str(staff.id))
+
+    row = db.session.execute(
+        db.text(
+            "SELECT user_id, actor_type, metadata FROM security.audit_events "
+            "WHERE event_name = 'catalogue.match_accepted' ORDER BY timestamp DESC LIMIT 1"
+        )
+    ).fetchone()
+
+    assert row is not None, "accepting a match left no audit trail"
+    assert str(row[0]) == str(staff.id)
+    assert row[1] == "admin"
+    assert row[2]["source_text"] == SOURCE_TEXT
+
+
+def test_rejecting_is_written_to_the_audit_trail(app, db_session, pending, make_user):
+    """A refusal is a decision too, and the reason is the useful part."""
+    from src.domains.auth.models.user import UserRole, VerificationStatus
+
+    staff = make_user(
+        "staff-audit2@truconnect.co.za",
+        role=UserRole.ADMIN,
+        verification_status=VerificationStatus.VERIFIED,
+    )
+    db.session.commit()
+
+    review_service.reject(
+        pending.id, decided_by_user_id=str(staff.id), reason="Actually Fanta Orange 2L"
+    )
+
+    row = db.session.execute(
+        db.text(
+            "SELECT user_id, metadata FROM security.audit_events "
+            "WHERE event_name = 'catalogue.match_rejected' ORDER BY timestamp DESC LIMIT 1"
+        )
+    ).fetchone()
+
+    assert row is not None, "rejecting a match left no audit trail"
+    assert row[1]["reason"] == "Actually Fanta Orange 2L"

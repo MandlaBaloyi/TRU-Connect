@@ -44,6 +44,7 @@ from src.domains.catalogue.matching.repositories.match_review_repository import 
     MatchReviewRepository,
 )
 from src.extensions import db
+from src.shared.audit.event_types import CatalogueAuditEvent
 
 #: Decisions a reviewer may still act on. AUTO_APPLIED is deliberately
 #: absent: those were already applied, and a reviewer who disagrees with
@@ -121,6 +122,7 @@ def accept(review_id: str | UUID, *, decided_by_user_id: Optional[str | UUID] = 
     review.decided_at = utcnow()
     review.decided_by_source = "HUMAN"
     db.session.commit()
+    _record(review, CatalogueAuditEvent.MATCH_ACCEPTED, decided_by_user_id)
     return review
 
 
@@ -158,4 +160,54 @@ def reject(
         # keeping, and together they are the useful record.
         review.reason = f"{review.reason} | Rejected: {reason}"[:300]
     db.session.commit()
+    _record(review, CatalogueAuditEvent.MATCH_REJECTED, decided_by_user_id, reason=reason)
     return review
+
+
+def _record(review, event, decided_by_user_id, reason: Optional[str] = None) -> None:
+    """Write the decision to the audit trail.
+
+    WHY THIS EXISTS WHEN match_reviews ALREADY RECORDS decided_by_user_id.
+    That row is the OPERATIONAL record -- what happened to this
+    proposal. This is the SECURITY record, in the same table as every
+    other privileged act, so "what did this staff member do" is one
+    query rather than a tour of per-domain tables somebody has to know
+    exist.
+
+    AND ACCEPTING IS NOT A ONE-ROW CHANGE. It writes a GLOBAL ALIAS:
+    from then on any supplier who types those same words is matched
+    automatically, forever. The blast radius is every supplier on the
+    platform, which is the threshold at which an act belongs in the
+    audit trail.
+
+    NEVER RAISES -- the decision is already committed above.
+    """
+    try:
+        from src.shared.audit.audit import publish
+        from src.shared.audit.audit_types import ActorType, AuditDomain, AuditEvent, AuditStatus
+
+        publish(
+            AuditEvent(
+                event_name=event,
+                domain=AuditDomain.CATALOGUE,
+                status=AuditStatus.SUCCESS,
+                module="review_service",
+                actor_type=ActorType.ADMIN,
+                user_id=str(decided_by_user_id) if decided_by_user_id else None,
+                metadata={
+                    "review_id": str(review.id),
+                    "source_text": review.source_text,
+                    "proposed_product_id": (
+                        str(review.proposed_product_id) if review.proposed_product_id else None
+                    ),
+                    "tier": review.tier,
+                    "confidence": float(review.confidence) if review.confidence is not None else None,
+                    "reason": reason,
+                    "source": "CLI",
+                },
+            )
+        )
+    except Exception:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).exception("catalogue: failed to write a decision audit event")
