@@ -1,0 +1,30 @@
+{% extends "base/base.html" %}
+{% block title %}Your shop is live on TRU Connect{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px; color:#111417; font-size:16px; line-height:1.6;">
+  Hi {{ owner_name }},
+</p>
+
+<p style="margin:0 0 16px; color:#111417; font-size:16px; line-height:1.6;">
+  <strong>{{ business_name }} is now visible to businesses on TRU Connect.</strong>
+</p>
+
+<p style="margin:0 0 16px; color:#3A3F44; font-size:15px; line-height:1.6;">
+  Everything you have already set up &mdash; your catalogue, your prices, your
+  delivery terms &mdash; went live at the same moment. Businesses can now find
+  you in search, browse what you sell, and place orders with you.
+</p>
+
+<p style="margin:0 0 8px; color:#3A3F44; font-size:15px; line-height:1.6;">
+  Worth doing now, while you are thinking about it:
+</p>
+<ul style="margin:0 0 16px; padding-left:20px; color:#3A3F44; font-size:15px; line-height:1.7;">
+  <li>Check your prices are current &mdash; these are what businesses will see.</li>
+  <li>Make sure your stock levels are right, so nobody orders what you do not have.</li>
+  <li>Turn on order notifications, so you hear about an order the day it arrives.</li>
+</ul>
+
+<p style="margin:0; color:#6B7280; font-size:13px; line-height:1.6;">
+  Verified on {{ decided_on }}.
+</p>
+{% endblock %}

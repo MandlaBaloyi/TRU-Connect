@@ -327,6 +327,22 @@ class SupplierProfile(BaseModel):
         default=SupplierVerificationStatus.UNVERIFIED,
     )
 
+    # HOW FAR ALONG THE REMINDER LADDER THIS SUPPLIER IS, while they
+    # wait to be verified (V2_12 Phase 1). 0 = nothing sent, 3 = the
+    # ladder is finished and we stop -- a platform that emails forever
+    # about its OWN pending decision is nagging somebody about work
+    # they cannot do anything about.
+    #
+    # sent_at DOUBLES AS THE CLOCK: null means nothing has been sent
+    # and the sweep falls back to created_at, which is what stops every
+    # existing supplier receiving all three emails in the first run
+    # after deploy. Reset by approve() and revoke() so the wait is
+    # always measured from the moment the curtain actually closed.
+    verification_reminder_stage = db.Column(
+        db.SmallInteger, nullable=False, default=0, server_default="0"
+    )
+    verification_reminder_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
     # Normalized, indexed, search-only -- see module docstring.
     normalized_phone = db.Column(db.String(20), nullable=True)
     normalized_email = db.Column(db.String(255), nullable=True)

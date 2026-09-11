@@ -1,0 +1,27 @@
+{% extends "base/base.html" %}
+{% block title %}Your shop is ready on TRU Connect{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px; color:#111417; font-size:16px; line-height:1.6;">
+  Hi {{ owner_name }},
+</p>
+
+<p style="margin:0 0 16px; color:#111417; font-size:16px; line-height:1.6;">
+  <strong>{{ headline }}</strong>
+</p>
+
+<p style="margin:0 0 16px; color:#3A3F44; font-size:15px; line-height:1.6;">
+  {{ body }}
+</p>
+
+{% if show_contact %}
+<p style="margin:0 0 16px; color:#3A3F44; font-size:15px; line-height:1.6;">
+  If you would like an update, reply to
+  <a href="mailto:{{ support_email }}" style="color:#0B2447;">{{ support_email }}</a>
+  and a person will come back to you.
+</p>
+{% endif %}
+
+<p style="margin:0; color:#6B7280; font-size:13px; line-height:1.6;">
+  You will hear from us when your shop goes live.
+</p>
+{% endblock %}

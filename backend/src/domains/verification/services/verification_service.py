@@ -31,6 +31,7 @@ from src.domains.supplier.supplier_profile.models.supplier_profile import (
     SupplierProfile,
     SupplierVerificationStatus,
 )
+from src.core.base_model import utcnow
 from src.extensions import db
 from src.shared.audit.event_types import VerificationAuditEvent
 
@@ -82,8 +83,15 @@ def approve(supplier_id, *, decided_by_user_id: str, reason: str) -> SupplierPro
 
     profile = _get_profile(supplier_id)
     profile.verification_status = SupplierVerificationStatus.VERIFIED
+    # CLEAN SLATE, so that if this supplier is ever revoked later the
+    # ladder starts from that moment rather than from an account
+    # created two years ago -- which would fire all three reminders in
+    # the first sweep after the revocation.
+    profile.verification_reminder_stage = 0
+    profile.verification_reminder_sent_at = None
     db.session.commit()
     _record(profile, VerificationAuditEvent.SUPPLIER_APPROVED, decided_by_user_id, reason)
+    _notify(profile, "approved")
     return profile
 
 
@@ -108,8 +116,14 @@ def revoke(supplier_id, *, decided_by_user_id: str, reason: str) -> SupplierProf
 
     profile = _get_profile(supplier_id)
     profile.verification_status = SupplierVerificationStatus.UNVERIFIED
+    # THE LADDER'S CLOCK RESTARTS HERE, not at account creation. Both
+    # fields together mean "nothing sent yet, and the wait began now".
+    profile.verification_reminder_stage = 0
+    profile.verification_reminder_sent_at = utcnow()
     db.session.commit()
     _record(profile, VerificationAuditEvent.SUPPLIER_REVOKED, decided_by_user_id, reason)
+    # THE REASON IS NOT PASSED, deliberately -- see _notify.
+    _notify(profile, "hidden")
     return profile
 
 
@@ -149,6 +163,42 @@ def _record(profile, event, decided_by_user_id: Optional[str], reason: str) -> N
         )
     except Exception:  # noqa: BLE001
         pass
+
+
+def _notify(profile, kind: str) -> None:
+    """Tell the supplier what just happened to their shop.
+
+    NEVER RAISES, for the same reason _record does not: the decision is
+    already committed. An unreachable mail server must not turn a
+    verification that really happened into a command that reports
+    failure, and EmailService.send_template swallows its own errors
+    anyway -- this guard covers the lookup and rendering around it.
+
+    THE INTERNAL REASON IS NOT AN ARGUMENT TO THIS FUNCTION, and that
+    is the point rather than an omission. A revocation reason is
+    written for us and may say "documents appear altered"; passing it
+    here would put it one interpolation away from the inbox of the
+    person it describes. The audit trail keeps it; the supplier gets a
+    support address.
+    """
+    try:
+        from src.domains.auth.repositories.user_repository import UserRepository
+        from src.domains.verification.notification_templates import verification_emails
+        from src.shared.email.email import EmailService
+
+        user = UserRepository.get_by_id(profile.supplier_id)
+        if user is None or not user.email:
+            return
+
+        builder = verification_emails.approved if kind == "approved" else verification_emails.hidden
+        template_name, subject, context = builder(user, profile)
+        EmailService.send_template(
+            to=user.email, template_name=template_name, subject=subject, context=context
+        )
+    except Exception:  # noqa: BLE001
+        from flask import current_app
+
+        current_app.logger.exception("verification: failed to send '%s' email", kind)
 
 
 def list_by_status(status: Optional[SupplierVerificationStatus] = None, limit: int = 50):
