@@ -1,0 +1,448 @@
+===========================================================================
+V2_13 — SUPPLIER INTEGRATION TIERS: FROM A PHONE TO AN ERP
+===========================================================================
+
+Written 2026-09-11. A PLAN, and a narrow one on purpose.
+
+WHAT THIS DOCUMENT IS FOR. Not to build tier 3 or tier 4 — there is no
+supplier asking for either. It exists to answer one question:
+
+  ─────────────────────────────────────────────────────────────────────
+  WHAT WOULD WE REGRET NOT DOING TODAY, when a wholesaler with an ERP
+  arrives eighteen months from now?
+  ─────────────────────────────────────────────────────────────────────
+
+Almost nothing, as it turns out. The tiers are additive and can be
+built when they are needed. But THREE THINGS are cheap columns today
+and migrations-plus-backfill later, and Part 3 is the real content of
+this document. Everything else is context for why those three matter.
+
+NOT TO BE CONFUSED WITH V2_08, despite the similar-sounding name. That
+document is about third-party services WE CONSUME — airtime float,
+delivery brokerage, WhatsApp. This one is about how SUPPLIERS CONNECT
+TO US, which is the opposite direction and shares none of the same
+concerns.
+
+
+===========================================================================
+PART 1 — THE FOUR TIERS
+===========================================================================
+
+1.1 THE PRINCIPLE, BORROWED FROM FOOD DELIVERY
+
+  Uber Eats solved this problem before us and the shape is worth
+  copying exactly: THE COST OF INTEGRATING MUST BE PROPORTIONAL TO THE
+  VOLUME. Asking a one-person bakery to build an API client is absurd.
+  Asking a national chain to retype orders off a tablet is equally
+  absurd. So there is a ladder, and a supplier climbs it when their
+  own volume justifies the effort.
+
+    TABLET        no IT at all. The device IS the point of sale, the
+                  dashboard, and the order screen.
+    POS           orders injected into the till system they already
+                  own (Toast, Clover, Lightspeed), so staff cannot
+                  tell which channel an order came from.
+    DIRECT API    their own middleware. Menus sync, orders inject
+                  programmatically. Four to eight weeks and a contract.
+                       — Uber Eats merchant docs; Toast; ChowNow; Deliverect
+
+  THE DETAIL WORTH STEALING: at the POS tier, an order from Uber looks
+  identical to a walk-in order. The integration's success condition is
+  that the KITCHEN NEVER LEARNS A NEW HABIT. That is the standard a
+  TruConnect integration should be held to as well — a supplier's
+  warehouse staff should not have to know an order came from us.
+
+1.2 A BORROWED WORD WE SHOULD NOT BORROW
+
+  "1P vs 3P" gets used loosely to mean "managed vs self-serve". It does
+  not mean that. On Amazon, 1P (Vendor Central) means AMAZON BUYS THE
+  INVENTORY, owns it, and sets the retail price; 3P (Seller Central) is
+  the marketplace where the seller keeps ownership and sets their own
+  price.
+                       — Pattern; Feedvisor; Amify; Sellermania
+
+  TRUCONNECT IS 3P ONLY, AND SHOULD SAY SO. We never buy stock, never
+  own inventory, never set a supplier's price. What we might borrow
+  from Vendor Central is only that it is INVITE-ONLY AND HUMAN-
+  ONBOARDED — a property of how somebody joins, not of who owns the
+  goods. Using "1P" as shorthand for our managed tier would eventually
+  mislead somebody into thinking we take inventory risk.
+
+  So the vocabulary here is TIER 1-4, not 1P/3P.
+
+1.3 THE TIERS AS THEY APPLY TO US
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 1 — APP-ONLY
+  ─────────────────────────────────────────────────────────────────────
+  Who        a wholesaler with no systems. A phone, a notebook, maybe
+             a spreadsheet nobody else can read.
+  Operates   entirely in the mobile app. Adds products by hand, takes
+             orders on the screen, marks them fulfilled.
+  Needs      that the app be the whole operation, not a companion to
+             something else.
+  Status     BUILT.
+
+  ON TABLETS, which is a product decision disguised as a sales one.
+  Uber did not hand out tablets as a marketing giveaway; it was the
+  cheapest way to onboard a merchant with no IT, and the hardware paid
+  for itself in orders that would otherwise have been missed. For a
+  town wholesaler whose digital orders are growing, a tablet is a
+  materially better order screen than a phone — bigger, stays on a
+  counter, stays charged, and is not also somebody's personal device
+  that leaves the building at five o'clock.
+
+  IT COSTS NOTHING ARCHITECTURALLY. The app is already React Native and
+  Expo Router; a tablet is a large phone. What it changes is layout
+  work (two-column at width) and, more importantly, the SALES motion:
+  "we will set you up" is a different conversation from "download our
+  app". Worth its own decision when supply acquisition becomes the
+  bottleneck — not a build item today.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 2 — FILE
+  ─────────────────────────────────────────────────────────────────────
+  Who        has a price list. Exports from Pastel/Sage/Excel, or
+             keeps a spreadsheet a person maintains.
+  Operates   uploads a file periodically; takes orders in the app.
+  Needs      the importer to be forgiving of real files — merged cells,
+             inconsistent units, missing barcodes.
+  Status     BUILT. bulk_import, the matching ladder, the review queue.
+
+  THIS IS THE TIER MOST SOUTH AFRICAN WHOLESALERS ACTUALLY OCCUPY, and
+  it is where the catalogue work of V2_11 pays off. A supplier who can
+  send a spreadsheet is not a supplier who can call an API, and the gap
+  between those two is most of the market.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 3 — INBOUND API
+  ─────────────────────────────────────────────────────────────────────
+  Who        has an ERP and somebody who can write against an API.
+  Operates   their system pushes catalogue and prices to us on a
+             schedule. Humans log in for REPORTS, not for order-taking.
+  Needs      an API key, idempotent writes, and clear errors.
+  Status     HALF-BUILT.
+
+    Built      api_key_required, scoped keys, key authentication,
+               the inbound product endpoints.
+    Missing    a way to ISSUE a key to a supplier who never logs in.
+               ApiKeyService.issue() exists; the only door to it is an
+               HTTP route behind @role_required("supplier").
+    Missing    idempotency. See Part 3.1 — this is the gap that
+               matters.
+
+  THE DASHBOARD QUESTION, ANSWERED. A tier 3 supplier still has an
+  account and still logs in. Not to take orders — those land in their
+  own system — but for reports and money, API key management, their
+  terms and profile, disputes, and whether the integration is healthy.
+  "Do they need a dashboard" and "do they need an order screen" are
+  different questions, and only the second one gets a no.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 4 — TWO-WAY
+  ─────────────────────────────────────────────────────────────────────
+  Who        a partner whose warehouse runs on their own software.
+  Operates   we push order events INTO their infrastructure; stock and
+             price changes flow back to us.
+  Needs      outbound webhooks with signing, retries and replay.
+  Status     NOT BUILT AT ALL. Confirmed: the only webhook code in this
+             codebase is INBOUND (Cloudinary scan results), and there
+             is no outbound HTTP delivery anywhere in src/.
+
+  Sketched in Part 6. It needs its own document before it needs code.
+
+
+===========================================================================
+PART 2 — HONEST STATUS
+===========================================================================
+
+  TIER 1   ████████████████████  built
+  TIER 2   ████████████████████  built
+  TIER 3   ██████████░░░░░░░░░░  keys and endpoints; no key issuance
+                                 for a non-logging-in supplier, no
+                                 idempotency
+  TIER 4   ░░░░░░░░░░░░░░░░░░░░  nothing
+
+  AND THE HONEST NOTE ON URGENCY: there are no tier 3 or tier 4
+  suppliers, and none in conversation. Nothing in Parts 4 through 7 is
+  scheduled. Part 3 is the only part with a claim on the present.
+
+
+===========================================================================
+PART 3 — THE THREE SEAMS THAT MUST BE RIGHT NOW
+===========================================================================
+
+The test applied to each: IS THIS CHEAP TODAY AND EXPENSIVE LATER? All
+three are columns and a habit now, versus a migration plus a backfill
+of history that was never recorded.
+
+3.1 IDEMPOTENCY ON WRITES
+
+  THE FAILURE, CONCRETELY. A supplier's ERP posts a product. The
+  connection times out at fifteen seconds. The ERP has no way to know
+  whether we processed it, so — correctly — it retries. We create a
+  SECOND product. Nobody notices until their catalogue has doubled.
+
+  This cannot be engineered away, and that is the important part: if a
+  request times out the client genuinely cannot tell whether the server
+  processed it. Retrying is the right behaviour. The fix is on our side.
+                       — Stripe, "Designing robust and predictable APIs
+                         with idempotency"; brandur.org
+
+  THE STANDARD SHAPE, which we should copy rather than invent:
+
+    · the CLIENT generates the key (a v4 UUID), not the server
+    · sent as a header on POST; meaningless on GET and DELETE, which
+      are idempotent by definition
+    · we store the resulting status code and body against that key,
+      INCLUDING FAILURES — a retry of a request that 500ed returns the
+      same 500, rather than re-running it
+    · the stored parameters are compared: the same key with different
+      parameters is an error, not a silent overwrite
+    · keys expire (24 hours is Stripe's window)
+
+  WHY NOW AND NOT AT TIER 3. Because the habit is what is expensive,
+  not the table. If write endpoints are built for two years without an
+  idempotency key, adding one later means revisiting every one of them
+  and re-reasoning about what "the same request" means for each. Adding
+  the column and the decorator now costs an afternoon and makes every
+  subsequent endpoint inherit it.
+
+  STATUS: NOT PRESENT. Several services are idempotent in their own
+  semantics (revoking a key, adding a brand alias), which is a good
+  habit and a different thing — there is no request-level idempotency
+  key anywhere.
+
+3.2 AN EVENT LOG FOR STOCK ORDERS
+
+  THE FAILURE. A partner asks for order events pushed to their system.
+  We build the delivery machinery — and discover there is nothing to
+  deliver FROM. Webhooks replay from an event stream; without one, the
+  first partner gets no history, and a delivery that fails at 02:00 has
+  nothing to retry against.
+
+  Retention of at least 30 days, an API to list events by type and time
+  and delivery status, and manual replay for a single event or a range,
+  are the baseline expectations of anyone consuming webhooks.
+                       — Hookdeck; Codelit; AppMaster
+
+  WHAT EXISTS AND WHAT DOES NOT. The pattern is already in this
+  codebase and applied twice — LoanHistoryEvent and OrderHistoryEvent
+  both record an append-only history. Both belong to the BUSINESS's own
+  books. network/orders/models/ contains only stock_order and
+  stock_order_payment: the marketplace transaction itself has no event
+  record. Its state changes are updates to a row.
+
+  SO THE SEAM IS A THIRD USE OF A PATTERN THIS CODEBASE ALREADY HAS,
+  not a new idea. StockOrderEvent, written wherever the order's state
+  changes: placed, accepted, declined, fulfilled, cancelled, paid.
+
+  AND IT PAYS FOR ITSELF BEFORE TIER 4 ARRIVES. "Why did this order
+  change?" is a support question that exists today and is currently
+  answered by inference. An append-only log answers it directly, and
+  the same rows are what a webhook eventually sends.
+
+3.3 THE ORIGIN OF A WRITE
+
+  THE FAILURE. A supplier edits a price in the app at 09:00. Their ERP
+  pushes the old price at 09:05. Which is correct? Today there is no
+  way to answer, because a price is a value with no memory of where it
+  came from.
+
+  At tier 3 and above, the ERP is USUALLY authoritative and the app is
+  usually a convenience — but "usually" is a policy, and a policy needs
+  a field to act on. Without one the only options are to let the last
+  write win (silently reverting deliberate human edits) or to freeze
+  app editing for integrated suppliers (a worse product).
+
+  THE SEAM: a `source` on stock, price and product writes —
+  APP / IMPORT / API — recorded at the moment of the write.
+
+  CHEAP NOW, IMPOSSIBLE RETROSPECTIVELY. A column added later starts
+  null for every existing row, and no amount of analysis recovers where
+  a number came from two years ago.
+
+  IT IS ALSO USEFUL IMMEDIATELY, which is the test of a good seam: "how
+  many of this supplier's prices came from the importer versus typed by
+  hand" is a question worth answering today.
+
+  STATUS: NOT PRESENT.
+
+
+===========================================================================
+PART 4 — IDENTITY, ORGANISATION, AND THE THING WE ARE NOT DOING
+===========================================================================
+
+4.1 THE CONFLATION
+
+  Today one User row does three jobs:
+
+    a PERSON who logs in
+    the OWNER of a shopfront
+    the IDENTITY an API key acts as
+
+  These are the same thing right now. They stop being the same thing
+  for the first supplier who has an ERP integration AND three staff who
+  each need a login: that is one shopfront and four identities.
+
+4.2 THE PROPER FIX, AND WHY NOT NOW
+
+  The eventual answer is an ORGANISATION that owns the shopfront, with
+  human users and machine identities both belonging to it. Service
+  accounts — an identity with no interactive login, holding credentials
+  — are how Google Cloud and AWS solve exactly this.
+
+  IT IS ALSO A LARGE, INVASIVE REFACTOR touching auth, every ownership
+  check, and every foreign key that points at a supplier. Doing it
+  before a single supplier has asked for a second login would be the
+  same mistake as building a permissions table for one admin, and for
+  the same reason: a system with one subject cannot be tested against
+  the case it exists for.
+
+  THE TRIGGER IS SPECIFIC, so nobody has to guess: THE FIRST SUPPLIER
+  WHO ASKS FOR A SECOND STAFF LOGIN. Not a date, not a headcount.
+
+4.3 THE CHEAP HALF, WHICH IS WORTH DOING
+
+  What makes the refactor expensive later is code that assumes
+  supplier_id means A PERSON. Mostly it does not — it is used as "the
+  shopfront owner", which survives the change untouched.
+
+  So the discipline is narrow and costs nothing: DO NOT PUT
+  PERSON-SPECIFIC DATA ON THE SUPPLIER PROFILE. A staff member's name,
+  their notification preferences, their last login — those belong to a
+  user, and putting them on the shopfront is what would make the
+  eventual split painful.
+
+
+===========================================================================
+PART 5 — WE ARE NEVER THEIR ONLY CHANNEL
+===========================================================================
+
+KFC has its own app and is also on Uber Eats. This is not indecision;
+it is the normal state of every merchant. The own app keeps the whole
+margin and the customer relationship. The marketplace supplies reach
+they cannot build themselves. Same kitchen, same stock, two sources of
+demand.
+
+A WHOLESALER WITH A WEBSITE WILL DO EXACTLY THE SAME WITH US, and the
+architectural consequence is a correctness problem rather than a
+commercial one:
+
+  ─────────────────────────────────────────────────────────────────────
+  If stock moves through a channel we cannot see, our numbers are
+  wrong, and a business orders something that is not there.
+  ─────────────────────────────────────────────────────────────────────
+
+TODAY WE IMPLICITLY ASSUME WE ARE AUTHORITATIVE. For tiers 1 and 2 that
+is true enough — a supplier operating out of our app has no other
+system to contradict it. It stops being true at tier 3, and that is the
+real reason 3.3 (the origin of a write) matters more than it first
+appears: it is the first step toward being able to say "their system is
+the truth, ours is a cache".
+
+THE HONEST POSITION FOR NOW: we are authoritative because nobody has
+told us otherwise. Do not build sync machinery for a problem no
+supplier has yet. Do record where numbers came from, so that when one
+does, the conversation is a policy decision rather than an archaeology
+project.
+
+
+===========================================================================
+PART 6 — OUTBOUND WEBHOOKS (SKETCH ONLY)
+===========================================================================
+
+Deliberately a sketch. This needs its own document when a partner needs
+it, and the research below is recorded so that document does not start
+from nothing.
+
+  AT-LEAST-ONCE IS THE SHAPE OF THE PROBLEM, not a flaw to engineer
+  away. If a delivery times out we cannot know whether they processed
+  it. So every event carries a stable id, and the consumer is told to
+  key on it.
+
+  THE OUTBOX PATTERN: the event is written in the SAME TRANSACTION as
+  the state change it describes, and delivered by a separate worker.
+  Anything else can commit an order and fail to record that it
+  happened.
+
+  SIGNING: HMAC-SHA256 over the exact request body plus a timestamp, in
+  a header, with a per-endpoint secret. That is the industry standard
+  and consumers already know how to verify it.
+
+  RETRIES: five to eight attempts with exponential backoff over a 24-72
+  hour window, then a dead-letter queue. Per-subscriber limits so one
+  slow partner cannot starve the others.
+
+  REPLAY: an API to list events by type, time and delivery status, and
+  to replay one or a range. 30 days of retention minimum.
+                       — Hookdeck; Codelit; AppMaster; Matheus Palma;
+                         outbox pattern references
+
+  AND THE PIECE THAT ALREADY EXISTS: src/shared/queue and the master
+  scheduler give us the worker and the retry surface. What is missing
+  is the outbox table (3.2) and the delivery machinery on top.
+
+
+===========================================================================
+PART 7 — WHAT TO DO, AND WHEN
+===========================================================================
+
+  NOW, AND ONLY THIS
+    3.3  a `source` on stock/price/product writes        small
+    3.2  StockOrderEvent, an append-only order log       small
+    3.1  idempotency keys on POST endpoints              afternoon
+
+    All three are useful on their own terms today. None of them is
+    speculative machinery: they are a column, a table this codebase
+    already has two examples of, and a decorator.
+
+  WHEN A TIER 3 SUPPLIER APPEARS
+    `flask supplier onboard`     create an account for a partner who
+                                 never signs up. No password set — they
+                                 use password reset, so no credential
+                                 is ever typed by us or sent over
+                                 WhatsApp.
+    `flask supplier issue-key`   the missing door to ApiKeyService.issue
+    integration health           on their dashboard: last successful
+                                 push, recent errors, key expiry
+
+  WHEN A TIER 4 PARTNER APPEARS
+    its own document, then the outbox and delivery worker.
+
+  NEVER, UNLESS SOMEBODY ASKS
+    the Organisation refactor (4.2), stock sync machinery (Part 5),
+    a tablet SKU (1.3).
+
+
+===========================================================================
+SOURCES
+===========================================================================
+
+  Uber Eats merchant documentation — POS integration
+  Uber Eats Marketplace APIs — developer.uber.com/docs/eats
+  Toast — Getting Started with the Uber Eats Integration
+  ChowNow; OrderOut; Deliverect; KitchenHub — POS integration guides
+  Pattern; Feedvisor; Amify; Sellermania; AMZBase — Amazon 1P vs 3P
+  Stripe — "Designing robust and predictable APIs with idempotency"
+  Stripe API Reference — Idempotent requests
+  brandur.org — Implementing Stripe-like Idempotency Keys in Postgres
+  Hookdeck — Common Mistakes with Outbound Webhooks
+  Codelit.io — Webhook Delivery Guarantees
+  AppMaster — Debug webhook integrations
+  Matheus Palma — Outbound webhook delivery at scale
+
+  Codebase, read 2026-09-11:
+    src/domains/auth/api_keys/          keys, scopes, issue() present
+    src/domains/network/orders/models/  stock_order + payment only,
+                                        no event log
+    src/domains/business/*/models/      LoanHistoryEvent,
+                                        OrderHistoryEvent — the pattern
+                                        already used twice
+    src/shared/media/webhooks/          INBOUND only (Cloudinary)
+    src/ (all)                          no outbound HTTP delivery
+    src/domains/supplier/inventory/     no write-origin column
+
+===========================================================================
+END
+===========================================================================
