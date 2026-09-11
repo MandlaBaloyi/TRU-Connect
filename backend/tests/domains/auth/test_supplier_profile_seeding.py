@@ -35,7 +35,7 @@ def _register_supplier(
 
 def _extract_otp(email: str) -> str:
     for sent in get_fake_provider().sent_emails:
-        if sent["to"] == email and sent["subject"] == "Your TRU Connect verification code":
+        if sent["to"] == email and sent["subject"] == "Your TruConnect verification code":
             match = re.search(r"letter-spacing:6px[^>]*>\s*(\d{6})", sent["html_body"])
             if match:
                 return match.group(1)
@@ -61,9 +61,27 @@ def test_supplier_not_searchable_before_verification(client, make_user):
     assert results == []
 
 
-def test_supplier_becomes_searchable_immediately_after_verification(client, make_user):
+def test_email_verification_seeds_the_profile_but_does_not_make_them_sellable(client, make_user):
+    """THIS TEST USED TO ASSERT THE OPPOSITE, and the change is the
+    point rather than a regression.
+
+    It was called "becomes searchable IMMEDIATELY after verification",
+    written when OTP verification was the only gate a supplier had.
+    V2_12 Phase 1 introduced a second, separate one: confirming your
+    EMAIL proves you own an address, and says nothing about whether
+    you are a real business somebody should send money to. Those are
+    two different questions and auth.users.verification_status /
+    SupplierProfile.verification_status are two different columns.
+
+    So the profile is seeded and complete -- with the BUSINESS name,
+    which is what this test has always really been protecting -- and
+    the supplier is INVISIBLE until a human approves them.
+    """
     from src.domains.auth.models.user import UserRole, VerificationStatus
     from src.domains.network.connections.services import discovery_service
+    from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
+        SupplierProfileRepository,
+    )
     from src.extensions import db
 
     response = _register_supplier(client, owner_name="Sipho Mahlangu", email="sipho-seed@example.com")
@@ -81,8 +99,49 @@ def test_supplier_becomes_searchable_immediately_after_verification(client, make
     )
     db.session.commit()
 
-    # Seeded with the BUSINESS name now (mandatory field), not the
-    # owner name -- see otp_service._seed_supplier_profile.
+    # THE PROFILE IS REAL AND CORRECTLY NAMED. Seeded with the BUSINESS
+    # name (mandatory at registration), not the owner name -- see
+    # otp_service._seed_supplier_profile.
+    from src.domains.auth.repositories.user_repository import UserRepository
+
+    supplier_user = UserRepository.get_by_email("sipho-seed@example.com")
+    profile = SupplierProfileRepository.get_by_supplier_id(supplier_user.id)
+    assert profile is not None
+    assert profile.business_name == "Mahlangu Fresh Produce"
+
+    # AND NOBODY CAN SEE THEM. The curtain.
+    assert discovery_service.search_suppliers("Mahlangu Fresh Produce", viewer_business.id) == []
+
+
+def test_the_supplier_appears_the_moment_a_human_approves_them(client, make_user):
+    """The other half: the curtain opens, and everything the supplier
+    built while waiting becomes visible at once."""
+    from src.domains.auth.models.user import UserRole, VerificationStatus
+    from src.domains.auth.repositories.user_repository import UserRepository
+    from src.domains.network.connections.services import discovery_service
+    from src.domains.verification.services import verification_service
+    from src.extensions import db
+
+    _register_supplier(client, owner_name="Sipho Mahlangu", email="sipho-approve@example.com")
+    code = _extract_otp("sipho-approve@example.com")
+    client.post(
+        "/api/v1/auth/phone/verify-otp",
+        json={"destination": "sipho-approve@example.com", "code": code},
+    )
+
+    viewer_business = make_user(
+        "seeding-viewer-3@example.com", role=UserRole.BUSINESS, verification_status=VerificationStatus.VERIFIED
+    )
+    staff = make_user(
+        "seeding-staff@example.com", role=UserRole.ADMIN, verification_status=VerificationStatus.VERIFIED
+    )
+    db.session.commit()
+
+    supplier_user = UserRepository.get_by_email("sipho-approve@example.com")
+    verification_service.approve(
+        supplier_user.id, decided_by_user_id=str(staff.id), reason="Checked during onboarding."
+    )
+
     results = discovery_service.search_suppliers("Mahlangu Fresh Produce", viewer_business.id)
     assert len(results) == 1
     assert results[0]["businessName"] == "Mahlangu Fresh Produce"
