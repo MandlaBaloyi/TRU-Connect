@@ -5,6 +5,13 @@ READ FIRST, DECIDE SECOND. `reviews` and `review` show what the ladder
 proposed and on what evidence; `accept` and `reject` act. Nothing here
 writes without being asked to, so the listing commands are safe to run
 against production while thinking.
+
+ONLY THE WRITES ASK WHO YOU ARE, and the asymmetry is deliberate.
+Anyone able to run these already holds the database credentials and
+could read the same rows with psql, so gating the listings would add
+friction without adding safety. The writes are different: they change
+what every supplier sees. See cli/authorise.py -- the prompt is a
+signature, not a wall.
 """
 from __future__ import annotations
 
@@ -120,14 +127,16 @@ def review(review_id: str) -> None:
 
 @catalogue_cli.command("accept")
 @click.argument("review_id")
-@click.option("--user", "user_id", default=None, help="The reviewer's user id, if known.")
-def accept(review_id: str, user_id: str) -> None:
+def accept(review_id: str) -> None:
     """Confirm a proposal: link the offer and teach the alias.
 
     THE ALIAS IS WHY THIS MATTERS MORE THAN ONE ROW. It is global -- the
     next supplier who writes the same words gets matched for free, so
-    the queue shrinks rather than repeating itself.
+    the queue shrinks rather than repeating itself. It is also why this
+    asks who you are: an action whose blast radius is every supplier on
+    the platform should carry a name.
     """
+    from src.cli.authorise import require_reviewer
     from src.domains.catalogue.matching.services import review_service
 
     item = review_service.get(review_id)
@@ -135,17 +144,28 @@ def accept(review_id: str, user_id: str) -> None:
     click.echo(f"  -> {_product_label(item.proposed_product_id)}\n")
     click.confirm("  Link these, and remember it for every supplier?", abort=True)
 
+    # AFTER the confirmation, not before. No reason to make somebody
+    # type a password for an action they then decide against.
+    user_id, email = require_reviewer()
+
     review_service.accept(review_id, decided_by_user_id=user_id)
-    click.echo("  Linked, and the alias was learned.\n")
+    click.echo(f"  Linked, and the alias was learned. Recorded against {email}.\n")
 
 
 @catalogue_cli.command("reject")
 @click.argument("review_id")
 @click.option("--reason", "-r", default=None, help="Why, for the record.")
-@click.option("--user", "user_id", default=None, help="The reviewer's user id, if known.")
-def reject(review_id: str, reason: str, user_id: str) -> None:
+def reject(review_id: str, reason: str) -> None:
     """Refuse a proposal. The offer stays unmatched, which is safe."""
+    from src.cli.authorise import require_reviewer
     from src.domains.catalogue.matching.services import review_service
 
+    item = review_service.get(review_id)
+    click.echo(f'\n  "{item.source_text}"')
+    click.echo(f"  -> {_product_label(item.proposed_product_id)}\n")
+    click.confirm("  Refuse this match?", abort=True)
+
+    user_id, email = require_reviewer()
+
     review_service.reject(review_id, decided_by_user_id=user_id, reason=reason)
-    click.echo("\n  Rejected. The offer stays unmatched and no alias was written.\n")
+    click.echo(f"  Rejected by {email}. The offer stays unmatched, and no alias was written.\n")

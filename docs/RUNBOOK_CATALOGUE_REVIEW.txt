@@ -1,0 +1,183 @@
+===========================================================================
+RUNBOOK — WORKING THE CATALOGUE REVIEW QUEUE
+===========================================================================
+
+Written 2026-09-11. This is an OPERATIONS document, not a plan -- it
+tells you what to type. The reasoning behind the queue is V2_11; the
+reasoning behind doing it from a terminal at all is V2_09 Part 7.
+
+WHAT THIS IS FOR. When a supplier's product cannot be matched to the
+shared catalogue with enough confidence, it is not guessed at -- it
+waits for a person. You are that person until the admin control centre
+exists. Nothing breaks while rows wait: an unreviewed proposal is simply
+not applied, and the offer stays unmatched, exactly as every offer
+behaved before the catalogue existed.
+
+
+===========================================================================
+1. ONE-TIME SETUP
+===========================================================================
+
+Add yourself to the reviewer allowlist in backend/.env:
+
+    CATALOGUE_REVIEWERS=you@truconnect.co.za
+
+Comma-separated for more than one person. If this is unset, NOBODY can
+approve anything -- that is deliberate. A missing environment variable
+must fail closed, because the alternative is that forgetting one line
+silently opens the shared catalogue to anyone with a shell.
+
+You also need the usual backend environment. From `backend/`:
+
+    export FLASK_APP=app.py
+    # plus SECRET_KEY, JWT_SECRET_KEY and the POSTGRES_* vars from .env
+
+Windows PowerShell:
+
+    $env:FLASK_APP = "app.py"
+
+
+===========================================================================
+2. LOOK AT THE QUEUE
+===========================================================================
+
+    flask catalogue reviews
+    flask catalogue reviews --limit 50
+
+Shows the pending queue, highest confidence first -- the most likely
+matches are quickest to confirm, so the queue shortens fastest from that
+end.
+
+Each entry shows what the supplier wrote, what was proposed, which tier
+proposed it, the confidence, and THE EVIDENCE:
+
+    brand_agrees             n/a
+    candidates_considered    3
+    pack_agrees              yes
+    text_similarity          82%
+    words_contained          no
+
+READ "n/a" CAREFULLY. It means NO SIGNAL -- there was nothing to compare
+-- and it is not the same as "no". A product with no brand is not a
+product whose brand was wrong. That distinction is the single most
+important thing on the screen.
+
+For one row in full:
+
+    flask catalogue review <id>
+
+These two commands are READ-ONLY and ask for no password. They are safe
+to run against production while you think.
+
+
+===========================================================================
+3. DECIDING
+===========================================================================
+
+    flask catalogue accept <id>
+    flask catalogue reject <id> -r "Actually Fanta Orange 2L"
+
+Both ask you to confirm, then ask for your email and password. The
+password is verified against your real TruConnect account -- there is no
+separate secret to leak, and revoking someone is just deactivating their
+account.
+
+WHAT ACCEPT ACTUALLY DOES, because it is more than one row:
+
+  · links that supplier's offer to the catalogue product
+  · writes a GLOBAL ALIAS -- from then on, ANY supplier who writes those
+    same words is matched automatically, free, forever
+  · records the decision against your user id and the time
+
+That alias is why the queue shrinks instead of repeating itself, and it
+is also why the password is asked for. You are not approving one row;
+you are teaching the whole platform.
+
+WHAT REJECT DOES:
+
+  · records the refusal and your reason
+  · writes NO alias -- one refusal must not teach the platform a
+    falsehood
+  · leaves the offer unmatched, which is a safe state, not a broken one
+
+A rejection does not re-propose. The ladder already gave its best answer
+and you disagreed, so proposing again would produce the same one. The
+next real change to that row -- a corrected name or barcode -- triggers
+another attempt on its own.
+
+
+===========================================================================
+4. HOW TO DECIDE
+===========================================================================
+
+The question is never "is this plausible". It is:
+
+    IS A BUSINESS ABOUT TO BE SHOWN A PRICE COMPARISON THAT IS A LIE?
+
+A wrong match means the catalogue claims two different things are the
+same product. No match just means one supplier's offer sits alone and
+cannot be compared -- which is how every offer behaved before any of
+this existed. One is an absence; the other is misinformation with
+TruConnect's name on it.
+
+SO: WHEN IN DOUBT, REJECT. The cost of rejecting a correct match is that
+the supplier's product is not comparable for a while. The cost of
+accepting a wrong one is a false price on a card, and an alias that
+repeats the mistake for every supplier afterwards.
+
+THINGS THAT SHOULD MAKE YOU REFUSE:
+
+  pack_agrees NO        "Coke 2L" and "Coke 500ml" read almost
+                        identically and are four times apart per unit.
+                        This is the most expensive error in the system.
+  brand_agrees NO       a valid barcode on the wrong product looks
+                        exactly like this.
+  different variant     Coke vs Coke Zero vs Coke Light. Semantically
+                        adjacent, commercially different products.
+  you are not sure      see above.
+
+THINGS THAT ARE FINE:
+
+  n/a everywhere        plenty of real products have no brand and no
+                        pack size. "Building Sand 40kg" is not
+                        suspicious.
+  low text_similarity   with a barcode match. Supplier shorthand
+                        ("COKE 2LT PET") is genuinely far from a
+                        catalogue name and that is normal.
+
+
+===========================================================================
+5. WHAT THIS IS NOT
+===========================================================================
+
+THE PASSWORD PROMPT IS A SIGNATURE, NOT A WALL. Anybody who can run
+these commands already has shell access and the database credentials in
+.env, and could bypass all of it with one UPDATE. What the prompt buys
+is that the legitimate path is ATTRIBUTABLE -- the record says who
+decided and when, rather than "something changed" -- plus a half-second
+pause before an action that affects every supplier.
+
+THIS IS NOT THE ADMIN CONTROL CENTRE. It is the smallest honest thing
+that lets suppliers be onboarded before that exists (V2_09 Part 7). When
+the control centre arrives it calls the same service functions, and
+these commands keep working.
+
+DO NOT EDIT THESE ROWS WITH SQL. Not because it would not work, but
+because match_reviews, match_aliases and supplier_offers.product_id have
+to move together -- and because "who approved this supplier's product,
+and when" is exactly the question asked after something goes wrong.
+
+
+===========================================================================
+6. QUICK REFERENCE
+===========================================================================
+
+    flask catalogue reviews              the queue, with evidence
+    flask catalogue reviews --limit 50   more of it
+    flask catalogue review <id>          one row in full
+    flask catalogue accept <id>          link it, and teach the alias
+    flask catalogue reject <id> -r "..." refuse it, with a reason
+
+===========================================================================
+END
+===========================================================================

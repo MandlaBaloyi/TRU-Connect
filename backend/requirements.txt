@@ -54,3 +54,9 @@ anthropic==1.4.0
 # an explicit allowlist rather than "*" -- credentialed requests are
 # rejected by every browser when the allowed origin is a wildcard.
 Flask-Cors==6.0.1
+
+# --- Supplier import template + guide (generated, not hand-edited) ---
+# scripts/generate_import_template.py builds both the XLSX and the DOCX
+# from bulk_import/fields.py. Used by that script only; the running app
+# never imports either library.
+python-docx==1.1.2
