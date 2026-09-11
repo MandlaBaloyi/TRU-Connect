@@ -16,11 +16,14 @@ schema shape, and belong here).
 """
 from __future__ import annotations
 
+import logging
+
 from typing import List, Optional
 from uuid import UUID
 
 from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
 from src.domains.supplier.products.algorithms.sku_generator import generate_sku
+from src.extensions import db
 from src.domains.supplier.products.models.supplier_offer import SupplierOffer, ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services.errors import ProductNotFoundError, ProductValidationError
@@ -62,6 +65,54 @@ def _validate_common_fields(
         raise ProductValidationError("Check the highlighted fields.", errors=errors)
 
 
+logger = logging.getLogger(__name__)
+
+
+def _match_to_catalogue(
+    product,
+    *,
+    name: str,
+    category,
+    barcode: Optional[str],
+    brand: Optional[str],
+    unit_quantity: Optional[int],
+    unit_measure,
+) -> None:
+    """Attach this offer to the shared catalogue.
+
+    THE GAP THIS CLOSES. Until now ONLY bulk import matched. A supplier
+    adding products by hand -- the small supplier this product courts
+    first -- produced offers that never reached the catalogue at all: no
+    product_id, so no price comparison, no buy-it-again, no contribution
+    to the shared library. Twenty hand-typed products were invisible to
+    every feature the catalogue exists to power.
+
+    NEVER RAISES, and never undoes the save. The offer is already
+    written by the time this runs; a matching problem must cost the
+    supplier nothing. This is the same rule the import worker has always
+    followed -- an unmatched offer is exactly how every offer behaved
+    before the catalogue existed.
+
+    Imported locally because this is a cross-domain call (supplier ->
+    catalogue, the permitted direction) and the module-level import
+    would tie every products import to the matching domain's own graph.
+    """
+    from src.domains.catalogue.matching.services import linking_service
+
+    try:
+        linking_service.match_and_link(
+            supplier_offer=product,
+            name=name,
+            category=category,
+            barcode=barcode,
+            brand=brand,
+            unit_quantity=unit_quantity,
+            unit_measure=unit_measure,
+        )
+    except Exception:  # noqa: BLE001 -- deliberately broad, see above
+        logger.exception("catalogue matching failed for offer %s", getattr(product, "id", None))
+
+
 def create_product(
     supplier_profile_id: str | UUID,
     name: str,
@@ -73,6 +124,8 @@ def create_product(
     sku: Optional[str] = None,
     description: Optional[str] = None,
     compare_at_price_cents: Optional[int] = None,
+    barcode: Optional[str] = None,
+    brand: Optional[str] = None,
     commit: bool = True,
 ) -> SupplierOffer:
     """commit=False is for BULK CALLERS ONLY (import). It hands the
@@ -101,7 +154,7 @@ def create_product(
     # algorithms/product_code_generator.py's own docstring.
     product_code = generate_product_code()
 
-    return SupplierOfferRepository.create(
+    product = SupplierOfferRepository.create(
         supplier_profile_id=supplier_profile_id,
         name=name.strip(),
         category=category,
@@ -113,8 +166,25 @@ def create_product(
         unit_measure=unit_measure,
         description=description.strip() if description else None,
         compare_at_price_cents=compare_at_price_cents,
-        commit=commit,
+        # Flushed rather than committed when matching still has to run,
+        # so the offer has an id to attach a product to and the whole
+        # thing lands in ONE transaction. A commit here followed by a
+        # match would leave a window where the offer exists unmatched.
+        commit=False,
     )
+
+    _match_to_catalogue(
+        product,
+        name=name,
+        category=category,
+        barcode=barcode,
+        brand=brand,
+        unit_quantity=unit_quantity,
+        unit_measure=unit_measure,
+    )
+    if commit:
+        db.session.commit()
+    return product
 
 
 def update_product(
@@ -129,6 +199,8 @@ def update_product(
     compare_at_price_cents: Optional[int] = None,
     unit_quantity: Optional[int] = None,
     unit_measure: Optional[ProductUnit] = None,
+    barcode: Optional[str] = None,
+    brand: Optional[str] = None,
     commit: bool = True,
 ) -> SupplierOffer:
     """commit=False: bulk callers only. See create_product."""
@@ -170,7 +242,7 @@ def update_product(
     else:
         sku = product.sku
 
-    return SupplierOfferRepository.update(
+    product = SupplierOfferRepository.update(
         product,
         name=name.strip(),
         category=category,
@@ -181,8 +253,26 @@ def update_product(
         compare_at_price_cents=compare_at_price_cents,
         unit_quantity=unit_quantity,
         unit_measure=unit_measure,
-        commit=commit,
+        commit=False,
     )
+
+    # RE-MATCHED ON EVERY EDIT, and cheaply: match_and_link fingerprints
+    # its inputs, so an edit that changed only the price does no
+    # matching work at all. An edit that corrected the NAME or the
+    # barcode is exactly when re-matching matters -- that is the
+    # supplier fixing the thing that was stopping the match.
+    _match_to_catalogue(
+        product,
+        name=name,
+        category=category,
+        barcode=barcode,
+        brand=brand,
+        unit_quantity=unit_quantity,
+        unit_measure=unit_measure,
+    )
+    if commit:
+        db.session.commit()
+    return product
 
 
 def get_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> SupplierOffer:

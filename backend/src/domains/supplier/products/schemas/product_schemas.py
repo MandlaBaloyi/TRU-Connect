@@ -36,6 +36,16 @@ class CreateProductSchema(Schema):
     # accepted from any request, always server-generated, see
     # product.py's own product_code column docstring.
     sku = fields.Str(required=False, allow_none=True, load_default=None)
+    #: THE FOUR CATALOGUE COLUMNS, which bulk import has accepted since
+    #: V2 step 6e and this form has not. That asymmetry meant a supplier
+    #: adding twenty products by hand -- exactly the small supplier the
+    #: product courts first -- could not give a barcode at all, so their
+    #: range reached the catalogue on fuzzy text or not at all.
+    #:
+    #: Optional, every one of them. A supplier who has never heard of
+    #: them posts exactly what they always did.
+    barcode = fields.Str(required=False, allow_none=True, load_default=None)
+    brand = fields.Str(required=False, allow_none=True, load_default=None)
 
 
 class UpdateProductSchema(Schema):
@@ -57,6 +67,16 @@ class UpdateProductSchema(Schema):
     # product_service.py's own update_product docstring. Still never
     # product_code, same reasoning as CreateProductSchema above.
     sku = fields.Str(required=False, allow_none=True, load_default=None)
+    #: THE FOUR CATALOGUE COLUMNS, which bulk import has accepted since
+    #: V2 step 6e and this form has not. That asymmetry meant a supplier
+    #: adding twenty products by hand -- exactly the small supplier the
+    #: product courts first -- could not give a barcode at all, so their
+    #: range reached the catalogue on fuzzy text or not at all.
+    #:
+    #: Optional, every one of them. A supplier who has never heard of
+    #: them posts exactly what they always did.
+    barcode = fields.Str(required=False, allow_none=True, load_default=None)
+    brand = fields.Str(required=False, allow_none=True, load_default=None)
 
 
 class BulkAdjustPriceSchema(Schema):
