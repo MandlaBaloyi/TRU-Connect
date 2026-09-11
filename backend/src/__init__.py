@@ -28,7 +28,7 @@ def create_app(env_name: str | None = None) -> Flask:
 
     configure_logging(app)
     app.logger.info(
-        "TRU Connect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
+        "TruConnect backend initialised (env=%s)", env_name or app.config.get("ENV", "development")
     )
 
     from src.domains.security.audit.services import audit_service

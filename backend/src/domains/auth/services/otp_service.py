@@ -85,7 +85,7 @@ class OTPService:
         EmailService.send_template(
             to=destination,
             template_name="auth/otp.html",
-            subject="Your TRU Connect verification code",
+            subject="Your TruConnect verification code",
             context={"otp_code": code, "purpose_label": purpose_label, "expiry_minutes": OTP_EXPIRY_MINUTES},
             rate_limit_key=f"otp:{destination}",
             rate_limit_max=MAX_OTP_EMAILS_PER_HOUR,
@@ -252,7 +252,7 @@ class OTPService:
                 context = {"first_name": user.first_name}
 
             EmailService.send_template(
-                to=user.email, template_name=template_name, subject="Welcome to TRU Connect", context=context
+                to=user.email, template_name=template_name, subject="Welcome to TruConnect", context=context
             )
         except Exception:  # noqa: BLE001
             current_app.logger.exception("Failed to send welcome email for user %s", user.id)

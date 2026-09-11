@@ -44,7 +44,7 @@ class ManualPaymentProvider(PaymentProvider):
                 order_status=StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
                 instructions=(
                     "Make your payment directly to the supplier, then send them your proof of payment. "
-                    "Sending proof through TRU Connect directly is coming soon -- for now, send it to the "
+                    "Sending proof through TruConnect directly is coming soon -- for now, send it to the "
                     "supplier's own WhatsApp number."
                 ),
             )

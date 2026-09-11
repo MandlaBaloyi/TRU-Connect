@@ -12,7 +12,7 @@ that history into the order's own row would silently lose exactly the
 data real analytics, reconciliation, and support disputes need later.
 
 NO PROVIDER-SPECIFIC COLUMNS ON stock_orders ITSELF -- deliberately.
-An order stays "a TRU Connect order that may be paid through a
+An order stays "a TruConnect order that may be paid through a
 provider," never "a PayFast order." Every provider-specific detail
 (their own transaction id, their own webhook payload) lives here
 instead, one layer removed from the order -- the same isolation
@@ -33,7 +33,7 @@ class StockOrderPaymentStatus(str, enum.Enum):
 
     THE BUG THIS ENUM WAS CHANGED TO FIX. CASH and PROOF_OF_PAYMENT
     used to be written SUCCEEDED the moment checkout completed, and
-    that was a claim TRU Connect had no basis for. Cash is handed over
+    that was a claim TruConnect had no basis for. Cash is handed over
     on delivery, days later, by two people standing in a yard; nothing
     reaches this system at that moment. The row said money had moved
     when nothing had. It went unnoticed because only one query read it
@@ -45,7 +45,7 @@ class StockOrderPaymentStatus(str, enum.Enum):
 
       * an OBLIGATION -- "R1,000 is owed for this order". True from
         the moment the order is submitted, for every payment method,
-        and TRU Connect can prove it because it created the order.
+        and TruConnect can prove it because it created the order.
       * a SETTLEMENT -- "R1,000 actually changed hands". Only true
         when it actually happens, and for CASH/PROOF_OF_PAYMENT TRU
         Connect can never observe it directly at all.
@@ -93,7 +93,7 @@ class StockOrderPayment(BaseModel):
     stock_order_id = db.Column(UUID(as_uuid=True), db.ForeignKey("checkout.stock_orders.id"), nullable=False)
     # Mirrors StockOrder's own payment_method enum (same three values)
     # -- "provider" would have been a redundant second name for the
-    # same thing at this stage; if TRU Connect ever adds a SECOND real
+    # same thing at this stage; if TruConnect ever adds a SECOND real
     # gateway alongside PayFast, that's a genuine reason to add a
     # distinct provider column then, not something to guess the shape
     # of now.

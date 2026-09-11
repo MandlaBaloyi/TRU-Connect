@@ -25,7 +25,7 @@ def utcnow() -> datetime:
 
 class BaseModel(db.Model):
     """Abstract base providing a UUID primary key, timezone-aware
-    created_at/updated_at, and soft-delete columns for every TRU Connect
+    created_at/updated_at, and soft-delete columns for every TruConnect
     table. Concrete models set __tablename__ and their own columns."""
 
     __abstract__ = True

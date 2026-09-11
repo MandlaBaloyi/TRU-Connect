@@ -20,7 +20,7 @@
  * only honest source of truth an import file can provide.
  *
  * Category/unit values in the FILE are human-readable LABELS
- * ("Beverages", "Bottle"), never TRU Connect's internal codes
+ * ("Beverages", "Bottle"), never TruConnect's internal codes
  * ("BEVERAGES", "BOTTLE") -- a supplier filling in a spreadsheet
  * should never need to know our enum codes. The parser matches
  * case-insensitively against CATEGORY_OPTIONS/UNIT_OPTIONS' own labels
@@ -41,7 +41,7 @@ export const IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   {
     header: "category",
     required: true,
-    description: "Must match one of TRU Connect's category names exactly (see the Categories sheet).",
+    description: "Must match one of TruConnect's category names exactly (see the Categories sheet).",
   },
   { header: "price", required: true, description: "Rands, e.g. 12.00 or 12,00. No currency symbol needed." },
   {

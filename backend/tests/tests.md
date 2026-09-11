@@ -1,4 +1,4 @@
-# TRU Connect Backend — Testing Reference
+# TruConnect Backend — Testing Reference
 
 **Status: 179/179 passing** (full suite, real Postgres, confirmed).
 

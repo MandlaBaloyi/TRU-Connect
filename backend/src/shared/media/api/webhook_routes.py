@@ -1,6 +1,6 @@
 """
 Cloudinary notification webhook. NO @fully_authenticated -- Cloudinary
-itself is calling this, not a logged-in TRU Connect user. The HMAC
+itself is calling this, not a logged-in TruConnect user. The HMAC
 signature (verified inside webhook_service.handle_scan_webhook) is the
 ONLY authorization this endpoint has, which is exactly why that
 verification is not optional and not best-effort.

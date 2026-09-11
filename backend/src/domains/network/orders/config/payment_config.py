@@ -8,7 +8,7 @@ starting from a blank file too.
 
 WHAT WILL LIVE HERE, based on confirmed research (see
 providers/payfast_provider.py's own module docstring for the sources):
-- TRU Connect's OWN PayFast Merchant ID/Key -- TRU Connect is the
+- TruConnect's OWN PayFast Merchant ID/Key -- TruConnect is the
   SECONDARY (receiving) party in every split, per PayFast's own model,
   so this is genuinely one, single, platform-wide credential, not
   per-supplier. Per-supplier credentials (the PRIMARY side of each

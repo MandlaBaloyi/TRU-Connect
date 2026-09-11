@@ -45,7 +45,7 @@ import type { Product } from "../products/types";
 /**
  * Three states, computed, never stored as a supplier's own choice --
  * the entire point of Inventory per the design notes: "don't make
- * suppliers manually manage status... TRU Connect calculates it."
+ * suppliers manually manage status... TruConnect calculates it."
  * Deliberately a DIFFERENT type from products/types.ts's own
  * StockStatus (two states, manually set) -- conflating the two would
  * imply they're interchangeable when they're answering different
@@ -108,7 +108,7 @@ export interface InventorySummary {
  * another 5 cases'" -- per the design notes' own reasoning for why
  * adjustment (a signed delta), not re-typing an absolute quantity, is
  * the primary interaction. quantityDelta is signed: positive receives
- * stock, negative removes it (sold outside TRU Connect, damaged,
+ * stock, negative removes it (sold outside TruConnect, damaged,
  * etc.) -- both directions are the same operation, not two different
  * ones.
  */

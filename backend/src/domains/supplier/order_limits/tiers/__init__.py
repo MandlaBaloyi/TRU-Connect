@@ -7,7 +7,7 @@ WHY A SUPPLIER-SIDE CAP EXISTS AT ALL, given there was already a
 business-side one. The buyer cap bounds what one BUSINESS can move
 invisibly. It does nothing about the other end: a supplier serving ten
 buyers, each comfortably inside their own R5,000, receives R50,000 a
-month that TRU Connect never sees. The exposure the caps exist to
+month that TruConnect never sees. The exposure the caps exist to
 bound is the TOTAL of invisible money crossing the platform, and half
 of it was unbounded.
 

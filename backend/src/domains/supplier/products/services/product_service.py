@@ -397,7 +397,7 @@ def bulk_set_discount(
                 "Check the highlighted fields.",
                 errors=[
                     f"A {discount_percent}% discount would push one product's compare-at price above "
-                    "what TRU Connect allows. Try a smaller discount, or set it individually."
+                    "what TruConnect allows. Try a smaller discount, or set it individually."
                 ],
             )
         return computed

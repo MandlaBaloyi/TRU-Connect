@@ -6,7 +6,7 @@ import type { FeedSupplier } from "../../types";
  * place so no two cards ever describe the same supplier differently.
  *
  * WHAT IT DELIBERATELY DOES NOT CONTAIN. The apps this screen borrows
- * its shape from lead with "4.4 ★ (15,000+) · 11 min". TRU Connect has
+ * its shape from lead with "4.4 ★ (15,000+) · 11 min". TruConnect has
  * neither number and must not invent them:
  *
  *   * There are no reviews, by decision rather than omission -- the

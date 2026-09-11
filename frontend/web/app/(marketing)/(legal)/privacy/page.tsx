@@ -6,7 +6,7 @@ import { PRIVACY } from "@/surfaces/marketing/legalContent";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "How TRU Connect handles personal information, with reference to POPIA. Draft, pending legal review.",
+    "How TruConnect handles personal information, with reference to POPIA. Draft, pending legal review.",
 };
 
 /** `/privacy`. Text in `src/surfaces/marketing/legalContent.ts`. */

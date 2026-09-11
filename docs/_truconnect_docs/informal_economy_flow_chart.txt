@@ -75,7 +75,7 @@ Admin  Manager   Operations
              Delivery Team
                   │
                   ▼
-             TRU Connect App
+             TruConnect App
 
                     TRU CONNECT
                          │
@@ -116,7 +116,7 @@ And importantly, Free/Pro/Max shouldn't be treated as "different apps." They can
                               DELIVERY
                                   │
                                   ▼
-                         TRU Connect App
+                         TruConnect App
                                   │
                                   ▼
                             Driver clicks
@@ -286,7 +286,7 @@ MANUFACTURER / BRAND
 BUSINESS
    │
    │ "I want to order from my supplier
-   │  through TRU Connect."
+   │  through TruConnect."
    ▼
 TRU CONNECT
    │
@@ -354,7 +354,7 @@ You're not selling the supplier a marketplace.
 
 You're selling them:
 
-"Your customers are already using TRU Connect to place orders. Here's how you can receive and manage those orders.
+"Your customers are already using TruConnect to place orders. Here's how you can receive and manage those orders.
 
 
 

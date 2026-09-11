@@ -206,20 +206,20 @@ class SupplierProfile(BaseModel):
     # WHICH PAYMENT RAILS THIS SUPPLIER ACCEPTS.
     #
     # There are exactly two, and the difference between them is not the
-    # instrument -- it is whether TRU Connect can see the money at all:
+    # instrument -- it is whether TruConnect can see the money at all:
     #
     #   DIRECT  -- settled between the two parties, by whatever means
     #              suits them: notes on delivery, an EFT, a bank
-    #              deposit, a transfer with a screenshot. TRU Connect
+    #              deposit, a transfer with a screenshot. TruConnect
     #              observes NONE of it. Capped, because invisible
     #              money is exactly what the caps exist to bound.
-    #   DIGITAL -- settled through TRU Connect's own gateway. Observed,
+    #   DIGITAL -- settled through TruConnect's own gateway. Observed,
     #              so it needs no cap at all.
     #
     # "Cash" and "proof of payment" used to be modelled as two separate
     # methods with two different per-transaction caps, on the reasoning
     # that a traceable transfer is safer than notes. That was a
-    # distinction TRU Connect could never actually enforce: nothing
+    # distinction TruConnect could never actually enforce: nothing
     # stops a buyer selecting proof-of-payment for the higher cap and
     # then handing over cash. One rail, one cap, honestly named.
     #

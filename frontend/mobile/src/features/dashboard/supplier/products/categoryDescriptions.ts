@@ -18,7 +18,7 @@ import type { ProductCategory } from "./types";
  * DESCRIPTIVE, NEVER PROMOTIONAL. These are not marketing copy and
  * must not become it -- a supplier's actual range is what it is, and a
  * platform-written line claiming "the best in fresh produce" would be
- * TRU Connect making a promise on a supplier's behalf that it cannot
+ * TruConnect making a promise on a supplier's behalf that it cannot
  * keep. Each line names the kinds of thing in the category and stops.
  */
 export const CATEGORY_DESCRIPTIONS: Record<ProductCategory, string> = {

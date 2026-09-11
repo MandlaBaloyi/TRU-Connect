@@ -26,7 +26,7 @@ from typing import Optional
 import phonenumbers
 
 # Default region for parsing a NATIONAL-format number (one without a
-# leading + / country code) — TRU Connect's userbase, per every
+# leading + / country code) — TruConnect's userbase, per every
 # existing example throughout this codebase (+27...). A number that's
 # already in full international format (+<any country>...) is parsed
 # correctly regardless of this default.

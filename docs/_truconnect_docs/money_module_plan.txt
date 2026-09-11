@@ -546,4 +546,4 @@ they all use the same Money Engine.
 This eliminates duplicated calculations, inconsistent
 rounding, formatting differences, validation drift,
 and receipt generation inconsistencies across the
-entire TRU Connect platform.
+entire TruConnect platform.

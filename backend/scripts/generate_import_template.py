@@ -143,7 +143,7 @@ def build() -> Workbook:
         "Tip",
         "",
         "The barcode column is the most useful one you can fill in. A barcode matches your "
-        "product to the TRU Connect catalogue exactly, so businesses can compare it against "
+        "product to the TruConnect catalogue exactly, so businesses can compare it against "
         "other suppliers. Everything else is matched on the words you type.",
     ])
     for row in ws.iter_rows(min_row=4):
@@ -201,7 +201,7 @@ def build_guide() -> Document:
     barcode column existed.
     """
     doc = Document()
-    doc.add_heading("TRU Connect", level=0)
+    doc.add_heading("TruConnect", level=0)
     doc.add_heading("Bulk Product Import Guide", level=1)
     doc.add_paragraph(
         "How to publish your whole product catalogue at once, using a "
@@ -219,11 +219,11 @@ def build_guide() -> Document:
     doc.add_heading("Overview", level=2)
     for index, step in enumerate(
         [
-            ("Download the template", 'Get "TRU Connect Product Import Template.xlsx" from the Bulk Products screen.'),
+            ("Download the template", 'Get "TruConnect Product Import Template.xlsx" from the Bulk Products screen.'),
             ("Fill it in", "One row per product. Delete the example rows first -- they are there to show the shape."),
             ("Prepare your photos", "Put every image in one ZIP file. Filenames must exactly match what you typed."),
             ("Upload both files", "Your spreadsheet and your images ZIP, from the Import Products screen."),
-            ("Review before you confirm", "TRU Connect shows you every row -- which are ready, and exactly what is wrong with the rest."),
+            ("Review before you confirm", "TruConnect shows you every row -- which are ready, and exactly what is wrong with the rest."),
             ("Fix and re-upload if needed", "Rows with problems do not stop the others. Include your SKU column and a re-upload UPDATES your products instead of duplicating them."),
         ],
         start=1,
@@ -279,7 +279,7 @@ def build_guide() -> Document:
     doc.add_heading("Images", level=2)
     doc.add_paragraph(
         "Put every photo in a single ZIP file. Folders inside the ZIP are fine -- "
-        "TRU Connect looks at filenames, not paths. Accepted formats: .jpg, "
+        "TruConnect looks at filenames, not paths. Accepted formats: .jpg, "
         ".jpeg, .png, .webp."
     )
     doc.add_paragraph(
@@ -288,7 +288,7 @@ def build_guide() -> Document:
     )
     doc.add_paragraph(
         "Images are entirely optional. A product with none still imports and "
-        "publishes -- TRU Connect shows a category picture in the meantime, so "
+        "publishes -- TruConnect shows a category picture in the meantime, so "
         "your shopfront does not look empty while you photograph your range."
     )
 

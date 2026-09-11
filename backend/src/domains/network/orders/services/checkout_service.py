@@ -153,7 +153,7 @@ def _validate_spending_limits(business_id: str | UUID, stock_order, method_enum:
 
     1. Per-transaction cap. ONE number now, across the whole direct
        rail -- the old split (a lower cap for cash, a higher one for
-       proof-of-payment) rested on a distinction TRU Connect could
+       proof-of-payment) rested on a distinction TruConnect could
        never verify, and a buyer wanting the higher cap only had to
        tick the other box. See StockOrderTierLimits.
     2. Monthly cumulative cap, summed across every direct method
@@ -301,7 +301,7 @@ def _validate_supplier_accepts_method(supplier, method_enum: StockOrderPaymentMe
 
     if is_direct and not supplier.accepts_direct_payment:
         raise PaymentMethodNotAvailableError(
-            f"{supplier.business_name} only accepts payment through TRU Connect. "
+            f"{supplier.business_name} only accepts payment through TruConnect. "
             "Choose that option to place this order."
         )
 
@@ -359,7 +359,7 @@ def _validate_supplier_receipt_limits(supplier, stock_order) -> None:
         # account -- their monthly turnover is not a buyer's business.
         raise OrderLimitExceededError(
             f"{supplier.business_name} can't take more direct payments this month. "
-            "Try again next month, or ask them about paying through TRU Connect.",
+            "Try again next month, or ask them about paying through TruConnect.",
             data={"reason": "SUPPLIER_MONTHLY_RECEIPTS_LIMIT"},
         )
 
@@ -592,7 +592,7 @@ def submit_checkout(
     # "Confirm order" -- before the supplier had even seen it. For cash
     # the money moves on delivery, days later, between two people in a
     # yard; nothing about that reaches this system. For proof of
-    # payment it moves by bank transfer that TRU Connect never sees
+    # payment it moves by bank transfer that TruConnect never sees
     # either.
     #
     # DUE is what is actually true here and all this code can honestly

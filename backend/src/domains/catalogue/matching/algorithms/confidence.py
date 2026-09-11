@@ -22,7 +22,7 @@ offer sits alone and cannot be compared -- exactly how every offer
 behaves today, so nothing is lost. A wrong match means the catalogue
 claims two different things are the same product and shows a business a
 price comparison that is a lie. One is an absence; the other is
-misinformation with TRU Connect's name on it.
+misinformation with TruConnect's name on it.
 """
 from __future__ import annotations
 

@@ -6,7 +6,7 @@ import { TERMS } from "@/surfaces/marketing/legalContent";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "The terms that govern use of TRU Connect. Draft, pending legal review.",
+    "The terms that govern use of TruConnect. Draft, pending legal review.",
 };
 
 /** `/terms`. Text in `src/surfaces/marketing/legalContent.ts`. */

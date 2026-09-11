@@ -13,7 +13,7 @@ August 2026
 BACKGROUND
 ----------------------------------------------------------
 
-TRU Connect currently uses a complete first-party
+TruConnect currently uses a complete first-party
 authentication system consisting of:
 
 • Email & Password Authentication
@@ -40,7 +40,7 @@ During development, Google Cloud currently requires a
 one-time refundable prepayment before enabling Cloud
 Billing and activating the free trial.
 
-Since TRU Connect is still in active MVP development,
+Since TruConnect is still in active MVP development,
 there is no business value in enabling Google Cloud
 billing at this stage.
 

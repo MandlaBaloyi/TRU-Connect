@@ -21,7 +21,7 @@ deleted too): even with the identifier masked in the response,
 exact-match phone/email search lets someone probe many numbers/
 addresses one at a time to learn who's registered, which has nothing
 to do with an existing relationship (the entire premise file.txt §4
-sets out -- TRU Connect digitises relationships that already exist, it
+sets out -- TruConnect digitises relationships that already exist, it
 isn't a discovery/enumeration tool).
 """
 from __future__ import annotations

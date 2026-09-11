@@ -39,7 +39,7 @@ released sequence as of today:
 
   SDK 54  -- Sept 2025  -- React Native 0.81, React 19.1
              Final SDK to support the Legacy (old) Architecture.
-             This is what TRU Connect mobile targets.
+             This is what TruConnect mobile targets.
 
   SDK 55  -- ~March/April 2026 -- React Native 0.83, React 19.2
              New Architecture becomes MANDATORY (Legacy Architecture
@@ -63,7 +63,7 @@ released sequence as of today:
 Net effect: SDK 54 is two major SDKs behind current, but it is still
 officially supported with critical fixes until the next SDK ships
 (expected ~Sept/Oct 2026), and it's still what new projects get by
-default. There is no urgency to move off it for this phase of TRU Connect.
+default. There is no urgency to move off it for this phase of TruConnect.
 
 ================================================================================
 3. WHEN (AND HOW) TO EVENTUALLY UPGRADE
@@ -87,7 +87,7 @@ transition deliberately rather than accidentally), the safe sequence is:
          Architecture" escape hatch this project could theoretically fall
          back to on SDK 54 will no longer exist.
        - Expo's own default template moved from `app/` to `src/app/` in
-         SDK 55. TRU Connect's architecture is intentionally different
+         SDK 55. TruConnect's architecture is intentionally different
          from that (routing lives in a top-level `app/`, separate from
          `src/`) -- this was a deliberate project decision, not something
          that needs to be reconciled with Expo's own default when you

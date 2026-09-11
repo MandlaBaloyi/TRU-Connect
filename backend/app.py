@@ -1,5 +1,5 @@
 """
-TRU Connect Backend -- entry point.
+TruConnect Backend -- entry point.
 
 Development:
     python app.py

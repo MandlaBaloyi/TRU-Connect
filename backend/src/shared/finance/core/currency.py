@@ -12,7 +12,7 @@ every calculation, formatter, and stored value in the platform.
 Defining it here costs almost nothing today and makes that entire class
 of bug impossible.
 
-TRU Connect is ZAR-only today. The non-ZAR entries below are NOT a claim
+TruConnect is ZAR-only today. The non-ZAR entries below are NOT a claim
 that those currencies are supported -- they exist so the precision logic
 is exercised by real varied values in tests rather than being untested
 theory.

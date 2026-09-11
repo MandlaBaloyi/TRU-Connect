@@ -7,7 +7,7 @@ PHASE 1 - ENTERPRISE AUDIT ARCHITECTURE PLAN
 OBJECTIVE
 
 Build an enterprise-grade auditing backend that becomes the single source of
-truth for every security-related event occurring throughout the TRU Connect
+truth for every security-related event occurring throughout the TruConnect
 ecosystem.
 
 For Phase 1, only the Authentication domain will integrate with the Security
@@ -515,7 +515,7 @@ ENGINEERING GOAL
 ================================================================================
 
 The Security domain should become the enterprise Security Operations Center
-(SOC) for TRU Connect.
+(SOC) for TruConnect.
 
 Every important action performed anywhere within the platform should eventually
 produce a standardized audit event.

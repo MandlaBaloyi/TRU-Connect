@@ -59,11 +59,11 @@ function labelFor(options: { value: string; label: string }[], value: string): s
  *    above, so this now only holds Product code + Category) --
  *    collapsible, defaults open.
  * 4. "Shipping" and "Returns" -- collapsible, default open, real
- *    TRU Connect copy. TRU Connect isn't a seller or an e-commerce
+ *    TruConnect copy. TruConnect isn't a seller or an e-commerce
  *    platform -- it provides the ecosystem/technology connecting
  *    businesses and suppliers, so this copy is honest about that: a
  *    default explaining delivery/returns happen directly with the
- *    supplier, not a fabricated policy TRU Connect doesn't actually
+ *    supplier, not a fabricated policy TruConnect doesn't actually
  *    have. Meant to be replaced once a real supplier-input form for
  *    this exists.
  * 5. "More from [Supplier]" -- ABOVE Contact, not below (moved after

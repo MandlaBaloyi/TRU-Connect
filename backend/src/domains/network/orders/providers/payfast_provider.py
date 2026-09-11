@@ -13,8 +13,8 @@ starts from confirmed facts, not marketing pages re-read from scratch:
   ("receiving") merchant per transaction. The PRIMARY merchant is
   whoever actually receives the customer's payment first.
 - IN OUR MODEL: each SUPPLIER is the primary merchant (they're the one
-  actually selling the goods) -- TRU Connect would be the SECONDARY,
-  only ever receiving a split-off commission, if and when TRU Connect
+  actually selling the goods) -- TruConnect would be the SECONDARY,
+  only ever receiving a split-off commission, if and when TruConnect
   decides to charge one. This means EVERY SUPPLIER who wants to accept
   real digital payments needs their OWN PayFast merchant account,
   linked during their own onboarding -- not something this provider

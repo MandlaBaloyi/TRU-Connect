@@ -2,7 +2,7 @@
 Rounding strategies.
 
 Every rounding decision in the platform goes through here, so the answer
-to "how does TRU Connect round?" is one file, not scattered per-feature
+to "how does TruConnect round?" is one file, not scattered per-feature
 guesses that quietly disagree with each other.
 
 Uses Python's `decimal` module rather than round()/float arithmetic:

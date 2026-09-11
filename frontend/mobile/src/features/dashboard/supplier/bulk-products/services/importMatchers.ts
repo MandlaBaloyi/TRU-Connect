@@ -3,7 +3,7 @@
  * in the FILE are human-readable labels ("Beverages"), matched
  * case-insensitively against CATEGORY_OPTIONS/UNIT_OPTIONS' own
  * labels -- also accepting the raw internal code, so a supplier
- * re-uploading TRU Connect's own exported file still works. A genuine
+ * re-uploading TruConnect's own exported file still works. A genuine
  * miss is a clear per-row error ("Category not recognised"), never a
  * fuzzy best-guess match -- silently guessing wrong here would put a
  * product in the wrong category with no visible sign anything went

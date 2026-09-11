@@ -1,7 +1,7 @@
 /**
  * uploadToCloudinary -- the one function in this whole app that
  * actually sends image bytes over the network to Cloudinary, straight
- * from the device. Never touches TRU Connect's own backend -- that's
+ * from the device. Never touches TruConnect's own backend -- that's
  * the entire point of the signed-upload design (see backend's own
  * shared/media/providers/cloudinary_provider.py docstring): Flask
  * never carries image bytes.

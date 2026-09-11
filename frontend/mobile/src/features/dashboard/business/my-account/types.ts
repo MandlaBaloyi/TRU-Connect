@@ -53,7 +53,7 @@ export type { AccountStatus };
 // That field only ever means "this person's email was confirmed via OTP"
 // (see auth/services/otp_service.py) — real, but nowhere near sufficient
 // to tell a business "this supplier is verified," or a supplier "this
-// business is verified." TRU Connect's own real verification (identity +
+// business is verified." TruConnect's own real verification (identity +
 // business details, eventually gated behind a paid subscription tier per
 // the product roadmap) doesn't exist yet, and this type deliberately
 // doesn't pretend otherwise by borrowing the email-confirmation field for

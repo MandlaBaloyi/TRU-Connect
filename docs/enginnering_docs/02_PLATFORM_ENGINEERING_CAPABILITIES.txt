@@ -11,7 +11,7 @@ Purpose
 -------
 
 This document defines the platform-level engineering capabilities that every
-TRU Connect domain and feature must use.
+TruConnect domain and feature must use.
 
 These capabilities are NOT feature-specific.
 
@@ -275,7 +275,7 @@ Purpose
 
 Resolve disagreements between local device data and server data.
 
-Required because TRU Connect is Offline First.
+Required because TruConnect is Offline First.
 
 Possible conflicts
 
@@ -617,7 +617,7 @@ Platform Infrastructure handles everything else.
 LONG-TERM PLATFORM VISION
 ====================================================================================
 
-These engineering capabilities form the operational backbone of TRU Connect.
+These engineering capabilities form the operational backbone of TruConnect.
 
 As the platform grows from authentication into marketplaces, supplier ecosystems,
 offline commerce, lending infrastructure, and eventually the broader TruePoint
@@ -637,12 +637,12 @@ Version 1.0
 ============================================================
 
 Author:
-TRU Connect Engineering
+TruConnect Engineering
 
 Purpose
 
 This document defines the Offline Platform Architecture used throughout
-TRU Connect.
+TruConnect.
 
 Offline capability is NOT a feature.
 
@@ -1088,7 +1088,7 @@ Once synchronization succeeds, PostgreSQL becomes the authoritative source.
 LONG-TERM VISION
 ============================================================
 
-TRU Connect is an Offline-First Platform.
+TruConnect is an Offline-First Platform.
 
 Offline capability is not implemented separately for each feature.
 

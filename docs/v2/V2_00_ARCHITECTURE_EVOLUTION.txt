@@ -12,7 +12,7 @@ Date opened: 2026-09-08
 
 PURPOSE
 
-This document defines the second architecture of TRU Connect.
+This document defines the second architecture of TruConnect.
 
 V1 is complete, working, and tagged. It is not deprecated and it is not a
 mistake — it is a correct implementation of an assumption that turned out to be
@@ -34,7 +34,7 @@ PART 1 — WHY V2 EXISTS
 
 1.1 THE ASSUMPTION V1 WAS BUILT ON
 
-V1 modelled TRU Connect as a two-sided network of PEERS.
+V1 modelled TruConnect as a two-sided network of PEERS.
 
 A business is a user. A supplier is a user. Both sign up in the app, both have
 a profile, both have a Community tab, both search, both invite, both accept or
@@ -100,7 +100,7 @@ Four capabilities define one, and none of them is "has the app installed":
   3. ACCOUNTABILITY — can be held to a price and a delivery
   4. RELEVANCE      — already serves informal businesses, or wants to
 
-TRU Connect's job is to accept supply from any of them, in whatever form they
+TruConnect's job is to accept supply from any of them, in whatever form they
 can give it, and present it identically to the buyer.
 
 
@@ -479,7 +479,7 @@ THE CONFIDENCE GATE — NON-NEGOTIABLE
   Low confidence       create new Product, flag possible duplicate
 
 A wrong match is worse than no match. No match means an Offer sits alone. A
-wrong match means TRU Connect tells a business "R89 here, R74 there" about two
+wrong match means TruConnect tells a business "R89 here, R74 there" about two
 different things — the product breaking its core promise. The agent never
 decides autonomously in the middle band, and every auto-link is reversible with
 an audit row.
@@ -585,12 +585,12 @@ Takealot, Amazon and Shopify do not own their product images either.
 
 THE CHANGE
 
-`frontend/web/` is not a supplier tool. It is the whole TRU Connect web
+`frontend/web/` is not a supplier tool. It is the whole TruConnect web
 presence, and it was always intended to be:
 
   - Public landing page and marketing
   - "For Suppliers" — sign up, sign in, and the supplier portal
-  - The TRU Connect admin control centre, hidden from the public
+  - The TruConnect admin control centre, hidden from the public
     (private network or equivalent)
   - Future: a lender surface
 
@@ -711,7 +711,7 @@ I could buy from, get back to buying.
   Your suppliers       distinct suppliers from order history
   Buy it again         line items from delivered orders
   On sale now          cross-supplier variant of list_on_sale
-  New on TRU Connect   recently verified supplier profiles
+  New on TruConnect   recently verified supplier profiles
   Near you             supplier area — BLOCKED, field may not exist
 
 Two rules carried from the storefront work, both learned the hard way:
@@ -869,7 +869,7 @@ PART 7 — THE METHOD
 Recorded because it is the reason this document is trustworthy, and because it
 is the standard the V2 work must be held to.
 
-Nothing in TRU Connect was wired because it was good. Every piece exists
+Nothing in TruConnect was wired because it was good. Every piece exists
 because a problem was found in the current architecture and this was the
 solution.
 

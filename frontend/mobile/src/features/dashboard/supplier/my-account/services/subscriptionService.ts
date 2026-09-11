@@ -1,5 +1,5 @@
 /**
- * Subscription & Billing — TRU Connect's own platform-usage model.
+ * Subscription & Billing — TruConnect's own platform-usage model.
  * See types.ts's own extensive note: three tiers this round, every
  * account is FREE, hardcoded, no billing infrastructure exists
  * anywhere in this codebase yet. requestUpgrade never actually

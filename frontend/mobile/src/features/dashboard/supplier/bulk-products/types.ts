@@ -134,7 +134,7 @@ export interface ParsedImportFile {
    *  and shown to the supplier directly if the whole file looks wrong
    *  (e.g. they uploaded something that isn't our template at all). */
   columnHeaders: string[];
-  /** A header TRU Connect doesn't recognise (e.g. "pric" instead of
+  /** A header TruConnect doesn't recognise (e.g. "pric" instead of
    *  "price") -- almost always a typo in the file, not an error in any
    *  one row, so it's surfaced once at the file level rather than
    *  repeated per row. */

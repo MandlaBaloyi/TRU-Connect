@@ -27,28 +27,28 @@ pytest==9.1.1
 Flask-Limiter==4.1.1
 limits==5.8.0
 
-# --- TRU Connect Auth Foundation ---
+# --- TruConnect Auth Foundation ---
 Flask-Marshmallow==1.4.0
 marshmallow-sqlalchemy==1.0.0
 phonenumbers==8.13.55
 
-# --- TRU Connect Security Domain: job scheduler  ---
+# --- TruConnect Security Domain: job scheduler  ---
 APScheduler==3.11.3
 tzlocal==5.4.4
 tzdata==2026.3
 
-# --- TRU Connect Media Domain: Cloudinary ---
+# --- TruConnect Media Domain: Cloudinary ---
 cloudinary==1.46.0
 requests==2.34.2  # only used by scripts/verify_cloudinary_connection.py, a manual dev tool -- the app itself never makes outbound HTTP calls to Cloudinary (signing is local, uploads happen client-side)
 
-# --- TRU Connect Bulk Import Domain: spreadsheet parsing ---
+# --- TruConnect Bulk Import Domain: spreadsheet parsing ---
 openpyxl==3.1.5
-# --- TRU Connect AI layer: product matching, verification (src/shared/ai) ---
+# --- TruConnect AI layer: product matching, verification (src/shared/ai) ---
 # Reached ONLY through src/shared/ai/providers/claude_provider.py -- see
 # tests/architecture/test_ai_boundaries.py, which enforces that.
 anthropic==1.4.0
 
-# --- TRU Connect V2 web portal: browser sessions ---
+# --- TruConnect V2 web portal: browser sessions ---
 # The mobile app is native and never needed CORS. A browser on the
 # portal origin calling the API on another origin does, and it must be
 # an explicit allowlist rather than "*" -- credentialed requests are

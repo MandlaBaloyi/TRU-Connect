@@ -41,7 +41,7 @@ class StockOrderTierLimits:
     #
     # THERE USED TO BE TWO -- a lower one for cash and a higher one for
     # proof-of-payment, on the reasoning that a traceable transfer is
-    # safer than notes. TRU Connect could never enforce that
+    # safer than notes. TruConnect could never enforce that
     # difference: nothing stopped a buyer selecting proof-of-payment
     # for the higher cap and then handing over cash. The two methods
     # were merged into DIRECT (see StockOrderPaymentMethod), so the two

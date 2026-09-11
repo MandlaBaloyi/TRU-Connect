@@ -20,7 +20,7 @@ import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 const OPTIONS: { value: LowStockAlertChannel; label: string }[] = [
-  { value: "IN_APP", label: "TRU Connect in-app alerts" },
+  { value: "IN_APP", label: "TruConnect in-app alerts" },
   { value: "EMAIL", label: "Email" },
 ];
 

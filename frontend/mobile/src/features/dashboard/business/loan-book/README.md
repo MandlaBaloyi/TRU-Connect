@@ -40,7 +40,7 @@ decision rather than an omission:
 **Why not even empty stubs:** an empty `syncService.ts` sitting in this
 folder is a file someone eventually fills in *for the Loan Book
 specifically*. Do that across Orders, Inventory, Nearby Suppliers, and
-Business Profile as well, and TRU Connect ends up with five
+Business Profile as well, and TruConnect ends up with five
 feature-specific offline implementations to reconcile instead of one
 engine.
 
@@ -117,7 +117,7 @@ behavioural signals for eventual TruePoint consumption (Doc 07). **These
 must never be rendered.**
 
 The customers in this book are private individuals who never signed up
-for TRU Connect — a shop's neighbours. A visible "High Risk" label next
+for TruConnect — a shop's neighbours. A visible "High Risk" label next
 to a named person is de-facto credit scoring of a third party, which
 Doc 04 §6 warns against and which is very hard to walk back once
 shipped.

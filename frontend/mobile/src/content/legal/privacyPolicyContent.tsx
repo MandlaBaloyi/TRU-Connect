@@ -42,7 +42,7 @@ export const PRIVACY_POLICY_DOWNLOAD_URL: string | undefined = undefined;
 export const PRIVACY_POLICY_PARAGRAPHS: InfoParagraph[] = [
   {
     heading: "Draft — pending legal review",
-    body: "This Policy describes how TRU Connect currently handles information, prepared with reference to South Africa's Protection of Personal Information Act (POPIA). It has not yet been reviewed by a legal professional and will be finalised, and published as a signed PDF and a permanent web page, before the platform goes live.",
+    body: "This Policy describes how TruConnect currently handles information, prepared with reference to South Africa's Protection of Personal Information Act (POPIA). It has not yet been reviewed by a legal professional and will be finalised, and published as a signed PDF and a permanent web page, before the platform goes live.",
     icon: (c) => <ScrollText size={16} color={c} />,
   },
   {
@@ -62,7 +62,7 @@ export const PRIVACY_POLICY_PARAGRAPHS: InfoParagraph[] = [
   },
   {
     heading: "4. How we use it",
-    body: "Solely to provide and improve TRU Connect's own tools: authenticating your account, running Connections, Stock Orders, the Loan Book, and Order Book, enforcing spending limits, detecting fraud, and communicating with you about your own account.",
+    body: "Solely to provide and improve TruConnect's own tools: authenticating your account, running Connections, Stock Orders, the Loan Book, and Order Book, enforcing spending limits, detecting fraud, and communicating with you about your own account.",
     icon: (c) => <Target size={16} color={c} />,
   },
   {
@@ -97,22 +97,22 @@ export const PRIVACY_POLICY_PARAGRAPHS: InfoParagraph[] = [
   },
   {
     heading: "11. Children's privacy",
-    body: "TRU Connect is a business platform intended for adults operating or supplying a business. It is not directed at, and should not be used by, anyone under 18.",
+    body: "TruConnect is a business platform intended for adults operating or supplying a business. It is not directed at, and should not be used by, anyone under 18.",
     icon: (c) => <Baby size={16} color={c} />,
   },
   {
     heading: "12. Cross-border transfers",
-    body: "Where TRU Connect uses a service provider whose own infrastructure is located outside South Africa, we take reasonable steps to ensure your information continues to receive a level of protection consistent with POPIA.",
+    body: "Where TruConnect uses a service provider whose own infrastructure is located outside South Africa, we take reasonable steps to ensure your information continues to receive a level of protection consistent with POPIA.",
     icon: (c) => <Globe size={16} color={c} />,
   },
   {
     heading: "13. Changes to this policy",
-    body: 'TRU Connect may update this Policy as the platform evolves. Material changes will be communicated in the app before they take effect. The "Last updated" date above always reflects the current version.',
+    body: 'TruConnect may update this Policy as the platform evolves. Material changes will be communicated in the app before they take effect. The "Last updated" date above always reflects the current version.',
     icon: (c) => <RefreshCw size={16} color={c} />,
   },
   {
     heading: "14. Contact us",
-    body: "Questions, requests, or complaints about this Policy or your personal information can be sent to the contact details under Help & support, addressed to TRU Connect's own designated Information Officer.",
+    body: "Questions, requests, or complaints about this Policy or your personal information can be sent to the contact details under Help & support, addressed to TruConnect's own designated Information Officer.",
     icon: (c) => <Mail size={16} color={c} />,
   },
 ];

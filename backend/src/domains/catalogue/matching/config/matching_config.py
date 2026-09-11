@@ -63,7 +63,7 @@ def auto_link_threshold() -> float:
     """At or above this, link without asking anyone.
 
     0.92 is deliberately high. The cost of a wrong auto-link is that
-    TRU Connect tells a business "R89 here, R74 there" about two
+    TruConnect tells a business "R89 here, R74 there" about two
     different products -- the catalogue breaking the one promise it
     exists to make. The cost of being too cautious is a longer review
     queue, which is merely work.

@@ -25,7 +25,7 @@ import { isDirectPayment } from "@/features/dashboard/shared/payment/paymentMeth
  * -- the cart this order came from is already cleared by this point,
  * so nothing here can rely on it.
  *
- * "Send via TRU Connect" is shown, real, and marked Coming soon --
+ * "Send via TruConnect" is shown, real, and marked Coming soon --
  * honest that in-app delivery isn't wired yet, without hiding that
  * it's coming.
  */
@@ -85,7 +85,7 @@ export default function OrderPlacedScreen() {
       Alert.alert("No WhatsApp number", "This supplier hasn't added a WhatsApp number yet.");
       return;
     }
-    const message = `Hi, I've placed order ${orderReference} for ${formatCents(Number(totalCents))} on TRU Connect. Here's my proof of payment.`;
+    const message = `Hi, I've placed order ${orderReference} for ${formatCents(Number(totalCents))} on TruConnect. Here's my proof of payment.`;
     Linking.openURL(buildWhatsAppUrl(contact.whatsappNumber, message)).catch(() => {
       // Silently ignored -- same reasoning as every other WhatsApp
       // link in this app: wa.me degrades to a normal web page when
@@ -97,7 +97,7 @@ export default function OrderPlacedScreen() {
   const handleSendViaTruConnect = () => {
     Alert.alert(
       "Coming soon",
-      "Sending proof of payment directly in TRU Connect isn't available yet, but it's on the way."
+      "Sending proof of payment directly in TruConnect isn't available yet, but it's on the way."
     );
   };
 
@@ -153,9 +153,9 @@ export default function OrderPlacedScreen() {
               onPress={handleSendViaTruConnect}
               style={[styles.proofButton, { backgroundColor: theme.colors.surfaceVariant }]}
               accessibilityRole="button"
-              accessibilityLabel="Send via TRU Connect"
+              accessibilityLabel="Send via TruConnect"
             >
-              <Text style={[styles.proofButtonLabel, { color: theme.colors.onSurface }]}>Send via TRU Connect</Text>
+              <Text style={[styles.proofButtonLabel, { color: theme.colors.onSurface }]}>Send via TruConnect</Text>
               <Text style={[styles.comingSoonTag, { color: theme.colors.onSurfaceVariant }]}>Coming soon</Text>
             </Pressable>
           </View>

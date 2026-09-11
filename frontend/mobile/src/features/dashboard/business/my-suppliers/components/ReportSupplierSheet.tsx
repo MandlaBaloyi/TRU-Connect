@@ -47,7 +47,7 @@ export function ReportSupplierSheet({ visible, supplierName, isSubmitting, onSub
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={[styles.title, { color: theme.colors.onSurface }]}>Report {supplierName}</Text>
             <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-              This creates a real record TRU Connect can review. Only report a genuine concern.
+              This creates a real record TruConnect can review. Only report a genuine concern.
             </Text>
 
             {REPORT_REASONS.map((option) => {

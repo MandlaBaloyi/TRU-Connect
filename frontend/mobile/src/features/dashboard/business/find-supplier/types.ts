@@ -1,7 +1,7 @@
 /**
- * Find Supplier — Phase 1 of the TRU Connect network engine (per the
+ * Find Supplier — Phase 1 of the TruConnect network engine (per the
  * FILE2.txt build plan: "DO NOT BUILD PHASE 2 YET... FIRST TARGET:
- * SUPPLIER DISCOVERY"). This is a search, not a browse — TRU Connect
+ * SUPPLIER DISCOVERY"). This is a search, not a browse — TruConnect
  * digitises an EXISTING relationship, it doesn't help a business
  * discover suppliers it's never worked with (file.txt §4: "should NOT
  * expose everybody").

@@ -35,7 +35,7 @@ class BaseConfig:
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
-    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "TRU Connect <no-reply@truconnect.dev>")
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "TruConnect <no-reply@truconnect.dev>")
     # Where a supplier report actually lands today -- there's no admin
     # panel/control centre built yet to review these in-app, so a real
     # inbox is the honest "someone actually sees this" mechanism until

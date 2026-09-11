@@ -224,7 +224,7 @@ def build_order_auto_declined_notification(order: StockOrder, business_user_id: 
     a SEPARATE template from build_order_declined_notification, not a
     reused call with a different reason string -- the two are
     genuinely different events. A manual decline is the supplier
-    telling the business no; this is TRU Connect telling the business
+    telling the business no; this is TruConnect telling the business
     the supplier simply never answered. Saying "declined by X" here
     would misrepresent what actually happened as a deliberate business
     decision, when it wasn't one."""

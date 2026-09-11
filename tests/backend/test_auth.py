@@ -182,7 +182,7 @@ def _extract_otp(caplog, email) -> str:
     from logs. `caplog` is accepted for signature consistency with
     tests that also assert on log output, but is not read here."""
     for sent in get_fake_provider().sent_emails:
-        if sent["to"] == email and sent["subject"] == "Your TRU Connect verification code":
+        if sent["to"] == email and sent["subject"] == "Your TruConnect verification code":
             match = re.search(r"letter-spacing:6px[^>]*>\s*(\d{6})", sent["html_body"])
             if match:
                 return match.group(1)
@@ -220,7 +220,7 @@ class TestRegistrationIntegration:
         # Two OTP emails should have been sent (one per attempt).
         otp_emails = [
             e for e in get_fake_provider().sent_emails
-            if e["to"] == "resume@example.com" and e["subject"] == "Your TRU Connect verification code"
+            if e["to"] == "resume@example.com" and e["subject"] == "Your TruConnect verification code"
         ]
         assert len(otp_emails) == 2
 
@@ -391,7 +391,7 @@ class TestLoginLockoutIntegration:
 class TestPasswordResetTicketIntegration:
     def _get_reset_url(self, email):
         for sent in get_fake_provider().sent_emails:
-            if sent["to"] == email and sent["subject"] == "Reset your TRU Connect password":
+            if sent["to"] == email and sent["subject"] == "Reset your TruConnect password":
                 match = re.search(r"reset-password\?ticket=([\w\-]+)", sent["html_body"])
                 if match:
                     return match.group(1)

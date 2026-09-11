@@ -46,7 +46,7 @@ def build_from_label(owner_first_name: Optional[str]) -> str:
     yet (no Business Profile feature), always supply what's real."""
     trimmed = (owner_first_name or "").strip()
     if not trimmed:
-        return "Sent via TRU Connect"
+        return "Sent via TruConnect"
     return f"{trimmed}'s shop"
 
 

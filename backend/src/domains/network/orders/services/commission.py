@@ -5,7 +5,7 @@ one real piece of money-math can be tested directly and exhaustively
 without needing a database, a request, or any other moving part.
 
 Lives in domains/business/stock_order, not shared/checkout -- "how
-much does TRU Connect charge on this order" is a real business
+much does TruConnect charge on this order" is a real business
 revenue rule, owned the same way the tier spending limits are (see
 tiers/__init__.py's own docstring for the identical reasoning).
 

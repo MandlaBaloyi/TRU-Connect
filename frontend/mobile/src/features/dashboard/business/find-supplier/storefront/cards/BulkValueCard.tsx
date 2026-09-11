@@ -17,7 +17,7 @@ export const BULK_CARD_WIDTH = 172;
  *
  * THE ONE SECTION THAT OWES NOTHING TO CONSUMER APPS. Every other card
  * on this profile borrows a shape from retail; this one exists because
- * TRU Connect sells wholesale. A pack of 6 and a pack of 24 at the
+ * TruConnect sells wholesale. A pack of 6 and a pack of 24 at the
  * same price are completely different offers, and an informal buyer
  * comparing two suppliers is really comparing per-item cost. Doing
  * that arithmetic in your head, in a shop, off two phone screens, is

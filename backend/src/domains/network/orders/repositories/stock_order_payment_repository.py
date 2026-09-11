@@ -22,7 +22,7 @@ from src.domains.network.orders.models.stock_order_payment import StockOrderPaym
 # record what that buyer selected at the time, so they are left alone
 # rather than rewritten. All three count identically here, which is the
 # whole point: what matters is not the instrument, it is that the money
-# moved where TRU Connect could not observe it.
+# moved where TruConnect could not observe it.
 DIRECT_PAYMENT_METHODS = ("DIRECT", "CASH", "PROOF_OF_PAYMENT")
 
 # Orders whose money never actually changed hands, so the spend they
@@ -190,7 +190,7 @@ class StockOrderPaymentRepository:
         WHY BOTH ENDS NEED BOUNDING. The buyer-side cap limits what one
         business can move invisibly and does nothing about the total.
         Ten businesses each comfortably inside their own R5,000 send
-        one supplier R50,000 that TRU Connect never sees -- and the
+        one supplier R50,000 that TruConnect never sees -- and the
         exposure these caps exist to bound is the total crossing the
         platform, not any single buyer's share of it.
 

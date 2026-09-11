@@ -1,6 +1,6 @@
 /**
  * computeInventoryStatus — the core rule Inventory exists to enforce:
- * the supplier manages quantity, TRU Connect manages status. Order of
+ * the supplier manages quantity, TruConnect manages status. Order of
  * checks matters: zero-or-below is OUT_OF_STOCK even if the threshold
  * is also 0 (a threshold of 0 doesn't mean "never low stock").
  */

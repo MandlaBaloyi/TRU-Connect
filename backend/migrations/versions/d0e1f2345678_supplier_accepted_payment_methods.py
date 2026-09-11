@@ -4,7 +4,7 @@ Revision ID: d0e1f2345678
 Revises: c9d0e1f23456
 Create Date: 2026-09-07 17:10:00.000000
 
-Two changes, one idea: TRU Connect either sees the money or it does
+Two changes, one idea: TruConnect either sees the money or it does
 not, and that is the only payment distinction that has ever meant
 anything here.
 

@@ -12,7 +12,7 @@ import { SUBSCRIPTION_TIERS } from "../services/subscriptionService";
 import { SubscriptionTierCard } from "../components/SubscriptionTierCard";
 
 /**
- * file.txt-adjacent: TRU Connect's own platform-usage subscription,
+ * file.txt-adjacent: TruConnect's own platform-usage subscription,
  * not a stock-order/payment concept. Three tiers, everyone is FREE
  * right now (see types.ts's own note — genuinely hardcoded, no
  * billing infrastructure exists). Upgrade is real UI, honest outcome:

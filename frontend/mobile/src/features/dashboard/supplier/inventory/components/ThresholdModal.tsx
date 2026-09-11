@@ -28,7 +28,7 @@ export function ThresholdModal({
   onSave,
   onClose,
   title = "Low stock threshold",
-  hint = "TRU Connect will mark this product \"Low stock\" once on-hand quantity drops to this number or below.",
+  hint = "TruConnect will mark this product \"Low stock\" once on-hand quantity drops to this number or below.",
 }: Props) {
   const theme = useTheme();
   const [text, setText] = useState(String(currentValue));

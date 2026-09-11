@@ -1,6 +1,6 @@
-# TRU Connect Backend
+# TruConnect Backend
 
-Flask + PostgreSQL backend for TRU Connect. Implements the App
+Flask + PostgreSQL backend for TruConnect. Implements the App
 
 
 ## Setup

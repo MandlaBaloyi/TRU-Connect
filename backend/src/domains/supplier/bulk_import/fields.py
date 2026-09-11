@@ -2,7 +2,7 @@
 THE CANONICAL IMPORT FIELD SET -- what a supplier can tell us about a
 product, defined exactly once.
 
-WHY THIS FILE EXISTS. A supplier's catalogue reaches TRU Connect through
+WHY THIS FILE EXISTS. A supplier's catalogue reaches TruConnect through
 more than one door: a CSV or XLSX upload today, a push from their own
 system later. Those are the same FIELDS arriving in different
 containers, and the moment the list is written out twice -- once as
@@ -61,7 +61,7 @@ IMAGE_FIELD_NAMES: Tuple[str, ...] = ("image_1", "image_2", "image_3", "image_4"
 
 IMPORT_FIELDS: Tuple[ImportField, ...] = (
     ImportField("name", True, "What the product is called."),
-    ImportField("category", True, "One of the TRU Connect categories, e.g. Beverages."),
+    ImportField("category", True, "One of the TruConnect categories, e.g. Beverages."),
     ImportField("price", True, "What a business pays, in rands."),
     ImportField("unit", True, "How you sell it: Each, Case, Box, Bag..."),
     ImportField("quantity", False, "How many you have in stock right now."),

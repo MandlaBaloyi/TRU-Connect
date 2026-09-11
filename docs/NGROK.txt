@@ -14,7 +14,7 @@ Flask behind the scenes. Nothing about your code changes — Cloudinary
 just gets a real door to knock on instead of a private one it can't
 reach.
 
-This is a DEV-ONLY WORKAROUND. Once TRU Connect is actually deployed
+This is a DEV-ONLY WORKAROUND. Once TruConnect is actually deployed
 for real (a real server, a real domain), it will already have a
 permanent public address, and ngrok won't be needed at all. You are
 not building a permanent piece of the app right now — you're

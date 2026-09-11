@@ -52,7 +52,7 @@ PART 2 — THE FOUR THAT MATTER
 
 2.1 SUPPLIER ONBOARDING IS THE GROWTH CONSTRAINT
 
-The binding constraint on TRU Connect is not demand from businesses. It
+The binding constraint on TruConnect is not demand from businesses. It
 is how long it takes to get a supplier listed with a real catalogue.
 
 Without a central catalogue, a supplier arriving with 3,000 products is
@@ -77,7 +77,7 @@ The problem: you cannot assess a spaza shop from a bank statement,
 because most do not have a meaningful one. Cash trade leaves no record a
 lender can read.
 
-What TRU Connect has instead: "orders R14,000 a month, consistently,
+What TruConnect has instead: "orders R14,000 a month, consistently,
 from three suppliers, pays on time." That is a credit file that does not
 otherwise exist anywhere.
 
@@ -94,7 +94,7 @@ because it is the least obvious link in this document.
 
 2.3 PRICE DATA NOBODY ELSE HOLDS
 
-Once several suppliers quote the same catalogue products, TRU Connect
+Once several suppliers quote the same catalogue products, TruConnect
 knows the real wholesale price curve for South African informal retail
 -- by product, by region, over time.
 
@@ -126,7 +126,7 @@ matched instantly and free, forever.
 
 So each supplier who joins makes onboarding CHEAPER AND FASTER for the
 next one. A competitor starting today starts at zero and pays full price
-for every row, while TRU Connect's cost per supplier keeps falling.
+for every row, while TruConnect's cost per supplier keeps falling.
 
 The alias table, the brand dictionary and the confirmed match history
 are owned outright. They cannot be repriced, withdrawn, or bought by a

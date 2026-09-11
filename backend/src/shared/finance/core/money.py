@@ -1,5 +1,5 @@
 """
-The Money value object -- what money IS in TRU Connect.
+The Money value object -- what money IS in TruConnect.
 
 THREE PROPERTIES, ALL DELIBERATE:
 
@@ -12,7 +12,7 @@ THREE PROPERTIES, ALL DELIBERATE:
    app shows.
 
 2. CURRENCY-CARRYING. Every Money knows its own currency, even though
-   TRU Connect is ZAR-only today. A bare number can be added to any
+   TruConnect is ZAR-only today. A bare number can be added to any
    other bare number; a Money can only be added to Money of the SAME
    currency, enforced below. That makes cross-currency bugs impossible
    rather than merely unlikely, and costs nothing to add now versus an

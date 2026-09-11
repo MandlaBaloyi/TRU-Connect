@@ -36,7 +36,7 @@ export async function downloadImportTemplate(): Promise<void> {
   await shareBundledAsset(
     TEMPLATE_ASSET,
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "TRU Connect Product Import Template"
+    "TruConnect Product Import Template"
   );
 }
 
@@ -44,6 +44,6 @@ export async function downloadImportGuide(): Promise<void> {
   await shareBundledAsset(
     GUIDE_ASSET,
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "TRU Connect Bulk Import Guide"
+    "TruConnect Bulk Import Guide"
   );
 }

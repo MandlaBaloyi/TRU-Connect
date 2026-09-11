@@ -78,7 +78,7 @@ class PasswordResetService:
             EmailService.send_template(
                 to=email,
                 template_name="auth/resume_registration.html",
-                subject="Verify your TRU Connect account",
+                subject="Verify your TruConnect account",
                 context={},
                 rate_limit_key=f"password_reset:{email}",
                 rate_limit_max=MAX_PASSWORD_RESET_EMAILS_PER_HOUR,
@@ -101,7 +101,7 @@ class PasswordResetService:
         EmailService.send_template(
             to=email,
             template_name="auth/password_reset.html",
-            subject="Reset your TRU Connect password",
+            subject="Reset your TruConnect password",
             context={"reset_url": reset_url, "expiry_hours": expiry_hours},
             rate_limit_key=f"password_reset:{email}",
             rate_limit_max=MAX_PASSWORD_RESET_EMAILS_PER_HOUR,

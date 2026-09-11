@@ -124,7 +124,7 @@ def extract_otp(email: str) -> str:
     from the fake email provider (dev-mode SMTP is never actually used
     in tests) rather than from logs."""
     for sent in get_fake_provider().sent_emails:
-        if sent["to"] == email and sent["subject"] == "Your TRU Connect verification code":
+        if sent["to"] == email and sent["subject"] == "Your TruConnect verification code":
             match = re.search(r"letter-spacing:6px[^>]*>\s*(\d{6})", sent["html_body"])
             if match:
                 return match.group(1)

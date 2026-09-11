@@ -1,5 +1,5 @@
 """
-User Model -- the root authentication entity for TRU Connect.
+User Model -- the root authentication entity for TruConnect.
 
 
 

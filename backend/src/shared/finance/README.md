@@ -1,4 +1,4 @@
-# TRU Connect Finance Engine
+# TruConnect Finance Engine
 
 The platform's financial integrity engine. Every feature that creates,
 calculates, validates, formats, or stores money uses this module.

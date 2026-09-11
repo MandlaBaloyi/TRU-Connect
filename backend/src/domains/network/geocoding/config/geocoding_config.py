@@ -10,7 +10,7 @@ Geocoding API defaults every request to *temporary* -- results may be
 shown to a user in real time but not cached or stored -- unless the
 caller explicitly passes permanent=true, which requires a card on file
 and is billed per request with no free allowance at all (confirmed
-directly against Mapbox's own API docs, not assumed). TRU Connect's
+directly against Mapbox's own API docs, not assumed). TruConnect's
 actual design never stores Mapbox's own response: the pin's real
 lat/lng comes straight off the map widget the user dragged (never a
 geocoding call at all), and the address text saved to the order is

@@ -150,7 +150,7 @@ class StockOrderPaymentMethod(str, enum.Enum):
     until they actually check out. Set exactly once, at submission."""
 
     # THE ONE OFF-PLATFORM RAIL. Notes on delivery, an EFT, a bank
-    # deposit, a transfer with a screenshot -- TRU Connect observes
+    # deposit, a transfer with a screenshot -- TruConnect observes
     # none of them, and that, not the instrument, is what makes them
     # one thing. Capped, because invisible money is what the caps
     # exist to bound.
@@ -159,7 +159,7 @@ class StockOrderPaymentMethod(str, enum.Enum):
     # HISTORICAL, NOT OFFERED. CASH and PROOF_OF_PAYMENT were the two
     # halves of what is now DIRECT, split on the reasoning that a
     # traceable transfer is safer than notes and so earns a higher
-    # per-transaction cap. TRU Connect could never enforce that: a
+    # per-transaction cap. TruConnect could never enforce that: a
     # buyer selecting proof-of-payment for the higher cap and then
     # handing over cash was indistinguishable from one who transferred.
     # A cap resting on an unverifiable self-declaration is not a cap.
@@ -177,7 +177,7 @@ class StockOrderPaymentMethod(str, enum.Enum):
 
 #: THE DIRECT RAIL, DEFINED ONCE.
 #:
-#: Money that moves outside TRU Connect: notes on delivery, an EFT, a
+#: Money that moves outside TruConnect: notes on delivery, an EFT, a
 #: bank deposit. The platform observes none of it, and that -- not the
 #: instrument -- is what makes these one thing.
 #:
@@ -213,7 +213,7 @@ DIRECT_PAYMENT_METHODS = (
 
 
 def is_direct_payment(payment_method) -> bool:
-    """Does this method move money outside TRU Connect?
+    """Does this method move money outside TruConnect?
 
     Accepts the enum or its string value, because callers come from both
     sides of the wire -- a request schema hands over a string, a model

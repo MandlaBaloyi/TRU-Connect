@@ -94,7 +94,7 @@ def _send_invitation(
     EmailService.send_template(
         to=normalized,
         template_name=template_name,
-        subject=f"{inviter_name} invited you to TRU Connect",
+        subject=f"{inviter_name} invited you to TruConnect",
         context={"inviter_business_name": inviter_name, "invitation_url": invitation_url},
         rate_limit_key=f"{rate_limit_prefix}:{inviter_id}",
         rate_limit_max=MAX_SUPPLIER_INVITATIONS_PER_HOUR,
