@@ -1,0 +1,414 @@
+===========================================================================
+V2_04 — COMMUNITY, FOR BOTH ROLES
+===========================================================================
+
+Depends on V2_03. Read that first — particularly Part 5, on why the two
+roles' Community tabs are not mirrors, and Part 6 principle 4, on the
+catalogue being the engine.
+
+
+===========================================================================
+PART 1 — WHAT ALREADY EXISTS, SO WE BUILD ON IT RATHER THAN OVER IT
+===========================================================================
+
+More is standing than the empty screens suggest.
+
+  community/types.ts          A server-driven feed contract. The SERVER
+                              chooses which sections appear and in what
+                              order; the app renders what it is handed and
+                              knows nothing about the ordering rules.
+                              Unknown section types render nothing, so the
+                              server can ship a new one before every
+                              installed build understands it.
+
+  Section types today         CATEGORY_CHIPS, SUPPLIER_AVATARS,
+                              SUPPLIER_RAIL, PRODUCT_RAIL, PROMO,
+                              SPONSORED_SUPPLIER.
+
+  MIN_ITEMS_PER_RAIL = 3      A thin rail looks worse than no rail.
+                              Enforced in the app, not trusted from the
+                              server.
+
+  Components                  ProductTile, SupplierCard, SupplierAvatarTile,
+                              PromoCard, CategoryChipRow, Rail,
+                              FeedSectionView, CommunityFeed, CartButton.
+
+  Search                      Lives in the top bar on both roles.
+                              InlineSupplierSearch / InlineBusinessSearch.
+
+  My Connections              Shared component, both roles,
+                              shared/connections/.
+
+  Backing                     mockCommunityFeed today; communityFeedService
+                              is the seam to the real endpoint.
+
+THAT CONTRACT IS THE MOST VALUABLE THING IN THE APP AND NOTHING BELOW
+CHANGES IT. Everything proposed here is either a new section TYPE or a new
+rule for choosing sections — both server-side, both shippable without an
+app release. That property is what lets a wholesaler's range be placed
+above the fold during a negotiation instead of two weeks after it.
+
+
+===========================================================================
+PART 2 — THE BUSINESS'S COMMUNITY: AN E-COMMERCE SURFACE ABOUT SUPPLIERS
+===========================================================================
+
+The brief: it must feel like e-commerce, centred on suppliers — search,
+For You, My Connections, invite, cart, supplier profile — and it is where
+the supplier↔business relationship is optimised.
+
+2.1 THE ORGANISING IDEA
+
+  Uber Eats organises around restaurants. Takealot organises around
+  products. TruConnect organises around SUPPLIERS, because a business does
+  not buy one item — it buys a basket from one supplier, on that
+  supplier's minimum, on that supplier's delivery day. A product rail that
+  scatters across six suppliers produces six baskets, six minimums and six
+  deliveries, which is worse than useless in a shop.
+
+  So: PRODUCTS ARE THE BAIT, SUPPLIERS ARE THE UNIT. Every product tile
+  names its supplier and every path through the feed converges on a
+  supplier's shopfront.
+
+2.2 THE FEED, SECTION BY SECTION
+
+  The server composes these. Order is illustrative, not hardcoded.
+
+  1  BUY IT AGAIN                          new section type: PRODUCT_RAIL
+     Products this business has ordered before, from suppliers they are
+     still connected to. THE HIGHEST-VALUE RAIL IN THE APP and the one
+     the research names first ("their own prices"). It is also the
+     cheapest to compute: their own order history.
+     Empty for a new user. That is correct — it fills on order two.
+
+  2  YOUR SUPPLIERS                        SUPPLIER_AVATARS
+     Existing connections, as a row of avatars. The fastest path back to
+     a shopfront they already trust.
+
+  3  CATEGORY CHIPS                        CATEGORY_CHIPS
+     The 16 categories from taxonomy.py. See Part 4 on imagery.
+
+  4  PRICE DROPPED ON WHAT YOU BUY         new: PRICE_MOVEMENT_RAIL
+     A catalogue product this business buys, now cheaper — either from
+     their own supplier or from another one they could reach.
+     ONLY THE CATALOGUE MAKES THIS POSSIBLE. "WHT SUGR 2.5KG" from one
+     supplier and "White Sugar 2.5kg" from another resolve to the same
+     catalogue product, so the comparison is real rather than a string
+     match. No competitor without a resolved catalogue can show this.
+     HANDLE WITH CARE — see 2.4.
+
+  5  NEW NEAR YOU                          SUPPLIER_RAIL
+     Suppliers within delivery range not yet connected. distanceKm is
+     already in the contract and marked NOT YET REAL; both sides have
+     coordinates, so it is a query rather than a data model.
+
+  6  SPONSORED                             SPONSORED_SUPPLIER
+     Already in the contract, deliberately built before it is sold.
+
+  7  COMPLETE YOUR BASKET                  new: PRODUCT_RAIL
+     Only when a cart is open and below the supplier's minimum order.
+     "R180 more to reach MacMan's R500 minimum" — and only that
+     supplier's products. Directly attacks abandoned baskets caused by
+     minimums, which is a real and specific failure in this market.
+
+2.3 MY CONNECTIONS IS A RELATIONSHIP LEDGER, NOT A CONTACT LIST
+
+  The brief is right that suppliers a business has bought from belong
+  here. Going further: this list should be ordered by TRADING REALITY,
+  not alphabetically.
+
+  Per row:  supplier avatar and name (real photo — Part C of the earlier
+            community plan)
+            last ordered "3 weeks ago"
+            typical reorder gap, when there is enough history
+            an outstanding order, if one is open
+
+  Ordered by: open order first, then reorder-due, then recency.
+
+  WHY THIS MATTERS MORE THAN IT LOOKS. A shop's buying is rhythmic —
+  bread twice a week, cooldrink on a Thursday, cleaning monthly. A list
+  that surfaces "you usually reorder from Sipho about now" is doing the
+  job the shopkeeper currently does from memory, and memory is what
+  fails when they are busy. This is a retention mechanic disguised as a
+  list.
+
+2.4 THE ONE PLACE TO BE CAREFUL: PRICE COMPARISON
+
+  Showing a business that their current supplier is more expensive is
+  the most powerful thing the catalogue can do and the fastest way to
+  destroy the platform's relationship with suppliers.
+
+  THE RULE: comparison is always framed as SAVING FOR THE BUYER, never as
+  a league table of suppliers. No "cheapest supplier" ranking, no
+  supplier-versus-supplier screen. A price-drop rail shows a product and
+  a price. It never says "your supplier is overcharging you."
+
+  A supplier who feels ambushed by our UI leaves, and a marketplace with
+  no suppliers has nothing to compare. This restraint is commercial, not
+  squeamish.
+
+2.5 CART AND CHECKOUT
+
+  Cart is per supplier. It already is, structurally (checkout.stock_orders
+  carries a supplier_profile_id), and it must stay that way for the
+  reasons in 2.1.
+
+  The cart shows, at all times: subtotal, the supplier's minimum and the
+  gap to it, delivery or collection, and which payment methods that
+  supplier accepts. Every one of those is already a real field on
+  SupplierProfile. Nothing is estimated.
+
+
+===========================================================================
+PART 3 — THE SUPPLIER'S COMMUNITY: THE ANSWER TO "I DON'T HAVE AN IDEA"
+===========================================================================
+
+This is the part of the brief with no answer yet, so here is a proposed
+one, argued rather than asserted.
+
+3.1 THE MISTAKE TO AVOID
+
+  Today the supplier's Community is a direct mirror of the business's:
+  For You, My Connections, search. That is why it feels like nothing.
+  A supplier does not shop. Handing them a "For You" rail of other
+  suppliers is symmetry mistaken for design, and it is exactly the
+  generic-admin-list problem that started V2.
+
+3.2 THE ORGANISING IDEA
+
+  ─────────────────────────────────────────────────────────────────────
+  For the business, Community is a MARKET.
+  For the supplier, Community is a DEMAND SIGNAL.
+  ─────────────────────────────────────────────────────────────────────
+
+  A supplier's questions are not "what can I buy" but:
+
+      Who is buying from me, and who stopped?
+      Who nearby could buy from me and does not?
+      What are they asking for that I do not sell?
+
+  Answer those three and the tab is indispensable. Two of them are
+  answerable ONLY because the catalogue exists.
+
+3.3 THE FEED, SECTION BY SECTION
+
+  1  ASKED FOR NEARBY, NOT IN YOUR RANGE    new: DEMAND_GAP_RAIL
+     ────────────────────────────────────────────────────────────────
+     THE SINGLE MOST VALUABLE THING TRUCONNECT CAN TELL A SUPPLIER.
+
+     Catalogue products that businesses within this supplier's delivery
+     area searched for or ordered, for which this supplier has no offer.
+     "14 shops near you bought 2kg maize meal this month. You don't
+     stock it."
+
+     This is a stock recommendation derived from real local demand, and
+     it is worth money. It is only computable because matching resolves
+     every supplier's messy line item onto a shared catalogue product —
+     without that, "maize meal" is a string, not a fact.
+
+     PRIVACY, NON-NEGOTIABLE: aggregate only, minimum threshold before
+     a row appears (propose 5 distinct businesses), never named
+     businesses, never a specific shop's basket. Principle 2 in V2_03.
+     If we cannot hit the threshold, the row does not exist.
+
+  2  REORDER DUE                            new: CUSTOMER_RAIL
+     Connected businesses whose usual reorder window has passed. The
+     supplier's own customers, their own trading history — no privacy
+     question at all. This is the row that turns the app into a sales
+     tool rather than an inbox.
+
+  3  WANTS TO CONNECT                       existing requests, surfaced
+     Pending connection requests. Already built
+     (supplier/customer-requests) but currently lives on Home.
+
+  4  BUSINESSES NEAR YOU                    new: BUSINESS_RAIL
+     Shops in the delivery area with no connection. The growth surface.
+     Subject to the same visibility rules the business profile already
+     enforces (_resolve_visible_photo_url and friends).
+
+  5  YOUR SHOPFRONT                         new: STOREFRONT_HEALTH
+     A single honest card: is the shopfront open, how many offers have
+     no price, how many import lines are unmatched, is the minimum order
+     set. Links straight into Account. Not vanity metrics — the specific
+     things blocking them from being findable.
+
+3.4 MY CONNECTIONS, SUPPLIER SIDE
+
+  This is the supplier's CUSTOMER BOOK. Same component, different
+  ordering: by trading value and by risk of going quiet.
+
+  Per row: business name and photo, last order, typical gap, whether
+  anything is outstanding.
+
+  A supplier who opens this and sees "Thabo's Corner Shop — usually
+  orders weekly, nothing for 3 weeks" has been handed a phone call worth
+  making. That is a feature no ratings screen can match.
+
+
+===========================================================================
+PART 4 — CATEGORY IMAGERY, AND THE LINE THAT MUST NOT BE CROSSED
+===========================================================================
+
+The decision: TruConnect owns imagery for its 16 categories. Suppliers
+choose which category art represents their shopfront, with sensible
+defaults. Supplier product photography becomes an enhancement, never a
+prerequisite.
+
+WHY IT WORKS, AND WHY IT IS THE CATALOGUE AGAIN. ProductCategory in
+catalogue/products/models/taxonomy.py is a closed set of 16, shared
+verbatim by both codebases. Matching already maps every supplier offer
+onto a catalogue product, and that product carries its category. So a
+supplier who uploads a price file with no images at all still produces a
+fully-rendered shopfront: we already know what each line IS. They are
+asked for nothing.
+
+Bounded cost: 16 categories, one to three images each. Sourced once.
+Against an unbounded number of supplier photos we can neither commission
+nor control.
+
+THE FALLBACK CHAIN, one helper, used everywhere, no screen inventing its
+own rule:
+
+    product photo  →  brand mark  →  category art  →  typographic block
+
+THE LINE:
+
+  ─────────────────────────────────────────────────────────────────────
+  Category art may carry CHROME. It may never carry PRODUCT IDENTITY.
+  ─────────────────────────────────────────────────────────────────────
+
+  ALLOWED: category chips, rail headers, empty states, shopfront covers,
+  cart section dividers, Discovery cards.
+
+  FORBIDDEN: the image slot of a tile that states a specific product at a
+  specific price.
+
+  The reason is trust, not taste. If a business sees a photograph of a
+  particular brand of maize meal and receives a different one, that is
+  not a disappointing image — it is the platform having misled them about
+  what they were buying, in the one transaction where they are spending
+  real money. In the product slot the honest fallback is the brand mark,
+  and failing that a typographic block. Never a photograph of something
+  adjacent.
+
+  A supplier choosing a category cover for their own shopfront is on the
+  safe side of that line: they are decorating their shop, not making a
+  claim about an item.
+
+AND TWO CATEGORIES ARE MISSING, raised in review 2026-09-11 and worth
+deciding BEFORE the enum has data behind it -- the category lives on the
+catalogue PRODUCT, so adding a value later means a migration plus
+re-sorting everything already categorised:
+
+  BEAUTY AND HAIR. Extensions, braids, relaxers, nails. An enormous
+  township category and exactly the V2_03 Part 1 user -- a salon buying
+  stock. PERSONAL_CARE stretches to cover it but does not describe it,
+  and a supplier browsing for where to list their range will not find
+  themselves in "personal care".
+
+  DIGITAL / VAS. Airtime, data, electricity, vouchers. V2_08's entire
+  argument is that a VAS distributor is a supplier whose products are
+  digital -- and there is currently no category those products belong
+  to.
+
+  ALSO WORTH WATCHING RATHER THAN FIXING: OTHER exists, so nothing is
+  unlistable, which is the right design. But OTHER filling up is the
+  signal that the taxonomy is wrong. Track its share as a metric.
+
+  DEPTH IS DELIBERATELY FLAT. Sixteen top-level categories with no
+  sub-categories makes FOOD_GROCERY enormous for browsing. That is
+  acceptable for MVP, and a hierarchy can be added later as a SEPARATE
+  field without touching the enum -- so it is not a decision that needs
+  making now.
+
+LICENSING, WHICH WILL BE ASKED ABOUT LATER SO RECORD IT NOW. Every asset
+gets source URL, licence name, licence URL and the date acquired, stored
+with the asset rather than in someone's memory. Free-to-use is not
+licence-free, and an investor or a rights-holder asking in eighteen
+months is a question with a cheap answer today and an expensive one then.
+
+DELIVERY: Cloudinary, which is already the media provider, with the
+category value as the public id (`categories/FOOD_GROCERY/...`) so a
+lookup needs no table join and no app release to add one.
+
+
+===========================================================================
+PART 5 — WHAT THE SERVER NEEDS TO BUILD
+===========================================================================
+
+New backend work implied by the above, named so it can be scheduled.
+
+  GET /community/feed?role=business        composes sections per user
+  GET /community/feed?role=supplier        composes sections per user
+
+  Both are one endpoint per role that returns the existing FeedSection
+  union plus the new types. The composition rules live in a single
+  service so ordering is one file, not scattered.
+
+  New section types:  PRICE_MOVEMENT_RAIL, DEMAND_GAP_RAIL,
+                      CUSTOMER_RAIL, BUSINESS_RAIL, STOREFRONT_HEALTH
+
+  New computations:
+    buy-it-again        from stock_orders history           (cheap)
+    reorder gap         mean interval per (business, supplier)  (cheap)
+    price movement      catalogue product → offers → history  (medium)
+    demand gap          area demand minus this supplier's offers
+                        (medium; needs the aggregate threshold)
+    distance            both sides already carry coordinates  (cheap)
+
+  Where it lives: a new domain, src/domains/network/community/, because
+  the feed spans supplier, business, network and catalogue and belongs to
+  none of them. It READS from those domains' repositories and owns no
+  tables of its own except, later, impression logging.
+
+  THE ARCHITECTURE RULE IT MUST OBEY: the feed service may import from
+  domain repositories, but no domain may import the feed service. It is a
+  composer, and the coordinator never gets imported by the thing it
+  coordinates — the same rule tests/architecture/ already enforces for
+  shared/finance and shared/ai. Add a boundary test for it in the same
+  commit that creates it, not later.
+
+
+===========================================================================
+PART 6 — OPEN QUESTIONS FOR REVIEW
+===========================================================================
+
+  1  DEMAND GAP THRESHOLD. Proposed: a row appears only when at least 5
+     distinct businesses in the area bought the product in 30 days. Is 5
+     right? Too low and it identifies a shop; too high and it never fires
+     in a thin area.
+
+  2  PRICE MOVEMENT — OWN SUPPLIER ONLY, OR ALL REACHABLE? Showing a
+     cheaper price at a supplier they are NOT connected to is the most
+     valuable version for the business and the most dangerous for
+     supplier relations. Recommendation: MVP shows movement only within
+     suppliers they are already connected to. Widen later, deliberately,
+     with suppliers told in advance.
+
+  3  DOES THE SUPPLIER SEE "REORDER DUE" BEFORE THE BUSINESS DOES? If a
+     supplier is prompted to call a shop the same morning the shop is
+     prompted to reorder, one of them feels watched. Recommendation:
+     the business sees their own prompt; the supplier's row appears only
+     after the window has clearly passed.
+
+  4  CATEGORY ART STYLE. RESOLVED 2026-09-11, and the answer was better
+     than either option on offer.
+
+     The original choice was photographic (looks best, edges toward the
+     forbidden line) versus illustrated/flat (safe, looks cheaper). The
+     resolution dissolves it:
+
+       PHOTOGRAPH A SECTION OR A SCENE, NEVER A SINGLE ITEM.
+
+     A photograph of the fruit-and-veg section of a store cannot be
+     mistaken for a claim about one product -- it is visibly a place,
+     not a thing. A photograph of one bag of a specific brand of maize
+     meal reads as a promise about what arrives.
+
+     So we get photographic quality with none of the trust risk, and
+     the rule is easy to apply when sourcing: if you can name the brand
+     in the picture, it is the wrong picture.
+
+===========================================================================
+END
+===========================================================================

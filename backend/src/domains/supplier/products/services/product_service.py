@@ -73,7 +73,12 @@ def create_product(
     sku: Optional[str] = None,
     description: Optional[str] = None,
     compare_at_price_cents: Optional[int] = None,
+    commit: bool = True,
 ) -> SupplierOffer:
+    """commit=False is for BULK CALLERS ONLY (import). It hands the
+    transaction to the caller so one file costs one fsync instead of
+    one per row -- see SupplierOfferRepository.create for the numbers.
+    Every interactive caller leaves it True and is unaffected."""
     _validate_common_fields(name, price_cents, compare_at_price_cents, description)
 
     sku = sku.strip() if sku else None
@@ -108,6 +113,7 @@ def create_product(
         unit_measure=unit_measure,
         description=description.strip() if description else None,
         compare_at_price_cents=compare_at_price_cents,
+        commit=commit,
     )
 
 
@@ -123,7 +129,9 @@ def update_product(
     compare_at_price_cents: Optional[int] = None,
     unit_quantity: Optional[int] = None,
     unit_measure: Optional[ProductUnit] = None,
+    commit: bool = True,
 ) -> SupplierOffer:
+    """commit=False: bulk callers only. See create_product."""
     product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise ProductNotFoundError("Product not found.")
@@ -173,6 +181,7 @@ def update_product(
         compare_at_price_cents=compare_at_price_cents,
         unit_quantity=unit_quantity,
         unit_measure=unit_measure,
+        commit=commit,
     )
 
 

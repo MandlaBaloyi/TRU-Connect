@@ -1,0 +1,365 @@
+===========================================================================
+V2_11 — PRODUCT IDENTITY AND MATCHING
+       Identity · Evidence · Decision · Governance
+===========================================================================
+
+Written 2026-09-11, from an architecture proposal made during review.
+Supersedes nothing; extends the matching ladder built in V2 step 6 and
+the verification curtain in V2_03 Part 4.
+
+THE ORGANISING PRINCIPLE, and it is the right one:
+
+  ─────────────────────────────────────────────────────────────────────
+  DO NOT MAKE AI THE SOURCE OF TRUTH FOR PRODUCT IDENTITY.
+  GTIN and deterministic rules are the source of truth.
+  AI is the RECOGNITION layer for when supplier data is messy.
+  ─────────────────────────────────────────────────────────────────────
+
+Everything below follows from that sentence.
+
+
+===========================================================================
+PART 1 — WHAT A GTIN ACTUALLY GUARANTEES
+===========================================================================
+
+Confirmed against GS1's own definition, because the whole design rests
+on it:
+
+  ONE GTIN identifies ONE TRADE ITEM, and may be printed on unlimited
+  physical units of that same item. Every Coca-Cola Original 2L PET
+  bottle on earth carries 5449000054227.
+
+  DIFFERENT VARIATIONS REQUIRE DIFFERENT GTINs -- size, flavour,
+  variety, packaging. Coke 330ml, Coke 500ml, Coke 2L, Coke Zero 2L and
+  a 6-pack of Coke 2L are five trade items and five GTINs.
+
+So a GTIN is the strongest identity signal available, and it is exactly
+what a shared catalogue needs.
+
+1.1 THREE THINGS IT DOES NOT GUARANTEE
+
+  NOT EVERY PRODUCT HAS ONE. Fresh produce, informal and home-made
+  goods, small manufacturers without GS1 membership, supplier-created
+  bundles, services. In this market that is not an edge case, it is a
+  large minority. GTIN is the strongest signal, never the only one.
+
+  ONE PRODUCT CAN HAVE SEVERAL. A bottle carries its GTIN-13; the case
+  of twelve carries a different GTIN-14. A supplier selling by the case
+  will give us the CASE code, which will not match the bottle's row.
+
+  This is a known and accepted cost, already recorded in product.py:
+  "case barcodes (GTIN-14) no longer map one-to-one onto products. A
+  scanned case code resolves through the OFFER; a consumer code
+  resolves through this table." The catalogue product is deliberately
+  the CONSUMER UNIT so that a supplier selling 6-packs still compares
+  against one selling 12-packs.
+
+  OPEN DECISION: accept the miss and let case codes fall through to
+  text matching, or add a gtin_aliases table mapping additional codes
+  to a product with a pack multiplier. The second is more correct and
+  more work. Not MVP either way.
+
+  THE CODE CAN BE ON THE WRONG PRODUCT. A supplier typing the
+  cooldrink's barcode onto a juice produces a VALID barcode attached to
+  the wrong thing. The check digit cannot help -- the number is sound.
+  Part 3 is the answer.
+
+
+===========================================================================
+PART 2 — THE FOUR LAYERS
+===========================================================================
+
+  IDENTITY     GTIN and other strong identifiers. Deterministic.
+  EVIDENCE     name, brand, size, pack, category, image, OCR.
+  DECISION     rules + similarity + AI confidence + supplier trust.
+  GOVERNANCE   AUTO_LINK / REVIEW / CREATE_NEW / REJECT, and the audit.
+
+The value of separating them is that each can change without the others.
+Swapping the AI provider touches EVIDENCE only. Tightening who may
+auto-link touches GOVERNANCE only.
+
+
+===========================================================================
+PART 3 — CONFIDENCE IS MULTI-DIMENSIONAL, AND THIS FIXES THE JUICE BUG
+===========================================================================
+
+Today tier 0 returns 1.0 on a barcode hit and links. That is what lets a
+mistyped or mis-entered barcode produce a confident wrong link.
+
+The fix is not to distrust barcodes. It is to notice when signals
+CONTRADICT each other:
+
+    GTIN match        1.00        GTIN match        1.00
+    brand             0.99        brand             0.05
+    name              0.96        name              0.02
+    size              1.00        size              0.10
+    category          1.00        category          0.02
+    ───────────────────────       ───────────────────────
+    -> AUTO_LINK                  -> REVIEW, not a link
+
+  ─────────────────────────────────────────────────────────────────────
+  A barcode match whose name, brand and size all disagree is evidence
+  of an ERROR, not evidence of a match.
+  ─────────────────────────────────────────────────────────────────────
+
+This is the same reasoning already in score_rules_match, where a pack
+disagreement costs -0.40 precisely because "Coke 2L" and "Coke 500ml"
+read alike and are not the same product. Extended to tier 0.
+
+CHEAP TO IMPLEMENT: the similarity computation already exists and runs
+in microseconds. Tier 0 gains a consistency check, not a new subsystem.
+
+
+===========================================================================
+PART 4 — THREE CORRECTIONS TO THE PROPOSED PIPELINE
+===========================================================================
+
+4.1 READING A BARCODE FROM AN IMAGE IS FREE. IT IS NOT AI.
+
+  The proposal grouped "OCR / barcode detection / image understanding"
+  together under a rented model. They are different things with very
+  different costs.
+
+    DECODING a barcode from a photograph is a solved, deterministic,
+    LOCAL problem -- pyzbar, ZXing, OpenCV. No network, no per-call
+    cost, no model. If the barcode is visible in the picture, we can
+    read it for nothing.
+
+    EXTRACTING ATTRIBUTES from a picture ("this looks like Coca-Cola
+    Original, 2L, PET") needs a vision model and costs money per call.
+
+  THE HIGHEST-VALUE IMAGE OPERATION IS THE FREE ONE, and it should be
+  tried first on every uploaded image:
+
+      image -> local barcode decoder -> GTIN -> tier 0
+            -> nothing found -> everything else
+
+  A supplier who photographs the front of a bottle gives us nothing; one
+  who photographs the back gives us an exact identity for zero rand.
+  That is worth saying in the upload UI.
+
+4.2 SKU IS NOT A MATCHING TIER
+
+  supplier_id + SKU already exists, and the proposal is right that it is
+  never globally unique. But it is not a tier in the catalogue-matching
+  ladder either, because a supplier's SKU says nothing about WHICH
+  catalogue product something is. It identifies THE OFFER, and it is
+  already the upsert key on re-import.
+
+  THERE IS A BETTER VERSION OF WHAT THIS WAS REACHING FOR, and it is a
+  large cost saving:
+
+      If an offer ALREADY has a product_id, and its identity fields
+      (name, barcode, brand, pack) are unchanged since last import,
+      SKIP MATCHING ENTIRELY.
+
+  A supplier sends a price file every week and only the prices move.
+  Today every row is re-matched -- roughly five database round trips
+  each, measured. Skipping unchanged rows removes that for what will
+  typically be 90-95% of a recurring file. Deterministic, no model, and
+  it compounds with the batching work already done.
+
+4.3 IMAGE SIMILARITY CANNOT BE A CONFIDENCE DIMENSION YET
+
+  The proposal lists image_score alongside name and brand. It cannot
+  work in that direction at first, because there is nothing to compare
+  against: catalogue.products.image_url is nullable and, in its own
+  words, "expected to be null for most rows for a long time".
+
+  So image evidence flows ONE WAY to begin with:
+
+      supplier image -> attributes -> matched as TEXT against the
+      catalogue
+
+  Image-to-image similarity becomes possible only once the catalogue
+  has images, which is itself a later decision (and V2_04 Part 4 chose
+  CATEGORY art rather than product art, deliberately).
+
+
+===========================================================================
+PART 5 — TWO THINGS THE PROPOSAL DID NOT COVER
+===========================================================================
+
+5.1 WHO OWNS THE CANONICAL NAME
+
+  The first supplier to create a catalogue product names it. Without a
+  rule, "COKE ORIGINAL 2LT PET BOTTLE" becomes the canonical name of
+  that product forever, and every business browsing sees it.
+
+  THIS CHANGES WHAT THE REVIEWER DOES. The CREATE_NEW review is not
+  only "is this allowed to be sold" (V2_03 Part 4.3) -- it is also "is
+  this named properly". A reviewer approving a new catalogue product is
+  performing an editorial act, and the screen should let them correct
+  the name, brand and pack rather than only accept or reject.
+
+  The supplier's own wording is never lost: it stays on their offer,
+  which is what their own screens show them.
+
+5.2 VISION HAS TO HAVE A CEILING
+
+  A supplier with 3,000 products and an image each is 3,000 vision
+  calls. That is real money and it arrives in one burst at import time.
+
+  RULES:
+    · vision runs only after the free tiers have failed -- the tail,
+      not the default
+    · vision runs only when a local barcode decode found nothing
+    · it goes through the SAME spend guard as the text AI tier
+      (shared/ai/decisions/spend_guard), and it is off by default
+    · it may be QUEUED rather than inline. An offer can exist unmatched
+      for an hour without harming anyone; blocking a supplier's import
+      on 3,000 model calls definitely does.
+
+
+===========================================================================
+PART 6 — TRUST AND CONFIDENCE ARE DIFFERENT AXES
+===========================================================================
+
+The sharpest idea in the proposal, and it is correct:
+
+    A verified supplier can still submit a bad match.
+    An AI can be confident about a product from an untrustworthy source.
+
+So they are never combined into one number. The policy engine takes
+both, plus the evidence, and decides.
+
+  SUPPLIER TRUST
+    UNVERIFIED   may create, upload, draft, prepare. May NOT link to
+                 the canonical catalogue and may NOT create canonical
+                 products. Their offers are invisible to businesses
+                 (V2_03 Part 4) and invisible to the catalogue.
+    VERIFIED     may match and may request new canonical products.
+                 High-risk matches still go to review.
+    TRUSTED      earned. More automation permitted.
+
+  WHY UNVERIFIED SUPPLIERS MUST NOT TOUCH THE CATALOGUE, stated
+  plainly: anyone can register and upload test data. If that reaches
+  the canonical catalogue, the shared library every business relies on
+  is polluted by people who were only trying the app out. The catalogue
+  is the moat (V2_02); an unguarded write path into it is the fastest
+  way to destroy it.
+
+6.1 TRUST MUST BE MEASURED, OR IT IS SELF-CONFIRMING
+
+  "98% correct matches, therefore TRUSTED, therefore auto-link" only
+  works if correctness is still being checked. If trust removes review
+  entirely, nothing measures accuracy any more and the number stays at
+  98% forever by construction.
+
+  SO: even a TRUSTED supplier has a small random sample reviewed --
+  enough to notice a drift, not enough to be a burden. Trust is a
+  reduced review rate, never a zero review rate.
+
+6.2 THE 1-3 DAY VERIFICATION WINDOW
+
+  The instinct to state a window is good, and the reasoning behind it
+  should be precise:
+
+    THE DELAY IS NOT THE SECURITY MECHANISM. PENDING is. An unverified
+    supplier is harmless not because three days have passed but because
+    their offers are invisible and cannot reach the catalogue.
+
+    The 1-3 days is a CONSEQUENCE of human review capacity, not a
+    control. It follows that we should not advertise a window we cannot
+    staff -- and with one reviewer (V2_09 Part 6), "1-3 business days"
+    is a promise that breaks the first time ten suppliers register on a
+    Friday.
+
+    RECOMMENDATION: tell the supplier what is happening and what they
+    can do meanwhile ("your shop is ready, nobody can see it yet"),
+    and quote a time only once it is measured.
+
+
+===========================================================================
+PART 7 — THE EVIDENCE RECORD
+===========================================================================
+
+MatchReview already stores source_text, proposed_product_id, tier,
+confidence, reason, status, decided_by, decided_at. It answers "what
+happened". It does not answer "why", because confidence is a single
+number.
+
+WHAT TO ADD: the per-dimension scores, the model and version if one was
+involved, and the decision path.
+
+    gtin_score  name_score  brand_score  size_score  category_score
+    image_score  overall_score
+    ai_provider  ai_model_version
+    policy_version
+
+  WHY IT IS WORTH THE COLUMNS:
+
+    DEBUGGING. "Why is this supplier's juice linked to Coca-Cola" has a
+    real answer instead of a shrug.
+
+    DISPUTES. A supplier challenging a match is owed the reasoning, and
+    V2_00 already commits to that: "so a disputed match can be
+    explained".
+
+    AND IT IS THE TRAINING SET. Every reviewed decision, with its
+    features and its human verdict, is a labelled example on a
+    genuinely hard case. Recording the features at decision time is the
+    difference between having a dataset in a year and wishing you had
+    started one.
+
+  Store WHO decided -- human or model, and which model. A later audit
+  must be able to separate "a person said so" from "a model said so".
+
+
+===========================================================================
+PART 8 — THE ORDER TO BUILD IT
+===========================================================================
+
+Deliberately not "build the pipeline". Each step is useful alone and
+none of them requires the next.
+
+  NOW, AND ALL FREE
+   1  Tier 0 consistency check (Part 3). Fixes the juice bug.
+   2  Skip matching on unchanged re-imported rows (4.2). Large saving.
+   3  Local barcode decode from uploaded images (4.1). Free identity.
+   4  Evidence columns on MatchReview (Part 7). Start the dataset.
+   5  Unverified suppliers cannot reach the catalogue (Part 6).
+      This is V2_07 item K and is already MVP.
+
+  NEXT, AND STILL FREE
+   6  The policy engine as one place, rather than rules scattered
+      through services.
+   7  Canonical-name editing in the CREATE_NEW review (5.1).
+
+  THEN, AND IT COSTS
+   8  Vision attribute extraction for the tail, behind the spend guard,
+      queued rather than inline (5.2).
+
+  LATER, ONCE THERE ARE LABELS
+   9  Learned ranking over the recorded features.
+  10  A TruConnect matching model, if and only if it beats the rules at
+      zero wrong links.
+
+  THE BAR REMAINS WHAT IT WAS. Hand-written rules took free-tier
+  resolution from 40% to 80% with zero wrong links. Anything added here
+  has to beat that, on the same measure, or it is complexity for its
+  own sake.
+
+
+===========================================================================
+PART 9 — THE RULE THIS DOCUMENT EXISTS TO ESTABLISH
+===========================================================================
+
+  ─────────────────────────────────────────────────────────────────────
+  A SUPPLIER NEVER DEFINES CANONICAL PRODUCT IDENTITY MERELY BY
+  SUBMITTING A PRODUCT.
+
+      submission -> evidence -> matching -> policy -> catalogue
+
+  and for something genuinely new:
+
+      submission -> CREATE_NEW candidate -> review -> catalogue
+  ─────────────────────────────────────────────────────────────────────
+
+The catalogue does not belong to the supplier who happened to upload
+first. It belongs to TruConnect, and every business that will one day
+compare prices across it depends on that being true.
+
+===========================================================================
+END
+===========================================================================

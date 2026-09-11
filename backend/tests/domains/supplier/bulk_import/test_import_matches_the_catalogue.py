@@ -37,10 +37,15 @@ def _run(profile_id, filename: str, payload: bytes):
     return job
 
 
+# 5449000054227 is Coca-Cola's real EAN-13. 6001087001236 is an
+# invented SA-prefix code whose CHECK DIGIT IS CORRECT -- it used to
+# end in 4, which is not a valid GTIN, and the barcode tier now
+# refuses those (see algorithms/gtin.py). A fixture that is not a
+# real barcode has to at least be an arithmetically possible one.
 WITH_BARCODES = (
     b"name,category,price,unit,sku,barcode,brand,pack_quantity,pack_unit\n"
     b"Coca-Cola Original 2L,Beverages,22.00,Each,CC2L,5449000054227,Coca-Cola,2,L\n"
-    b"Sunlight Dishwashing 750ml,Household & Cleaning,34.99,Each,SL750,6001087001234,Sunlight,750,ml\n"
+    b"Sunlight Dishwashing 750ml,Household & Cleaning,34.99,Each,SL750,6001087001236,Sunlight,750,ml\n"
 )
 
 
@@ -57,7 +62,7 @@ def test_an_import_fills_the_catalogue(make_supplier, make_supplier_profile):
         "Coca-Cola Original 2L",
         "Sunlight Dishwashing 750ml",
     }
-    assert {p.gtin for p in products} == {"5449000054227", "6001087001234"}
+    assert {p.gtin for p in products} == {"5449000054227", "6001087001236"}
 
 
 def test_every_offer_ends_up_linked_to_a_catalogue_product(
@@ -170,11 +175,18 @@ def test_a_file_with_no_new_columns_still_imports_exactly_as_before(
     assert offers[0].unit_quantity is None
 
 
-def test_a_malformed_barcode_is_a_row_error_not_a_failed_import(
+def test_a_malformed_barcode_costs_the_barcode_not_the_row(
     make_supplier, make_supplier_profile
 ):
-    """A bad value in an optional column must cost the supplier one row
-    of feedback, never their whole upload."""
+    """CHANGED 2026-09-11, deliberately. This test used to assert the
+    opposite -- created_rows == 1 for this two-row file, because the row
+    with the bad barcode was discarded entirely.
+
+    That contradicted row_validator's own comment ("ALL FOUR ARE
+    OPTIONAL AND NONE OF THEM CAN FAIL A ROW") and it is the wrong
+    product behaviour: on a 3,000-line file, forty barcode typos meant
+    forty products that never existed and no business could buy. The
+    bad VALUE is dropped, the row imports, the supplier is told."""
     profile = make_supplier_profile(make_supplier())
     payload = (
         b"name,category,price,unit,barcode\n"
@@ -184,10 +196,40 @@ def test_a_malformed_barcode_is_a_row_error_not_a_failed_import(
 
     job = _run(profile.id, "messy.csv", payload)
 
-    assert job.created_rows == 1, "the good row still imported"
+    assert job.created_rows == 2, "a bad OPTIONAL value must not discard the product"
+    assert job.error_rows == 0, "no row failed"
     assert any(
         "Barcode" in error.message for error in ImportJobRepository.list_errors(job.id)
+    ), "but the supplier is still told about it"
+
+
+def test_a_barcode_with_a_bad_check_digit_is_not_trusted(
+    make_supplier, make_supplier_profile
+):
+    """THE DANGEROUS CASE, and the reason gtin.py exists.
+
+    A one-digit typo in a barcode is usually not a near-miss -- barcodes
+    are densely allocated, so it frequently lands on ANOTHER REAL
+    PRODUCT, which tier 0 would then link with confidence 1.0 and the
+    words "matches this product exactly".
+
+    5449000054227 is Coca-Cola's real EAN-13. 5449000054228 is one digit
+    out, fails its check digit, and must never reach the barcode tier."""
+    profile = make_supplier_profile(make_supplier())
+    payload = (
+        b"name,category,price,unit,sku,barcode\n"
+        b"Coca-Cola Original 2L,Beverages,22.00,Each,CC1,5449000054227\n"
+        b"Something Else 2L,Beverages,21.00,Each,SE1,5449000054228\n"
     )
+
+    job = _run(profile.id, "typo.csv", payload)
+
+    assert job.created_rows == 2, "both products import"
+    assert job.error_rows == 0
+
+    # The sound barcode reached the catalogue; the typo did not.
+    assert Product.query.filter_by(gtin="5449000054227").count() == 1
+    assert Product.query.filter_by(gtin="5449000054228").count() == 0
 
 
 def test_matching_can_be_switched_off_without_breaking_imports(

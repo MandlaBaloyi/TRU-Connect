@@ -72,12 +72,22 @@ def get_inventory_summary(supplier_profile_id: str | UUID) -> dict:
     }
 
 
-def adjust_stock(product_id: str | UUID, supplier_profile_id: str | UUID, quantity_delta: int, reason: str) -> dict:
+def adjust_stock(
+    product_id: str | UUID,
+    supplier_profile_id: str | UUID,
+    quantity_delta: int,
+    reason: str,
+    commit: bool = True,
+) -> dict:
+    """commit=False: bulk callers only (import seeds stock per row).
+    See SupplierOfferRepository.create for why."""
     product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise InventoryProductNotFoundError("Product not found.")
 
-    inventory = InventoryRepository.get_or_create_for_product(product_id, supplier_profile_id)
+    inventory = InventoryRepository.get_or_create_for_product(
+        product_id, supplier_profile_id, commit=commit
+    )
     next_on_hand = inventory.quantity_on_hand + quantity_delta
     if next_on_hand < 0:
         raise InsufficientStockError(
@@ -93,7 +103,7 @@ def adjust_stock(product_id: str | UUID, supplier_profile_id: str | UUID, quanti
     # table lands -- only this function's body does.
     del reason
 
-    updated = InventoryRepository.adjust_quantity(inventory, quantity_delta)
+    updated = InventoryRepository.adjust_quantity(inventory, quantity_delta, commit=commit)
     return _compose(product, updated)
 
 

@@ -1,0 +1,402 @@
+===========================================================================
+V2_07 — THE MVP, AND THE ORDER TO BUILD IT IN
+===========================================================================
+
+Depends on V2_03 through V2_06, plus V2_08 for the third-party layer.
+REVISED 2026-09-09 after review: item F was corrected (it described a
+cross-write between ledgers that should never happen), and item K — the
+supplier verification curtain — was added.
+
+This is the one to argue with, because it is where the ideas become a
+schedule and the cuts get made.
+
+
+===========================================================================
+PART 1 — WHAT "MVP" MEANS HERE
+===========================================================================
+
+Not "the smallest thing we can ship". This app is already large — around
+170 route files and forty-plus feature folders. The question is not what
+to add but WHAT MUST BE TRUE for a real business and a real supplier in a
+real township to use this for a month without us standing next to them.
+
+The test:
+
+  A shop owner can find a supplier, place an order, receive it, record
+  what they owe, and come back next week to reorder without being
+  reminded by a human.
+
+  A supplier can list what they sell, be found, receive an order, fulfil
+  it, and see who has gone quiet.
+
+Everything in the MVP column below serves that sentence. Everything else
+waits, however good it is.
+
+
+===========================================================================
+PART 2 — THE CUT
+===========================================================================
+
+IN — required for the sentence above to be true
+
+  A  Community feed endpoint, business side, real data
+     Buy-it-again · your suppliers · category chips · new near you.
+     Replaces mockCommunityFeed. The contract already exists.
+
+  B  Category imagery + the fallback chain
+     16 categories, one helper, the trust line from V2_04 Part 4.
+     Unblocks every visual surface at once.
+
+  C  Community feed endpoint, supplier side
+     Reorder-due · wants-to-connect · businesses near you · shopfront
+     health. The demand-gap rail can follow — it is the best idea in
+     these documents and it needs data volume to be non-embarrassing.
+
+  D  My Connections as a relationship ledger, both roles
+     Real photos, last order, reorder gap, open order. Ordering by
+     trading reality.
+
+  E  Home, both roles
+     The four cards. Nothing new computed except the reorder gap.
+
+  F  Stock Orders into the Account tab (V2_06 3.1)
+     A third tile beside Loan Book and Order Book. NO cross-writing
+     between the three ledgers — see the non-goal in V2_06 3.1.
+     Cheapest high-value work in the plan.
+
+  G  Cash Up (V2_06 3.2)
+     Three numbers, once a day.
+
+  H  Supplier API keys screen + fulfilment mode
+     The backend shipped in step 7 and has no UI. Without this the
+     wholesaler segment cannot onboard at all.
+
+  I  Discovery: announcements and opportunities only
+     No YouTube yet. TruConnect announcements plus a curated,
+     hand-entered opportunities list — which, given registration
+     deadlines and the Spaza Shop Fund, is the most useful content we
+     could ship and needs no ingestion engine.
+
+  J  The More audit (V2_06 Part 5.1)
+     Find every setting that controls nothing.
+
+  K  THE SUPPLIER CURTAIN — TWO GATES (V2_03 Part 4)  [REVISED 09-11]
+     A supplier signs up, builds their whole catalogue, and their
+     offers stay invisible to businesses until BOTH gates pass:
+
+       IDENTITY    documents, registered name, ID. The PENDING state
+                   and the reminder ladder.
+       CATALOGUE   the offers themselves are reviewed. New in this
+                   revision, and the first draft was wrong to omit it.
+
+     WHY BOTH. A supplier can be entirely genuine and still list
+     something that must not be sold here. The 2024 poisonings that
+     made registration compulsory killed at least 23 children, traced
+     to terbufos — an agricultural pesticide — found in a snack, with
+     inspectors finding illegal pesticides sold from spaza shops. No
+     document check catches that.
+
+     HOW IT SCALES WITHOUT A REVIEW DEPARTMENT. The matching ladder is
+     already the risk classifier: AUTO_LINK means the catalogue already
+     knows this product, so it auto-approves; CREATE_NEW means nobody
+     has ever vetted it, and that is the review queue — which already
+     exists as MatchReview rows. Measured free-tier resolution was 80%,
+     so roughly one line in five needs eyes, falling as the catalogue
+     grows. Plus a hard prohibited/restricted list that skips the
+     ladder entirely (pesticides, medicines, alcohol, tobacco, infant
+     formula, raw dairy).
+
+     THE VISIBILITY RULE GOES IN THE REPOSITORY LAYER, not in each
+     route. A rule applied per-endpoint leaks the first time somebody
+     adds an endpoint, and this is the rule that must not leak.
+
+     THE HONEST COST: this is the only item in the MVP that needs a
+     PERSON rather than code. Budget for it.
+
+OUT — good, and not now
+
+  Price-movement rail          needs order volume to be meaningful
+  Demand-gap rail              needs the 5-business threshold to clear
+  YouTube ingestion            build after Discovery has readers
+  Shelf list                   after reorder proves itself
+  News                         probably never
+
+  THE THIRD-PARTY LAYER — all of V2_08, none of it MVP, and none of it
+  dismissed. Ranked there by value ÷ risk:
+
+  WhatsApp notifications       first out of the gate after MVP. Cheapest
+                               and highest-reach thing in any of these
+                               documents (~R0.14 a message).
+  VAS float                    gated on a partner conversation, not on
+                               engineering — a VAS distributor is a
+                               supplier whose products are digital.
+  Delivery brokerage           gated on answering "who pays for a
+                               failed delivery".
+  Group buy / stokvel          biggest prize, needs its own document
+                               and a conversation with three real
+                               stokvels.
+  Lending on our own book      never. No capital, no licence, and a
+                               conflict of interest with our own
+                               marketplace.
+
+
+===========================================================================
+PART 3 — THE ORDER, AND WHY THIS ORDER
+===========================================================================
+
+  PHASE 1 — MAKE IT LOOK REAL          (B, D)
+  ─────────────────────────────────────────────────
+  Category imagery and the fallback chain first, because every screen
+  after this benefits and because it is the one thing that makes the
+  existing feed stop looking like a prototype. Then My Connections with
+  real photos and trading data on both sides.
+
+  Why first: it is the smallest change with the largest visible effect,
+  it has no backend dependencies beyond what exists, and it settles the
+  question that has been circling for two weeks.
+
+  PHASE 2 — MAKE IT WORK               (A, C, E)
+  ─────────────────────────────────────────────────
+  The two feed endpoints and Home. This is the bulk of the backend work:
+  one new domain (network/community), the composition service, the
+  reorder-gap computation, and the boundary test that keeps it a leaf.
+
+  Why second: it depends on Phase 1 for how it looks, and everything in
+  Phase 3 depends on it for where things link to.
+
+  PHASE 3 — MAKE THEM STAY             (F, G)
+  ─────────────────────────────────────────────────
+  Connect the books, then Cash Up. The retention layer.
+
+  Why third and not first: the moat only matters if people arrive, and
+  Phases 1–2 are what makes them arrive. But it must not slip past
+  here, because it is the thing that decides month two.
+
+  PHASE 4 — OPEN THE WHOLESALE DOOR    (H, K)
+  ─────────────────────────────────────────────────
+  API keys screen, fulfilment mode, and the verification curtain.
+  Grouped because they are the same conversation from the supplier's
+  side: what it takes to be a real, trusted, integrated supplier here.
+
+  ARGUABLY K BELONGS IN PHASE 1. The counter-argument is that until
+  there are businesses looking at shopfronts, an invisible shopfront
+  and a visible one are the same thing. But the moment the marketplace
+  is live to anyone outside the team, K must already be in place.
+
+  PHASE 5 — GIVE THEM SOMETHING TO READ (I, J)
+  ─────────────────────────────────────────────────
+  Announcements, opportunities, and the settings audit.
+
+A NOTE ON PHASE 1 GOING FIRST. There is a real argument for Phase 3
+first — the moat before the shopfront. It is rejected because a
+bookkeeping tool nobody opened the app to find is a bookkeeping tool
+nobody uses, and because the visual problem is the one that has been
+blocking confidence in the product for two weeks. Fix the thing that is
+in the way.
+
+
+===========================================================================
+PART 4 — WHAT THE BACKEND OWES, IN ONE LIST
+===========================================================================
+
+  NEW DOMAIN   src/domains/network/community/
+               feed composition, both roles. Reads from supplier,
+               business, network, catalogue. Imported by nobody.
+               Boundary test in the same commit.
+
+  NEW DOMAIN   src/domains/platform/discovery/
+               content items, sources, curation. Provider abstraction.
+               Scheduler JobSpec. (Phase 5; YouTube later.)
+
+  NEW COLUMNS  SupplierProfile.fulfilment_mode
+               SupplierProfile.category_cover  (chosen category art)
+               StockOrder.expected_delivery_at (V2_05 1.6 — the field
+                 that makes "deliveries due today" and "where is my
+                 order" true on two different screens)
+               BusinessProfile — nothing new expected
+
+  NEW TABLES   cash_up entries (business)
+               content_items, content_sources (discovery)
+               supplier verification documents (V2_03 Part 4) — the
+                 verification domain is scaffolded and empty today
+
+  COMPUTATIONS reorder gap per (business, supplier)
+               buy-it-again from order history
+               price paid per (business, catalogue product)
+               distance from existing coordinates
+
+  ENDPOINTS    GET  /community/feed
+               GET  /home/summary        (per role)
+               GET  /discovery/feed
+               CRUD /business/cash-up
+               CRUD /supplier/api-keys   (backend done, needs the app)
+
+  VISIBILITY   the supplier-verification rule, enforced in the
+               REPOSITORY layer so no future endpoint can bypass it.
+
+  CLEANUP      the NO ACTION foreign-key problem found on 2026-09-08:
+               account deletion does not currently work cleanly across
+               ten tables. POPIA-adjacent. Schedule it.
+
+
+===========================================================================
+PART 5 — THE UNCOMFORTABLE QUESTION, ASKED PROPERLY
+===========================================================================
+
+The research contains one finding that argues against this entire plan,
+and it would be dishonest to bury it in a footnote.
+
+  "WhatsApp reaches 95 to 97% of informal retail trade."
+
+  "The brands winning digital ordering in Africa did not build a
+   marketplace, they put a catalog where the conversation was already
+   happening."
+                       — African Marketing Confederation; AVODA Group
+
+Every shop owner already has WhatsApp, already knows how to use it,
+already orders stock on it, and pays nothing extra in data to open it. We
+are asking them to install a second thing.
+
+THREE HONEST RESPONSES.
+
+  1  THE APP IS NOT THE ONLY POSSIBLE FRONT DOOR, AND THE ARCHITECTURE
+     ALREADY KNOWS THIS. The backend serves three clients through one
+     auth system as of step 7 — bearer, cookie, API key. A WhatsApp
+     Business API channel would be a fourth client, not a rewrite. The
+     catalogue, the offers, the orders and the matching are all
+     transport-agnostic. This is the single strongest argument for the
+     domain structure the last two weeks produced.
+
+  2  WHATSAPP CANNOT DO THE PART THAT RETAINS. A chat thread cannot be
+     a loan book, a cash-up history, or a price history across three
+     months. The Account tab — the moat in V2_03 Part 3 — is precisely
+     the thing that needs an app. So the likely long-run shape is
+     ORDER IN WHATSAPP, KEEP RECORDS IN TRUCONNECT, which is a
+     defensible split rather than a defeat.
+
+  3  IT IS NOT AN MVP DECISION. Building a WhatsApp channel now would
+     mean building it against a catalogue whose feed rules are not yet
+     settled. Build the rules once, then expose them through a second
+     door.
+
+  WHAT SHOULD HAPPEN: a small, honest test after MVP. Ten real shops.
+  Half ordering in the app, half through a WhatsApp number a human
+  answers by hand. Measure which ones are still ordering in week six.
+  That is a cheaper answer than any argument, including this one.
+
+  AND ONE THING TO DO SOONER, from the review. WhatsApp does not have
+  to be an ordering channel to be worth using. As a NOTIFICATION
+  channel — order confirmation, reference, supplier, expected delivery
+  date — it reaches the 95–97% without asking anyone to change how they
+  work, and a utility template costs roughly R0.14. That is the
+  cheapest, highest-reach thing in any of these documents. It is the
+  first item in V2_08's ranking and it plausibly follows immediately
+  after MVP rather than waiting for the ordering question to be
+  settled.
+
+  NOTE THE DATE: utility messages inside the 24-hour service window are
+  free today and become chargeable on 1 October 2026. Any cost model
+  built before then is wrong after it.
+
+
+===========================================================================
+PART 6 — DECISIONS: WHAT ACTUALLY BLOCKS, AND WHAT DOES NOT
+===========================================================================
+
+REVISED 2026-09-11. The first version listed seven open questions as
+though all seven needed answering before anything could start. On review
+that was unhelpful — most of them are reversible, and a reversible
+decision does not need certainty, it needs a default and a note saying
+what would change it.
+
+So: each one now has a DEFAULT that holds unless overruled, and an
+honest statement of what being wrong would cost.
+
+6.1 TWO THAT GENUINELY BLOCK PHASE 1
+
+  CATEGORY ART STYLE
+    DEFAULT: illustrated or flat-with-icon, not photographic.
+    WHY: a photograph of maize meal in a category slot edges toward
+    the one thing V2_04 Part 4 forbids — art that could be mistaken
+    for a claim about a specific product. Illustration cannot be
+    mistaken that way, at any size, in any slot.
+    COST IF WRONG: low. Sixteen images, swapped in an afternoon,
+    because the fallback chain resolves them by category value.
+    WHAT WOULD CHANGE IT: a supplier telling us the app looks cheap.
+
+  WHO SOURCES THE SIXTEEN IMAGES
+    DEFAULT: one coherent licensed set from a single source, so the
+    sixteen look like a family rather than sixteen decisions. Source
+    URL, licence name, licence URL and acquisition date recorded WITH
+    each asset, not in someone's memory.
+    COST IF WRONG: low for style, HIGH for licensing. A mismatched set
+    is a re-buy; an unlicensed set is a letter from a rights-holder
+    eighteen months from now with no record of where the file came
+    from. The recording discipline is the part that is not optional.
+
+6.2 THREE THAT SHOULD BE DECIDED BY DATA, NOT BY US, NOW
+
+  These are tuning parameters. Picking them from an armchair is
+  guessing; picking them from ten real suppliers is measurement. Ship
+  the conservative default, watch, adjust.
+
+  DEMAND-GAP THRESHOLD
+    DEFAULT: 5 distinct businesses in 30 days.
+    DIRECTION OF ERROR MATTERS: too LOW identifies an individual shop's
+    buying, which is a privacy breach. Too HIGH just means the rail
+    stays empty. So when uncertain, go higher. Start at 5, raise it
+    without hesitation if an area is thin, and never lower it below 5
+    without a real argument.
+
+  PRICE MOVEMENT SCOPE
+    DEFAULT: connected suppliers only for MVP.
+    WHY: showing a business a cheaper price at a supplier they are NOT
+    connected to is the most valuable version for the buyer and the
+    most dangerous for supplier relations (V2_04 2.4). Widening later
+    is a decision we can make deliberately, having told suppliers
+    first. Narrowing after launch is a feature removal, which is worse.
+
+  REORDER-DUE TIMING (does the supplier see it before the business)
+    DEFAULT: the business sees their own prompt first; the supplier's
+    row appears only after the window has clearly passed.
+    WHY: if both fire the same morning, one of them feels watched.
+
+6.3 TWO THAT ARE ALREADY DECIDED, AND SHOULD STOP BEING LISTED
+
+  PHASE ORDER — Phase 1 (looks) before Phase 3 (moat). Argued in Part
+  3 and settled: a bookkeeping tool nobody opened the app to find is a
+  bookkeeping tool nobody uses.
+
+  NEWS IN DISCOVERY — no. Four curated videos and two real
+  opportunities beat a news river nobody maintains.
+
+6.4 TWO THAT DEPEND ON A FACT WE DO NOT HAVE YET
+
+  CASH UP IN MVP?
+    It is the one IN item not required by the test sentence in Part 1.
+    DEFAULT: keep it, cut it first if Phase 3 runs long. It is small,
+    and it serves the tools-stand-alone principle — a kota seller who
+    never buys stock from us still has a reason to open the app.
+
+  WHERE THE SUPPLIER CURTAIN (K) GOES
+    DEFAULT: Phase 4 as scheduled.
+    THE FACT THAT DECIDES IT: the date the marketplace is first visible
+    to anyone outside the team. K must be in place BEFORE that date,
+    whenever it falls. If that date lands before Phase 4, K moves. This
+    is a launch-timing question, not an engineering one, and it is the
+    one item here where being wrong is not recoverable — an unvetted
+    product reaching a real shop is not something a later commit fixes.
+
+6.5 THE RULE BEHIND ALL OF THIS
+
+  A decision that is cheap to reverse should be made quickly and
+  revisited with evidence. A decision that is expensive to reverse —
+  licensing, privacy thresholds, anything a person could be harmed by
+  — gets the conservative default and waits for a real reason to move.
+
+  Only two questions in this list are in the second category: image
+  licensing, and when the curtain lands.
+
+===========================================================================
+END
+===========================================================================

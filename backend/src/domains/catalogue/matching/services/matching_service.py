@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from src.domains.catalogue.matching.algorithms import normalise
+from src.domains.catalogue.matching.algorithms import gtin, normalise
 from src.domains.catalogue.matching.algorithms.confidence import (
     TIER_CONFIDENCE,
     MatchProposal,
@@ -82,7 +82,18 @@ def propose_match(
         )
 
     # --- tier 0: barcode ---------------------------------------------------
-    if barcode:
+    #
+    # THE CHECK DIGIT IS THE GATE, not the presence of a string. This
+    # tier returns confidence 1.0 and the words "matches this product
+    # exactly", so it must only ever run on a barcode that is
+    # arithmetically sound. A mistyped GTIN is not a near-miss -- it is
+    # frequently a DIFFERENT REAL PRODUCT, because barcodes are densely
+    # allocated within a manufacturer's range. See algorithms/gtin.py.
+    #
+    # Import already rejects bad check digits, but this is the second
+    # of the two doors into matching (the API is the other) and a rule
+    # enforced at only one entrance is not enforced.
+    if gtin.is_valid_gtin(barcode):
         product = CatalogueProductRepository.get_by_gtin(barcode)
         if product:
             return MatchProposal(

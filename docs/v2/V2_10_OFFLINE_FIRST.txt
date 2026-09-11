@@ -1,0 +1,294 @@
+===========================================================================
+V2_10 — OFFLINE-FIRST FOR THE BUSINESS TOOLS
+===========================================================================
+
+Written 2026-09-11. Depends on V2_03 (especially Part 1, tools stand
+alone, and Part 3.2, the three ledgers).
+
+The requirement, stated plainly: an informal business cannot be stopped
+from recording a credit sale because they have no data. The Loan Book
+and the Order Book have to work with the phone in aeroplane mode, and
+catch up later.
+
+
+===========================================================================
+PART 1 — WE HAVE ALREADY PROMISED THIS, AND WE DO NOT DO IT
+===========================================================================
+
+This is not a new feature request. The app currently SAYS it works
+offline. From OfflineModeScreen, shipped, on a real settings screen a
+real user can read today:
+
+    "Your business doesn't stop for a bad signal. TruConnect keeps
+     working when your connection drops. Record a sale, log a payment,
+     or update an order the same way you always do -- nothing about how
+     the app works changes because you're offline."
+
+    "Everything catches up automatically. Once your device reconnects,
+     everything you recorded while offline syncs on its own."
+
+    "Why this isn't a switch: working offline is built into how
+     TruConnect is designed, not a feature you turn on... it's simply
+     always on, so your business records are never at the mercy of your
+     signal."
+
+WHAT IS ACTUALLY INSTALLED: @react-native-async-storage/async-storage
+and @tanstack/react-query. No SQLite. No persisted query cache. No
+mutation queue. No connectivity listener. No sync.
+
+  ─────────────────────────────────────────────────────────────────────
+  A shop owner who reads that screen, trusts it, and records four
+  credit sales on a bad signal will lose them. The screen does not say
+  "coming soon". It says it is always on.
+  ─────────────────────────────────────────────────────────────────────
+
+That makes this the most serious instance of the problem V2_06 Part 5.1
+already names -- screens that promise something unbuilt -- and it is
+worse than a dead toggle, because the thing being promised is the
+survival of someone's records of who owes them money.
+
+TWO HONEST OPTIONS, and only two:
+
+  A. Build it. This document.
+  B. Change the words until it is built.
+
+Not doing either is the only unacceptable outcome. And because B costs
+ten minutes, B should happen TODAY regardless of when A lands.
+
+
+===========================================================================
+PART 2 — WHAT CAN BE OFFLINE, AND WHAT CANNOT
+===========================================================================
+
+The line is not "everything should work offline". Some things genuinely
+cannot, and pretending otherwise produces a worse failure than being
+online-only.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE SAME LINE THAT DECIDES WHAT IS PROVABLE DECIDES WHAT CAN BE
+  OFFLINE.
+  ─────────────────────────────────────────────────────────────────────
+
+V2_03 Part 3.2 split the three ledgers by whether the platform observed
+them. That split turns out to answer this question too, exactly:
+
+  SELF-REPORTED -> OFFLINE-FIRST
+    Loan Book      who owes me money
+    Order Book     what my own customers ordered
+    Cash Up        my three numbers at closing
+
+    These are the merchant's own records about their own customers. The
+    server is a BACKUP and a second device's copy, not an authority. We
+    do not verify a line of any of them (V2_03 3.3), so there is
+    nothing the network adds at the moment of writing. The device can
+    be the source of truth and the server can catch up.
+
+  PLATFORM-OBSERVED -> ONLINE-ONLY
+    Stock Orders   buying from a supplier
+
+    You cannot place an order against a price you cannot see and stock
+    you cannot check. Queueing the INTENT to order is worse than
+    refusing: the price may have changed, the item may be gone, and the
+    supplier finds an order they never had a chance to decline. A
+    business that believes stock is coming and it is not has been
+    harmed more than one told "you need signal for this".
+
+    WHAT WE DO INSTEAD: the cart persists locally, and submitting is
+    what needs a connection. Nothing typed is lost; only the commitment
+    waits.
+
+  READ SURFACES -> CACHED, AND HONESTLY LABELLED
+    Community feed, Discovery, a supplier's catalogue
+
+    Show the last copy, with the date it was fetched. A price from
+    Tuesday shown as though it were today's is the same lie as an
+    aspirational number on a card.
+
+
+===========================================================================
+PART 3 — THE DATA MODEL ALREADY SUPPORTS THIS, MOSTLY BY ACCIDENT
+===========================================================================
+
+Three properties already true, and each one is a thing that would
+otherwise have to be retrofitted painfully:
+
+  UUID PRIMARY KEYS, GENERATED IN PYTHON
+    BaseModel: `id = db.Column(UUID, primary_key=True, default=uuid.uuid4)`.
+    Not a database sequence, not an autoincrement.
+
+    THIS IS THE SINGLE MOST IMPORTANT ONE. It means the DEVICE can mint
+    the id at the moment the shop owner taps save, offline. Sync then
+    becomes INSERT ... ON CONFLICT DO NOTHING and is idempotent by
+    construction -- replaying the same queued entry ten times produces
+    one row. With server-generated ids, offline creation needs a
+    temporary-id remapping layer, which is where most offline systems
+    acquire their worst bugs.
+
+  AN APPEND-ONLY EVENT LOG ALREADY EXISTS
+    LoanHistoryEvent -- event_type, amount_cents, occurred_at,
+    metadata JSONB. It was built as an audit trail. It is also exactly
+    the shape sync wants, because immutable facts merge without
+    conflict resolution: two devices that each recorded three events
+    produce six events, and no rule is needed to decide who wins.
+
+  MONEY IS INTEGER CENTS EVERYWHERE
+    No float drift when a total is recomputed on a device rather than
+    the server.
+
+WHAT DOES NOT FIT, AND NEEDS A DECISION:
+
+  LoanEntry.is_settled and settled_at are STORED STATE on a mutable
+  row. Settled is derivable -- sum(payments) >= original_amount -- and
+  a derived value that is also stored is a value that can disagree with
+  itself. Offline makes that likely rather than theoretical: a device
+  records a payment, another device records a different one, both
+  recompute, and the stored flag now depends on merge order.
+
+  RECOMMENDATION: treat settled as DERIVED at read time. Keep the
+  column if something depends on it, but recompute rather than trust.
+
+
+===========================================================================
+PART 4 — THE DESIGN
+===========================================================================
+
+4.1 LOCAL STORE: SQLITE, NOT ASYNCSTORAGE
+
+  AsyncStorage is a key-value store. A loan book in AsyncStorage is one
+  JSON blob, rewritten in full on every entry, unqueryable, and
+  corruptible in a way that loses everything rather than one row. It is
+  the right tool for "which tab was open", which is what it is used for
+  today.
+
+  expo-sqlite gives real tables, real queries and atomic writes. A
+  merchant with 400 customers and two years of entries is a database,
+  and it should be one.
+
+4.2 THE OUTBOX
+
+  Every local write does two things atomically: apply it to the local
+  tables, and append it to an OUTBOX table.
+
+  The outbox is a queue of intents with their client-generated ids. A
+  connectivity listener drains it. Each item is retried until the
+  server acknowledges, and because ids are client-generated, retrying
+  is free.
+
+  IT IS NOT "SAVE LOCALLY THEN REFETCH". The local write IS the write.
+  The server copy is a replica that catches up.
+
+4.3 SYNC IS PER-DOMAIN, NOT GLOBAL
+
+  Loan Book syncs independently of Order Book. A failure in one must
+  not stall the other, and a schema change to one must not require a
+  version bump of the whole protocol.
+
+4.4 WHAT THE USER SEES
+
+  Almost nothing, and that is the design. No "offline mode" banner
+  shouting at someone who is simply in a shop with thick walls. A small
+  unobtrusive indicator that N entries are waiting to sync, and a
+  timestamp on cached read surfaces. That is all.
+
+  The screen text quoted in Part 1 is right about this: it should not
+  be a switch.
+
+
+===========================================================================
+PART 5 — THE HARD PARTS, NAMED BEFORE THEY BITE
+===========================================================================
+
+  5.1 AUTHENTICATION IS THE TRAP THAT BREAKS OFFLINE MODE
+
+    An access token expires in 15 minutes. A device offline for two
+    days cannot refresh it. If recording a loan entry checks "is my
+    session valid" first, the feature is dead exactly when it is needed.
+
+    THE RULE: LOCAL WRITES MUST NEVER BE GATED ON SESSION VALIDITY.
+    The tools are local-first; authentication is a SYNC concern. A shop
+    owner records sales for a week with an expired token, signs in when
+    they next have signal, and everything uploads.
+
+    This also makes the tools-stand-alone principle real (V2_03 Part 1)
+    rather than aspirational: a Loan Book that demands a live session
+    is not standing alone.
+
+  5.2 THE DEVICE CLOCK IS NOT TRUSTWORTHY
+
+    Phones have wrong dates. A sale recorded "yesterday" by a device
+    set to 2019 sorts into the wrong place forever.
+
+    Record BOTH: the device's time as the business fact ("when the sale
+    happened", which the merchant can correct), and the server's
+    received-at as the ordering fact. Never sort across devices by
+    device time.
+
+  5.3 TWO DEVICES, ONE SHOP
+
+    An owner and an employee both recording. Rare, real, and the reason
+    append-only matters: immutable entries merge by union. Mutable rows
+    need last-write-wins, and last-write-wins on money silently deletes
+    somebody's record of a payment.
+
+    Deletes need TOMBSTONES -- a delete is itself an event, not the
+    absence of one, or a row deleted on one device reappears from the
+    other on the next sync. The existing Trash feature makes this
+    concrete rather than hypothetical.
+
+  5.4 UNSYNCED DATA ON A LOST PHONE IS GONE
+
+    Honest and unavoidable. It argues for syncing eagerly whenever
+    there is any signal, and for the pending-count indicator in 4.4
+    being visible enough that a week of unsynced entries is noticed.
+
+  5.5 MIGRATIONS ON THE DEVICE
+
+    The local schema will change. A phone that skipped four app
+    versions needs its local database migrated on launch, and a failed
+    migration must not discard data. This is a real cost of local-first
+    and it is paid forever.
+
+
+===========================================================================
+PART 6 — SCOPE
+===========================================================================
+
+  OFFLINE FOR MVP
+    Loan Book          record a sale, record a payment, view, search
+    Order Book         record an order, mark it complete
+    Cash Up            the three numbers
+
+  ONLINE-ONLY, DELIBERATELY
+    placing a stock order, connections, verification, imports
+
+  CACHED READS
+    the Community feed and a connected supplier's catalogue, with the
+    fetched-at date shown
+
+  AND THE TEN-MINUTE JOB THAT SHOULD NOT WAIT FOR ANY OF IT: correct
+  the OfflineModeScreen text so it describes what the app does today.
+  It can be rewritten again, gladly, on the day Part 4 ships.
+
+
+===========================================================================
+PART 7 — WHY THIS IS WORTH THE COST
+===========================================================================
+
+Local-first is genuinely more work than it looks: two schemas, a sync
+protocol, device migrations, and a class of bug that only appears on
+other people's phones.
+
+It is still right here, for one reason that is specific to this market
+rather than general good practice. The research behind V2_03 found that
+successful apps in this market are "deliberately light and work on weak
+connections, holding actions on the device until signal returns" -- and
+that a third of South Africa's food spend moves through shops that are
+largely cash and largely unrecorded.
+
+The whole retention argument (V2_03 Part 3) is that the merchant's own
+records live here. A record-keeping tool that stops recording when the
+signal drops is not a record-keeping tool. It is a website.
+
+===========================================================================
+END
+===========================================================================

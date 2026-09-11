@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from src.domains.catalogue.matching.algorithms import gtin
 from src.domains.supplier.bulk_import.fields import IMAGE_FIELD_NAMES
 from src.domains.supplier.products.models.supplier_offer import ProductCategory, ProductUnit
 from src.domains.supplier.products.services.product_service import MAX_DESCRIPTION_LENGTH, MAX_SKU_LENGTH
@@ -164,6 +165,11 @@ class ParsedRow:
     unit_measure: Optional[ProductUnit] = None
     image_references: List[ImageReference] = field(default_factory=list)
     errors: List[RowError] = field(default_factory=list)
+    #: Problems that do NOT fail the row. The offending value is
+    #: dropped, everything else about the row imports, and the supplier
+    #: is told. See the optional-field block in validate_row for why
+    #: this distinction had to exist.
+    warnings: List[RowError] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -172,6 +178,7 @@ class ParsedRow:
 
 def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
     errors: List[RowError] = []
+    warnings: List[RowError] = []
 
     name_raw = raw.get("name", "")
     name = name_raw.strip() or None
@@ -249,6 +256,24 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
     # who has never heard of them uploads exactly the file they always
     # did. A malformed value here means "we could not read it", which
     # sends the row to a later matching tier -- never a rejected import.
+    #
+    # THAT WAS THE STATED INTENT AND THE CODE DID THE OPPOSITE, until
+    # 2026-09-11. Every one of these four appended to `errors`, and
+    # is_valid is `len(errors) == 0`, so a typo in an OPTIONAL column
+    # silently discarded the entire row -- the product never existed,
+    # its price was never on the platform, and no business could buy
+    # it. On a 3,000-line file with forty barcode typos that is forty
+    # missing products and a supplier hunting for them.
+    #
+    # The fix is `warnings`: the bad VALUE is dropped, the row imports,
+    # and the supplier is told which row and which column. Anything
+    # that genuinely cannot produce a product -- no name, no price, no
+    # category -- stays in `errors` and still fails the row, because
+    # there is nothing to import.
+    #
+    # The direction matters: punishing a supplier for a typo in the
+    # single most valuable column in the file is how you teach them to
+    # stop filling it in.
     barcode_raw = raw.get("barcode", "").strip()
     barcode = None
     if barcode_raw:
@@ -257,11 +282,33 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         # definition -- leading zeros are significant, which is also why
         # this is never parsed as an integer.
         digits = re.sub(r"\D", "", barcode_raw)
-        if 8 <= len(digits) <= 14:
+        # THE CHECK DIGIT IS VERIFIED, not just the length. A one-digit
+        # typo in a barcode does not usually match nothing -- barcodes
+        # are densely allocated, so it frequently matches a DIFFERENT
+        # REAL PRODUCT, at tier 0, with confidence 1.0 and the reason
+        # "matches this product exactly". See algorithms/gtin.py for
+        # the full argument; that is the worst link this system can
+        # produce and the check digit catches every single-digit slip.
+        if gtin.is_valid_gtin(digits):
             barcode = digits
+        elif len(digits) in gtin.VALID_GTIN_LENGTHS:
+            # Right shape, wrong checksum -- almost certainly a typo,
+            # and worth saying so precisely rather than as a length
+            # complaint the supplier will read and disbelieve.
+            warnings.append(
+                RowError(
+                    "barcode",
+                    f'Barcode "{barcode_raw}" failed its check digit -- one of the digits is '
+                    "probably wrong. The row was imported without it.",
+                )
+            )
         else:
-            errors.append(
-                RowError("barcode", f'Barcode does not look right: "{barcode_raw}". Expected 8 to 14 digits.')
+            warnings.append(
+                RowError(
+                    "barcode",
+                    f'Barcode does not look right: "{barcode_raw}". '
+                    "Expected 8, 12, 13 or 14 digits. The row was imported without it.",
+                )
             )
 
     brand_raw = raw.get("brand", "").strip()
@@ -279,8 +326,12 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
             # product_service applies to the single-product form, for
             # the same reason: dividing a price by nothing puts a
             # meaningless per-unit figure on a product card.
-            errors.append(
-                RowError("pack_quantity", f'Pack size must be a whole number of 1 or more: "{unit_quantity_raw}".')
+            warnings.append(
+                RowError(
+                    "pack_quantity",
+                    f'Pack size must be a whole number of 1 or more: "{unit_quantity_raw}". '
+                    "The row was imported without a pack size.",
+                )
             )
         else:
             unit_quantity = parsed_quantity
@@ -292,7 +343,7 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         suggestion = _suggest_closest(unit_measure_raw, list(_UNIT_LABELS.values()))
         if suggestion:
             message += f' Did you mean "{suggestion}"?'
-        errors.append(RowError("pack_unit", message))
+        warnings.append(RowError("pack_unit", message + " The row was imported without a pack size."))
 
     # THE PAIR IS ALL OR NOTHING. "2" with no measure is not a size, and
     # "L" with no number is not one either -- storing half of it would
@@ -330,4 +381,5 @@ def validate_row(raw: Dict[str, str], row_number: int) -> ParsedRow:
         unit_measure=unit_measure,
         image_references=image_references,
         errors=errors,
+        warnings=warnings,
     )

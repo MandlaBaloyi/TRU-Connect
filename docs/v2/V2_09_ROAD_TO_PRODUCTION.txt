@@ -1,0 +1,411 @@
+===========================================================================
+V2_09 — THE ROAD TO PRODUCTION
+       CIPC · Play Store · FNB App of the Year · hosting
+===========================================================================
+
+Written 2026-09-11. Depends on V2_03 and V2_07.
+
+Two goals, with a target of roughly two months:
+
+  1. TruConnect live on the Google Play Store.
+  2. Entered into FNB App of the Year.
+
+The reason for the second is capital. There is not enough to fund the
+app and the web at once, and an award that puts a South African app
+solving a South African problem in front of judges and press is a
+cheaper route to an investor conversation than cold outreach.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE DATE IS A TARGET, NOT A CONSTRAINT, and this was stated plainly:
+  "we dont focus on spend, we focus on solving the problem... its
+  better to take more tym to build the app, than building an app in
+  short tym that has vulnerability, can be copied, can cause problem."
+
+  That reorders everything below. A schedule slip is recoverable. A
+  breach, a wrong price on a real order, or an unvetted product
+  reaching a real shop is not. Where the two conflict, the date gives
+  way -- and this document should be read as an ORDER OF WORK with a
+  target attached, never as a list to cut until it fits.
+  ─────────────────────────────────────────────────────────────────────
+
+This document is mostly about sequencing and about four findings that
+change the plan. Every fact below was checked rather than assumed, and
+the sources are at the end.
+
+
+===========================================================================
+PART 1 — FOUR FINDINGS, IN ORDER OF HOW MUCH THEY MATTER
+===========================================================================
+
+1.1 THE APP'S PACKAGE NAME IS STILL THE EXPO PLACEHOLDER
+
+  frontend/mobile/app.json today:
+
+      "name":    "mobile"
+      "slug":    "mobile"
+      "package": "com.anonymous.mobile"
+
+  ─────────────────────────────────────────────────────────────────────
+  A PACKAGE NAME IS PERMANENT. Once an app is published under it, it
+  can never be changed -- not by renaming, not by support request. The
+  only remedy is a NEW listing, with zero installs, zero reviews and a
+  new URL.
+  ─────────────────────────────────────────────────────────────────────
+
+  "com.anonymous.mobile" would also very likely be rejected outright,
+  and it is the default placeholder every Expo project starts with, so
+  it reads to a reviewer exactly as what it is.
+
+  FIX BEFORE ANY UPLOAD, and it is five minutes:
+      name     "TruConnect"
+      slug     "truconnect"
+      package  "co.za.truconnect" or "com.truconnect.app"
+      plus a real versionCode and a permanent iOS bundle identifier,
+      chosen now even though iOS comes later -- same permanence rule.
+
+  This is first in this document because it is the only item that
+  cannot be undone after the fact.
+
+1.2 FNB DOES NOT REQUIRE THE APP TO BE ON A STORE
+
+  From the competition's own FAQ: an app need not be published. What
+  the judges need is REMOTE ACCESS -- "we will need all login details
+  in order to use the app" -- and a submission "complete to the point
+  where the judges need to be able to use it".
+
+  THIS DECOUPLES THE TWO DEADLINES, which looked joined and are not.
+  The store timeline and the award timeline are independent. An
+  internal build plus demo credentials satisfies FNB; the store queue
+  does not gate it.
+
+  Judging is described as two phases plus an awards evening, with a
+  three-stage process for finalists assessing creativity, feasibility,
+  technical execution and impact, ending in a live pitch. The 2025
+  round has closed; 2027 dates are not published yet, so the entry
+  window is the thing to watch rather than plan around.
+
+1.3 THE GOOGLE PLAY TESTING RULE — AND THE WAY AROUND IT
+
+  A PERSONAL developer account created after 13 November 2023 must run
+  a closed test with at least 12 testers, opted in CONTINUOUSLY for 14
+  days, before it can even apply for production access. Testers who
+  opt out and back in restart the clock.
+
+  On a sub-two-month timeline that is not a formality. It is fourteen
+  days of calendar, plus the recruiting, plus the application review
+  afterwards -- and it happens at the END, when everything else has
+  already slipped.
+
+  ─────────────────────────────────────────────────────────────────────
+  ORGANISATION ACCOUNTS REGISTERED TO A LEGAL BUSINESS ENTITY ARE
+  EXEMPT FROM THE REQUIREMENT ENTIRELY.
+  ─────────────────────────────────────────────────────────────────────
+
+  RESOLVED 2026-09-11: CIPC registration was always the plan and is a
+  prerequisite for production regardless of Google -- it was simply not
+  written down here. So the Play account is opened as an ORGANISATION
+  and this requirement does not apply at all.
+
+  That removes the only immovable object the schedule had. The 14-day
+  tester clock is no longer on the critical path.
+
+  AND IT IS NOT ONLY ABOUT GOOGLE. The entity is the bottom of the
+  trust stack this whole product rests on:
+
+      CIPC entity        who we legally are
+      domain             truconnect.co.za, owned by that entity
+      domain email       not a gmail address on a supplier contract
+      Play listing       published by a registered company
+      operator contracts POPIA requires a real party to sign them
+      verification       we ask suppliers for documents (V2_03 Part 4).
+                         Asking that while trading as an individual with
+                         a free email address is not a position we can
+                         hold.
+
+  The last line is the one that matters. A platform that verifies its
+  suppliers has to be verifiable itself.
+
+1.4 TARGET API LEVEL
+
+  New apps must target Android 15 (API 35) or higher; the deadline for
+  existing apps was 31 August 2026, now passed. Expo 57 with React
+  Native 0.86 targets a current API level, so this should be satisfied
+  already -- but it is a build-output check, not an assumption, and it
+  is checked once in five minutes.
+
+
+===========================================================================
+PART 2 — THE WEB, AND THE PASSWORD-RESET QUESTION
+===========================================================================
+
+The open question: a reset ticket is emailed; the link goes to the web;
+should it go to the app instead, or both?
+
+THE ANSWER IS BOTH, AND IT IS A SOLVED PROBLEM. Android App Links (and
+iOS Universal Links) make one HTTPS URL do two jobs:
+
+    tapped with the app installed      -> opens the app, on the reset
+                                          screen, with the ticket
+    tapped without it                  -> opens the web page
+
+No second link, no "open in app?" prompt, no choice for the user to get
+wrong. It needs:
+
+  · a verified domain, which we need anyway
+  · /.well-known/assetlinks.json on it (Android)
+  · /.well-known/apple-app-site-association (iOS, later)
+  · intentFilters in app.json -- NOT present today, and the app has
+    only a custom scheme ("truconnect"), which is not the same thing.
+    A custom scheme cannot be verified, can be hijacked by any other
+    app claiming it, and is not what an email client will follow.
+
+THE WEB PAGE IS STILL REQUIRED, and that is the honest answer to
+"do we need the web at all". Somebody will open that email on a desktop,
+or on a phone with the app uninstalled, and the fallback has to exist.
+But it is ONE PAGE, not a product.
+
+  WHAT THE WEB MUST SHIP FOR PRODUCTION
+    · the reset-password page (already exists, and the backend already
+      has the bounce route)
+    · assetlinks.json
+    · terms and privacy policy -- Play requires a reachable privacy
+      policy URL, and POPIA requires it independently
+    · a landing page, because a Play listing pointing at nothing looks
+      abandoned
+
+  WHAT IT MUST NOT SHIP: the supplier portal. It exists, it builds, it
+  is not deployed, and per the earlier decision it stays that way. The
+  only cost of keeping it is drift, and `npm run build` catches that
+  in ten seconds.
+
+
+===========================================================================
+PART 3 — HOSTING
+===========================================================================
+
+The shape proposed: Cloudflare in front, AWS behind.
+
+  CLOUDFLARE      DNS, TLS, CDN, DDoS protection, WAF. The free tier
+                  covers all of it at our scale. It also terminates
+                  TLS, which means the origin can be simpler.
+
+  AWS             the Flask API and PostgreSQL.
+
+  REGION: af-south-1 (Cape Town). Two independent reasons, and the
+  second is the one that matters:
+
+    LATENCY. Every user is in South Africa. eu-west-1 adds roughly
+    150-180ms per round trip to people already on a slow connection.
+
+    DATA RESIDENCY. POPIA does not forbid cross-border transfer, but it
+    conditions it -- section 72 requires comparable protection or
+    consent. Keeping personal information in-country removes an entire
+    category of question from any future investor or partner due
+    diligence, and costs nothing to choose on day one. Choosing it
+    later means a migration.
+
+  START SMALL AND HONESTLY: one modest EC2 instance or App Runner
+  service, plus RDS PostgreSQL with automated backups. The load
+  arithmetic from the C++ discussion still holds -- at 15,000 active
+  businesses placing two orders a week the system sees about 0.05
+  orders per second. This is not a scale problem yet, and provisioning
+  as though it were is how a company with no capital spends it.
+
+  WHAT IS ALREADY EXTERNAL, and therefore not our infrastructure:
+  Cloudinary for media, PayFast for payments, Mapbox for geocoding,
+  Anthropic for the AI tier (off by default).
+
+
+===========================================================================
+PART 4 — POPIA, THE PARTS THAT ARE ACTUALLY BLOCKING
+===========================================================================
+
+POPIA applies to anyone processing the personal information of people
+in South Africa. Most of what it asks for is documentation rather than
+engineering, but three items are real work.
+
+  INFORMATION OFFICER. Must be designated and registered with the
+  Information Regulator. For a one-person company that is you. It is a
+  form, and it is required.
+
+  OPERATOR AGREEMENTS. POPIA requires a WRITTEN CONTRACT with every
+  operator processing on our behalf -- AWS, Cloudflare, Cloudinary,
+  PayFast, Anthropic. All of them publish standard data-processing
+  addenda; they need to be accepted and filed, not negotiated.
+
+  ACCOUNT DELETION ACTUALLY WORKING. This is the engineering one, and
+  it is already a known defect: the foreign-key audit on 2026-09-08
+  found supplier and business rows referenced by NO ACTION foreign keys
+  across ten tables, so "delete my account" does not currently complete
+  cleanly. A data-subject deletion request is a legal obligation with a
+  deadline attached, and discovering this when one arrives is the worst
+  possible time.
+
+  Also required and mostly written already: a privacy policy that
+  matches the Play Data Safety form. Those two disagreeing is a common
+  rejection reason and an easy one to avoid -- fill the form FROM the
+  policy, not separately.
+
+
+===========================================================================
+PART 5 — THE ORDER OF WORK
+===========================================================================
+
+REVISED 2026-09-11. This part was originally "what fits in two months
+and what does not", which was the wrong shape once the date became a
+target rather than a constraint. It is now an ORDER. Everything on it
+gets built; the only question is what comes first, and nothing ships
+half-finished to hit a date.
+
+V2_07 lists eleven MVP items (A-K). Grouped by what they are for:
+
+  GROUP 1 — THE APP LOOKS AND FEELS REAL
+    B   category imagery + the fallback chain
+    D   My Connections as a relationship ledger
+    A   business Community feed on real data (replaces the mock)
+    E   Home, both roles
+    F   Stock Orders into the Account tab
+
+  GROUP 2 — NOBODY CAN GET HURT
+    K   the supplier curtain, BOTH gates (identity + catalogue)
+    +   account deletion that actually completes (Part 4)
+    +   a security pass before anything is public
+
+    THIS GROUP IS NOT NEGOTIABLE AND NOT COMPRESSIBLE. It is the
+    difference between a slip and an incident. Group 1 without Group 2
+    is an app that looks finished and is not safe to show anyone.
+
+  GROUP 3 — IT IS A REAL PRODUCT, NOT A BUILD
+    +   app.json identity (1.1) -- before ANY upload, it is permanent
+    +   App Links + the reset page (Part 2)
+    +   privacy policy, Data Safety form, operator contracts (Part 4)
+    +   deploy: af-south-1, Cloudflare, backups that are restored once
+        rather than merely configured
+
+  GROUP 4 — THE REST OF THE MVP
+    C   supplier Community feed
+    G   Cash Up
+    I   Discovery: announcements + opportunities
+    H   API keys screen
+    J   the More audit
+
+  DEFERRED BY DESIGN: all of V2_08 (third-party layer), the
+  price-movement rail, YouTube ingestion, shelf list, group buying.
+
+THE ONE EXCEPTION WORTH ARGUING ABOUT. FNB judges on seven criteria,
+one of which is "INTELLIGENCE: predictive capabilities using data
+analysis". The demand-gap rail -- telling a supplier what shops near
+them buy that the supplier does not stock -- is exactly that, and it is
+the only feature in the plan that is genuinely hard to copy, because it
+needs the resolved catalogue underneath it.
+
+It is post-MVP because it needs data volume to be non-embarrassing. A
+JUDGED DEMO does not have that constraint: seeded catalogue data shows
+the idea without a live user base. Worth building as a demo path behind
+a flag.
+
+  AND IT SPEAKS TO THE COPYING CONCERN DIRECTLY. What cannot be copied
+  quickly is not the screens -- anyone can rebuild a rail. It is the
+  resolved catalogue: two suppliers' messy line items collapsing to one
+  product, at 80% with zero wrong links, built out of real measurement
+  over weeks. That is months of work behind a competitor, and it is
+  already done. The features that sit on top of it are the moat's
+  visible part, not the moat.
+
+
+===========================================================================
+PART 6 — SEQUENCE
+===========================================================================
+
+  NOW, AND MOSTLY NOT CODE
+    · CIPC registration (decided -- see 1.3)
+    · domain + domain email on the entity
+    · app.json identity fix (1.1) -- permanent, so do it before
+      anything is ever uploaded anywhere
+    · Play Console account as an ORGANISATION
+    · point the domain at Cloudflare
+
+  THEN, IN THIS ORDER
+    1  Group 1 (B, D, A, E, F) -- the app becomes something you would
+       show a stranger
+    2  Group 2 (K, deletion, security pass) -- it becomes something you
+       could let a stranger USE
+    3  Group 3 -- it becomes a product with a listing, a policy and a
+       backup that has been restored at least once
+    4  FNB entry, from an internal build with demo credentials.
+       Independent of the store queue (1.2), so it can happen as soon
+       as Groups 1-2 are done
+    5  Group 4, as the weeks allow
+    6  Store submission when Groups 1-3 are genuinely finished, not
+       when a calendar says so
+
+  WHAT STILL HAS NO OWNER, and it is the honest gap in this plan: the
+  catalogue review queue (K) needs a PERSON looking at it, every day,
+  once suppliers are real. Everything else in this document is code
+  that runs itself. Early on that person is the developer, assisted by
+  AI that flags rather than clears (V2_03 Part 4.3) -- but the answer
+  cannot be "the founder, forever".
+
+
+===========================================================================
+PART 7 — THE ADMIN CENTRE IS NOT MVP. THE REVIEW MECHANISM IS.
+===========================================================================
+
+These are two different things and separating them is the whole answer.
+
+  THE CONTROL CENTRE -- queues, dashboards, audit views, more than one
+  reviewer. NOT MVP. It earns its place when the queue is daily rather
+  than weekly, and when it arrives it lands in the web codebase that
+  already exists and builds. That is the real reason to keep the portal
+  alive rather than delete it.
+
+  THE ABILITY TO APPROVE OR REJECT -- absolutely MVP, because the
+  curtain (V2_07 item K) blocks every supplier until somebody can act.
+  Without it, nobody can be onboarded at all.
+
+CAN CLOUDINARY DO THE REVIEWING? PARTIALLY, AND IT IS A FAIR STOPGAP.
+Its Media Library is a real interface for LOOKING at uploaded documents
+and images, so the viewing problem is solved for free. What it cannot
+do is record the DECISION, which has to land in our database as a
+status change plus an audit row.
+
+  SO THE CHEAP HONEST VERSION IS: Cloudinary to look, a management
+  command to decide.
+
+      flask verification approve <supplier-id> --note "..."
+
+  Roughly a day's work, and at MVP volume -- tens of suppliers, not
+  thousands -- it is genuinely sufficient rather than merely tolerable.
+
+  ONE CONDITION TO HOLD FIRM ON: those commands go through the same
+  SERVICE layer that writes the audit events. Never raw SQL against
+  production. A human changing rows by hand with no trail is how you
+  end up unable to answer "who approved this supplier, and when" --
+  which is precisely the question asked after something goes wrong, and
+  the reason the audit domain exists at all.
+
+
+
+===========================================================================
+SOURCES
+===========================================================================
+
+  FNB App of the Year — FAQs (judging criteria, remote access rather
+    than store publication), categories, entry
+    https://appoftheyear.co.za/faqs/
+    https://appoftheyear.co.za/app-categories/
+  Google Play — app testing requirements for new personal developer
+    accounts (12 testers, 14 days, organisation exemption)
+    https://support.google.com/googleplay/android-developer/answer/14151465
+  Google Play — target API level requirements
+    https://developer.android.com/google/play/requirements/target-sdk
+  Android — App Links verification
+    https://developer.android.com/training/app-links/verify-android-applinks
+  POPIA compliance checklists (Information Officer, operator contracts,
+    the eight conditions)
+    https://securiti.ai/blog/popia-compliance-checklist/
+    https://scytale.ai/resources/how-to-achieve-popia-compliance-complete-checklist/
+
+===========================================================================
+END
+===========================================================================

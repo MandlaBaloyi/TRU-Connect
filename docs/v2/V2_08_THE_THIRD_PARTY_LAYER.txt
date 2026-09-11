@@ -1,0 +1,361 @@
+===========================================================================
+V2_08 — THE THIRD-PARTY LAYER
+       VAS float · delivery brokerage · WhatsApp · group buying
+===========================================================================
+
+Written 2026-09-09, out of the V2_03 review. Depends on V2_03, especially
+Principle 1 (asset-light, but brokering is allowed) and Part 3.3 (only
+digital transactions are provable).
+
+THE IDEA THIS DOCUMENT EXISTS TO SERVE, in the reviewer's words: we
+cannot limit ourselves to wiring CRUD business tools. A supplier with no
+vehicle should be able to reach a delivery partner through us. A business
+that resells airtime should be able to buy that airtime here.
+
+THE RULE THAT KEEPS IT SAFE: we ARRANGE, a licensed partner PERFORMS. We
+never own the truck, never hold the float, never carry the credit risk.
+That is precisely how the survivors of the 2022–24 B2B collapse made
+margin without the balance sheet that killed the rest.
+
+
+===========================================================================
+PART 1 — VAS FLOAT: THE BEST-FITTING IDEA IN THIS DOCUMENT
+===========================================================================
+
+1.1 THE REFRAME, WHICH IS WHAT MAKES IT WORK
+
+  The obvious version of "TruConnect does airtime" is that we become a
+  vending provider competing with Kazang and Flash. That version is bad:
+  it is licensed, float-managed, hardware-adjacent, and we would be
+  entering against incumbents running ~90,000 devices and ~3 million
+  transactions a day.
+
+  The review's version is different and much better:
+
+  ─────────────────────────────────────────────────────────────────────
+  The merchant who RESELLS airtime has to BUY it somewhere.
+  A VAS distributor is simply a supplier whose products are digital.
+  ─────────────────────────────────────────────────────────────────────
+
+  We are not selling airtime to consumers. We are selling the merchant
+  their stock — the same thing we already do with maize meal. The
+  product happens to have no weight.
+
+1.2 WHY IT FITS THE ARCHITECTURE ALMOST EXACTLY
+
+  A VAS distributor onboards as a SUPPLIER. They have a catalogue
+  (R5/R10/R29 airtime, data bundles, electricity, DStv, gaming
+  vouchers), they have prices, they have terms. Every mechanism the
+  platform already has applies:
+
+    supplier_offers          the bundles
+    catalogue products       matched and comparable across distributors
+    stock_orders             a purchase
+    payment path             DIGITAL ONLY, necessarily — and per V2_03
+                             Part 3.3 that means every VAS purchase is
+                             a PROVEN transaction, which makes this the
+                             highest-quality data in the entire product
+    connections              the distributor's own approval rules
+
+  What differs is FULFILMENT. A crate of cooldrink is delivered. A
+  bundle is issued — a voucher code, a PIN, or a balance credited to the
+  merchant's existing device.
+
+  So the only genuinely new concept is a DIGITAL FULFILMENT PATH on
+  stock orders: instead of "expected delivery date", the order resolves
+  to an issued credential, immediately, and the app shows it.
+
+1.3 THE ECONOMICS, FROM RESEARCH
+
+    Airtime and data        ~3–5% commission to the reseller
+    Electricity             ~1.5–3%
+    Bill payments (DStv,
+      municipal)            ~1–2.5%
+                       — Flash merchant documentation, 2025/26
+
+  Thin, but on enormous, daily, repeating volume. And it is the income
+  line that brings a merchant into the app every single day rather than
+  weekly — airtime sells out constantly.
+
+  FLOAT IS THE REAL CONSTRAINT. Resellers must "ensure sufficient
+  working capital to maintain float". That is exactly the working-capital
+  problem in V2_03 Part 3.3, and it is where a financing partner would
+  eventually attach. Not now.
+
+1.4 THE HARD PARTS, STATED HONESTLY
+
+  · WE MUST NOT HOLD THE FLOAT. The moment TruConnect holds merchant
+    balances we are running a deposit-taking business, which is a
+    licence and a regulator. The design must be: merchant pays the
+    distributor, distributor credits the merchant's device or issues the
+    voucher. We orchestrate and record.
+
+  · "AUTOMATICALLY LOADED ONTO YOUR PoS" IS A PARTNER DECISION, NOT A
+    BUILD. Whether a purchase can credit a Kazang or Flash device
+    directly depends entirely on whether that provider exposes an API
+    for it. This needs a conversation before it needs a sprint. The
+    fallback — issue a voucher/PIN the merchant loads themselves — works
+    with no integration at all and should be the v1.
+
+  · AGGREGATOR VERSUS DIRECT. Reaching MTN, Vodacom, Cell C, Telkom and
+    Eskom individually is many integrations. Aggregators exist for
+    exactly this. Choosing one is a real evaluation and it is not this
+    document's job.
+
+1.5 WHAT TO DO ABOUT IT NOW
+
+  Nothing to build. One thing to decide: whether to approach a VAS
+  distributor or aggregator as a SUPPLIER on the platform. That is a
+  business-development conversation, and if it lands, most of the
+  product already exists.
+
+
+===========================================================================
+PART 2 — DELIVERY BROKERAGE
+===========================================================================
+
+2.1 THE PROBLEM IT SOLVES
+
+  SupplierProfile.offers_delivery is a boolean today. A supplier with no
+  vehicle sets it false and silently loses every business that cannot
+  collect — which, for a shop owner who cannot leave their counter, is
+  most of them. The supplier is not short of demand; they are short of a
+  bakkie.
+
+2.2 THE MARKET, RESEARCHED
+
+    Bob Go        aggregator over 10+ couriers (The Courier Guy, Pargo,
+                  RAM, SkyNet, Internet Express). ~R299–R699/month plus
+                  ~R3–R8 per shipment. Built for exactly this problem.
+    Droppa        a documented developer portal; SWIFT (pickup within
+                  60 min, ≤7kg, ≤15km) and FLASHROAD same-day
+                  nationwide.
+    Pargo         pickup-point network (Pep, Postnet and partners),
+                  R0 base plus per-shipment. Collect-point rather than
+                  door delivery.
+
+  PARGO IS WORTH A SECOND LOOK for this market specifically. Pep stores
+  are everywhere a spaza is, collection is a habit already, and a
+  pickup-point model removes the "nobody was at the shop" failure that
+  kills door delivery to a trader who is out buying stock.
+
+2.3 THE DESIGN
+
+  A third fulfilment option beside delivery and collection:
+
+    COLLECTION           the business collects. Exists.
+    SUPPLIER DELIVERY    the supplier's own vehicle. Exists.
+    PARTNER DELIVERY     new. A courier quoted at checkout, booked on
+                         approval, tracked on the order.
+
+  Behind a PROVIDER ABSTRACTION, exactly as media (Cloudinary), payment
+  (PayFast), geocoding (Mapbox) and AI (Claude) already are. A
+  DeliveryProvider interface with quote() and book(); Bob Go or Droppa
+  is one implementation. No service imports a courier by name. This is
+  the fifth time this pattern pays for itself.
+
+2.4 THE HONEST WARNINGS
+
+  · A QUOTE IS A COMMITMENT. Showing a delivery price at checkout means
+    standing behind it. Quote failures, address failures and size
+    failures all need an answer before this ships.
+
+  · IT IS NOT ASSET-LIGHT IF WE UNDERWRITE IT. If TruConnect covers the
+    difference when a courier overcharges, we have quietly taken on the
+    logistics risk that bankrupted the cohort in V2_03 Part 2. The
+    supplier's price is the courier's price.
+
+  · WHO PAYS FOR A FAILED DELIVERY is the question that decides whether
+    this is a feature or a support department. Answer it in the design,
+    not in production.
+
+
+===========================================================================
+PART 3 — WHATSAPP AS THE COMMUNICATION LAYER
+===========================================================================
+
+3.1 THE REFRAME, AGAIN A GOOD ONE
+
+  V2_07 Part 5 treats WhatsApp as a possible ORDERING channel and a
+  strategic threat to our form factor. That remains true and unresolved.
+
+  But the review pointed at something available immediately and far
+  cheaper: use WhatsApp as the NOTIFICATION layer for orders placed in
+  the app. Order confirmation, reference, supplier, expected delivery
+  date — pushed to the channel this market actually reads, without
+  asking anyone to change how they work.
+
+3.2 THE ECONOMICS, RESEARCHED — AND THEY ARE GOOD
+
+    Utility templates (order confirmations, delivery updates)
+      ~$0.0076 per message + 15% VAT ≈ R0.14–R0.16
+    Marketing templates
+      ~$0.0379 ≈ R0.70–R1.15 — five times the price
+    Volume discounts up to ~25% on utility and authentication.
+                       — WhatsApp Business Platform pricing, SA, 2026
+
+  At R0.15, ten thousand order confirmations cost about R1,500. This is
+  affordable at our scale today, which is not something that can be said
+  about most things in this document.
+
+  ONE DATE TO KNOW: service messages and utility messages inside the
+  24-hour customer service window are free today, and BOTH BECOME
+  CHARGEABLE FROM 1 OCTOBER 2026. That is three weeks away. It does not
+  change the plan — utility templates outside the window are already
+  priced as above — but any cost modelling done before that date will be
+  wrong after it.
+
+3.3 WHAT TO SEND, AND WHAT NEVER TO SEND
+
+  SEND — utility, transactional, expected:
+    order placed, with reference and supplier name
+    order approved, with the expected delivery date
+    out for delivery / ready for collection
+    payment received
+    verification approved (supplier side)
+
+  NEVER SEND — marketing, at five times the price and a fraction of the
+  welcome:
+    promotions, "we miss you", supplier advertising, feed digests.
+    A merchant who gets marketing on WhatsApp blocks the number, and
+    then never receives their delivery confirmations either. The
+    channel's value is precisely that everything on it matters.
+
+3.4 THE ARCHITECTURE
+
+  It is a NotificationProvider, and one already exists —
+  src/shared/notifications with a queue and templates behind it. This is
+  a new channel next to email and in-app, not a new system.
+
+    src/shared/notifications/providers/whatsapp_provider.py
+
+  Template approval by Meta is the long pole, and templates are
+  per-language. isiZulu and isiXhosa versions of an order confirmation
+  are a genuine kindness here and cost the same to send.
+
+  CONSENT IS NOT OPTIONAL. Opt-in at sign-up, and a real off switch —
+  the settings screens (notifications-orders, notifications-community)
+  already exist and this is another row in them, not a new concept.
+
+
+===========================================================================
+PART 4 — GROUP BUYING / STOKVEL ORDERING
+===========================================================================
+
+4.1 THE SCALE
+
+  ~800,000 stokvels, ~11 million members, >R50 billion in assets — the
+  largest formalised non-bank savings movement on the continent. Groups
+  are typically 5–30 people, contributing monthly. Grocery stokvels
+  already buy in bulk at cash-and-carry wholesalers at 20–30% below
+  retail, and Shoprite and Massmart both run dedicated stokvel
+  programmes.
+                       — Ipsos 2024; WSCC; Bizcommunity
+
+  This is not a behaviour we would be introducing. It is one we would be
+  joining, late, against retailers who already court it.
+
+4.2 THE FINDING THAT MAKES IT BUILDABLE
+
+  The first draft rejected group buying as "operationally heavy — needs
+  multi-party payment, allocation and dispute handling". The research
+  found the model that removes the worst of it:
+
+  ─────────────────────────────────────────────────────────────────────
+  "Some stokvels save directly with the wholesaler, who then records
+   the contributions and makes stock available for collection."
+  ─────────────────────────────────────────────────────────────────────
+
+  THE SUPPLIER HOLDS THE MONEY, NOT US. That single fact eliminates the
+  reason group buying looked dangerous: TruConnect never becomes an
+  escrow, never allocates pooled funds, and never has to adjudicate who
+  gets what when a member drops out. We orchestrate a group order
+  against a supplier who already runs this arrangement offline.
+
+  It also fits Principle 1 exactly. We arrange; the supplier performs.
+
+4.3 THE SHAPE OF A DESIGN (SKETCH ONLY — NEEDS ITS OWN DOCUMENT)
+
+    A GROUP is a named set of businesses (or individuals) with one
+    ORGANISER. Members are invited by the existing invitation flow.
+
+    A GROUP ORDER is a basket with a target, a deadline and a supplier.
+    Members add lines or contributions. The organiser submits.
+
+    CONTRIBUTION TRACKING IS A LEDGER, NOT AN ACCOUNT. We record what
+    each member has paid the supplier and what remains. The money moves
+    between member and supplier. Ours is a record, exactly as Loan Book
+    is a record.
+
+    ALLOCATION is the organiser's, recorded for everyone to see. The
+    single most valuable thing software adds to a stokvel is that
+    everybody can see the same numbers — most disputes in these groups
+    are bookkeeping disputes.
+
+4.4 WHY IT IS STILL NOT MVP
+
+  It needs its own document, a real conversation with two or three
+  actual stokvels, and a supplier willing to run the arrangement. It is
+  the largest opportunity in this file and the one most likely to be got
+  wrong by guessing. A group-buy feature that leaves a member out of
+  pocket destroys more trust than the feature could ever earn.
+
+  WHAT TO DO NEXT: talk to three stokvels before writing another line
+  about them.
+
+
+===========================================================================
+PART 5 — HOW THESE RANK
+===========================================================================
+
+  Judged on (value delivered) ÷ (cost and risk to build).
+
+  1  WHATSAPP NOTIFICATIONS      Cheapest, fastest, uses infrastructure
+                                 that exists, reaches the channel this
+                                 market already reads. Do this first of
+                                 the four — plausibly right after MVP.
+
+  2  VAS FLOAT                   Best architectural fit, daily
+                                 engagement, proven transactions. Gated
+                                 on a partner conversation, not on
+                                 engineering.
+
+  3  DELIVERY BROKERAGE          Real problem, real APIs, moderate
+                                 build. Gated on answering "who pays for
+                                 a failed delivery".
+
+  4  GROUP BUYING                Biggest prize, most research still
+                                 owed, needs its own document.
+
+  NONE OF THESE ARE MVP (V2_07). All four are the answer to "what is
+  TruConnect in three years", and none of them require us to own a
+  warehouse, a truck, or a lending book.
+
+
+===========================================================================
+SOURCES
+===========================================================================
+
+  Flash — merchant commission structures for airtime, electricity and
+    bill payments
+    https://www.flash.co.za/post/merchant-make-money-by-selling-airtime
+  Kazang — VAS platform, device scale, merchant commissions
+    https://www.kazang.com/
+  Blue Label Telecoms — SA prepaid distribution scale
+    https://www.bluelabeltelecoms.co.za/the-prepaid-company.php
+  WhatsApp Business Platform — SA pricing, 2026, and the 1 October 2026
+    change to service/utility window charging
+    https://whatsappbusiness.com/products/platform-pricing/
+    https://chatmaxima.com/whatsapp-api-pricing/south-africa/
+  Bob Go — courier aggregation, partners and pricing
+    https://www.bobgo.co.za/delivery-partners
+  Droppa — developer portal, SWIFT and FLASHROAD services
+    https://admin.droppa.co.za/droppa/developers-portal
+  WSCC — stokvel definition, scale and structure
+    https://wsccouncil.org/savings-clubs/stokvels
+  Bizcommunity — grocery stokvels and the direct-with-wholesaler model
+    https://www.bizcommunity.com/article/grocery-stokvels-can-empower-south-african-households-361368a
+
+===========================================================================
+END
+===========================================================================

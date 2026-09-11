@@ -1,0 +1,303 @@
+===========================================================================
+V2_06 — THE ACCOUNT TAB (BUSINESS TOOLS), AND MORE
+===========================================================================
+
+Depends on V2_03, particularly Part 3: the moat is here, not in Community.
+This is the least glamorous document of the five and the most important
+one.
+
+
+===========================================================================
+PART 1 — WHY THIS TAB DECIDES WHETHER TRUCONNECT SURVIVES
+===========================================================================
+
+The African B2B cohort died partly because "small retailers cycled between
+platforms seeking better offers, creating a race-to-the-bottom risk with
+no sticky customer relationships" (Rest of World, 2023).
+
+Nothing in a marketplace prevents that. A better price is one download
+away, and a supplier list is not a possession.
+
+What prevents it is a merchant having something HERE that exists nowhere
+else and would cost them evenings to recreate: months of who owes them
+money, what they sold, what they ordered and what they paid. That is the
+Account tab.
+
+  ─────────────────────────────────────────────────────────────────────
+  Community is why they install it.
+  Account is why they still have it installed in a year.
+  ─────────────────────────────────────────────────────────────────────
+
+The research names the same thing from the merchant's side. What brings
+them back is "their own prices, the schemes they qualify for, what they
+owe, and where the last order is". Three of those four are records, not
+listings.
+
+And there is a second-order effect, though it needs stating more
+carefully than the first draft did. Financial institutions do not lend to
+informal retailers because they "mostly trade in cash and have no
+financial footprint to determine their creditworthiness" (BFA Global).
+
+BUT ONLY ONE OF THE THREE LEDGERS IS EVIDENCE. Loan Book and Order Book
+are the merchant's own record-keeping — we cannot verify a line of
+either, and we should never present them to a third party as though we
+could. Digitally paid STOCK ORDERS are different: the platform observed
+them and the money actually moved. See V2_03 Part 3.3, which is the full
+argument.
+
+So the honest version is: we are not a lender and should not become one,
+and the record that could one day make a merchant lendable is built from
+their digital order history — not from their books. The books are why
+they stay. The digital orders are what a partner could underwrite.
+
+
+===========================================================================
+PART 2 — WHAT IS ALREADY BUILT
+===========================================================================
+
+  THREE LEDGERS, AND THE FIRST DRAFT CONFUSED TWO OF THEM. Corrected
+  here; see V2_03 Part 3.2.
+
+  LOAN BOOK      business/loan-book/ — customers, entries, payments,
+                 history, analytics, trash.
+                 "Who owes ME money." The neighbour who took bread on
+                 credit. SELF-REPORTED.
+
+  ORDER BOOK     business/order-book/ — customers, orders, balances,
+                 history, performance, auto-clear.
+                 "What MY OWN CUSTOMERS ordered from me." The kota
+                 seller's order list. Its types file says it outright:
+                 "A customer of THIS business." SELF-REPORTED, and it
+                 has nothing to do with suppliers.
+
+  STOCK ORDERS   business/orders/ + checkout.stock_orders.
+                 "What I ordered FROM A SUPPLIER through TruConnect."
+                 PLATFORM-OBSERVED, and when paid digitally, PROVEN —
+                 which is what makes it the only one of the three that
+                 can ever back a financing conversation (V2_03 3.3).
+
+  All three exist and work. The two self-reported ones are tiles in the
+  Account tab; the platform-observed one is reachable only from the cart
+  and an overflow menu, so the business has two tools in a toolbox and a
+  third hidden in a drawer.
+
+  SUPPLIER SIDE  products, inventory, stock orders, bulk import,
+                 storefront. Also real.
+
+The Account tab is therefore not a green field. It is a tab with three
+good tools, one of which is not in it.
+
+
+===========================================================================
+PART 3 — THE BUSINESS TOOLS, PROPOSED
+===========================================================================
+
+Ordered by (value to the merchant) ÷ (cost to build). Each is judged
+against a single question: DOES A SHOPKEEPER LOSE SOMETHING REAL IF THEY
+DELETE THE APP?
+
+3.1 PUT STOCK ORDERS IN THE ACCOUNT TAB            ← do this first
+    ────────────────────────────────────────────────────────────────
+    Not a new tool. A built one that is not where anyone would look.
+
+      · Stock Orders becomes a third tile beside Loan Book and Order
+        Book. Same screens, one route.
+      · Open stock orders appear on Home (V2_05).
+      · The Loan Book total appears on Home, LABELLED AS WHAT IT IS —
+        what your book says you are owed, not "your money".
+
+    AND AN EXPLICIT NON-GOAL, because the first draft proposed it and
+    it was wrong: a stock order must NOT write itself into the Order
+    Book. Order Book records what this business's OWN CUSTOMERS ordered
+    from IT. A crate of cooldrink bought from a supplier is not a
+    customer order, and auto-filing it there would corrupt the one
+    ledger the merchant maintains by hand. Three ledgers, three
+    purposes, no cross-writing.
+
+    Cheapest work in this document and the highest return, because it
+    puts all three ledgers in one place. Nothing new to learn, nothing
+    new to build, one route to add.
+
+3.2 CASH UP                                         ← the biggest gap
+    ────────────────────────────────────────────────────────────────
+    The research is blunt: most spaza owners "do not maintain formal
+    stock records and buy stock as and when needed", and "cash-only
+    trading and manual stock records are the two biggest constraints.
+    If you can't see your margins, you can't negotiate or borrow."
+
+    So: one screen, once a day, three numbers.
+
+        money in the till at open
+        takings today
+        money paid out today (stock, transport, wages)
+
+    That is it. No categories, no accounting, no double entry. It takes
+    under a minute at closing time and it produces, over eight weeks,
+    the first picture of the business the owner has ever had — and the
+    beginning of the financial footprint from Part 1.
+
+    THE DESIGN RISK IS ASKING FOR TOO MUCH. Every abandoned bookkeeping
+    app in this market asked for one more field. Three numbers. If it
+    cannot be done standing up, holding a phone, in a shop, it will not
+    be done at all.
+
+3.3 WHAT I PAY                                      ← catalogue-powered
+    ────────────────────────────────────────────────────────────────
+    A price history of what THIS business actually paid, per catalogue
+    product, across suppliers and over time. "You paid R64, R66, R71 for
+    2kg maize meal over three months."
+
+    Their own data, so no supplier-relations problem at all (contrast
+    V2_04 Part 2.4). And it is the single most direct answer to "their
+    own prices" from the retention research.
+
+    Only possible because matching resolves different suppliers' line
+    items to one catalogue product. Without the catalogue this is three
+    unrelated strings.
+
+3.4 COMPLIANCE FOLDER                               ← timely, and dated
+    ────────────────────────────────────────────────────────────────
+    Municipal registration is now compulsory; the Spaza Shop Fund
+    additionally requires CIPC, SARS and UIF. Health inspections cover
+    storage, expiry dates and fridge temperatures.
+
+    A simple, honest tool: a checklist of what this business needs,
+    somewhere to keep photographs of the certificates, and expiry
+    reminders.
+
+    WHAT IT MUST NOT DO IS GIVE LEGAL ADVICE OR IMPLY WE FILE ANYTHING.
+    Requirements differ by municipality and change. It links to the
+    official source and it reminds. That is a genuinely useful thing to
+    be, and pretending to be more would be the kind of claim that ends
+    badly.
+
+3.5 SHELF LIST (light stock)                        ← after MVP
+    ────────────────────────────────────────────────────────────────
+    Not inventory management. A list of what this shop sells, with a
+    low-stock flag the owner sets by eye. It feeds "time to reorder"
+    and pre-fills baskets.
+
+    Full inventory has been tried on this market repeatedly and is
+    abandoned repeatedly, because counting stock is work and the payoff
+    is invisible. A shelf list with a reorder button has a payoff the
+    same afternoon.
+
+3.6 BROKERED SERVICES — NOT EVERY TOOL IS CRUD      ← see V2_08
+    ────────────────────────────────────────────────────────────────
+    A correction to this document's original framing, from review: the
+    Account tab must not be limited to screens that create, read,
+    update and delete our own rows.
+
+    Two examples that belong here and are designed in V2_08:
+
+      BUSINESS   Buy airtime, data, electricity and voucher stock —
+                 the float a merchant resells over the counter. A VAS
+                 distributor is simply a supplier whose products are
+                 digital, so most of the machinery already exists.
+                 Commissions run 3–5% on airtime, 1.5–3% on electricity.
+                 It is also the tool that brings someone into the app
+                 daily rather than weekly.
+
+      SUPPLIER   Book a third-party courier for a delivery they cannot
+                 make themselves, instead of setting offers_delivery to
+                 false and losing every buyer who cannot collect.
+
+    THE RULE THAT KEEPS THIS SAFE: we arrange, a licensed partner
+    performs. We never hold the float, never own the vehicle, never
+    carry the credit. That is the distinction between the survivors of
+    the 2022–24 B2B collapse and the casualties.
+
+3.7 GROUP BUY / STOKVEL                             ← after MVP, real
+    ────────────────────────────────────────────────────────────────
+    ~800,000 stokvels, ~11 million members, >R50bn, already buying
+    groceries in bulk 20–30% below retail. Several shops combining to
+    clear a wholesaler's minimum is the same mechanic they already run
+    informally, and it directly attacks the documented problem that
+    spazas "lack the relationships that enable larger shops to enjoy
+    bulk discounts".
+
+    It is also genuinely hard: who pays, who collects, what happens when
+    one member drops out, who bears the loss. Design it properly or not
+    at all — a group-buy feature that leaves someone out of pocket
+    destroys more trust than it creates. Not MVP. Worth a document of
+    its own when its turn comes.
+
+
+===========================================================================
+PART 4 — SUPPLIER ACCOUNT TOOLS
+===========================================================================
+
+Already strong: products, inventory, stock orders, bulk import,
+storefront. Additions that follow from work already done:
+
+  API KEYS & INTEGRATIONS    Built in step 7, backend complete, no
+                             screen. A wholesaler cannot use the door we
+                             built because there is nowhere to create a
+                             key. This is a small screen and it unblocks
+                             the entire medium-supplier segment.
+
+  CATALOGUE HEALTH           Unmatched import lines, offers with no
+                             price, offers with no pack size. The review
+                             queue from step 6 has no UI either.
+
+  FULFILMENT MODE            Manual / auto. Specified in V2_05 Part 1.5.
+
+  WHO BUYS WHAT              Aggregate demand in their delivery area,
+                             same privacy threshold as the Community
+                             demand-gap rail.
+
+
+===========================================================================
+PART 5 — THE MORE TAB
+===========================================================================
+
+More is settings and identity: My Account, My Business, Account Security,
+Settings. It is already the most complete area of the app — roughly forty
+screens across both roles, and genuinely good.
+
+TWO THINGS TO DO, BOTH SMALL.
+
+  1  AUDIT FOR SCREENS THAT PROMISE SOMETHING UNBUILT. Forty settings
+     screens written ahead of the features they configure will contain
+     toggles that control nothing. A setting that does not work is a
+     small, repeated lie, and this is the tab where a careful person
+     goes looking. One pass, list them, hide or wire each.
+
+  2  NOTIFICATION SETTINGS MUST COVER THE NEW SURFACES. There are
+     already notifications-community, notifications-discovery,
+     notifications-orders, notifications-announcements screens. Reorder
+     reminders, price alerts and demand-gap prompts are new categories
+     of interruption and each needs its own switch — a merchant who
+     cannot turn off a daily prompt turns off the app.
+
+NOTHING ELSE. More does not need features; it needs to be true.
+
+
+===========================================================================
+PART 6 — WHAT WE OWE THE MERCHANT, WRITTEN DOWN
+===========================================================================
+
+The Loan Book contains the names of a shopkeeper's neighbours and what
+each of them owes. It is the most sensitive data in this product by a
+wide margin, more sensitive than payment details.
+
+  IT IS NEVER SHOWN TO A SUPPLIER. Not aggregated, not anonymised, not
+  "as a creditworthiness signal". Not ever.
+
+  IT IS NEVER SOLD, and no analytics product is built on it.
+
+  IT IS EXPORTABLE BY THE MERCHANT, on request, in a format they can
+  keep. If the moat is that their records live here, then the honest
+  version of that bargain is that they can walk out with them. A moat
+  built on lock-out rather than on being useful is one bad month from
+  collapsing anyway.
+
+  IT IS DELETED WITH THE ACCOUNT, properly — noting that the FK audit
+  done on 2026-09-08 found supplier and business rows are referenced by
+  NO ACTION foreign keys across ten tables, so "delete my account" does
+  not currently work cleanly. That is a real gap with a legal edge
+  (POPIA) and it should be scheduled, not discovered.
+
+===========================================================================
+END
+===========================================================================

@@ -61,7 +61,9 @@ class InventoryRepository:
         ).first()
 
     @staticmethod
-    def get_or_create_for_product(product_id: str | UUID, supplier_profile_id: str | UUID) -> Inventory:
+    def get_or_create_for_product(
+        product_id: str | UUID, supplier_profile_id: str | UUID, commit: bool = True
+    ) -> Inventory:
         inventory = InventoryRepository.get_by_product_id(product_id)
         if inventory is not None:
             return inventory
@@ -75,7 +77,12 @@ class InventoryRepository:
             low_stock_threshold=settings.default_low_stock_threshold,
         )
         db.session.add(inventory)
-        db.session.commit()
+        # See SupplierOfferRepository.create on why a bulk caller
+        # flushes instead: one fsync per file, not per product.
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return inventory
 
     @staticmethod
@@ -98,9 +105,12 @@ class InventoryRepository:
         return Inventory.query.filter(Inventory.product_id.in_(product_ids), Inventory.is_deleted.is_(False)).all()
 
     @staticmethod
-    def adjust_quantity(inventory: Inventory, quantity_delta: int) -> Inventory:
+    def adjust_quantity(inventory: Inventory, quantity_delta: int, commit: bool = True) -> Inventory:
         inventory.quantity_on_hand = inventory.quantity_on_hand + quantity_delta
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return inventory
 
     @staticmethod

@@ -1,0 +1,621 @@
+===========================================================================
+V2_03 — THE MARKET, THE THESIS, AND WHAT EACH TAB IS FOR
+===========================================================================
+
+Written 2026-09-08. REVISED 2026-09-09 after review — the revision changed
+four substantive things, and they are marked [REVISED] where they appear:
+the definition of who this is for, the Order Book / stock orders
+distinction (which the first draft got factually wrong), what "money"
+means on Home, and where verification is actually enforced.
+
+This document exists because the next phase is not a feature list. It is a
+set of bets, and a bet you cannot say out loud is a bet you cannot check
+later. Everything here is either sourced from research (cited inline) or
+derived from the codebase as it stands today.
+
+Read this one first. V2_04 through V2_08 are the designs; this is the
+reasoning they inherit.
+
+
+===========================================================================
+PART 1 — WHO THIS IS ACTUALLY FOR                              [REVISED]
+===========================================================================
+
+The first draft of this document talked about spaza shops almost
+exclusively. That was too narrow, and the narrowness would have leaked
+into the product.
+
+  A student who sells perfume to other students, and buys that perfume
+  from a supplier on TruConnect, is a TruConnect business. Nothing about
+  them is a spaza shop and nothing should stop them ordering.
+
+  A person selling kota who writes their customers' orders in a paper
+  book is a TruConnect business the day they use Order Book — even if
+  they never place a single stock order with us.
+
+So: THE INFORMAL ECONOMY, NOT THE SPAZA SECTOR. Home-based sellers,
+street traders, salons and barbers, food vendors, tuck shops, students
+reselling, market traders, small caterers, anyone running a trade without
+a formal storefront. Spaza shops are the largest and best-documented
+segment, which is why the research below is about them, but they are a
+segment and not the definition.
+
+  ─────────────────────────────────────────────────────────────────────
+  PRINCIPLE: TOOLS MUST STAND ALONE.
+  A business that uses ONLY Order Book, and never buys anything through
+  TruConnect, is a complete and valid user. Not a half-user, not a
+  funnel stage, not someone to be nudged toward the marketplace.
+  ─────────────────────────────────────────────────────────────────────
+
+That principle has real consequences, so it is worth being explicit:
+
+  · No tool may require a supplier connection to work.
+  · No tool may be gated behind placing an order.
+  · Onboarding must not assume the person wants to buy stock from us.
+  · A tool being someone's only reason to open the app is a SUCCESS,
+    not a conversion problem.
+
+It is also, commercially, the stronger position. A marketplace with
+150,000 possible shops is a market. A set of tools for everyone trading
+informally in South Africa is a much larger one, and it is the half
+nobody else is building — the competitors in Part 2 all died trying to
+own distribution.
+
+THE SPAZA NUMBERS, which still matter as the anchor segment:
+
+  Over 150,000 spaza shops in South Africa.
+  ~R120 billion a year to the economy.
+  30–40% of national food expenditure.
+  Only ~1% accept electronic payments.
+                       — Kazang / Ventureburn, 2025; BFA Global
+
+  Stokvels: ~800,000 groups, ~11 million members, >R50 billion held.
+                       — Ipsos market study, 2024
+
+A third of the country's food spend moves through shops with no stock
+records and no card machine. The absence of records is not a detail — it
+is the whole opportunity and the whole difficulty at once.
+
+
+===========================================================================
+PART 2 — WHAT KILLED THE COMPETITION, AND WHY IT MATTERS TO EVERY
+         DECISION BELOW
+===========================================================================
+
+Between 2022 and 2024, the African B2B e-commerce cohort — Wasoko,
+Sokowatch, Alerzo, MarketForce, Twiga — went from investor darlings to
+shutdowns, mergers and mass layoffs. The post-mortems agree on the causes
+(Rest of World, 2023):
+
+  1. ASSET-HEAVY. They built their own warehouses and delivery fleets
+     because the logistics did not exist. "The cost of maintaining these
+     assets will always eat into its margins."
+
+  2. DISCOUNTS AS ACQUISITION. Up to 30% below market to win merchants.
+     Unsustainable the moment funding tightened.
+
+  3. NO STICKINESS. Retailers cycled between platforms chasing the better
+     offer. A race to the bottom with nothing holding anyone in place.
+
+  4. UNIT ECONOMICS NOBODY HAD CHECKED.
+
+  What survived did so by going ASSET-LIGHT and adding FINTECH —
+  working capital, BNPL, point-of-sale — for margin and retention.
+
+TruConnect is already on the right side of three of those four, by
+architecture rather than by luck:
+
+  We hold no stock.          There is no warehouse to pay for.
+  We run no trucks.          Delivery is the supplier's own arrangement,
+                             or a partner's (V2_08), never our fleet.
+  We set no prices.          A supplier prices their own offer. We
+                             cannot discount our way to growth even if
+                             we wanted to.
+
+That leaves stickiness, and Part 3 is about it.
+
+ONE ADDITION FROM THE REVIEW. "Asset-light" does not mean "CRUD screens
+only". The survivors added fintech and point-of-sale — services they
+brokered rather than owned. TruConnect can broker too: delivery for a
+supplier who has none, airtime float for a business that resells it. We
+arrange; a licensed partner performs. That is still asset-light, and it
+is where the margin is. V2_08 is the whole design.
+
+
+===========================================================================
+PART 3 — STICKINESS, AND THE VERIFIABLE LEDGER               [REVISED]
+===========================================================================
+
+The most useful sentence in the research:
+
+  "What brings a shopkeeper back is seeing their own prices, the schemes
+   they qualify for, what they owe, and where the last order is — not a
+   mandate."
+                       — African Marketing Confederation / AVODA
+
+3.1 THE MOAT IS THE MERCHANT'S OWN RECORDS
+
+  Community is where a business finds a supplier. Valuable, and
+  completely substitutable — the next app shows them the same suppliers
+  tomorrow.
+
+  The tools hold something no competitor can show them, and re-entering
+  it into a rival app costs evenings. That is what stops the cycling
+  that killed Alerzo.
+
+    Community brings them in. The tools are why they stay.
+
+3.2 THE CORRECTION: THREE LEDGERS, NOT TWO           [REVISED — WAS WRONG]
+
+  The first draft treated "Order Book" and "what they ordered from
+  suppliers" as the same thing. They are not, and merging them would
+  have produced a genuinely broken feature.
+
+    LOAN BOOK      Money owed TO the business by its own customers —
+                   the neighbour who took bread on credit.
+                   business/loan_book. Self-reported.
+
+    ORDER BOOK     Orders the business's OWN CUSTOMERS place with it —
+                   the kota seller's order list. Its types file is
+                   explicit: "A customer of THIS business."
+                   Self-reported. Nothing to do with suppliers.
+
+    STOCK ORDERS   What the business ordered FROM A SUPPLIER through
+                   TruConnect. business/orders/ + checkout.stock_orders.
+                   PLATFORM-OBSERVED, not self-reported.
+
+  All three are already built. The gap is that STOCK ORDERS is reachable
+  only from the cart and an overflow menu — it was never wired into the
+  Account tab alongside the other two, so the business has two tools in
+  their toolbox and a third one hidden in a drawer. That wiring is a
+  Phase-3 item in V2_07 and it is small.
+
+  THE DISTINCTION MATTERS BEYOND TIDINESS, because of 3.3.
+
+3.3 ONLY DIGITAL PAYMENTS PRODUCE A VERIFIABLE LEDGER
+
+  This is the sharpest idea to come out of the review and it reframes
+  the financing question entirely.
+
+  Loan Book and Order Book are the merchant's own record-keeping. We
+  cannot verify them. A shopkeeper may record every sale, or three sales
+  a week, or use Order Book for something we never anticipated. That is
+  fine — it is their book — but it can never be evidence.
+
+  A STOCK ORDER PAID DIGITALLY IS DIFFERENT. The platform observed it:
+  a real business ordered real goods from a real supplier and the money
+  actually moved. Nobody's honesty is being taken on trust.
+
+  ─────────────────────────────────────────────────────────────────────
+  Cash transactions are RECORDED. Digital transactions are PROVEN.
+  Only the proven ones can ever back a financing conversation.
+  ─────────────────────────────────────────────────────────────────────
+
+  Which produces the actual, honest version of the "financial footprint"
+  argument — and it runs in both directions:
+
+    BUSINESS SIDE   A business with nine months of repeat, digitally
+                    paid stock orders has demonstrated real, recurring
+                    trade. That is exactly the record a lender cannot
+                    get today, because financial institutions do not
+                    lend to informal retailers who "mostly trade in
+                    cash and have no financial footprint to determine
+                    their creditworthiness" (BFA Global). We do not
+                    lend. We can be the reason a partner will.
+
+    SUPPLIER SIDE   A supplier with a rising volume of digitally paid
+                    orders through the platform has a receivables
+                    history. Same argument, larger numbers, and it is
+                    the more fundable side.
+
+  WE ARE NOT A LENDER AND SHOULD NOT BECOME ONE. No capital, no credit
+  licence, and lending against your own marketplace's merchants is a
+  conflict before it is a business. What we can be is the party holding
+  a verified record that a licensed partner underwrites against. See
+  V2_08.
+
+  AND IT SETTLES A PRODUCT ARGUMENT. This is the real reason to make
+  digital payment attractive rather than merely available — not because
+  we earn on the transaction, but because it is the only transaction
+  that can ever be worth something to the merchant later. Worth saying
+  to them plainly, too: "paying digitally builds a record you can use."
+  That is true, and it is a better reason than a discount.
+
+  WHAT IT DOES NOT LICENCE. We do not degrade the cash path, hide it, or
+  nag. Cash is how this economy works and a platform that punishes it
+  has misunderstood its users.
+
+
+===========================================================================
+PART 4 — VERIFICATION IS A SUPPLIER PROBLEM, NOT A BUSINESS ONE [REVISED]
+===========================================================================
+
+The first draft implied compliance pressure applies to both sides. It
+does not, and the correction is an architectural requirement rather than
+a wording fix. A second review (2026-09-11) added 4.2-4.4: verification
+is TWO gates, identity and catalogue, and the first draft only had one.
+
+4.1 THE ASYMMETRY
+
+  A BUSINESS SIGNS UP AND TRADES. No documents, no ID, no permit
+  demanded by us. The student selling perfume does not have a municipal
+  licence and does not need one to place an order. Regulatory
+  registration is a real obligation THEY have to THEIR municipality, and
+  Discovery can help them meet it (V2_05) — but it is never a gate we
+  impose.
+
+  A SUPPLIER IS VERIFIED, AND STRICTLY. Documents, registered name, ID.
+  A supplier is who a business hands money to, so this is where trust
+  has to be earned. It also feeds the TruConnect verification badge that
+  already exists as SupplierVerificationStatus.
+
+4.2 TWO GATES, NOT ONE                          [ADDED 2026-09-11]
+
+  The first version of this section had one gate: documents. Review
+  caught that it is not enough, and the gap is serious.
+
+  ─────────────────────────────────────────────────────────────────────
+  IDENTITY   Who are you?      Documents, registered name, ID.
+  CATALOGUE  What are you      Review of the OFFERS themselves.
+             selling?
+  ─────────────────────────────────────────────────────────────────────
+
+  A supplier can be entirely genuine — real company, real documents,
+  verified identity — and still list something that must not be sold
+  through this platform. Identity verification says nothing about
+  contents. Treating it as though it did is the mistake.
+
+  WHY THIS IS NOT THEORETICAL IN THIS MARKET. The 2024 poisonings that
+  made spaza registration compulsory killed at least 23 children. The
+  Naledi deaths were traced to terbufos — a WHO Class 1a agricultural
+  pesticide, illegal for domestic use — found in a snack. Inspectors
+  investigating found illegal pesticides being sold from spaza shops,
+  and food stored alongside pesticides and detergents. The Minister of
+  Agriculture banned terbufos outright in May 2026.
+                       — Daily Maverick; Mail & Guardian; SAnews; NICD
+
+  A platform that connects suppliers to shops, in this country, at this
+  moment, with no view of what is being listed, is not a platform with
+  a missing feature. Every document check in the world would have let
+  that through.
+
+4.3 HOW TO REVIEW A CATALOGUE WITHOUT A REVIEW DEPARTMENT
+
+  The obvious objection: a wholesaler with 3,000 lines cannot wait for
+  a human to read each one, and we do not have anyone to read them.
+
+  THE MATCHING LADDER IS ALREADY A RISK CLASSIFIER, and this is the
+  part worth noticing. It was built to answer "which catalogue product
+  is this?" and it answers a second question for free:
+
+    AUTO_LINK    resolved to an EXISTING catalogue product with high
+                 confidence. Somebody has seen this product before and
+                 it is already in the shared catalogue.
+                 -> low risk. Auto-approve.
+
+    REVIEW       ambiguous.
+                 -> already queues for a human. Unchanged.
+
+    CREATE_NEW   matched nothing. By definition nobody has ever vetted
+                 this product on this platform.
+                 -> THIS IS THE CONTENT REVIEW QUEUE. It already
+                    exists, as MatchReview rows.
+
+  So the volume that needs human eyes is not "every offer" — it is
+  "every offer that introduces something new to the catalogue". On the
+  measured two-supplier trial the free tiers resolved 80%, which means
+  roughly one line in five, falling as the catalogue grows. The first
+  supplier in a category is expensive to review; the fiftieth is nearly
+  free. That is the catalogue paying for itself a second time.
+
+  PLUS A HARD LIST THAT SKIPS THE LADDER ENTIRELY. Some things are
+  never auto-approved regardless of how confidently they match:
+
+    PROHIBITED — may not be listed at all
+      agricultural pesticides and poisons, veterinary medicines,
+      prescription and OTC medicines (SAHPRA), tobacco and vapes,
+      alcohol (a liquor licence is a separate regime), firearms and
+      ammunition, counterfeit goods, anything requiring a cold chain we
+      cannot verify.
+
+    RESTRICTED — allowed only with a named permit on file
+      infant formula, raw/unpasteurised dairy, fresh meat and poultry,
+      prepared foods.
+
+  WHO DOES THE REVIEWING, EARLY ON. The developer, assisted by AI, with
+  a human decision required whenever the documents or the offer look
+  suspicious. That is the right shape, and one asymmetry makes it safe:
+
+  ─────────────────────────────────────────────────────────────────────
+  AN AI SAYING "THIS IS FINE" IS DANGEROUS.
+  AN AI SAYING "LOOK AT THIS" IS FREE.
+  ─────────────────────────────────────────────────────────────────────
+
+  So bias every automated step toward FLAGGING, never toward CLEARING.
+  Three things automation does well here:
+
+    TRIAGE      sort the queue so the riskiest item is first. Costs
+                nothing when wrong.
+    EXTRACTION  read a CIPC certificate and pull out the company number
+                so a person VERIFIES rather than transcribes. The
+                document is still seen.
+    FLAGGING    "this offer's name suggests a restricted category". A
+                false positive costs ten seconds; a false negative is
+                the terbufos case.
+
+  The auto-approve path is not AI at all -- AUTO_LINK means the ladder
+  resolved the offer to a product already vetted, deterministically.
+  That is the cheap majority, and it is rules.
+
+  AND THE ECONOMICS ARE THE OPPOSITE WAY ROUND FROM MATCHING, which is
+  why this is affordable when the matching AI tier is not:
+
+    verification   per SUPPLIER, once, a handful of documents
+    matching       per ROW, forever, thousands per file
+
+  Same model, same price per call, completely different bill. That is
+  the whole reason the matching AI tier sits behind a spend guard and
+  document assistance does not need to.
+
+  THE LIST IS NOT A KEYWORD FILTER. A keyword filter is trivially
+  evaded ("terbufos" spelled wrong) and constantly wrong ("baby powder"
+  is talc, not formula). The list decides what a REVIEWER looks at and
+  what a supplier ATTESTS to; matching decides what reaches a reviewer.
+  Automation narrows the queue; it does not make the decision.
+
+4.4 WHAT THE SUPPLIER SEES, AND WHAT WE OWE THEM
+
+  · Listing is never blocked. Build the whole catalogue.
+  · Offers are invisible until BOTH gates pass — identity verified AND
+    the offer approved.
+  · An offer held for review says so, with a plain reason and an
+    expected time. "Pending review" with no explanation and no date is
+    how a supplier concludes the platform is broken.
+  · A rejection names the policy it breached and can be appealed.
+  · Prohibited-category attempts are recorded. A supplier repeatedly
+    trying to list poisons is not a catalogue problem, it is an account
+    problem.
+
+  AND THE HONEST WARNING: this is the single biggest operational cost
+  in the whole plan. Every other item is code that runs itself. This
+  one needs a PERSON, at least until the catalogue is dense enough that
+  the CREATE_NEW rate collapses. Pretending otherwise is how platforms
+  end up with review queues nobody reads.
+
+4.5 THE ARCHITECTURE: NOT A WALL, A CURTAIN
+
+  The requirement is precise, and it is a better design than a hard
+  gate:
+
+    A supplier signs up, completes their profile, and lists their
+    entire catalogue WITHOUT verification. Nothing blocks them.
+
+    Their OFFERS ARE NOT VISIBLE to any business until verification is
+    complete.
+
+  Everything is buildable, nothing is sellable. The supplier does the
+  slow work (uploading a price file, setting terms) while the documents
+  are in process, and the day they are verified their shopfront simply
+  turns on — rather than facing an empty catalogue on day one of being
+  allowed to trade.
+
+  It is also honest in a way a hard gate is not: we never took their
+  time on the promise of business we were not going to deliver.
+
+  WHAT ALREADY EXISTS:
+    SupplierVerificationStatus  UNVERIFIED / PENDING / VERIFIED, a real
+                                column on SupplierProfile.
+    src/domains/verification/   scaffolded, empty — this is what it is
+                                for.
+    settings/supplier-visibility.tsx, storefront.tsx — the screens exist.
+
+  WHAT MUST BE BUILT:
+    · document upload and review (Cloudinary is already the media
+      provider; the review queue needs the control centre)
+    · the offer-visibility rule, enforced in the REPOSITORY layer, not
+      in each route. A visibility rule applied per-endpoint is a rule
+      that leaks the first time somebody adds an endpoint.
+    · the reminder ladder: in-app banner on every supplier screen, an
+      email template, and a dismissible-but-returning prompt, until the
+      condition is met.
+
+  ON THE REMINDER LADDER — it must be persistent and it must not be
+  cruel. The state to communicate is "your shop is ready and nobody can
+  see it yet", which is motivating. "You are not verified" is a scolding
+  and reads as rejection to someone who has just done an hour of work.
+
+4.6 THE TIMING, WHICH IS STILL GOOD
+
+  Through 2025–2026 foreign-owned spazas closed in the hundreds across
+  KwaZulu-Natal, Gauteng and the Western Cape, with new local owners
+  taking their place. Bread went from ~R16 to ~R30 in some communities
+  as inexperienced operators mispriced.
+                       — TechCabal, 30 July 2026
+
+  Meanwhile registration with local municipalities became compulsory for
+  food-handling outlets after the 2024 poisonings (deadline extended to
+  28 February 2025), and the Spaza Shop Fund additionally requires CIPC,
+  SARS and UIF registration.
+                       — SAnews; spazashopfund.co.za
+
+  So there is a cohort of new owners who have never run a shop, who owe
+  paperwork they have never filed, and who are pricing badly enough that
+  their customers noticed. That is a product specification for Discovery
+  (V2_05) and for the compliance tool in Account (V2_06) — offered as
+  HELP, never as a gate. It has an expiry date: this cohort learns the
+  trade with or without us over the next two years.
+
+
+===========================================================================
+PART 5 — WHAT EACH TAB IS FOR                                  [REVISED]
+===========================================================================
+
+Each tab gets one sentence; anything that does not fit belongs elsewhere.
+The first draft's Home lines said "where is my money" for both roles.
+That was wrong and is corrected here.
+
+BUSINESS ROLE
+
+  Home        What needs me today, and what should I be reordering.
+  Community   Buying: find suppliers, compare, order, and keep the
+              relationships I already have.
+  Discovery   Learning: how to run this trade better, and what is
+              available to me from outside TruConnect.
+  Account     The tools I run my business with — whether or not I ever
+              buy anything through TruConnect.
+  More        Me, my business, my settings.
+
+  WHY NOT "WHERE IS MY MONEY". We do not track this business's money and
+  we should not pretend to. There is no till integration, no bank feed,
+  no card machine. The only money-shaped number we hold is the Loan
+  Book total, and that is SELF-REPORTED — the shopkeeper may record
+  every credit sale or a third of them, and may well use the tool for
+  something we never imagined. Presenting it as "your money" would dress
+  a partial, user-maintained list as a financial position.
+
+  So Home is: what needs a decision today, where the open stock orders
+  are, and what the reorder algorithm thinks is due. The Loan Book total
+  may appear, labelled as what it is — what your book says you are owed.
+
+SUPPLIER ROLE
+
+  Home        What needs me today, and what did I sell.
+  Community   Selling: who buys from me, who could, and what they want
+              that I do not stock.
+  Discovery   Learning: trade conditions, opportunities, TruConnect news.
+  Account     The tools I run my supply business with — catalogue,
+              inventory, orders, integrations.
+  More        Me, my business, my settings.
+
+  SAME CORRECTION, DIFFERENT SHAPE. We hold no funds and settle nothing.
+  What we can state exactly is order activity: orders received, orders
+  awaiting delivery, deliveries due today, and the value of orders
+  placed — with digitally paid ones distinguished from cash ones,
+  because per Part 3.3 only the first are confirmed.
+
+  THE DELIVERY-DATE FLOW, which came out of the review and is a real
+  design requirement:
+
+    Payment method CASH        The supplier taps Approve, and a prompt
+                               immediately asks for the expected
+                               delivery date. There is no payment event
+                               to wait for, so the commitment is made at
+                               approval.
+
+    Payment method DIGITAL     Approval and payment are separate
+                               moments. The expected delivery date is
+                               captured AFTER payment is confirmed,
+                               because promising a date against money
+                               that has not arrived is how a supplier
+                               ends up apologising.
+
+  Both then fire automatic in-app messages to the business, and — see
+  V2_08 — a WhatsApp utility template, which is the channel this market
+  actually reads.
+
+THE TWO COMMUNITY LINES ARE DELIBERATELY NOT MIRRORS. The business
+shops; the supplier does not. V2_04 Part 3 is the design.
+
+
+===========================================================================
+PART 6 — THE PRINCIPLES THIS PLAN IS BOUND BY
+===========================================================================
+
+  1. ASSET-LIGHT, ALWAYS — but brokering is allowed. We never own
+     inventory or vehicles. We may ARRANGE a licensed partner's service
+     (delivery, VAS, credit) and take a margin. Owning it is what killed
+     the cohort in Part 2; arranging it is what the survivors did.
+
+  2. TOOLS STAND ALONE. Every tool works for someone who never places
+     an order. (Part 1.)
+
+  3. THE MERCHANT'S DATA IS THE MERCHANT'S. The Loan Book is their
+     customer list. We compute on it FOR them; we never show it to a
+     supplier and never sell it.
+
+  4. CASH IS RECORDED, DIGITAL IS PROVEN. Both are first-class. Only
+     the second can back a financing conversation, and we say so
+     plainly rather than manipulating anyone toward it. (Part 3.3.)
+
+  5. VERIFICATION GATES SUPPLIERS, NEVER BUSINESSES. (Part 4.)
+
+  6. NOTHING ASPIRATIONAL ON SCREEN. No star ratings, no delivery-time
+     estimates, no counts we cannot stand behind. Silence is the honest
+     answer.
+
+  7. THE CATALOGUE IS THE ENGINE. Price comparison, buy-again, demand
+     signals and category imagery are all possible only because two
+     suppliers' messy line items resolve to one catalogue product.
+
+  8. LOW DATA, WEAK SIGNAL, CHEAP PHONE. Successful apps here are
+     "deliberately light and work on weak connections, holding actions
+     on the device until signal returns."
+
+
+===========================================================================
+PART 7 — THE OPPORTUNITY LAYER                                 [REVISED]
+===========================================================================
+
+The first draft filed these under "not building". The review corrected
+that: they are opportunities with real revenue and real architecture, and
+three of them fit the existing model better than expected. They now have
+their own document — V2_08 — and are summarised here only.
+
+  VAS FLOAT (airtime, data, electricity, vouchers)
+    Not us becoming a vending provider. The insight from review is
+    better: the merchant who resells airtime has to BUY it somewhere,
+    and a VAS distributor is simply a supplier whose products are
+    digital. Commissions run 3–5% on airtime, 1.5–3% on electricity.
+    Fits the marketplace we already have.
+
+  DELIVERY BROKERAGE
+    A supplier with no vehicle currently sets offers_delivery=false and
+    loses every business that cannot collect. SA has courier APIs
+    (Bob Go, Droppa, Pargo, The Courier Guy) built for exactly this.
+    We arrange; they drive.
+
+  WHATSAPP AS THE COMMUNICATION LAYER
+    Not an ordering channel first — a NOTIFICATION channel. Order
+    confirmations and delivery dates as utility templates cost roughly
+    R0.14 per message. This reaches the 95–97% of informal trade already
+    on WhatsApp without asking anyone to change how they work.
+
+  STOKVEL / GROUP BUYING
+    ~800,000 groups, ~11 million members. And the research found the
+    model that avoids our biggest objection: some stokvels "save
+    directly with the wholesaler, who then records the contributions and
+    makes stock available for collection." The supplier holds the money,
+    not us.
+
+  DEFERRED PROPERLY: lending on our own balance sheet (no capital, no
+  licence, and a conflict of interest); reviews and ratings (rejected
+  outright — nothing here can be gamed the way a review score invites).
+
+
+===========================================================================
+SOURCES
+===========================================================================
+
+  BFA Global — Digital Spazas; Yebo Fresh and Vuleka; credit in the
+    informal economy
+    https://bfaglobal.com/our-work/digital-spazas-digitizing-and-connecting-informal-spaza-shops-in-south-africas-townships/
+  Rest of World — "Once darlings of investors, Africa's B2B e-commerce
+    startups are struggling to survive" (2023)
+    https://restofworld.org/2023/africa-b2b-ecommerce-shutdowns-layoffs/
+  Ventureburn / Kazang — spaza scale, VAS, card acceptance (2025)
+    https://ventureburn.com/2025/04/kazang-brings-card-payments-to-spaza-shops-driving-fintech-fuelled-financial-inclusion/
+  SAnews — Guide to register spaza shops
+    https://www.sanews.gov.za/features-south-africa/guide-register-spaza-shops
+  Spaza Shop Fund — eligibility criteria
+    https://www.spazashopfund.co.za/eligibility-criteria/
+  TechCabal — "As foreigners leave, South Africa's spaza shops face a
+    tech test" (30 July 2026)
+    https://techcabal.com/2026/07/30/south-africa-spaza-shops/
+  African Marketing Confederation — B2B platforms and informal retail
+    https://africanmarketingconfederation.org/proliferation-of-b2b-platforms-will-boost-informal-retail-in-africa/
+  Ipsos (2024) via Supermarket.co.za — stokvel scale
+    https://supermarket.co.za/index.php/feature-articles/7725-the-power-of-stokvels-the-rise-of-stokvels-from-informal-savings-to-a-powerful-consumer-base
+
+===========================================================================
+END
+===========================================================================

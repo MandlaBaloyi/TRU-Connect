@@ -1,0 +1,371 @@
+===========================================================================
+V2_05 — HOME, AND THE DISCOVERY INGESTION ENGINE
+===========================================================================
+
+Depends on V2_03. Two tabs that look unrelated and are not: Home answers
+"what needs me today", Discovery answers "what should I know". Both are
+ranked, per-user, per-role feeds, and both should be built on the same
+ranking seam rather than two.
+
+
+===========================================================================
+PART 1 — HOME
+===========================================================================
+
+1.1 THE STANDING INSTRUCTION, AND WHY IT WAS RIGHT
+
+  business/(tabs)/home.tsx currently says:
+
+      "Home — intentionally empty for now. Do NOT force features in here
+       just because there is available space; Home becomes the daily
+       business overview once enough business activity exists to make it
+       useful, not before."
+
+  That was correct and it is now satisfied. There IS activity: orders,
+  connections, a loan book, an order book, a catalogue. Home can be
+  filled without inventing anything.
+
+1.2 THE SPECIFICATION WAS WRITTEN BY SOMEBODY ELSE
+
+  From V2_03 Part 3, the line about what brings a shopkeeper back:
+
+      their own prices · what they qualify for · what they owe ·
+      where the last order is
+
+  That is Home. Not a dashboard of charts — four questions, answered.
+
+1.3 BUSINESS HOME
+
+  Cards appear ONLY when they have something to say. A zero card is
+  worse than no card — the rule the supplier Home already follows
+  ("the card only renders when there's something real to show").
+
+  1  NEEDS YOU TODAY
+     Orders awaiting payment or confirmation, connection requests,
+     anything blocking a delivery. One line each, tap straight through.
+     This card is the reason to open the app on a day you are not
+     buying.
+
+  2  YOUR BOOK SAYS                          [REVISED — NOT "your money"]
+     ONE number, from Loan Book: what this business's own book says it
+     is owed by its customers.
+
+     THE LABEL IS THE WHOLE POINT. We do not track this business's
+     money — no till, no bank feed, no card machine. Loan Book is
+     SELF-REPORTED: they may record every credit sale, or a third of
+     them, and they may well use the tool for something we never
+     imagined. Calling a partial, hand-kept list "your money" dresses
+     it as a financial position it is not, and the first time it
+     disagrees with the cash in the drawer the merchant stops trusting
+     everything else on this screen.
+
+     "Your book says R1,240 owed" is true. "You have R1,240" is not.
+
+  3  WHERE MY ORDER IS
+     Open stock orders with their real status. "Where is the last
+     order" from the research, verbatim. These are PLATFORM-OBSERVED,
+     so unlike card 2 we can state them flatly.
+
+  4  TIME TO REORDER
+     From the reorder-gap computation in V2_04. "You usually order from
+     Sipho about now." One tap to a pre-filled basket of last order's
+     lines — the single highest-leverage button in the app.
+
+  5  PRICE CHANGED ON WHAT YOU BUY
+     The catalogue rail, condensed to a line. Links into Community.
+
+  A NEW USER SEES ALMOST NOTHING, and that is correct. Home earns its
+  content. What a brand-new business sees instead is one card: finish
+  your profile, find your first supplier.
+
+1.4 SUPPLIER HOME
+
+  Same shape, their questions.
+
+  1  NEEDS YOU TODAY
+     Orders to accept or decline, connection requests, deliveries due.
+     Already partly built (customer requests card).
+     SEE FULFILMENT MODE BELOW — a wholesaler on auto-accept sees none
+     of the accept/decline items, and that is the point.
+
+  2  WHAT I SOLD                             [REVISED — NOT "your money"]
+     We hold no funds and settle nothing, so this is ORDER ACTIVITY,
+     not a balance:
+
+       orders received
+       orders awaiting delivery
+       deliveries due today
+       value of orders placed — with DIGITALLY PAID shown separately
+       from cash, because per V2_03 Part 3.3 only the first are
+       confirmed. Cash is recorded; digital is proven.
+
+  3  CUSTOMERS GOING QUIET
+     From the reorder-due computation. Their own customers.
+
+  4  SHOPFRONT HEALTH
+     Offers with no price, unmatched import lines, shopfront closed,
+     minimum order unset. The specific things stopping them selling.
+
+1.5 FULFILMENT MODE — THE SETTING THAT REPLACES A DELETION
+
+  A small supplier accepts and declines each order by hand. A wholesaler
+  with an ERP does not, and asking them to is how the platform proves it
+  does not understand their business.
+
+  This is a SUPPLIER SETTING, not a feature removal:
+
+      MANUAL      every order and connection needs a decision.
+                  Today's behaviour. Default.
+
+      AUTO        orders are accepted on placement and pushed to the
+                  integration; connections auto-approve.
+                  Requires: an API key with orders:write, a set minimum
+                  order, and priced offers.
+
+  It lands on SupplierProfile as a column and changes what Home shows,
+  what notifications fire, and whether requires_connection is even
+  offered. Everything downstream already exists — the API keys and
+  orders:write scope shipped in step 7.
+
+  ONE HONEST WARNING: auto-accept without stock awareness produces
+  accepted orders a supplier cannot fill, which is worse than a slow
+  decline. AUTO should require inventory tracking to be on, or an
+  explicit "I always have stock" acknowledgement.
+
+1.6 WHEN THE EXPECTED DELIVERY DATE IS ASKED FOR        [FROM REVIEW]
+
+  The payment method decides the moment, and the difference is not
+  cosmetic.
+
+    CASH        The supplier taps Approve and is IMMEDIATELY prompted
+                for the expected delivery date. There is no payment
+                event to wait for, so approval is the commitment.
+
+    DIGITAL     Approval and payment are separate moments. The date is
+                captured AFTER payment is confirmed — because promising
+                a date against money that has not arrived is how a
+                supplier ends up apologising for something that was
+                never their fault.
+
+  In both cases the date, once given, fires an automatic in-app message
+  to the business, and a WhatsApp utility template (V2_08 Part 3) at
+  roughly R0.15 a message — which is the channel this market actually
+  reads.
+
+  WHY THIS BELONGS IN A HOME DOCUMENT: "deliveries due today" on the
+  supplier's Home and "where is my order" on the business's Home are
+  both empty unless this date exists. The prompt is what makes two
+  cards on two different screens true.
+
+
+===========================================================================
+PART 2 — DISCOVERY: WHAT IT IS
+===========================================================================
+
+Community is relationships. Discovery is knowledge. The existing shell
+already says so and already has the right tabs: ALL, LEARN, UPDATES,
+OPPORTUNITIES.
+
+The brief: news, YouTube video from creators, advice, opportunities,
+TruConnect announcements, and later marketing or advertising. Different
+per user and per role. An INGESTION ENGINE.
+
+2.1 WHY THIS IS WORTH BUILDING NOW RATHER THAN LATER
+
+  From V2_03 Part 4: hundreds of spaza shops changed hands through
+  2025–2026, and the new owners have never run a shop. Bread went from
+  ~R16 to ~R30 in some communities because people did not know how to
+  price. Simultaneously, every one of them is legally required to
+  register with their municipality, and the Spaza Shop Fund requires
+  CIPC, SARS and UIF registration on top.
+
+  There is a cohort of people right now who need to be taught the trade
+  and told what paperwork they owe. That is Discovery's entire reason to
+  exist, and the window is a year or two wide.
+
+2.2 CONTENT SOURCES, IN ORDER OF HOW REAL THEY ARE TODAY
+
+  TRUCONNECT ANNOUNCEMENTS      us. Always available. No dependency.
+  OPPORTUNITIES                 Spaza Shop Fund, SEDA, SEFA, municipal
+                                registration drives, supplier promos.
+                                Human-curated. Small volume, high value.
+  LEARN                         YouTube, from channels we choose.
+  SUPPLIER PROMOS               a supplier's own announcement to
+                                connected businesses. Cheap; uses the
+                                notification infrastructure that exists.
+  NEWS                          deliberately last. Feeds are easy to
+                                ingest and hard to keep relevant, and a
+                                stale news tab is a dead tab.
+
+
+===========================================================================
+PART 3 — THE YOUTUBE CONSTRAINTS, WHICH DECIDE THE ARCHITECTURE
+===========================================================================
+
+Researched rather than assumed, because both of these would have been
+discovered late and painfully.
+
+  QUOTA. The YouTube Data API v3 gives 10,000 units per project per day.
+  search.list costs 100 units per call. That is ONE HUNDRED SEARCHES A
+  DAY, total, for the whole platform.
+
+  → It is therefore IMPOSSIBLE to call YouTube per user, or per feed
+    load, or per refresh. At a thousand users the quota is gone before
+    breakfast. Any design where the app or the request path talks to
+    YouTube is dead on arrival.
+
+  PLAYER POLICY. The embeddable player may not be modified, wrapped so
+  as to block its functionality, or stripped of its links back to
+  YouTube. Access to a video may not be gated behind any action other
+  than pressing play, and users may not be charged to watch.
+
+  → We may not screenshot thumbnails into our own carousel and play
+    inline in a custom surface, and we may not put a video behind a
+    "complete your profile" wall. We embed the official player.
+
+3.1 WHAT THOSE TWO FACTS FORCE
+
+  ─────────────────────────────────────────────────────────────────────
+  Ingestion is a SCHEDULED SERVER JOB writing into OUR OWN table.
+  Ranking happens over OUR rows. The app never sees YouTube's API.
+  ─────────────────────────────────────────────────────────────────────
+
+  A nightly job pulls from a curated channel list (playlistItems.list
+  costs 1 unit per call, not 100 — pulling a channel's uploads playlist
+  is roughly a hundred times cheaper than searching, and channel-based
+  ingestion is what we want anyway). Rows are stored with video id,
+  title, channel, duration, published date, thumbnail URL and our own
+  topic tags. The feed ranks those rows per user. Playback uses the
+  official embed.
+
+  This also gives editorial control, which searching would not: we
+  choose the channels, so a business owner is never shown something
+  irrelevant or unsuitable because a search matched.
+
+3.2 THE CURATION PROBLEM, STATED HONESTLY
+
+  Ingestion is the easy half. The hard half is that most YouTube content
+  about "retail business" is American, generic, and useless to someone
+  running a shop in Tembisa. A LEARN tab full of Harvard Business Review
+  clips is a dead tab.
+
+  Proposal: start with a HAND-PICKED CHANNEL LIST, small — ten to twenty
+  South African small-business, township-economy and FMCG channels —
+  and a human approval step before anything appears. Curation is a
+  feature here, not overhead. Automate the pulling, never the choosing.
+
+
+===========================================================================
+PART 4 — THE INGESTION ENGINE
+===========================================================================
+
+4.1 SHAPE
+
+  One domain: src/domains/platform/discovery/
+
+    models/           content_item, content_source, content_impression
+    services/         ingestion_service, ranking_service, curation_service
+    providers/        youtube_provider, rss_provider (later)
+    schedulers/       discovery_scheduler.py  → JOB_SPECS
+    api/              discovery_routes.py
+
+  PROVIDERS BEHIND AN ABSTRACTION, exactly as media, payment, geocoding
+  and AI already are. ContentProvider with fetch() → list[ContentItem].
+  YouTube is one implementation; RSS and a manual editor are others.
+  Nothing outside providers/ imports the YouTube client. Add the
+  boundary test with the domain, as with the feed service.
+
+  THE SCHEDULER IS ALREADY BUILT. src/master_scheduler owns the single
+  APScheduler instance and defines no jobs; a domain adds a JobSpec to
+  its own schedulers/ file and registers the list in registry.py. This
+  is exactly what that design was for.
+
+4.2 THE CONTENT ITEM
+
+  One table, all sources.
+
+    id, source_id, external_id, kind (VIDEO | ARTICLE | ANNOUNCEMENT |
+    OPPORTUNITY | PROMO), title, summary, thumbnail_url, url,
+    published_at, duration_seconds, language, topics[], audience_roles[],
+    regions[], status (PENDING | APPROVED | REJECTED | EXPIRED),
+    approved_by, approved_at, expires_at
+
+  NOTE audience_roles AND expires_at. An opportunity with a closing date
+  must disappear on its own — a funding round that closed in March,
+  still on screen in July, tells a user this app is abandoned. And
+  status defaults to PENDING, which is the human approval step from 3.2
+  made structural rather than procedural.
+
+4.3 RANKING
+
+  Deliberately simple, and deliberately transparent.
+
+    role match          supplier content to suppliers, business to
+                        businesses. Hard filter, not a weight.
+    region match        province, then national.
+    recency             decay over ~30 days.
+    topic affinity      from what they have opened before.
+    pinned              announcements we need everyone to see.
+
+  NO ENGAGEMENT-MAXIMISING RANKING, EVER. The existing Discovery
+  docstring already says the right thing: "curated, not an infinite
+  feed — the business owner should find something useful and leave." A
+  shopkeeper's attention is their working day. Optimising for time in
+  app would be extracting value from the exact people this platform
+  exists to help, and it would be the first genuinely dishonest thing in
+  this product.
+
+4.4 COST
+
+  Zero, at this scale. YouTube Data API has no per-call charge, only the
+  quota — and channel-based ingestion of twenty channels once a day is
+  a few hundred units against ten thousand. No AI is required for
+  ranking. If topic tagging ever wants a model, it goes through
+  shared/ai with the spend guard that already exists.
+
+
+===========================================================================
+PART 5 — WHAT DISCOVERY MUST NOT BECOME
+===========================================================================
+
+  NOT A SOCIAL FEED. No posting, no comments, no likes. Moderation of
+  user content in this market is a full-time function we do not have,
+  and the first scam posted to a spaza owners' feed would cost more
+  trust than the feature could ever earn.
+
+  NOT INFINITE. A finite, dated, expiring list. If there are four
+  useful things this week, show four.
+
+  NOT WHERE ADVERTISING HIDES. When advertising arrives it is labelled,
+  in the same way SPONSORED_SUPPLIER is already labelled in the
+  Community contract, with a server-supplied label so disclosure wording
+  can follow whatever the rules require.
+
+
+===========================================================================
+PART 6 — OPEN QUESTIONS FOR REVIEW
+===========================================================================
+
+  1  WHO APPROVES CONTENT? The status column implies a reviewer, and
+     there is no admin control centre yet. MVP answer: a management
+     command plus a seeded list, with the web control centre taking it
+     over later. It must not be "whoever has database access".
+
+  2  LANGUAGE. isiZulu, isiXhosa, Sesotho, Afrikaans, English. The
+     settings screens already contemplate language. Does Discovery
+     filter by the user's language from day one, or ship English-first
+     and add filtering later? Recommendation: store the field now, filter
+     later — retrofitting the column is the expensive half.
+
+  3  DATA COST. Video thumbnails on a metered connection are a real cost
+     to the user, and settings/mobile-data.tsx and data-usage.tsx already
+     exist. Recommendation: Discovery respects the existing data-saver
+     setting and does not autoplay anything, ever.
+
+  4  IS "NEWS" WORTH IT AT ALL? Recommendation: no, not for MVP. Four
+     curated videos and two real opportunities beat a news river nobody
+     maintains.
+
+===========================================================================
+END
+===========================================================================
