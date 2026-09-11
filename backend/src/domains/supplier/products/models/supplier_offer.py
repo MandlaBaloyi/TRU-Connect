@@ -181,5 +181,26 @@ class SupplierOffer(BaseModel):
     # product_code is NEVER typed by anyone, always
     # algorithms/product_code_generator.py's own output, and is never
     # editable once set.
+    #: A HASH OF WHAT MATCHING LAST SAW -- name, barcode, brand and pack.
+    #: Not the match result; the INPUTS that produced it.
+    #:
+    #: WHY THIS EXISTS. A real supplier sends a price file every week and
+    #: only the prices move. Without this, every unchanged row is matched
+    #: again from scratch: a trigram search, an alias lookup, a review
+    #: row written, roughly four database round trips each, for an answer
+    #: that cannot have changed. On a 10,000-line weekly file that is
+    #: tens of thousands of round trips to re-derive last week's result.
+    #:
+    #: WHY A HASH RATHER THAN COMPARING FIELDS. Two of the four inputs --
+    #: barcode and brand -- are NOT COLUMNS ON THIS TABLE. They arrive
+    #: with the import row, are used for matching, and are not stored, so
+    #: "did the barcode change" is unanswerable by comparison. A hash of
+    #: everything matching was given answers it exactly, and keeps
+    #: answering it when a fifth input is added.
+    #:
+    #: NULLABLE, and null means "never matched, or matched before this
+    #: existed" -- both of which correctly mean "match it again".
+    match_fingerprint = db.Column(db.String(64), nullable=True)
+
     sku = db.Column(db.String(50), nullable=False)
     product_code = db.Column(db.String(20), nullable=False)

@@ -246,3 +246,81 @@ def test_matching_can_be_switched_off_without_breaking_imports(
     assert job.created_rows == 2
     assert job.error_rows == 0
     assert Product.query.count() == 0, "no catalogue rows were created"
+
+
+# --- the recurring price file ----------------------------------------------
+
+
+def test_reimporting_an_unchanged_file_does_no_matching_work(
+    make_supplier, make_supplier_profile
+):
+    """THE NORMAL CASE, NOT AN EDGE ONE. A real supplier sends a price
+    file every week and only the prices move. Re-deriving last week's
+    match for every unchanged row is roughly four database round trips
+    each to reach an answer that cannot have changed.
+
+    Asserted by counting the SQL that actually runs, because "it feels
+    faster" is not a test."""
+    from sqlalchemy import event
+    from src.extensions import db
+
+    profile = make_supplier_profile(make_supplier())
+    _run(profile.id, "week1.csv", WITH_BARCODES)
+
+    offers = SupplierOfferRepository.list_for_supplier(profile.id)
+    assert all(o.product_id is not None for o in offers), "week 1 matched"
+    assert all(o.match_fingerprint for o in offers), "and stamped what it saw"
+
+    catalogue_reads = {"n": 0}
+
+    def _count(conn, cursor, statement, params, context, executemany):
+        if "catalogue." in statement:
+            catalogue_reads["n"] += 1
+
+    event.listen(db.engine, "before_cursor_execute", _count)
+    try:
+        # Same identities, different prices -- exactly what week 2 is.
+        week2 = WITH_BARCODES.replace(b"22.00", b"23.50").replace(b"34.99", b"36.00")
+        job = _run(profile.id, "week2.csv", week2)
+    finally:
+        event.remove(db.engine, "before_cursor_execute", _count)
+
+    assert job.updated_rows == 2, "the prices did update"
+    assert catalogue_reads["n"] == 0, (
+        f"matching should not have touched the catalogue at all, did {catalogue_reads['n']} times"
+    )
+
+    # And the links survived.
+    offers = SupplierOfferRepository.list_for_supplier(profile.id)
+    assert all(o.product_id is not None for o in offers)
+    assert {o.price_cents for o in offers} == {2350, 3600}
+
+
+def test_a_changed_barcode_is_rematched_even_though_the_name_is_the_same(
+    make_supplier, make_supplier_profile
+):
+    """THE CASE THAT MAKES THE FINGERPRINT NECESSARY RATHER THAN NICE.
+
+    SupplierOffer stores no barcode column, so "did the barcode change"
+    cannot be answered by comparing fields. A supplier CORRECTING a
+    barcode while leaving the name alone must still be re-matched --
+    skipping that would mean their fix silently never took effect."""
+    profile = make_supplier_profile(make_supplier())
+    first = (
+        b"name,category,price,unit,sku,barcode\n"
+        b"Coca-Cola Original 2L,Beverages,22.00,Each,CC2L,6001087001236\n"
+    )
+    _run(profile.id, "week1.csv", first)
+
+    before = SupplierOfferRepository.list_for_supplier(profile.id)[0]
+    fingerprint_before = before.match_fingerprint
+    assert fingerprint_before
+
+    corrected = (
+        b"name,category,price,unit,sku,barcode\n"
+        b"Coca-Cola Original 2L,Beverages,22.00,Each,CC2L,5449000054227\n"
+    )
+    _run(profile.id, "week2.csv", corrected)
+
+    after = SupplierOfferRepository.list_for_supplier(profile.id)[0]
+    assert after.match_fingerprint != fingerprint_before, "the change was noticed"

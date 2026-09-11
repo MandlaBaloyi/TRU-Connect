@@ -70,6 +70,17 @@ class MatchDecision(str, enum.Enum):
     #: not share a representation.
     SKIPPED = "SKIPPED"
 
+    #: ALREADY MATCHED, AND NOTHING THAT AFFECTS THE MATCH HAS CHANGED.
+    #:
+    #: Its own value rather than reusing SKIPPED, for exactly the reason
+    #: SKIPPED itself had to be added: two different states sharing one
+    #: representation is how the kill switch quietly filled the catalogue.
+    #: "Matching is switched off" and "this row was matched last week and
+    #: has not changed since" are opposite situations -- one means the
+    #: offer has no product, the other means it already has the right
+    #: one.
+    UNCHANGED = "UNCHANGED"
+
 
 #: Inherent confidence of the free tiers, before any per-candidate
 #: scoring. Tier 3 does NOT appear here -- its confidence is computed

@@ -23,6 +23,7 @@ confidence is a normal outcome rather than a failure.
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Optional
 
@@ -48,6 +49,37 @@ from src.domains.catalogue.products.repositories.brand_repository import BrandRe
 from src.domains.catalogue.products.repositories.product_repository import (
     CatalogueProductRepository,
 )
+
+
+def match_fingerprint(
+    *,
+    name: str,
+    barcode: Optional[str],
+    brand: Optional[str],
+    unit_quantity: Optional[int],
+    unit_measure: Optional[ProductUnit],
+) -> str:
+    """A stable hash of everything matching is given.
+
+    THE INPUTS, NOT THE ANSWER. If these are identical to last time, the
+    answer is identical to last time, and re-deriving it is pure waste.
+
+    NORMALISED BEFORE HASHING, so that "Coke 2L" and " coke  2l " -- the
+    same product typed with different whitespace or case -- do not look
+    like a change and trigger a pointless re-match.
+
+    SHA-256 over a delimited string, and the delimiter matters: without
+    it, ("ab", "c") and ("a", "bc") hash the same, so a brand ending in
+    a character the name began with could hide a real change.
+    """
+    parts = [
+        normalise.normalise_text(name or ""),
+        (barcode or "").strip(),
+        normalise.brand_slug(brand) if brand else "",
+        str(unit_quantity) if unit_quantity is not None else "",
+        unit_measure.value if unit_measure else "",
+    ]
+    return hashlib.sha256("".join(parts).encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -88,6 +120,28 @@ def match_and_link(
     if not matching_config.is_matching_enabled():
         return MatchOutcome(MatchDecision.SKIPPED, MatchTier.RULES, 0.0, None)
 
+    # ALREADY MATCHED, NOTHING RELEVANT CHANGED -- do no work at all.
+    #
+    # This is the recurring-price-file case, which is the NORMAL case
+    # rather than an optimisation for an edge one: the one-time import is
+    # the exception, the weekly update IS the relationship. Prices and
+    # stock move every week; names, barcodes, brands and pack sizes
+    # almost never do.
+    #
+    # The offer keeps the product it already has. Nothing is re-proposed,
+    # no review row is written, no trigram search runs.
+    fingerprint = match_fingerprint(
+        name=name,
+        barcode=barcode,
+        brand=brand,
+        unit_quantity=unit_quantity,
+        unit_measure=unit_measure,
+    )
+    if supplier_offer.product_id and supplier_offer.match_fingerprint == fingerprint:
+        return MatchOutcome(
+            MatchDecision.UNCHANGED, MatchTier.RULES, 0.0, supplier_offer.product_id
+        )
+
     pack = PackSize(
         unit_quantity=unit_quantity,
         unit_measure=unit_measure.value if unit_measure else None,
@@ -99,7 +153,7 @@ def match_and_link(
     decision = proposal.decision
 
     if decision is MatchDecision.AUTO_LINK and proposal.product_id:
-        return _apply_link(supplier_offer, proposal, name, barcode)
+        return _apply_link(supplier_offer, proposal, name, barcode, fingerprint)
 
     if decision is MatchDecision.REVIEW:
         MatchReviewRepository.record(
@@ -118,12 +172,20 @@ def match_and_link(
         return MatchOutcome(decision, proposal.tier, proposal.confidence, None)
 
     return _create_and_link(
-        supplier_offer, proposal, name, category, brand, unit_quantity, unit_measure, barcode
+        supplier_offer, proposal, name, category, brand, unit_quantity, unit_measure,
+        barcode, fingerprint,
     )
 
 
-def _apply_link(supplier_offer, proposal: MatchProposal, name: str, barcode: Optional[str]) -> MatchOutcome:
+def _apply_link(
+    supplier_offer, proposal: MatchProposal, name: str, barcode: Optional[str], fingerprint: str
+) -> MatchOutcome:
     supplier_offer.product_id = proposal.product_id
+    # STAMPED ONLY WHEN A PRODUCT IS ACTUALLY ATTACHED. A row that went
+    # to review has no product yet, so it must be re-proposed next
+    # import -- stamping it would mean a pending review silently became
+    # permanent inaction.
+    supplier_offer.match_fingerprint = fingerprint
 
     MatchReviewRepository.record(
         supplier_offer_id=supplier_offer.id,
@@ -161,6 +223,7 @@ def _create_and_link(
     unit_quantity: Optional[int],
     unit_measure: Optional[ProductUnit],
     barcode: Optional[str],
+    fingerprint: str,
 ) -> MatchOutcome:
     """Nothing plausible existed, so this product joins the catalogue.
 
@@ -209,6 +272,7 @@ def _create_and_link(
     )
 
     supplier_offer.product_id = product.id
+    supplier_offer.match_fingerprint = fingerprint
 
     MatchReviewRepository.record(
         supplier_offer_id=supplier_offer.id,
