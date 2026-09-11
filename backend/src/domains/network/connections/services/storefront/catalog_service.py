@@ -58,7 +58,7 @@ def get_supplier_product_categories(supplier_profile_id: str | UUID) -> List[str
     page)."""
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
@@ -116,7 +116,7 @@ def list_supplier_products(
         except ValueError:
             raise InvalidCatalogQueryError("Invalid category value.")
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
@@ -176,7 +176,7 @@ def list_related_products(business_id: str | UUID, supplier_profile_id: str | UU
     """
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
@@ -217,7 +217,7 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
     from src.domains.supplier.products.services import product_media_service
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
@@ -306,7 +306,7 @@ def list_buy_it_again(business_id: str | UUID, supplier_profile_id: str | UUID) 
     from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 

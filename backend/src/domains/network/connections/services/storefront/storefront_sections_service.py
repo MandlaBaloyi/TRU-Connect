@@ -95,7 +95,7 @@ def get_storefront(business_id: str | UUID, supplier_profile_id: str | UUID) -> 
     business_id is accepted (currently unused) for signature symmetry
     with every other business-facing read in this package.
     """
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 

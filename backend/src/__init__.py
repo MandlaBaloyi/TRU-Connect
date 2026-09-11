@@ -171,6 +171,9 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.network.geocoding.api.geocoding_routes import geocoding_bp
     app.register_blueprint(geocoding_bp)
 
+    from src.domains.verification.api.verification_routes import verification_bp
+    app.register_blueprint(verification_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """

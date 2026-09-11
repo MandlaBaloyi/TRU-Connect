@@ -158,7 +158,7 @@ def add_item(business_id: str | UUID, supplier_profile_id: str | UUID, product_i
     if quantity < 1:
         raise InvalidQuantityError("Quantity must be at least 1.")
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
@@ -178,7 +178,7 @@ def update_item_quantity(
     if quantity < 1:
         raise InvalidQuantityError("Quantity must be at least 1. Use remove instead to take an item out entirely.")
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 

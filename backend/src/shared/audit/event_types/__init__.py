@@ -12,5 +12,12 @@ from src.shared.audit.event_types.auth import AuthAuditEvent
 from src.shared.audit.event_types.network import NetworkAuditEvent
 from src.shared.audit.event_types.platform import PlatformAuditEvent
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
+from src.shared.audit.event_types.verification import VerificationAuditEvent
 
-__all__ = ["AuthAuditEvent", "NetworkAuditEvent", "PlatformAuditEvent", "SupplierAuditEvent"]
+__all__ = [
+    "AuthAuditEvent",
+    "NetworkAuditEvent",
+    "PlatformAuditEvent",
+    "SupplierAuditEvent",
+    "VerificationAuditEvent",
+]

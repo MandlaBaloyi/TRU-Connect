@@ -451,7 +451,7 @@ def submit_checkout(
             f"'{payment_method}' isn't available yet. Available now: {[m.value for m in _AVAILABLE_PAYMENT_METHODS]}."
         )
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 

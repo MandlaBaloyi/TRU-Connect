@@ -118,7 +118,7 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
     from src.domains.auth.models.user import User
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 

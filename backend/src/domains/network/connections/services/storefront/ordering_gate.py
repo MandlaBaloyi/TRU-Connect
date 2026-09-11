@@ -71,7 +71,7 @@ def connection_requirement_met(business_id: str | UUID, supplier) -> bool:
 def can_place_order(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
     from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         # This lookup is new. The gate previously imported
         # SupplierProfileRepository without ever calling it, so a request

@@ -1,0 +1,566 @@
+===========================================================================
+V2_12 — SUPPLIER VERIFICATION: IDENTITY, DOCUMENTS, AND CUSTODY
+===========================================================================
+
+Written 2026-09-11. A PLAN, not an implementation. Nothing in here is
+built; src/domains/verification/ and src/domains/trust/ are still empty
+scaffolding — seven __init__.py files and no code.
+
+WHAT THIS INHERITS, and does not re-argue:
+
+  V2_03 Part 4   decided the STRATEGY. Verification is a supplier
+                 problem, not a business one. It is TWO gates —
+                 identity and catalogue. The architecture is a CURTAIN,
+                 not a wall: a supplier builds everything and sells
+                 nothing until verified. Read that first; this document
+                 assumes it.
+
+  V2_11          decided the CATALOGUE gate. The matching ladder is
+                 already a risk classifier: AUTO_LINK is low risk,
+                 CREATE_NEW is the content-review queue. That gate is
+                 partly built (MatchReview, flask catalogue reviews).
+
+  This document  is the IDENTITY gate, and specifically the part V2_03
+                 waved at in one line: "document upload and review
+                 (Cloudinary is already the media provider)". That line
+                 hides the single most sensitive thing this platform
+                 will ever hold, and it needs its own design.
+
+THE ONE-SENTENCE VERSION. We will hold South African ID documents and
+company registration certificates belonging to real people, and the
+plan has to be good enough that a leak is survivable — which mostly
+means holding as little as possible, for as short a time as possible,
+behind a door that is shut by default.
+
+
+===========================================================================
+PART 1 — HOW LARGE PLATFORMS ACTUALLY DO THIS
+===========================================================================
+
+1.1 THE INDUSTRY NAME FOR IT
+
+  Customer-facing identity checks are KYC (Know Your Customer). The
+  seller-side equivalent is KYB — Know Your BUSINESS — and a marketplace
+  onboarding a merchant runs both: KYB on the entity, KYC on the humans
+  behind it.
+
+  A single KYB session in commercial tooling covers: registry lookup,
+  UBO identification, owner KYC, entity AML screening, and document
+  checks. The documents most commonly demanded are certificate of
+  incorporation, business licence, bank statements, utility bills, and
+  proof of identity for the owners.
+                       — Didit; Stripe; Resistant.ai; Identomat
+
+  UBO — Ultimate Beneficial Owner — means the actual humans who own or
+  control the entity, conventionally anyone holding 25% or more.
+
+1.2 THE PATTERN WORTH COPYING: RISK-BASED TIERING
+
+  The most useful finding in the research is that mature platforms do
+  NOT verify everyone to the same depth.
+
+  ─────────────────────────────────────────────────────────────────────
+  Requirements scale with EXPOSURE — transaction volume, transaction
+  value, category risk — not with a single rule applied to everybody.
+  ─────────────────────────────────────────────────────────────────────
+                       — Didit, "Marketplace KYB"; Stripe onboarding guide
+
+  This matters enormously for TruConnect, because our supplier
+  population is not uniform. A registered wholesaler moving R2m a month
+  and a one-person bakery supplying four spazas are both "suppliers",
+  and demanding a tax clearance certificate from the second is how you
+  lose them on day one. V2_03's own thesis — the student selling perfume
+  is a real TruConnect business — applies on the supply side too.
+
+1.3 WHAT TAKEALOT ASKS, AS THE LOCAL BENCHMARK
+
+  Worth knowing precisely, because it is the bar South African sellers
+  have already met elsewhere and will compare us to:
+
+    CIPC registration document, tax clearance, bank confirmation
+    letter, proof of address (all less than 3 months old), plus a valid
+    SA ID or passport for the individual and for each director.
+    Application takes 2–5 business days.
+                       — SME South Africa; VerifyNow; Takealot seller guides
+
+  AND THE DETAIL THAT MATTERS MOST: a business does NOT need to be
+  CIPC-registered to sell on Takealot. VAT registration is recommended
+  but only becomes mandatory above R1m turnover — which is SARS law,
+  not Takealot policy.
+
+  So even the strictest local marketplace does not require company
+  registration. That is a deliberate commercial choice, and we should
+  make the same one for the same reason: requiring it would exclude
+  most of the informal supply chain this platform exists to serve.
+
+1.4 REGISTRY LOOKUP IS CHEAP AND WE SHOULD USE IT
+
+  CIPC — the Companies and Intellectual Property Commission — is the
+  registrar for every South African company, and its data is reachable
+  by API through several commercial providers (Didit, Datanamix,
+  Standard Bank SearchWorks, and scraper services).
+                       — CIPC / Wikipedia; Didit; Datanamix; Standard Bank
+
+  A registration-number lookup returns company name, status, directors
+  and registered address. That single call does something a human
+  reading a PDF cannot: it checks the certificate against the REGISTRY
+  rather than against itself. A forged certificate looks perfect; a
+  forged certificate whose number belongs to a deregistered plumbing
+  company does not.
+
+  DEFERRED, NOT SKIPPED. This is a paid third-party dependency and a
+  GeocodingProvider-shaped abstraction (V2_08's third-party layer). It
+  is Phase 3 below. But the DATA MODEL should record where a fact came
+  from — supplier-asserted vs registry-confirmed — from day one, or
+  retrofitting provenance later means re-reviewing every supplier.
+
+
+===========================================================================
+PART 2 — WHAT WE ARE ACTUALLY VERIFYING
+===========================================================================
+
+Verification is not one question. Naming the questions separately is
+what stops the design collapsing into "collect documents, feel safe".
+
+  Q1  DOES THIS BUSINESS EXIST?
+      A registered entity, or an identifiable trading person.
+      Evidence: CIPC certificate, or an ID plus a trading name.
+
+  Q2  IS THE PERSON IN FRONT OF US CONNECTED TO IT?
+      The account holder is a director, owner, or authorised agent.
+      Evidence: ID matched against the directors on the registry.
+
+  Q3  CAN MONEY REACH THEM SAFELY?
+      A bank account in the entity's name, not a stranger's.
+      Evidence: bank confirmation letter.
+
+  Q4  ARE THEY WHERE THEY SAY THEY ARE?
+      Evidence: proof of address, or the geocoded pin already collected.
+
+  Q5  WHAT ARE THEY SELLING?
+      THE CATALOGUE GATE. Not this document — V2_11 and V2_03 §4.2.
+      Listed here only so the boundary is explicit: passing Q1–Q4 says
+      nothing whatsoever about Q5, and the terbufos case in V2_03 §4.2
+      is what happens when a platform confuses the two.
+
+WHICH QUESTIONS APPLY TO WHOM. Q1 and Q2 are the floor — everyone.
+Q3 becomes load-bearing the moment digital payments carry real money
+(V2_03 §3.3: only digital transactions are PROVEN). Q4 is the weakest
+signal and the most annoying to supply; treat it as corroboration, not
+a gate.
+
+
+===========================================================================
+PART 3 — THE TIERS, AND WHAT EACH ONE COSTS THE SUPPLIER
+===========================================================================
+
+Three tiers, mapping onto the SupplierVerificationStatus column that
+already exists, plus what each unlocks. The principle from 1.2: ask for
+the minimum that makes the next thing safe.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 0 — UNVERIFIED                          (the column's default)
+  ─────────────────────────────────────────────────────────────────────
+  Asks for      nothing beyond sign-up.
+  Can do        build a profile, import a full catalogue, set terms,
+                invite connections, use the API.
+  Cannot do     be seen. No offer is visible to any business.
+
+  This is the CURTAIN from V2_03 §4.5. It is the whole reason we can be
+  strict without being hostile: the work is never blocked, only the
+  selling.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 1 — IDENTITY VERIFIED                   (answers Q1 + Q2)
+  ─────────────────────────────────────────────────────────────────────
+  Asks for      ONE of:
+                  (a) CIPC registration number + a director's SA ID
+                  (b) SA ID + a declared trading name, for an
+                      unregistered trader
+  Can do        sell. Offers become visible (subject to the catalogue
+                gate per offer). Badge shown.
+
+  PATH (b) IS NOT A LOOPHOLE, IT IS THE MARKET. Per 1.3, even Takealot
+  does not require CIPC registration. An unregistered trader who gives
+  us a real, checkable ID is more accountable than an anonymous one,
+  and refusing them would empty the platform.
+
+  The two paths produce DIFFERENT badges. See Part 4.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIER 2 — FINANCIALLY VERIFIED                (adds Q3)
+  ─────────────────────────────────────────────────────────────────────
+  Asks for      bank confirmation letter in the entity's name
+  Can do        receive digital payment; be eligible for anything that
+                depends on a proven ledger (V2_03 §3.3).
+  Trigger       reaching a payment threshold, NOT sign-up.
+
+  DELIBERATELY DEFERRED UNTIL THE MONEY IS REAL. Asking a supplier for
+  bank documents before they have made a single sale is the highest-
+  friction question at the lowest-trust moment.
+
+
+===========================================================================
+PART 4 — THE BADGE MUST NOT LIE
+===========================================================================
+
+A verification badge is a claim TruConnect makes to a business who is
+about to send money. It has to mean something specific.
+
+  PROBLEM WITH A SINGLE TICK. If path (a) and path (b) of Tier 1 both
+  render as one generic "Verified", the badge means "we checked
+  something" — which is exactly the kind of reassurance that is worse
+  than none, because a business reads it as "TruConnect vouches for
+  this company".
+
+  SO THE BADGE STATES WHAT WAS CHECKED:
+
+    "Registered business"      CIPC number confirmed against the
+                               registry. Company name shown as the
+                               registry spells it.
+    "Identity verified"        a real person is accountable for this
+                               account; the business is not registered.
+    "Payments verified"        bank account confirmed in the entity's
+                               name.
+
+  These stack. A supplier can hold all three.
+
+  AND THE PROVENANCE RULE: never show a fact as confirmed when it was
+  only asserted. If the CIPC lookup has not run (Phase 3), the badge
+  says "Registration number supplied" — not "Registered business". This
+  is why Part 1.4 insists the model records provenance from day one.
+
+
+===========================================================================
+PART 5 — CUSTODY: THE PART THAT MATTERS MOST
+===========================================================================
+
+This is the section the whole document exists for.
+
+5.1 A FINDING FROM THE CODEBASE, NOT A HYPOTHETICAL
+
+  The existing media path CANNOT safely carry these documents, and the
+  reason is specific rather than vague:
+
+    src/shared/media/providers/cloudinary_provider.py
+      generate_signed_upload() passes no `type` parameter.
+
+  Cloudinary's default delivery type is `upload`, which is PUBLIC — the
+  asset is readable by anyone who has the URL, with no authentication
+  at all. Cloudinary offers `private` and `authenticated` types where
+  the original is reachable only through a signed, time-limited URL.
+                       — Cloudinary, "Media Access Control and Authentication"
+
+  It also passes allowed_formats = ALLOWED_IMAGE_FORMATS (no PDF) and
+  an incoming transformation that resizes to a max dimension — which
+  would degrade a document to the point of illegibility.
+
+  ─────────────────────────────────────────────────────────────────────
+  IF VERIFICATION DOCUMENTS WERE POSTED THROUGH TODAY'S MEDIA PATH,
+  SOUTH AFRICAN ID DOCUMENTS WOULD BE WORLD-READABLE BY URL.
+  ─────────────────────────────────────────────────────────────────────
+
+  Not a criticism of that code — it was built for product photographs,
+  which are meant to be public, and it does that correctly. It is a
+  statement that verification needs a SECOND path, and that reusing the
+  first one by habit is the failure mode to guard against.
+
+5.2 HASH OR ENCRYPT? THEY ANSWER DIFFERENT QUESTIONS
+
+  The question was raised as "encrypted in the db or hashed". They are
+  not alternatives, and choosing wrongly breaks the feature:
+
+    HASHING is one-way. You can never read it back. Correct for data
+    you only ever need to COMPARE.
+
+    ENCRYPTION is two-way. Correct for data a human must later READ.
+
+  A reviewer has to LOOK at an ID document. Hashing it would make it
+  permanently unreadable — the equivalent of shredding the evidence and
+  keeping the receipt. So:
+
+    THE DOCUMENT ITSELF        encrypted at rest, or held by the
+                               provider under authenticated delivery.
+                               Never hashed.
+    THE ID NUMBER              hashed (salted, or HMAC with a server
+                               key). We never need to display it; we
+                               need to ask "have we seen this person
+                               before?" — which a hash answers.
+    THE COMPANY NUMBER         stored in clear. It is public registry
+                               data; CIPC will tell anyone who asks.
+    THE DECISION               stored in clear. Who approved, when, on
+                               what grounds.
+
+  WHY HASH THE ID NUMBER AT ALL, rather than encrypt it. Because it
+  removes a temptation. An encrypted field can be decrypted by any
+  future feature that asks nicely; a hash cannot. The only legitimate
+  uses are dedup and re-check, and both work on a hash.
+
+5.3 THE STRONGEST CONTROL IS NOT HOLDING IT
+
+  POPIA's minimisation principle: collect only what is necessary, keep
+  it only as long as necessary, define a retention period for every
+  category. An SA ID number is personal information; biometric data is
+  SPECIAL personal information with a higher bar again.
+                       — POPIA §26; VerifyNow; Termly; idchecker.co.za
+
+  ─────────────────────────────────────────────────────────────────────
+  THE DOCUMENT IS EVIDENCE FOR A DECISION. ONCE THE DECISION IS MADE,
+  THE EVIDENCE IS A LIABILITY, NOT AN ASSET.
+  ─────────────────────────────────────────────────────────────────────
+
+  So the lifecycle is deliberately short:
+
+    upload → review → decide → EXTRACT the few fields that matter →
+    DELETE the document → keep the decision forever
+
+  What survives deletion: the decision, who made it, when, the document
+  TYPE that was seen, its hash (proof of what was reviewed, without the
+  contents), and the extracted fields. That is enough to defend the
+  decision in an audit and not enough to leak somebody's identity
+  document.
+
+  PROPOSED RETENTION: destroy on decision + 30 days (a window for
+  appeal per V2_03 §4.4), or immediately on rejection-and-resubmit.
+  Rejected suppliers must not accumulate a shadow archive of failed
+  attempts.
+
+5.4 THE CONCRETE STORAGE DESIGN
+
+  DEFAULT: authenticated delivery + short-lived signed URLs.
+
+    · a new MediaProvider capability — delivery_type — with
+      verification uploads requesting `authenticated`
+    · the reviewer's view fetches a signed URL valid for MINUTES,
+      minted per view, never stored and never put in a template
+    · X-Robots-Tag: noindex on the asset, per Cloudinary's guidance for
+      confidential assets
+    · no transformation on the incoming file; PDF and image formats
+      allowed; a hard size cap
+    · malware scanning ON (the Perception Point hook already exists in
+      the provider) — an uploaded "certificate" is an executable often
+      enough to matter
+
+  AND A LIMIT WORTH STATING PLAINLY: with authenticated delivery the
+  bytes still live on a third party's infrastructure, and Cloudinary
+  can read them. That is acceptable for a document we delete in 30
+  days, and it is why 5.3 matters more than 5.4. If we ever hold
+  documents long-term, the answer is application-level encryption
+  before upload — the provider then stores ciphertext it cannot read —
+  and that is a Phase 4 decision, not a launch blocker.
+
+  NEVER, UNDER ANY CIRCUMSTANCES:
+    · a verification document delivered from a public URL
+    · a document URL in an email, a notification, or a log line
+    · an ID number in an application log
+    · a document reachable by guessing an incrementing id
+    · a reviewer downloading documents to a laptop
+
+5.5 THE ACCESS RULE
+
+  Reading a verification document is a PRIVILEGED ACT and must be
+  gated by the capability seam already built:
+
+    supplier:verify        already declared in
+                           src/cli/_shared/capabilities.py
+
+  Today that resolves to "is an active admin". When staff roles split,
+  it resolves to a grant — and no call site changes.
+
+  EVERY READ IS LOGGED. Not the decision — the READ. "Who looked at
+  this person's ID, and when" is the question that gets asked after a
+  leak, and a system that cannot answer it has to assume the worst
+  about everyone. The audit domain already exists for this.
+
+
+===========================================================================
+PART 6 — THE DOMAIN ARCHITECTURE
+===========================================================================
+
+6.1 WHERE THE CODE GOES
+
+  src/domains/verification/   — scaffolded and empty; this fills it.
+
+  Verification is NOT a supplier-domain feature, and putting it there
+  would be the easy mistake. It is a platform function performed ON a
+  supplier BY staff, with its own lifecycle, its own retention rules,
+  and its own access control. The supplier domain reads one field from
+  it (the status) and knows nothing else.
+
+    verification/
+      models/         VerificationCase, VerificationDocument,
+                      VerificationDecision
+      repositories/   the ONLY code that touches document rows
+      services/       case lifecycle, decisions, retention sweep
+      schemas/        supplier-facing (status) and staff-facing (case)
+      api/            supplier: submit, check status
+                      staff:    queue, view, decide
+      schedulers/     retention sweep JobSpec (deletes expired docs)
+      providers/      registry lookup (CIPC) behind an interface
+
+6.2 THE THREE TABLES
+
+  VERIFICATION_CASE — one per supplier per attempt
+    supplier_id, tier requested, status, submitted_at, decided_at,
+    decided_by_user_id, decided_by_source, reason
+
+    Mirrors MatchReview deliberately. The catalogue review queue
+    already proved this shape, and a reviewer working two queues with
+    the same vocabulary makes fewer mistakes than one learning two.
+
+  VERIFICATION_DOCUMENT — one per uploaded file
+    case_id, document_type, provider_public_id, sha256, uploaded_at,
+    deleted_at, scan_status
+
+    sha256 OUTLIVES THE FILE. After deletion the row remains, proving
+    which exact bytes were reviewed without holding them.
+
+  VERIFICATION_FACT — one per extracted, checkable claim
+    case_id, fact_type (company_number / id_number_hash /
+    bank_account_name), value, provenance (ASSERTED / DOCUMENT /
+    REGISTRY), confirmed_at
+
+    PROVENANCE IS A COLUMN, not a comment. Part 4's badge rule is
+    unenforceable without it.
+
+6.3 THE VISIBILITY RULE BELONGS IN THE REPOSITORY
+
+  V2_03 §4.5 already committed to this and it is worth restating,
+  because it is the rule most likely to be quietly broken later:
+
+  ─────────────────────────────────────────────────────────────────────
+  "The offer-visibility rule, enforced in the REPOSITORY layer, not in
+  each route. A visibility rule applied per-endpoint is a rule that
+  leaks the first time somebody adds an endpoint."
+  ─────────────────────────────────────────────────────────────────────
+
+  The same discipline the architecture tests already enforce for
+  shared/finance applies here: an offer query that does not filter on
+  supplier verification should be impossible to write by accident, not
+  merely discouraged in review.
+
+  RECOMMENDED: an architecture test that AST-parses for supplier-offer
+  queries outside the sanctioned repository, in the same commit as the
+  rule itself.
+
+
+===========================================================================
+PART 7 — WHAT THE SUPPLIER EXPERIENCES
+===========================================================================
+
+From V2_03 §4.4, restated as requirements rather than principles:
+
+  · Listing is never blocked.
+  · An offer held for review says SO, with a plain reason and an
+    expected time.
+  · A rejection names the policy it breached and can be appealed.
+  · The reminder is persistent and not cruel: the message is "your
+    shop is ready and nobody can see it yet", never "you are not
+    verified".
+
+ADD, from this document:
+
+  · TELL THEM WHAT HAPPENS TO THE DOCUMENT. At upload: what we will
+    look at, how long we keep it, that it is deleted after the
+    decision. POPIA requires openness; it is also simply the difference
+    between a supplier who uploads an ID and one who abandons onboarding.
+  · SHOW THE TIER LADDER. What they have, what the next one unlocks,
+    what it costs them to reach it. A tier system that is invisible is
+    experienced as an arbitrary refusal.
+  · NEVER ASK TWICE. If CIPC confirms the company name, do not also
+    demand a proof of address that says the same thing.
+
+
+===========================================================================
+PART 8 — BUILD ORDER
+===========================================================================
+
+  PHASE 1 — THE CURTAIN, WITHOUT ANY DOCUMENTS AT ALL
+    The visibility rule in the repository layer, the architecture test,
+    the supplier-facing status screen and reminder ladder. Verification
+    is granted by hand — `flask verification approve` — by an admin who
+    looked at something out-of-band.
+
+    WHY FIRST: it is the piece that makes the platform safe, it holds
+    no personal data whatsoever, and it is the prerequisite for every
+    other phase. A curtain with a manual switch is worth more than a
+    document pipeline with no curtain.
+
+  PHASE 2 — DOCUMENT INTAKE AND REVIEW
+    MediaProvider gains delivery_type. Verification uploads go to
+    authenticated delivery. The three tables, the staff queue, the
+    retention sweep, read-auditing, the supplier-facing submit flow.
+    Reviewing happens through `flask verification ...`, mirroring the
+    catalogue commands.
+
+  PHASE 3 — REGISTRY CONFIRMATION
+    CIPC lookup behind a provider interface. Promotes facts from
+    ASSERTED to REGISTRY. Turns "Registration number supplied" into
+    "Registered business".
+
+  PHASE 4 — SCALE AND TIGHTEN
+    Tier 2 / bank verification when payments are real. AI extraction to
+    reduce transcription (never to decide — V2_03 §4.3: an AI saying
+    "this is fine" is dangerous, an AI saying "look at this" is free).
+    Application-level encryption if retention ever lengthens.
+
+THE HONEST WARNING, INHERITED FROM V2_03 §4.4 AND STILL TRUE: this is
+the biggest ongoing OPERATIONAL cost in the plan. Every other feature
+runs itself. This one needs a person, indefinitely.
+
+
+===========================================================================
+PART 9 — DECISIONS NEEDED BEFORE PHASE 2
+===========================================================================
+
+Phase 1 can start on what is already agreed. These block Phase 2:
+
+  1  TIER 1 PATH (b) — do we accept an unregistered trader with only
+     an ID? Recommended YES (Part 1.3, Part 3). It is the difference
+     between serving this market and describing it.
+
+  2  RETENTION WINDOW — 30 days after decision proposed. Shorter is
+     safer; longer is friendlier to appeals.
+
+  3  WHO REVIEWS — you alone for now, via supplier:verify. When does
+     that stop being viable, and what is the trigger to hire?
+
+  4  REJECTION AND RE-SUBMISSION — how many attempts before an account
+     is flagged rather than merely refused?
+
+  5  THE DOCUMENT SET — the minimum list for Tier 1 path (a) and path
+     (b). Part 3 proposes it; it should be confirmed rather than
+     assumed, because every item added costs onboarding completion.
+
+  6  CIPC PROVIDER — commercial API (Didit / Datanamix / Standard
+     Bank) or deferred entirely? Phase 3, but the data model needs to
+     know it is coming.
+
+
+===========================================================================
+SOURCES
+===========================================================================
+
+  Didit — Marketplace KYB: Onboarding and Continuous Monitoring
+  Didit — South Africa Company Registry Lookup Verification API
+  Stripe — Seller Onboarding Compliance Checklist (KYC / KYB)
+  Resistant.ai — KYB verification guide
+  Identomat — Marketplace Seller Verification: KYC and KYB
+  Klippa — Identity Verification for Marketplaces
+  Datanamix — CIPC Business Verification
+  Standard Bank — SearchWorks CIPC API
+  SME South Africa / VerifyNow — Takealot seller verification requirements
+  Cloudinary — Media Access Control and Authentication
+  Cloudinary — Access Control for Sensitive or Confidential Assets
+  POPIA §26 (special personal information); VerifyNow POPIA guide;
+    idchecker.co.za — POPIA and ID numbers
+
+  Codebase, read 2026-09-11:
+    src/shared/media/providers/cloudinary_provider.py  (no delivery type)
+    src/domains/supplier/supplier_profile/models/supplier_profile.py
+    src/domains/verification/  (empty)
+    src/cli/_shared/capabilities.py  (supplier:verify declared)
+
+===========================================================================
+END
+===========================================================================

@@ -51,6 +51,9 @@ def make_business(make_user, db_session):
 @pytest.fixture()
 def make_supplier(make_user, db_session):
     from src.domains.auth.models.user import UserRole, VerificationStatus
+    from src.domains.supplier.supplier_profile.models.supplier_profile import (
+        SupplierVerificationStatus,
+    )
     from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
         SupplierProfileRepository,
     )
@@ -59,7 +62,17 @@ def make_supplier(make_user, db_session):
         user = make_user(email, role=UserRole.SUPPLIER, verification_status=VerificationStatus.VERIFIED)
         db_session.commit()
         # Mirrors OTPService._seed_supplier_profile — see module docstring.
-        SupplierProfileRepository.get_or_create_for_supplier(user.id, default_name=user.first_name or "")
+        profile = SupplierProfileRepository.get_or_create_for_supplier(
+            user.id, default_name=user.first_name or ""
+        )
+        # VERIFIED, because this fixture means "a supplier a business
+        # can actually trade with". Since V2_12 Phase 1 an UNVERIFIED
+        # supplier is INVISIBLE to buyers -- the curtain -- so leaving
+        # the model's own default would make every business-facing test
+        # assert against a supplier nobody can see, and they would fail
+        # for a reason that has nothing to do with what they test.
+        # A test that wants the curtain CLOSED says so explicitly.
+        profile.verification_status = SupplierVerificationStatus.VERIFIED
         db_session.commit()
         return user
 

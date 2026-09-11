@@ -26,13 +26,21 @@ from src.shared.audit.event_types.business import BusinessAuditEvent
 from src.shared.audit.event_types.network import NetworkAuditEvent
 from src.shared.audit.event_types.platform import PlatformAuditEvent
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
+from src.shared.audit.event_types.verification import VerificationAuditEvent
 
 # Accepts any real domain's event enum -- used as AuditEvent.event_name's
 # own type hint below, and by anything else (e.g. security/audit/rules/
 # event_config.py's own get_policy) that needs to accept an event name
 # from ANY domain, not just one. Grows by one member when a new domain
 # gets its own event_types/ file -- nothing else about this file changes.
-AuditEventNameType = Union[AuthAuditEvent, BusinessAuditEvent, NetworkAuditEvent, PlatformAuditEvent, SupplierAuditEvent]
+AuditEventNameType = Union[
+    AuthAuditEvent,
+    BusinessAuditEvent,
+    NetworkAuditEvent,
+    PlatformAuditEvent,
+    SupplierAuditEvent,
+    VerificationAuditEvent,
+]
 
 
 class AuditDomain(str, enum.Enum):

@@ -47,7 +47,44 @@ from src.extensions import db
 class SupplierProfileRepository:
     @staticmethod
     def get_by_id(supplier_profile_id: str | uuid.UUID) -> Optional[SupplierProfile]:
+        """The raw lookup, with NO visibility rule applied.
+
+        DELIBERATELY UNGATED, because this is also how a SUPPLIER
+        reaches their own profile -- stock_order_management and the
+        profile-image service both call it about their own account.
+        Putting the curtain in here would hide a supplier's own shop
+        from themselves, which is the exact opposite of the design.
+
+        Business-facing code wants get_visible_by_id below.
+        """
         return SupplierProfile.query.filter_by(id=supplier_profile_id, is_deleted=False).first()
+
+    @staticmethod
+    def get_visible_by_id(supplier_profile_id: str | uuid.UUID) -> Optional[SupplierProfile]:
+        """The lookup for anything a BUYER is doing (V2_12 Phase 1).
+
+        Returns None for an unverified supplier, so every existing
+        `if supplier is None: raise SupplierNotFoundError` becomes the
+        curtain for free -- and, correctly, tells a business nothing
+        about whether the account exists but is pending.
+
+        WHERE THIS BELONGS, AND WHERE IT DOES NOT. The curtain covers
+        DISCOVERY and NEW COMMERCE: finding a supplier, opening their
+        storefront, requesting a connection, filling a cart, checking
+        out. It must NOT cover EXISTING RECORDS -- order history, past
+        invoices, an established connection -- because a supplier whose
+        verification is later revoked did really sell those goods, and
+        erasing them from a business's own history would make that
+        history lie. Revocation stops future trade; it does not rewrite
+        the past.
+        """
+        from src.domains.verification.visibility import visible_filter
+
+        return SupplierProfile.query.filter(
+            SupplierProfile.id == supplier_profile_id,
+            SupplierProfile.is_deleted.is_(False),
+            visible_filter(),
+        ).first()
 
     @staticmethod
     def get_by_supplier_id(supplier_id: str | uuid.UUID) -> Optional[SupplierProfile]:
@@ -102,6 +139,7 @@ class SupplierProfileRepository:
         name containing "_" gets a real narrow match instead of an
         unintended wildcard scan -- see escape_like_pattern's own
         docstring for the full reasoning."""
+        from src.domains.verification.visibility import visible_filter
         from src.shared.validation.identifiers import escape_like_pattern
 
         pattern = f"{escape_like_pattern(name_query)}%"
@@ -109,6 +147,17 @@ class SupplierProfileRepository:
             SupplierProfile.query.filter(
                 SupplierProfile.business_name.ilike(pattern, escape="\\"),
                 SupplierProfile.is_deleted.is_(False),
+                # THE CURTAIN (V2_12 Phase 1). An unverified supplier is
+                # not findable at all -- not a findable shop with an
+                # empty catalogue, which a business would read as the
+                # platform being broken rather than the supplier being
+                # pending.
+                #
+                # IN THE QUERY, NOT AFTER IT, because .limit() runs in
+                # the database: filtering in Python afterwards would
+                # return 3 results for a limit of 20 whenever 17
+                # unverified suppliers happened to sort first.
+                visible_filter(),
             )
             .order_by(SupplierProfile.business_name.asc())
             .limit(limit)

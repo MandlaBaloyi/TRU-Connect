@@ -122,7 +122,7 @@ def _handle_existing_connection(
 
 
 def request_connection(business_id: str | UUID, supplier_profile_id: str | UUID) -> dict:
-    supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    supplier = SupplierProfileRepository.get_visible_by_id(supplier_profile_id)
     if not supplier:
         raise SupplierNotFoundError("Supplier not found.")
 
