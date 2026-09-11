@@ -13,10 +13,21 @@ and nobody can argue with at leisure.
 THE TEST FOR WHETHER SOMETHING BELONGS HERE: could a person who has
 never read the architecture follow it correctly at 7am?
 
+ONE EXCEPTION, NAMED RATHER THAN SMUGGLED IN: BACKLOG.txt is not a
+runbook. It is here because it is operational -- it is the list you
+consult when deciding what to do next -- and because the alternative
+was a fourth top-level folder holding one file.
+
   RUNBOOK_CATALOGUE_REVIEW.txt
       Working the product-match review queue from the terminal, until
       the admin control centre exists. Who may approve, what the
       evidence means, and how to decide.
+
+  BACKLOG.txt
+      What is outstanding and how urgent, in one place. An INDEX, not
+      a plan -- it points at the documents that hold the reasoning.
+      Sorted by the only question that matters for ordering: does
+      waiting make this cost more?
 
   RUNBOOK_SUPPLIER_VERIFICATION.txt
       Whether a supplier can be SEEN by businesses at all -- the

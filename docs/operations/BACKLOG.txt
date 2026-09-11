@@ -1,0 +1,157 @@
+===========================================================================
+BACKLOG — WHAT IS OUTSTANDING, AND HOW URGENT
+===========================================================================
+
+Started 2026-09-11. An INDEX, not a plan. Each line says what and why
+now; the reasoning lives in the document named beside it.
+
+WHY THIS FILE EXISTS. Working on one thing surfaces three others --
+writing the verification plan revealed that the media path would make
+ID documents world-readable; building the curtain revealed that 325
+test fixtures encoded an assumption; testing a banner revealed there
+was no approval email at all. None of that was foreseeable from the
+start, and none of it belonged in the task that found it. An idea
+arriving mid-task needs somewhere to go that is not somebody's memory.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE TRIAGE QUESTION IS NOT "IS THIS A GOOD IDEA".
+  Almost everything here is. It is: DOES WAITING MAKE IT COST MORE?
+  ─────────────────────────────────────────────────────────────────────
+
+That is the only thing the two sections below distinguish. A trigger
+("the first supplier who asks for a second login") beats a date,
+because a date slips quietly and a trigger cannot.
+
+HOW TO USE IT. Add a line when something surfaces; delete it when it
+ships. If an entry needs more than two lines, it needs a document, and
+this file should point at that document instead.
+
+
+===========================================================================
+A — GETS MORE EXPENSIVE THE LONGER WE WAIT
+===========================================================================
+
+These are the only entries with a claim on the present.
+
+  A1  IDEMPOTENCY KEYS ON POST                          V2_13 §3.1
+      An ERP times out and retries -- correctly, since it cannot know
+      whether we processed it -- and we create a second product.
+      WHY NOW: the habit is the expensive part, not the table. Two
+      years of write endpoints built without one means revisiting
+      every single endpoint and re-deciding what "the same request"
+      means for each.
+
+  A2  AN EVENT LOG FOR STOCK ORDERS                     V2_13 §3.2
+      network/orders/models/ has stock_order and stock_order_payment
+      and no event record; the business's own books have two
+      (LoanHistoryEvent, OrderHistoryEvent).
+      WHY NOW: webhooks replay from an event stream, and the rows
+      cannot be backfilled for history never recorded. Also answers
+      "why did this order change?" today, which is a support question
+      currently answered by inference.
+
+  A3  THE ORIGIN OF A WRITE                             V2_13 §3.3
+      No `source` (APP / IMPORT / API) on stock, price or product
+      writes.
+      WHY NOW: a column added later starts null for every existing
+      row, and no analysis recovers where a number came from two years
+      ago. Useful immediately: "how many of this supplier's prices were
+      typed by hand?"
+
+  A4  ACCOUNT DELETION DOES NOT WORK                    V2_07, CLEANUP
+      Found 2026-09-08. NO ACTION foreign keys across ten tables mean
+      deleting an account fails partway.
+      WHY NOW: this one is POPIA-adjacent -- a legal obligation to
+      erase data we cannot currently honour. It also gets harder with
+      every table added, and tables are being added.
+
+
+===========================================================================
+B — COSTS THE SAME WHENEVER WE DO IT
+===========================================================================
+
+Real work, none of it urgent. Ordered roughly by value, not by date.
+
+  THE APP ITSELF
+  B1  Supplier Home tab -- does not exist. The verification status
+      card (features/.../verification/components) is written to be
+      mounted there when it does.
+  B2  Business Home, Community feed, Discovery      V2_04, V2_05
+  B3  Offline wording: screens say "offline" where they mean
+      "indicator only" -- flagged in review, not yet corrected.  V2_10
+
+  VERIFICATION
+  B4  Phase 2 -- document intake, authenticated delivery, retention
+      sweep, read-auditing.                          V2_12 Phase 2
+      BLOCKED ON: the six decisions in V2_12 Part 9.
+  B5  Phase 3 -- CIPC registry lookup behind a provider interface.
+      Promotes facts from ASSERTED to REGISTRY.      V2_12 Phase 3
+
+  SUPPLIER INTEGRATION
+  B6  `flask supplier onboard` -- create an account for a partner who
+      never signs up. No password set; they use password reset.
+  B7  `flask supplier issue-key` -- the missing door to
+      ApiKeyService.issue(), which already exists. Until this lands, a
+      supplier cannot integrate without logging in.  V2_13 §1.3
+  B8  Outbound webhooks -- needs its own document first. The research
+      is recorded in V2_13 Part 6 so that document does not start from
+      nothing.
+
+  PERFORMANCE
+  B9  Serial Cloudinary uploads, and a per-row commit in
+      sku_generator. RAISED EARLIER IN THE SESSION OF 2026-09-11 AND
+      NOT RE-VERIFIED SINCE -- confirm both are still real before
+      spending time on them.
+
+  COMMERCIAL
+  B10 Tier pricing is unset: MONTHLY_PRICE_CENTS = None in
+      business/tiers/pro, supplier/tiers/pro and supplier/tiers/max.
+      Waiting on billing, and on a price.
+
+
+===========================================================================
+C — WAITING ON A TRIGGER, NOT ON US
+===========================================================================
+
+Do NOT build these early. Each has a specific event that makes it real,
+and building before that event is machinery ahead of need.
+
+  C1  SPLIT STAFF PERMISSIONS into real grants.
+      TRIGGER: the second staff role exists (a finance admin, a
+      support agent). The seam is already in place --
+      cli/_shared/capabilities.py -- so only _has_capability changes.
+
+  C2  ORGANISATION / IDENTITY SPLIT. Today one User row is a person, a
+      shopfront and an API identity at once.          V2_13 Part 4
+      TRIGGER: the first supplier who asks for a SECOND staff login.
+
+  C3  STOCK SYNC for suppliers selling on other channels.  V2_13 Part 5
+      TRIGGER: a supplier tells us their ERP is authoritative.
+      A3 above is the first step toward being able to have that
+      conversation at all.
+
+  C4  TABLET LAYOUT for the supplier app.             V2_13 §1.3
+      TRIGGER: supply acquisition becomes the bottleneck. Costs
+      nothing architecturally (React Native; a tablet is a large
+      phone) -- it changes the SALES motion, which is the actual point.
+
+  C5  APPLICATION-LEVEL ENCRYPTION of verification documents before
+      upload.                                        V2_12 §5.4
+      TRIGGER: retention ever lengthens beyond the 30-day window.
+
+
+===========================================================================
+D — BLOCKED ON SOMEBODY ELSE
+===========================================================================
+
+  D1  V2_07 Phase 1 category imagery -- blocked on section photographs
+      being sourced. Not a code problem.
+
+  D2  V2_12 Part 9: six decisions blocking Phase 2 (B4 above). Tier 1
+      path (b), retention window, who reviews, re-submission limits,
+      the document set, and the CIPC provider.
+
+
+===========================================================================
+END
+===========================================================================
