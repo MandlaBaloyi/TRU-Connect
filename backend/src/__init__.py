@@ -175,6 +175,9 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.verification.api.verification_routes import verification_bp
     app.register_blueprint(verification_bp)
 
+    from src.domains.network.community.api.community_routes import community_bp
+    app.register_blueprint(community_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """
