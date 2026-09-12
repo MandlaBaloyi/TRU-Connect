@@ -57,6 +57,7 @@ from src.domains.supplier.products.services.errors import ProductValidationError
 from src.domains.supplier.products.tiers import get_products_limits
 from src.domains.supplier.tiers.resolver import get_current_tier
 from src.shared.media.errors import MediaUploadQuotaExceededError, PhotoLimitExceededError
+from src.shared.constants.write_source import WriteSource
 
 logger = logging.getLogger(__name__)
 
@@ -338,6 +339,7 @@ def _run(
                     barcode=row.barcode,
                     brand=row.brand,
                     commit=False,
+                    source=WriteSource.IMPORT,
                 )
             else:
                 product = product_service.create_product(
@@ -354,6 +356,7 @@ def _run(
                     barcode=row.barcode,
                     brand=row.brand,
                     commit=False,
+                    source=WriteSource.IMPORT,
                 )
         except ProductValidationError as exc:
             # The row passed THIS file's own validation but the shared
@@ -404,6 +407,7 @@ def _run(
                 quantity_delta=row.quantity,
                 reason="STOCK_RECEIVED",
                 commit=False,
+                source=WriteSource.IMPORT,
             )
 
         for ref in row.image_references:

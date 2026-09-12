@@ -33,6 +33,7 @@ from src.domains.supplier.inventory.repositories.inventory_repository import (
 from src.domains.supplier.inventory.services.errors import InsufficientStockError, InventoryValidationError
 from src.domains.supplier.inventory.services.errors import ProductNotFoundError as InventoryProductNotFoundError
 from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
+from src.shared.constants.write_source import WriteSource
 
 
 def _compose(product, inventory: Inventory) -> dict:
@@ -78,9 +79,16 @@ def adjust_stock(
     quantity_delta: int,
     reason: str,
     commit: bool = True,
+    source: WriteSource = WriteSource.APP,
 ) -> dict:
     """commit=False: bulk callers only (import seeds stock per row).
-    See SupplierOfferRepository.create for why."""
+    See SupplierOfferRepository.create for why.
+
+    `source` records WHICH CHANNEL set this level -- a supplier typing
+    a stock count in the app and their ERP pushing one are different
+    claims about the same number, and only the first is somebody
+    standing in the warehouse looking at a shelf. See
+    shared/constants/write_source.py."""
     product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
     if not product:
         raise InventoryProductNotFoundError("Product not found.")
@@ -102,6 +110,10 @@ def adjust_stock(
     # contract this endpoint commits to never has to change when that
     # table lands -- only this function's body does.
     del reason
+
+    # STAMPED BEFORE THE ADJUSTMENT COMMITS, so the row never exists
+    # with a new quantity and a stale source.
+    inventory.source = source
 
     updated = InventoryRepository.adjust_quantity(inventory, quantity_delta, commit=commit)
     return _compose(product, updated)

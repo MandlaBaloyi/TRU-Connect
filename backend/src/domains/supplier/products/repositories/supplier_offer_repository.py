@@ -21,6 +21,7 @@ from uuid import UUID
 
 from src.domains.supplier.products.models.supplier_offer import SupplierOffer, ProductCategory, ProductUnit
 from src.extensions import db
+from src.shared.constants.write_source import WriteSource
 
 
 class SupplierOfferRepository:
@@ -38,6 +39,7 @@ class SupplierOfferRepository:
         description: Optional[str] = None,
         compare_at_price_cents: Optional[int] = None,
         commit: bool = True,
+        source: WriteSource = WriteSource.APP,
     ) -> SupplierOffer:
         """commit=False lets a CALLER THAT WRITES MANY ROWS batch the
         transaction -- bulk import does, and it is the difference
@@ -65,6 +67,7 @@ class SupplierOfferRepository:
             unit_measure=unit_measure,
             description=description,
             compare_at_price_cents=compare_at_price_cents,
+            source=source,
         )
         db.session.add(product)
         # FLUSH, NOT COMMIT, when batching. The flush is what makes the

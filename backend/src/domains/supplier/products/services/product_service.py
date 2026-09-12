@@ -24,6 +24,7 @@ from uuid import UUID
 from src.domains.supplier.products.algorithms.product_code_generator import generate_product_code
 from src.domains.supplier.products.algorithms.sku_generator import generate_sku
 from src.extensions import db
+from src.shared.constants.write_source import WriteSource
 from src.domains.supplier.products.models.supplier_offer import SupplierOffer, ProductCategory, ProductUnit
 from src.domains.supplier.products.repositories.supplier_offer_repository import SupplierOfferRepository
 from src.domains.supplier.products.services.errors import ProductNotFoundError, ProductValidationError
@@ -127,6 +128,7 @@ def create_product(
     barcode: Optional[str] = None,
     brand: Optional[str] = None,
     commit: bool = True,
+    source: WriteSource = WriteSource.APP,
 ) -> SupplierOffer:
     """commit=False is for BULK CALLERS ONLY (import). It hands the
     transaction to the caller so one file costs one fsync instead of
@@ -171,6 +173,7 @@ def create_product(
         # thing lands in ONE transaction. A commit here followed by a
         # match would leave a window where the offer exists unmatched.
         commit=False,
+        source=source,
     )
 
     _match_to_catalogue(
@@ -202,6 +205,7 @@ def update_product(
     barcode: Optional[str] = None,
     brand: Optional[str] = None,
     commit: bool = True,
+    source: WriteSource = WriteSource.APP,
 ) -> SupplierOffer:
     """commit=False: bulk callers only. See create_product."""
     product = SupplierOfferRepository.get_by_id_and_supplier(product_id, supplier_profile_id)
@@ -255,6 +259,12 @@ def update_product(
         unit_measure=unit_measure,
         commit=False,
     )
+
+    # STAMPED ON EVERY EDIT, not only on create. `source` answers "who
+    # wrote the value that is in this row NOW" -- an offer imported in
+    # January and hand-corrected in March is an APP row, because the
+    # correction is the thing a later conflict has to reason about.
+    product.source = source
 
     # RE-MATCHED ON EVERY EDIT, and cheaply: match_and_link fingerprints
     # its inputs, so an edit that changed only the price does no

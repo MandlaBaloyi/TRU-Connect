@@ -60,6 +60,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from src.core.base_model import BaseModel
 from src.extensions import db
+from src.shared.constants.write_source import WriteSource
 
 
 # ProductCategory and ProductUnit MOVED to the catalogue domain in v2
@@ -201,6 +202,22 @@ class SupplierOffer(BaseModel):
     #: NULLABLE, and null means "never matched, or matched before this
     #: existed" -- both of which correctly mean "match it again".
     match_fingerprint = db.Column(db.String(64), nullable=True)
+
+
+    #: WHICH CHANNEL last wrote this row -- see
+    #: shared/constants/write_source.py for the full reasoning.
+    #:
+    #: NOT NULLABLE, defaulting to APP. Every row that existed before
+    #: this column did was written by a person in the app, because no
+    #: other channel could write one -- so APP is the honest backfill
+    #: rather than a guess, and a nullable column would only invite
+    #: "unknown" handling for a state that never occurs.
+    source = db.Column(
+        db.Enum(WriteSource, name="write_source", schema="supplier"),
+        nullable=False,
+        default=WriteSource.APP,
+        server_default=WriteSource.APP.value,
+    )
 
     sku = db.Column(db.String(50), nullable=False)
     product_code = db.Column(db.String(20), nullable=False)
