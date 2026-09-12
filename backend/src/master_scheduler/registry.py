@@ -32,6 +32,9 @@ from src.domains.supplier.stock_order_management.schedulers.stock_order_schedule
 from src.domains.verification.schedulers.verification_scheduler import (
     JOB_SPECS as VERIFICATION_JOB_SPECS,
 )
+from src.shared.idempotency.schedulers.idempotency_scheduler import (
+    JOB_SPECS as IDEMPOTENCY_JOB_SPECS,
+)
 from src.shared.media.schedulers.media_scheduler import JOB_SPECS as MEDIA_JOB_SPECS
 from src.master_scheduler import runner
 from src.master_scheduler.interfaces import JobSpec, SchedulerEngine
@@ -47,6 +50,7 @@ ALL_JOB_SPECS: list[JobSpec] = [
     *PRODUCTS_JOB_SPECS,
     *STOCK_ORDER_JOB_SPECS,
     *VERIFICATION_JOB_SPECS,
+    *IDEMPOTENCY_JOB_SPECS,
     # Future domains' own JOB_SPECS get concatenated here the same way,
     # e.g.: *LOAN_BOOK_JOB_SPECS, *WALLET_JOB_SPECS, each imported from
     # that domain's own schedulers/<domain>_scheduler.py.

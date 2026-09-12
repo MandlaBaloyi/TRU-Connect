@@ -19,7 +19,7 @@ import uuid
 from flask import Blueprint, request
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.core.decorators import fully_authenticated, role_required
+from src.core.decorators import fully_authenticated, idempotent, role_required
 from src.core.responses import error_response, success_response
 from src.domains.network.orders.rate_limit import policies as rate_limit_policies
 from src.domains.network.orders.schemas.checkout_schemas import AddCartItemSchema, SubmitCheckoutSchema, UpdateCartItemSchema
@@ -147,6 +147,7 @@ def cancel_order(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
 @fully_authenticated
 @role_required("business")
 @limiter.limit(rate_limit_policies.SUBMIT_CHECKOUT, key_func=rate_limit_policies.business_key_func)
+@idempotent
 def submit_checkout(supplier_profile_id: uuid.UUID):
     payload = request.get_json(silent=True) or {}
     data, error = _load_or_422(SubmitCheckoutSchema, payload)

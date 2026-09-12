@@ -281,6 +281,117 @@ def api_key_required(*required_scopes: str):
     return decorator
 
 
+def idempotent(fn):
+    """Make a POST safe to retry (V2_13 §3.1).
+
+    OPT-IN PER REQUEST, not per endpoint. A caller that sends no
+    Idempotency-Key header gets exactly today's behaviour -- so adding
+    this decorator to a live route changes nothing for the mobile app
+    and everything for a machine that chooses to use it. That is the
+    property which lets it be applied broadly without a migration of
+    client behaviour.
+
+    THE HEADER IS THE CLIENT'S TO GENERATE, and that is not laziness on
+    our part: only the client knows which two requests are "the same
+    one, sent twice". A server-generated key would be a different key
+    on the retry and would protect nothing.
+
+    WHAT A RETRY GETS:
+        the SAME status code and the SAME body, replayed from storage,
+        without the handler running again.
+
+    AND WHAT A MISUSED KEY GETS:
+        409  another copy of this request is still in flight
+        422  this key was already used for a DIFFERENT body
+
+    The second is a client bug, and returning the first response would
+    hide it -- the caller would believe a request they never really
+    made had succeeded.
+
+    Stacks UNDER the auth decorators, because the key is scoped to the
+    caller and there is no caller until authentication has run.
+    """
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        from flask import jsonify, request
+
+        from src.shared.idempotency import service as idempotency
+
+        key = (request.headers.get("Idempotency-Key") or "").strip()
+        if not key:
+            return fn(*args, **kwargs)
+
+        try:
+            user_id = get_jwt_identity()
+        except Exception:  # noqa: BLE001 -- an api-key caller has no JWT
+            user_id = None
+        if user_id is None:
+            from flask import g
+
+            user_id = getattr(g, "api_key_user_id", None)
+
+        request_hash = idempotency.fingerprint(request.get_data() or b"")
+        endpoint = f"{request.method} {request.path}"
+
+        try:
+            row = idempotency.claim(key, user_id, endpoint, request_hash)
+        except idempotency.IdempotencyInFlight as exc:
+            return jsonify({"success": False, "message": str(exc), "errors": []}), 409
+        except idempotency.IdempotencyConflict as exc:
+            return jsonify({"success": False, "message": str(exc), "errors": []}), 422
+
+        if row.is_complete:
+            # THE REPLAY. The handler does not run at all.
+            return jsonify(row.response_body), row.status_code
+
+        try:
+            response = fn(*args, **kwargs)
+        except Exception:
+            # RELEASED, NOT STORED. The handler raised, so its
+            # transaction rolled back and there is nothing to protect
+            # against -- while a stored 500 would make the client's
+            # only recovery inventing a new key, which is how
+            # duplicates get made.
+            idempotency.release(row)
+            raise
+
+        body, status = _unwrap(response)
+        if status >= 500:
+            idempotency.release(row)
+        else:
+            idempotency.complete(row, status, body)
+        return response
+
+    return wrapper
+
+
+def _unwrap(response):
+    """(json body, status code) from whatever a route returned.
+
+    Flask routes here return either `jsonify(...)` or the
+    `(response, status)` tuple that success_response/error_response
+    produce, so both shapes have to be understood -- and a route that
+    returned something else entirely should not be silently stored as
+    if it were JSON.
+    """
+    status = 200
+    payload = response
+    if isinstance(response, tuple):
+        payload = response[0]
+        if len(response) > 1 and isinstance(response[1], int):
+            status = response[1]
+    body = None
+    if hasattr(payload, "get_json"):
+        try:
+            body = payload.get_json(silent=True)
+        except Exception:  # noqa: BLE001
+            body = None
+        if getattr(payload, "status_code", None):
+            status = payload.status_code if not isinstance(response, tuple) else status
+    return body, status
+
+
 def permission_required(*required_permissions: str):
     """UNCHANGED -- structural placeholder for granular permissions;
      for the full rationale."""

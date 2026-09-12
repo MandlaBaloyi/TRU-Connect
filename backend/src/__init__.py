@@ -120,6 +120,7 @@ def _register_apiless_models() -> None:
     from src.domains.catalogue.matching.models import match_alias, match_review  # noqa: F401
     from src.domains.catalogue.products.models import brand, product  # noqa: F401
     from src.shared.ai.decisions import models as ai_decisions  # noqa: F401
+    from src.shared.idempotency import models as idempotency_models  # noqa: F401
 
 
 def _register_blueprints(app: Flask) -> None:

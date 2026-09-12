@@ -29,7 +29,7 @@ import uuid
 from flask import Blueprint, request
 from marshmallow import ValidationError as MarshmallowValidationError
 
-from src.core.decorators import fully_authenticated, role_required
+from src.core.decorators import fully_authenticated, idempotent, role_required
 from src.core.responses import error_response, success_response
 from src.domains.security.rate_limit.limiter import limiter
 from src.domains.supplier.products.rate_limit import policies as rate_limit_policies
@@ -115,6 +115,7 @@ def _to_dto(product, pinned_ids: set | None = None) -> dict:
 @fully_authenticated
 @role_required("supplier")
 @limiter.limit(rate_limit_policies.PRODUCT_CREATE, key_func=rate_limit_policies.supplier_key_func)
+@idempotent
 def create_product():
     payload = request.get_json(silent=True) or {}
     try:
