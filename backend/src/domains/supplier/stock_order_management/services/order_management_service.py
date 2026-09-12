@@ -46,6 +46,11 @@ from src.shared.audit.audit import publish
 from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
 from src.shared.audit.event_types.supplier import SupplierAuditEvent
 from src.shared.notifications.notifications import publish_notification
+from src.domains.network.orders.models.stock_order_event import (
+    StockOrderEventActor,
+    StockOrderEventType,
+)
+from src.domains.network.orders.services import order_event_service
 
 
 def _serialize_order_summary(order) -> dict:
@@ -148,8 +153,16 @@ def approve_order(supplier_profile_id: str | UUID, order_id: str | UUID) -> dict
         raise OrderNotPendingError("This order has already been decided on.")
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    previous_status = order.status
     order.status = StockOrderStatus.CONFIRMED
     order.decided_at = datetime.now(timezone.utc)
+    order_event_service.record(
+        order,
+        StockOrderEventType.CONFIRMED,
+        from_status=previous_status,
+        actor=StockOrderEventActor.SUPPLIER,
+        actor_user_id=supplier.supplier_id if supplier else None,
+    )
     db.session.commit()
 
     publish_notification(
@@ -215,7 +228,21 @@ def decline_order(
         raise OrderNotPendingError("This order has already been decided on.")
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
+    previous_status = order.status
     _apply_decline(order, reason, details)
+    # RECORDED HERE, NOT INSIDE _apply_decline, following that
+    # function's own rule: the two decline paths differ in who did it.
+    # A supplier actively refusing and a sweep closing out an order
+    # nobody answered are different stories, and support is asked
+    # about both.
+    order_event_service.record(
+        order,
+        StockOrderEventType.DECLINED,
+        from_status=previous_status,
+        actor=StockOrderEventActor.SUPPLIER,
+        actor_user_id=supplier.supplier_id if supplier else None,
+        reason=details or reason,
+    )
 
     publish_notification(
         build_order_declined_notification(
@@ -290,11 +317,20 @@ def cancel_order(
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
 
+    previous_status = order.status
     order.status = StockOrderStatus.CANCELLED
     order.cancelled_by = StockOrderCancelledBy.SUPPLIER.value
     order.cancel_reason = reason
     order.cancel_details = details
     order.cancelled_at = datetime.now(timezone.utc)
+    order_event_service.record(
+        order,
+        StockOrderEventType.CANCELLED_BY_SUPPLIER,
+        from_status=previous_status,
+        actor=StockOrderEventActor.SUPPLIER,
+        actor_user_id=supplier.supplier_id if supplier else None,
+        reason=details or reason,
+    )
 
     for item in order.items:
         if item.is_deleted:
@@ -343,7 +379,18 @@ def auto_decline_order(order) -> None:
     reusing the manual-decline message would misrepresent what
     actually happened."""
     supplier = SupplierProfileRepository.get_by_id(order.supplier_profile_id)
+    previous_status = order.status
     _apply_decline(order, StockOrderDeclineReason.NO_RESPONSE.value, None)
+    order_event_service.record(
+        order,
+        StockOrderEventType.AUTO_DECLINED,
+        from_status=previous_status,
+        # SYSTEM, with no actor_user_id -- nobody pressed anything.
+        # Its own value rather than a null actor, so "the system did
+        # it" and "we failed to record who did it" never look alike.
+        actor=StockOrderEventActor.SYSTEM,
+        reason=StockOrderDeclineReason.NO_RESPONSE.value,
+    )
 
     publish_notification(
         build_order_auto_declined_notification(

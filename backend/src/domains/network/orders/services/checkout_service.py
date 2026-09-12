@@ -71,6 +71,11 @@ from src.domains.network.orders.models.stock_order_payment import StockOrderPaym
 from src.domains.network.orders.providers.composition import get_payment_provider
 from src.domains.network.orders.repositories.stock_order_payment_repository import StockOrderPaymentRepository
 from src.domains.network.orders.repositories.stock_order_repository import StockOrderRepository
+from src.domains.network.orders.models.stock_order_event import (
+    StockOrderEventActor,
+    StockOrderEventType,
+)
+from src.domains.network.orders.services import order_event_service
 
 logger = logging.getLogger(__name__)
 
@@ -533,6 +538,7 @@ def submit_checkout(
         stock_order.delivery_postal_code = delivery_postal_code
         stock_order.delivery_latitude = delivery_latitude
         stock_order.delivery_longitude = delivery_longitude
+    previous_status = stock_order.status
     stock_order.status = outcome.order_status
     # THE REAL, HUMAN-FACING ORDER REFERENCE -- assigned exactly once,
     # here, at the real moment of submission -- never at cart creation,
@@ -540,6 +546,16 @@ def submit_checkout(
     # own docstring for the full "why 4+6 characters, why secrets, why
     # never sequential" reasoning.
     stock_order.order_reference = generate_unique_order_reference(supplier_code)
+    # THE FIRST EVENT IN THE ORDER'S LIFE. Recorded here rather than at
+    # cart creation because a cart is not an order -- an abandoned one
+    # should leave no history at all.
+    order_event_service.record(
+        stock_order,
+        StockOrderEventType.PLACED,
+        from_status=previous_status,
+        actor=StockOrderEventActor.BUSINESS,
+        actor_user_id=stock_order.business_id,
+    )
     # A REAL, DEDICATED timestamp -- never updated_at, which a future
     # supplier approve/decline would otherwise silently shift. Set
     # exactly once, here, and never touched again.

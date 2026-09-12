@@ -65,6 +65,11 @@ from src.shared.audit.audit import publish
 from src.shared.audit.audit_types import AuditDomain, AuditEvent, AuditStatus
 from src.shared.audit.event_types.business import BusinessAuditEvent
 from src.shared.notifications.notifications import publish_notification
+from src.domains.network.orders.models.stock_order_event import (
+    StockOrderEventActor,
+    StockOrderEventType,
+)
+from src.domains.network.orders.services import order_event_service
 
 # The real, enforced subset a BUSINESS is allowed to choose from --
 # supplier-side reasons (OUT_OF_STOCK etc.) describe something only a
@@ -100,11 +105,24 @@ def cancel_order_by_business(
 
     supplier = SupplierProfileRepository.get_by_id(supplier_profile_id)
 
+    previous_status = order.status
     order.status = StockOrderStatus.CANCELLED
     order.cancelled_by = StockOrderCancelledBy.BUSINESS.value
     order.cancel_reason = reason
     order.cancel_details = details
     order.cancelled_at = datetime.now(timezone.utc)
+
+    # CANCELLED_BY_BUSINESS, not CANCELLED. Both produce the same
+    # status, and which side walked away is the thing anybody actually
+    # asks -- the status column cannot express it.
+    order_event_service.record(
+        order,
+        StockOrderEventType.CANCELLED_BY_BUSINESS,
+        from_status=previous_status,
+        actor=StockOrderEventActor.BUSINESS,
+        actor_user_id=order.business_id,
+        reason=details or reason,
+    )
 
     # THE REAL RESERVATION RELEASE -- identical mechanism to
     # decline_order's own _apply_decline (stock_order_management's own
