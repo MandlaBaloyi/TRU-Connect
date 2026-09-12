@@ -58,12 +58,74 @@ These are the only entries with a claim on the present.
       ago. Useful immediately: "how many of this supplier's prices were
       typed by hand?"
 
-  A4  ACCOUNT DELETION DOES NOT WORK                    V2_07, CLEANUP
-      Found 2026-09-08. NO ACTION foreign keys across ten tables mean
-      deleting an account fails partway.
-      WHY NOW: this one is POPIA-adjacent -- a legal obligation to
-      erase data we cannot currently honour. It also gets harder with
-      every table added, and tables are being added.
+  A4  ACCOUNT DELETION -- DECIDE ondelete WHEN ADDING A FOREIGN KEY
+                                                    V2_07, CLEANUP
+      RESCOPED 2026-09-11 after measuring it. The old entry said
+      "account deletion does not work cleanly across ten tables",
+      which is true and points at the wrong problem.
+
+      WHAT IS ACTUALLY THERE: 43 tables, 52 foreign keys, and 41 of
+      those 52 are NO ACTION. That is not a policy anybody chose --
+      it is SQLAlchemy's default, applied by omission. auth.users is
+      referenced by 20 tables directly, supplier_profiles by 10,
+      supplier_offers by 8.
+
+      SO IT IS A CLASSIFICATION PROBLEM, NOT A CASCADE BUG. The same
+      mechanism needs opposite answers:
+        loan_book_customers          CASCADE  (a shop's private notes)
+        stock_orders.buyer_name      SET NULL + scrub (the order must
+                                     survive for accounting; the name
+                                     need not)
+        match_reviews.decided_by     RETAIN   (who approved a
+                                     catalogue alias outlives the
+                                     staff account)
+      CASCADE on the last would erase the audit story; NO ACTION on
+      the first makes deletion impossible. No foreign key can express
+      that -- it is per-table judgement.
+
+      AND THERE ARE TWO ROLES, WHICH ARE TWO DIFFERENT PROBLEMS:
+
+        BUSINESS (8 tables) touches THIRD PARTIES. loan_book_customers
+        and order_book_customers hold names and phone numbers of the
+        SHOP's customers -- people who never signed up to TruConnect
+        and never consented to us. We have no analytical claim on
+        them at all, which makes this the easy half: delete.
+
+        SUPPLIER (8 tables) touches the SHARED CATALOGUE, and is the
+        hard half. GOOD NEWS FOUND WHILE CHECKING: match_aliases has
+        no foreign key to a supplier -- only to catalogue.products --
+        so the learned aliases survive a supplier deletion already.
+        The shared learning is genuinely shared rather than owned by
+        whoever taught it. match_reviews does reference
+        supplier_offers and auth.users, so the decision history is
+        the part that needs a rule.
+
+        BOTH (3 tables) need each side's answer to be compatible:
+        stock_orders, connection_requests, supplier_reports. A
+        stock order has a buyer AND a seller; deleting either must
+        not erase the other's record of the trade.
+
+      WHY IT IS NOT SCHEDULED: the table count is still moving, and
+      41 undecided keys is 41 judgements that cannot be mechanically
+      derived. Deciding them now would mean redoing it as tables are
+      added.
+
+      WHAT TO DO INSTEAD, AND IT IS CHEAP: when a NEW table gets a
+      foreign key to users (or to a profile), choose its ondelete
+      deliberately and say why in a comment. Ten seconds while
+      writing the model; 41 archaeological digs otherwise. The
+      eventual deletion work then becomes READING decisions rather
+      than MAKING them.
+
+      Soft-delete coverage is already good: 39 of 43 tables have
+      is_deleted, and the four without (audit_events, the two
+      history-event tables, notifications) are append-only by design
+      and should stay that way. Exactly one table holds personal data
+      without soft-delete -- security.audit_events (email, IP, user
+      agent) -- and that tension is real: the record proving who
+      approved a supplier cannot be erased on request. A shorter
+      retention window on that table specifically is the likely
+      answer, not an exemption forever.
 
 
 ===========================================================================
