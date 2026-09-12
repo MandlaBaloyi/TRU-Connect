@@ -135,12 +135,54 @@ B — COSTS THE SAME WHENEVER WE DO IT
 Real work, none of it urgent. Ordered roughly by value, not by date.
 
   THE APP ITSELF
-  B1  Supplier Home tab -- does not exist. The verification status
-      card (features/.../verification/components) is written to be
-      mounted there when it does.
+  B1  Supplier Home tab -- EXISTS but is nearly empty. Corrected
+      2026-09-12: the earlier wording said "does not exist", which is
+      wrong and changes the work. home.tsx renders AppHeader plus ONE
+      conditional customer-requests card, so a supplier with no
+      pending requests sees a header and nothing else. Its own
+      docstring calls it "architecture-only, content deferred".
+
+      NOT A NEW SCREEN -- filling one whose shape is already decided.
+      V2_05 §1.4 specifies it in four sections, and two of them are
+      blocked on columns that do not exist (fulfilment_mode,
+      expected_delivery_at) plus the reorder-gap computation, which
+      DOES now exist in network/community/algorithms.
+
+      AND IT IS PHASE 2, NOT NEXT. V2_07 puts Home in Phase 2 and says
+      plainly "it depends on Phase 1 for how it looks" -- building it
+      before the visual layer means building it twice. The
+      verification status card is already written to be mounted here
+      when the time comes.
   B2  Business Home, Community feed, Discovery      V2_04, V2_05
   B3  Offline wording: screens say "offline" where they mean
       "indicator only" -- flagged in review, not yet corrected.  V2_10
+
+  B13 WIRE MapPickerModal INTO THE BUSINESS PROFILE LOCATION SCREEN.
+      Checked 2026-09-12: 0 of 2 business profiles on dev have
+      coordinates, so community's "businesses near you" rail returns
+      nothing in practice -- correctly, because it refuses to guess,
+      but it is dead code until this lands.
+
+      NOT A COST DECISION, which is what it looks like from the
+      outside. The picker already exists and is already wired into two
+      other places -- the supplier's CollectionAddressField and the
+      business's per-order DeliveryPaymentScreen. The business's OWN
+      profile screen carries `latitude?: number` as a type with no
+      call site behind it. Unfinished wiring, not a choice.
+
+      AND THE COST LOGIC RUNS THE OTHER WAY. Geocoding is what costs a
+      Mapbox request; STORING the result is what avoids paying for it
+      again. The distance algorithm
+      (network/community/algorithms/distance.py) is haversine over two
+      stored numbers and makes zero Mapbox calls. The real cost
+      discipline is already in place and is on the LOOKUP:
+      geocoding/rate_limit/policies.py meters reverse-geocode at
+      60/min, suggest at 90/min and retrieve at 30/min, tuned per
+      usage pattern, against a free tier its own docstring calls
+      generous at 100k/month.
+
+      Do it alongside the Community tab frontend -- both are the same
+      "the endpoint exists and nothing feeds or consumes it" problem.
 
   VERIFICATION
   B4  Phase 2 -- document intake, authenticated delivery, retention
@@ -169,6 +211,58 @@ Real work, none of it urgent. Ordered roughly by value, not by date.
   B10 Tier pricing is unset: MONTHLY_PRICE_CENTS = None in
       business/tiers/pro, supplier/tiers/pro and supplier/tiers/max.
       Waiting on billing, and on a price.
+
+  THE CATALOGUE, ONCE IT HAS REAL DECISIONS IN IT
+  B11 ORDER THE REVIEW QUEUE BY WHAT IT UNLOCKS, not by confidence.
+      Today: match_review_repository.list_pending orders by
+      confidence DESC, with the stated aim that "the queue gets
+      shorter fastest from that end".
+
+      THAT OPTIMISES THE WRONG THING. Accepting a review writes a
+      GLOBAL alias -- the next supplier who types those words matches
+      for free, forever -- so the objective is "future rows resolved
+      per human decision", and confidence is a poor proxy for it. A
+      confident match on a product one supplier sells unlocks nothing;
+      an ambiguous one on a staple forty suppliers spell differently
+      unlocks forty.
+
+      Noticed 2026-09-12 by analogy with the Entelect Hack<IT>
+      challenge (Mandla's plant-ecosystem-optimizer): a fast-spreading
+      species monopolises the grid and shades out the ones that unlock
+      cascades, so the winning move was to reorder rather than to
+      work harder. Same shape here -- the high-confidence match is
+      the aggressive spreader.
+
+      TRIGGER: enough real accept/reject decisions to measure against.
+      The queue is empty today, so there is nothing to reorder and no
+      way to know whether a reorder helped.
+
+  B12 FIT THE TWO MATCHING THRESHOLDS instead of picking them.
+      MATCHING_AUTO_LINK_CONFIDENCE (0.92) and
+      MATCHING_REVIEW_CONFIDENCE (0.70) are hand-chosen. MatchReview
+      .evidence already records brand_agrees, pack_agrees,
+      text_similarity and candidates_considered, so accumulated human
+      decisions become a labelled set those thresholds can be fitted
+      against -- wrong auto-links are expensive, a long queue is
+      expensive in a person's time, and the balance between them is
+      measurable rather than guessed.
+
+      AND A WARNING THAT CAME WITH THE ANALOGY: a hard threshold is a
+      CLIFF. In the hackathon, one species landing at 1.5% against a
+      2% requirement collapsed the result from 28 species to 6. 0.92
+      is the same kind of edge -- a near-miss behaves completely
+      differently from a near-hit, silently. Worth knowing that is a
+      property we have, not only something that bit somebody else.
+
+      TRIGGER: same as B11.
+
+      NOT A CREDIT-RISK MODEL. The obvious-sounding version of this
+      idea -- portfolio diversification for lending -- does not apply:
+      TruConnect does not lend. The Loan Book is a shop's record of
+      ITS OWN customers' credit and V2_03 §3.3 is explicit that we
+      cannot verify it. There is no capital, no portfolio and no
+      default data to fit anything to. Recorded here so the analogy is
+      not mistaken for a roadmap item later.
 
 
 ===========================================================================
