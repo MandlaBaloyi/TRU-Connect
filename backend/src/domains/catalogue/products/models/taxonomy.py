@@ -56,6 +56,11 @@ class ProductCategory(str, enum.Enum):
     MEAT_FROZEN = "MEAT_FROZEN"
     HOUSEHOLD_CLEANING = "HOUSEHOLD_CLEANING"
     PERSONAL_CARE = "PERSONAL_CARE"
+    # Hair, wigs, braids, relaxers, cosmetics, nails. SEPARATE FROM
+    # PERSONAL_CARE deliberately: that is soap and toothpaste, bought
+    # from a different supplier on a different rhythm. Folding the two
+    # together would put a salon's stock behind a grocery wholesaler.
+    BEAUTY_HAIR = "BEAUTY_HAIR"
     BABY_FAMILY = "BABY_FAMILY"
     STATIONERY_SCHOOL = "STATIONERY_SCHOOL"
     HARDWARE_GENERAL = "HARDWARE_GENERAL"
