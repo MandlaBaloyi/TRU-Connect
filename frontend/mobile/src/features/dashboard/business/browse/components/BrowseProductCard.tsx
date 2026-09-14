@@ -83,6 +83,17 @@ export function BrowseProductCard({
           {product.supplierName}
         </Text>
 
+        {product.buyerLabel ? (
+          // ABOVE "also from N suppliers" on purpose. That line is
+          // about OUR catalogue; this one is about what other shops
+          // actually did, and it is the more persuasive of the two.
+          // The sentence itself comes from the server so this screen
+          // and the Community feed cannot word it differently.
+          <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
+            {product.buyerLabel}
+          </Text>
+        ) : null}
+
         {product.alternativeCount > 0 && (
           <Text style={[styles.alternatives, { color: theme.colors.primary }]} numberOfLines={1}>
             Also from {product.alternativeCount}{" "}
@@ -109,6 +120,7 @@ const styles = StyleSheet.create({
   price: { ...typography.body, fontWeight: "700" },
   was: { ...typography.caption, textDecorationLine: "line-through" },
   supplier: { ...typography.caption },
+  buyers: { ...typography.caption, fontWeight: "700" },
   alternatives: { ...typography.caption, fontWeight: "600" },
   outOfStock: { ...typography.caption, fontStyle: "italic" },
 });

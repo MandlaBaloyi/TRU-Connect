@@ -2,7 +2,7 @@ import React from "react";
 
 import { ListCard, StatusPill } from "@/components/lists/CardListUI";
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
-import { SHOW_VERIFICATION_BADGE } from "@/constants/config";
+import { showsAsVerified } from "@/constants/config";
 
 import type { SupplierSearchResult } from "../types";
 
@@ -44,10 +44,12 @@ export function SupplierResultCard({ result, onPress }: Props) {
     <ListCard
       title={result.businessName}
       badge={
-        // Gated for the same reason as the tick -- "Unverified" is as
-        // much a claim about a supplier as "Verified" is, and neither
-        // is backed by any real process yet. See SHOW_VERIFICATION_BADGE.
-        SHOW_VERIFICATION_BADGE ? (
+        // ONLY THE POSITIVE CLAIM. "Unverified" is as much a statement
+        // about a supplier as "Verified" is, and the curtain means a
+        // business never sees an unverified one here anyway -- so the
+        // absent case cannot occur, and rendering a pill for it would
+        // be dead code that implies otherwise.
+        showsAsVerified(result.verificationStatus) ? (
           <StatusPill
             label={VERIFICATION_LABEL[result.verificationStatus]}
             tone={VERIFICATION_TONE[result.verificationStatus]}

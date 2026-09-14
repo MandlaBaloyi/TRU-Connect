@@ -81,6 +81,15 @@ export interface FeedProduct {
   /** "each", "case of 12" — real, from Product.unit_quantity/unit_measure. */
   unitLabel: string | null;
   inStock: boolean;
+  /** How many DISTINCT businesses have bought this. null when nobody
+   *  has yet — never 0, because "0 businesses bought this" is true,
+   *  useless, and reads as a warning. */
+  buyerCount: number | null;
+  /** The sentence, built SERVER-SIDE so the wording is one decision:
+   *  the feed and the catalogue browse both render product cards, and
+   *  a phrase duplicated across them disagrees with itself within a
+   *  release. null whenever buyerCount is. */
+  buyerLabel: string | null;
 }
 
 export interface FeedCategory {

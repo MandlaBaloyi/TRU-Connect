@@ -189,8 +189,16 @@ class BusinessProfileService:
                 "province": profile.province.value if profile.province else None,
                 "cityOrTown": profile.city_or_town,
                 "physicalAddress": profile.physical_address,
-                "latitude": profile.latitude,
-                "longitude": profile.longitude,
+                # float(), NOT THE RAW COLUMN. These are NUMERIC(9,6)
+                # now, matching the supplier's collection_* pair, and a
+                # Decimal serialises as a STRING -- "-26.204100" where
+                # the app's BusinessLocation says number. Every supplier-
+                # side serialiser of these columns already wraps them
+                # (supplier_profile_routes, discovery_service,
+                # cart_service); this is the fourth and the reason the
+                # type change was safe.
+                "latitude": float(profile.latitude) if profile.latitude is not None else None,
+                "longitude": float(profile.longitude) if profile.longitude is not None else None,
             },
             "tradingDetails": {
                 "buysCategories": profile.buys_categories or [],

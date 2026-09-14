@@ -237,8 +237,13 @@ class BusinessProfile(BaseModel):
     province = db.Column(db.Enum(SouthAfricanProvince, name="business_profile_province", schema="business"), nullable=True)
     city_or_town = db.Column(db.String(120), nullable=True)
     physical_address = db.Column(db.String(500), nullable=True)
-    latitude = db.Column(db.Float, nullable=True)
-    longitude = db.Column(db.Float, nullable=True)
+    # NUMERIC(9,6), MATCHING SupplierProfile.collection_latitude/longitude.
+    # These two are compared against each other on every "collect near
+    # you" calculation, which is the worst place for the pair to round
+    # differently. Six decimals is about 11cm -- a fixed, stateable
+    # precision, where a float's precision depends on the value.
+    latitude = db.Column(db.Numeric(9, 6), nullable=True)
+    longitude = db.Column(db.Numeric(9, 6), nullable=True)
 
     # --- Section 4: Trading Details ---
     # WHAT THEY BUY, AGAINST THE REAL TAXONOMY. Replaces `products`,

@@ -25,6 +25,13 @@ export interface BrowseProduct {
    *  Zero until matching links offers together, which is the honest
    *  state today: the card simply does not mention alternatives. */
   alternativeCount: number;
+  /** How many DISTINCT businesses have bought this. null when nobody
+   *  has — never 0. Counts BUSINESSES, not units, so one wholesale
+   *  buyer cannot manufacture a bestseller by ordering forty cases. */
+  buyerCount: number | null;
+  /** The sentence, built server-side so this screen and the Community
+   *  feed cannot word it differently. */
+  buyerLabel: string | null;
 }
 
 export interface BrowseResult {

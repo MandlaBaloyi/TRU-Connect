@@ -142,15 +142,57 @@ class TestADiscoveryRailIsForDiscovery:
         assert business_sections.collect_near_you(user.id) is None
 
     def test_nearest_first(self, app, db_session, business_at, supplier_at):
+        """ALL THREE ARE INSIDE MAX_COLLECTION_KM on purpose. They used
+        to be 50km and 110km out, which tested ordering perfectly well
+        right up until the rail gained the ceiling it should always have
+        had -- at which point two of them vanished and this read as a
+        regression instead of the fix it was."""
         user, _ = business_at(lat=-26.2041, lon=28.0473)
-        supplier_at(lat=-26.9000, lon=28.9000, name="Far")
-        supplier_at(lat=-26.2045, lon=28.0475, name="Close")
-        supplier_at(lat=-26.5000, lon=28.4000, name="Middle")
+        supplier_at(lat=-26.3500, lon=28.1500, name="Far")      # ~19km
+        supplier_at(lat=-26.2045, lon=28.0475, name="Close")    # ~50m
+        supplier_at(lat=-26.2500, lon=28.0900, name="Middle")   # ~7km
 
         section = business_sections.collect_near_you(user.id)
 
         names = [s["businessName"] for s in section["suppliers"]]
         assert names.index("Close") < names.index("Middle") < names.index("Far")
+
+    def test_a_supplier_beyond_the_radius_is_dropped_not_ranked_last(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """THE BUG MANDLA FOUND, and it is a lie rather than a mistake:
+        the rail sorted by distance and took the nearest N with NO
+        ceiling, so on a thin platform a supplier 328km away appeared
+        under a heading that says "near you" purely because nothing
+        closer existed.
+
+        SORTING IS NOT FILTERING. The nearest of a distant set is still
+        distant, and nobody collects stock from another province.
+        """
+        user, _ = business_at(lat=-26.2041, lon=28.0473)
+        supplier_at(lat=-26.2045, lon=28.0475, name="Close")
+        supplier_at(lat=-26.2100, lon=28.0500, name="AlsoClose")
+        supplier_at(lat=-26.2200, lon=28.0600, name="StillClose")
+        supplier_at(lat=-23.8900, lon=29.7300, name="AnotherProvince")
+
+        section = business_sections.collect_near_you(user.id)
+
+        names = [s["businessName"] for s in section["suppliers"]]
+        assert "AnotherProvince" not in names
+        assert len(names) == 3
+
+    def test_the_rail_vanishes_when_nobody_is_actually_near(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """AND THAT IS THE HONEST ANSWER. A shop with no supplier in
+        range should see no rail, not a rail full of distant ones --
+        which is also what makes the rail RESPOND when somebody moves
+        their pin, the behaviour that made the bug visible."""
+        user, _ = business_at(lat=-26.2041, lon=28.0473)
+        for i in range(4):
+            supplier_at(lat=-23.8900 + (i / 100), lon=29.7300, name=f"FarAway{i}")
+
+        assert business_sections.collect_near_you(user.id) is None
 
     def test_a_thin_rail_does_not_appear_at_all(self, app, db_session, business_at, supplier_at):
         """Two cards under a heading looks broken in a way zero cards

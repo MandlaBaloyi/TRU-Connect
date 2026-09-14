@@ -38,22 +38,28 @@ export const MAPBOX_PUBLIC_TOKEN: string =
 
 
 /**
- * Whether the "verified supplier" tick is shown at all.
+ * THE FLAG IS GONE, ON ITS OWN INSTRUCTIONS.
  *
- * OFF BY DEFAULT, AND THAT IS THE POINT. Nothing in the backend ever
- * SETS verification_status -- there is no review flow, no admin action,
- * no service that awards it; the column defaults to UNVERIFIED and only
- * a manual SQL update has ever changed it. A verification badge is the
- * strongest trust signal on a supplier's profile, and a business may
- * part with real money partly because of it, so showing one the
- * platform cannot actually stand behind is not a cosmetic stub.
+ * It read: "DELETE this flag (and this comment) once a real
+ * verification flow exists -- at that point the tick means something
+ * and should always show." It was off because nothing in the backend
+ * ever SET verification_status: no review flow, no admin action, only
+ * a manual SQL update. Showing the strongest trust signal in the app
+ * when the platform could not stand behind it was not a cosmetic stub.
  *
- * Set EXPO_PUBLIC_SHOW_VERIFICATION_BADGE=true locally to demo it.
- * DELETE this flag (and this comment) once a real verification flow
- * exists -- at that point the tick means something and should always
- * show.
+ * THAT IS NO LONGER TRUE. verification/services/verification_service.py
+ * awards and revokes the status for real, through `flask verification
+ * approve` / `revoke`, with an audit trail and a capability check --
+ * and the curtain (verification/visibility.py) already makes an
+ * unverified supplier invisible to buyers entirely. So the tick now
+ * means what it says.
+ *
+ * WHICH MAKES IT WEAKER ON A RAIL THAN IT LOOKS, worth knowing before
+ * adding it everywhere: since the curtain hides unverified suppliers,
+ * every supplier a business can see is verified, so a tick in a feed
+ * rail is true of 100% of cards. It earns its place on a PROFILE,
+ * where somebody arriving from a shared link is asking the question.
  */
-export const SHOW_VERIFICATION_BADGE = process.env.EXPO_PUBLIC_SHOW_VERIFICATION_BADGE === "true";
 
 /** The one place "should this look verified" is decided, so the flag
  *  can't be honoured in three places and forgotten in a fourth.
@@ -69,7 +75,7 @@ export const SHOW_VERIFICATION_BADGE = process.env.EXPO_PUBLIC_SHOW_VERIFICATION
  *  who would act on it hardest. Normalising here rather than at each
  *  call site keeps this the only place that decides. */
 export function showsAsVerified(verificationStatus: string | null | undefined): boolean {
-  return SHOW_VERIFICATION_BADGE && verificationStatus?.toLowerCase() === "verified";
+  return verificationStatus?.toLowerCase() === "verified";
 }
 
 export const OTP_LENGTH = 6;

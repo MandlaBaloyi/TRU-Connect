@@ -26,6 +26,14 @@ interface Props {
    *  precise starting point than a raw GPS fix anyway. Omit this
    *  entirely for the plain "choose location on map" entry point. */
   presetCenter?: { latitude: number; longitude: number } | null;
+  /** What this pin IS. Defaults to the delivery wording this modal was
+   *  written for, because that was its only caller for a while -- but
+   *  it is now also used to set a SUPPLIER'S COLLECTION ADDRESS and a
+   *  SHOP'S OWN LOCATION, and telling either of them to "confirm your
+   *  delivery address" is simply wrong. Reusing a screen is right;
+   *  reusing its sentences is not. */
+  title?: string;
+  confirmLabel?: string;
 }
 
 // The FALLBACK ONLY -- used when there's no presetCenter AND
@@ -120,7 +128,14 @@ async function resolveDeviceLocation(): Promise<{ latitude: number; longitude: n
  * Android, which doesn't inherit the app-level StatusBar style set
  * in app/_layout.tsx.
  */
-export function MapPickerModal({ visible, onClose, onConfirm, presetCenter }: Props) {
+export function MapPickerModal({
+  visible,
+  onClose,
+  onConfirm,
+  presetCenter,
+  title = "Delivery address",
+  confirmLabel = "Confirm delivery address",
+}: Props) {
   const theme = useTheme();
   const [startingCenter, setStartingCenter] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isResolvingLocation, setIsResolvingLocation] = useState(true);
@@ -227,7 +242,7 @@ export function MapPickerModal({ visible, onClose, onConfirm, presetCenter }: Pr
       {visible && <StatusBar style={theme.dark ? "light" : "dark"} />}
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
         <View style={[styles.header, { borderBottomColor: theme.colors.outline }]}>
-          <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>Delivery address</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>{title}</Text>
           <Pressable onPress={handleClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
             <X size={22} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
           </Pressable>
@@ -280,9 +295,9 @@ export function MapPickerModal({ visible, onClose, onConfirm, presetCenter }: Pr
             onPress={handleConfirm}
             style={[styles.confirmButton, { backgroundColor: theme.colors.primary }]}
             accessibilityRole="button"
-            accessibilityLabel="Confirm delivery address"
+            accessibilityLabel={confirmLabel}
           >
-            <Text style={[styles.confirmLabel, { color: theme.colors.onPrimary }]}>Confirm delivery address</Text>
+            <Text style={[styles.confirmLabel, { color: theme.colors.onPrimary }]}>{confirmLabel}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

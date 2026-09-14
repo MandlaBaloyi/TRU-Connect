@@ -8,6 +8,12 @@
  * was a value you have vs. an input you can change. Each row saves
  * itself on confirm -- there's no screen-level Save button anymore.
  *
+ * MOVED HERE FROM supplier/my-account/components WHEN THE BUSINESS
+ * PROFILE NEEDED THE SAME ROW. Copying it would have produced two
+ * definitions of "what an editable profile field looks like", which is
+ * exactly the drift the supplier screen introduced this component to
+ * end. It depends on nothing role-specific.
+ *
  * The save call is the parent's (`onSave`) -- this component owns only
  * the view/edit toggle, the draft state, the in-flight spinner, and
  * surfacing a validation or save error inline without collapsing.

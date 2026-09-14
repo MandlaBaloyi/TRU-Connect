@@ -136,6 +136,11 @@ const product = (
   compareAtPriceCents: null,
   unitLabel: "each",
   inStock: true,
+  // A PLAUSIBLE DEFAULT, overridable per product. Mock mode exists to
+  // show the real shape of a screen, and a mock with no social proof
+  // would have hidden the badge entirely during UI work.
+  buyerCount: 4,
+  buyerLabel: "4 businesses bought this",
   ...extra,
 });
 

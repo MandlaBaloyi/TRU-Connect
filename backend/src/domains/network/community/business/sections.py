@@ -267,6 +267,28 @@ def tell_us_what_you_buy(business_id) -> Optional[dict]:
 #: Coverage is still rewarded: below the cap, whoever stocks more of
 #: what this shop buys appears more. Above it the rail makes room. See
 #: docs/v2/V2_15 Book Two 7.4.
+#: How far away a supplier can be and still count as "near you", for
+#: COLLECTION -- the shop gets in a bakkie and drives there.
+#:
+#: WITHOUT THIS THE RAIL LIED. It sorted by distance and took the
+#: nearest N with no ceiling at all, so on a thin platform a supplier
+#: 328km away appeared under a heading that says "near you" simply
+#: because nothing closer existed. Sorting is not filtering: the
+#: nearest of a bad set is still a bad answer, and a rail that renames
+#: "the only ones we have" as "the ones near you" is the kind of untrue
+#: thing V2_15 Part 12 exists to forbid.
+#:
+#: 25km IS A GUESS. It is meant to cover a peri-urban shop reaching the
+#: nearest town's wholesale strip, and to exclude the next city. It is
+#: deliberately generous, because the cost of being slightly too wide is
+#: a card somebody scrolls past, and of being too narrow is an empty
+#: rail for a shop that really does drive that far.
+#:
+#: FALSIFIED BY: shops routinely collecting from further, or ignoring
+#: everything past 10km. Either would be visible the day impressions
+#: exist; until then this is one number in one place.
+MAX_COLLECTION_KM = 25.0
+
 MAX_CARDS_PER_SUPPLIER = 3
 
 
@@ -472,6 +494,13 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     NO LOCATION, NO RAIL. Without the business's own coordinates there
     is no "near", and an unsorted list of every supplier would be worse
     than nothing because it would look like a recommendation.
+
+    AND NO RAIL WITHOUT SOMEBODY ACTUALLY NEAR. Sorting by distance is
+    not the same as filtering by it -- the nearest of a distant set is
+    still distant, and this rail promises "near you" in its own title.
+    Beyond MAX_COLLECTION_KM a supplier is dropped rather than shown as
+    the best of a bad lot, which means the rail can and should vanish
+    for a shop with nobody close. That is the honest answer.
     """
     from src.domains.business.business_profile.repositories.business_profile_repository import (
         BusinessProfileRepository,
@@ -509,6 +538,9 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
             candidate.collection_longitude,
         )
         if km is None:
+            continue
+        # THE CEILING, not just the sort. See MAX_COLLECTION_KM.
+        if km > MAX_COLLECTION_KM:
             continue
         measured.append((km, candidate))
 

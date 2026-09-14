@@ -10,6 +10,8 @@ import { ChipSingleSelect } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
+import { AddressPickerField } from "@/features/dashboard/shared/location-picker/components/AddressPickerField";
+import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -54,6 +56,38 @@ export default function LocationEditScreen() {
     );
   }
 
+  // THE PICKER SPEAKS DeliveryLocation; the profile stores a flatter
+  // shape. Only the coordinates and the town actually matter here -- a
+  // shop's profile is not a delivery address, and V2's own rule is
+  // never to require a street address from an informal business.
+  const pinnedLocation: DeliveryLocation | null =
+    location.latitude != null && location.longitude != null
+      ? {
+          building: "",
+          street: location.physicalAddress ?? "",
+          suburb: "",
+          city: location.cityOrTown ?? "",
+          province: "",
+          postalCode: "",
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }
+      : null;
+
+  const handlePinned = (picked: DeliveryLocation) => {
+    setLocation((current) => ({
+      ...current,
+      latitude: picked.latitude,
+      longitude: picked.longitude,
+      // FILLED ONLY WHEN EMPTY. Moving a pin should not silently
+      // rewrite a town somebody typed themselves -- they know what
+      // their area is called better than a geocoder does, and an
+      // informal settlement's real name is often not the one on the
+      // map.
+      cityOrTown: current.cityOrTown?.trim() ? current.cityOrTown : picked.city || undefined,
+    }));
+  };
+
   const handleSave = async () => {
     try {
       await Promise.all([saveLocation(location), saveBusinessDetails({ operatingModel })]);
@@ -83,6 +117,24 @@ export default function LocationEditScreen() {
         <ChipSingleSelect label="Where does your business operate?" options={OPERATING_MODEL_OPTIONS} value={operatingModel} onChange={setOperatingModel} />
 
         <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+            Pin your shop (optional)
+          </Text>
+          <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+            Lets us show you suppliers close enough to collect from.
+          </Text>
+          <AddressPickerField
+            value={pinnedLocation}
+            onSave={handlePinned}
+            editLabel="Edit your shop's location"
+            searchLabel="Search address"
+            mapLabel="Drop a pin"
+            pickerTitle="Where your shop is"
+            pickerConfirmLabel="Confirm shop location"
+          />
+        </View>
+
+        <View style={styles.field}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Physical address (optional)</Text>
           <TextInput
             value={location.physicalAddress ?? ""}
@@ -109,6 +161,7 @@ const styles = StyleSheet.create({
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
   field: { gap: spacing.xs },
   label: { ...typography.bodySmall, fontWeight: "600" },
+  hint: { ...typography.caption },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: spacing.md, minHeight: 48, ...typography.body },
   error: { ...typography.bodySmall },
 });

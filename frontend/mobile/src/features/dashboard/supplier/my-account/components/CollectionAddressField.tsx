@@ -1,13 +1,7 @@
-import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useTheme } from "react-native-paper";
-import { MapPin, Search } from "lucide-react-native";
+import React from "react";
 
-import { MapPickerModal } from "@/features/dashboard/shared/location-picker/MapPickerModal";
-import { SearchAddressModal } from "@/features/dashboard/shared/location-picker/SearchAddressModal";
+import { AddressPickerField } from "@/features/dashboard/shared/location-picker/components/AddressPickerField";
 import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
-import { radius, spacing } from "@/theme/spacing";
-import { typography } from "@/theme/typography";
 
 /**
  * Where the SUPPLIER sets their own collection address.
@@ -30,6 +24,14 @@ import { typography } from "@/theme/typography";
  * SEARCH FEEDS THE MAP, IT DOESN'T SKIP IT. A geocoded result is a
  * best guess; the supplier still confirms the exact pin, because this
  * address is what a business will actually drive to.
+ *
+ * NOW A WRAPPER, NOT AN IMPLEMENTATION. When the business profile
+ * needed the same field, the choice was to copy this or to extract it.
+ * The paragraph above argues against a second address UI, so it would
+ * have been arguing against itself — the body moved to
+ * location-picker/components/AddressPickerField and this keeps the
+ * supplier's own wording. What remains here is the part that is
+ * genuinely supplier-specific: what the thing is called out loud.
  */
 export function CollectionAddressField({
   value,
@@ -38,115 +40,17 @@ export function CollectionAddressField({
   value: DeliveryLocation | null;
   onSave: (location: DeliveryLocation) => Promise<void>;
 }) {
-  const theme = useTheme();
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isMapVisible, setIsMapVisible] = useState(false);
-  // Set only when a search result was picked -- opens the map already
-  // centred there rather than on device location. Cleared on close so
-  // a later "Choose on map" starts fresh, not seeded by a stale search.
-  const [presetCenter, setPresetCenter] = useState<{ latitude: number; longitude: number } | null>(null);
-
-  const lines = value
-    ? [
-        value.building,
-        value.street,
-        value.suburb,
-        [value.city, value.province].filter(Boolean).join(", "),
-        value.postalCode,
-      ].filter((part) => Boolean(part && part.trim()))
-    : [];
-
   return (
-    <View style={styles.wrap}>
-      {lines.length > 0 ? (
-        <Pressable
-          onPress={() => {
-            setPresetCenter(
-              value ? { latitude: value.latitude, longitude: value.longitude } : null
-            );
-            setIsMapVisible(true);
-          }}
-          style={[styles.card, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surface }]}
-          accessibilityRole="button"
-          accessibilityLabel="Edit collection address"
-        >
-          <MapPin size={18} color={theme.colors.primary} strokeWidth={2} />
-          <Text style={[styles.address, { color: theme.colors.onSurface }]}>{lines.join("\n")}</Text>
-          <Text style={[styles.edit, { color: theme.colors.primary }]}>Edit</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.optionsRow}>
-          <Pressable
-            onPress={() => setIsSearchVisible(true)}
-            style={[styles.option, { borderColor: theme.colors.outline }]}
-            accessibilityRole="button"
-            accessibilityLabel="Search your address"
-          >
-            <Search size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-            <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>Search address</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setPresetCenter(null);
-              setIsMapVisible(true);
-            }}
-            style={[styles.option, { borderColor: theme.colors.outline }]}
-            accessibilityRole="button"
-            accessibilityLabel="Choose location on map"
-          >
-            <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-            <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>Choose on map</Text>
-          </Pressable>
-        </View>
-      )}
-
-      <SearchAddressModal
-        visible={isSearchVisible}
-        onClose={() => setIsSearchVisible(false)}
-        onLocationFound={(location) => {
-          setPresetCenter(location);
-          setIsMapVisible(true);
-        }}
-      />
-
-      <MapPickerModal
-        visible={isMapVisible}
-        presetCenter={presetCenter}
-        onClose={() => {
-          setIsMapVisible(false);
-          setPresetCenter(null);
-        }}
-        onConfirm={(location) => {
-          setPresetCenter(null);
-          void onSave(location);
-        }}
-      />
-    </View>
+    <AddressPickerField
+      value={value}
+      onSave={onSave}
+      editLabel="Edit collection address"
+      searchLabel="Search address"
+      searchA11yLabel="Search your address"
+      mapLabel="Choose on map"
+      mapA11yLabel="Choose location on map"
+      pickerTitle="Collection address"
+      pickerConfirmLabel="Confirm collection address"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: { gap: spacing.sm },
-  card: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  address: { ...typography.bodySmall, flex: 1, lineHeight: 19 },
-  edit: { ...typography.bodySmall, fontWeight: "700" },
-  optionsRow: { flexDirection: "row", gap: spacing.sm },
-  option: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  optionText: { ...typography.bodySmall, fontWeight: "700" },
-});

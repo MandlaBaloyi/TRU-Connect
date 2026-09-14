@@ -29,6 +29,14 @@ export const PRODUCT_TILE_WIDTH = 148;
  * that opens the product -- and it is the product screen where the
  * business finds out what they are actually committing to.
  *
+ * "4 BUSINESSES BOUGHT THIS" IS THE ONLY LINE HERE THAT IS NOBODY'S
+ * OPINION. The price is the supplier's, the ordering is ours; this is
+ * what other shops actually did. The SENTENCE is built server-side
+ * (shared/algorithms/social_proof.py) so the feed and the catalogue
+ * browse cannot word it differently, and it is absent rather than zero
+ * when nobody has bought the product -- a "0 businesses" badge is true
+ * and reads as a warning.
+ *
  * DISCOUNTS SHOW THE SAVING, NOT THE PERCENTAGE. Direct feedback on
  * the product screen: "rather than saying you save R50, says save
  * R50". The same wording is used here.
@@ -53,7 +61,17 @@ export function ProductTile({
       onPress={onPress}
       style={({ pressed }) => [styles.tile, { width, opacity: pressed ? 0.85 : 1 }]}
       accessibilityRole="button"
-      accessibilityLabel={`${product.name} from ${product.supplierName}, ${formatCents(product.priceCents)}`}
+      accessibilityLabel={[
+        product.name,
+        `from ${product.supplierName}`,
+        formatCents(product.priceCents),
+        // Social proof belongs in the spoken label too -- it is a
+        // reason to tap, and a screen reader user gets the same
+        // reasons a sighted one does.
+        product.buyerLabel,
+      ]
+        .filter(Boolean)
+        .join(", ")}
     >
       <View style={[styles.imageWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
         {product.imageUrl ? (
@@ -92,6 +110,11 @@ export function ProductTile({
           {product.unitLabel ? `${product.unitLabel} · ` : ""}
           {product.supplierName}
         </Text>
+        {product.buyerLabel ? (
+          <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
+            {product.buyerLabel}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -137,4 +160,9 @@ const styles = StyleSheet.create({
   price: { ...typography.body, fontWeight: "800" },
   name: { ...typography.bodySmall, fontSize: 12, lineHeight: 16 },
   supplier: { ...typography.caption, fontSize: 11 },
+  // Tinted rather than grey: this is the one line on the tile meant to
+  // be a REASON, not a detail. One line only -- a tile is 148px wide
+  // and a wrapped badge would push every tile in the rail to a
+  // different height.
+  buyers: { ...typography.caption, fontSize: 10, fontWeight: "700" },
 });

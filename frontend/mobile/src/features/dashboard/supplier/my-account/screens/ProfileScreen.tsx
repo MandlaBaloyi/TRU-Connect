@@ -24,7 +24,7 @@ import type { AccountProfileSummary } from "../types";
 import type { ProfileImageSlot } from "../services/profileImageUpload";
 import { ProfileHeader } from "../components/ProfileHeader";
 import { ProfileOverflowMenu } from "../components/ProfileOverflowMenu";
-import { InlineEditField } from "../components/InlineEditField";
+import { InlineEditField } from "@/components/ui/InlineEditField";
 import { CollectionAddressField } from "../components/CollectionAddressField";
 import { formatCents } from "../../products/services/productMapper";
 import { BIO_MAX_LENGTH } from "../types";
