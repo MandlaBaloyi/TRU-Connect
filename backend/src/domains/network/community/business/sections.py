@@ -227,9 +227,13 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
         # Over-fetch, because the supplier cap below removes cards and a
         # thin rail is worse than none.
         limit=limit * 3,
+        # What this shop can plausibly spend on one product. The
+        # catalogue orders by it; nothing is removed.
+        max_line_cents=needs.max_line_cents,
     )
 
-    products = _cap_per_supplier(result.get("products") or [], MAX_CARDS_PER_SUPPLIER)
+    products = _strongest_needs_first(result.get("products") or [], needs)
+    products = _cap_per_supplier(products, MAX_CARDS_PER_SUPPLIER)
     if len(products) < MIN_ITEMS_PER_RAIL:
         return None
 
@@ -237,9 +241,47 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
         "id": "stock-for-you",
         "type": "PRODUCT_RAIL",
         "title": "Stock for your shop",
-        "subtitle": "Based on what you told us you buy",
+        "subtitle": _why_this_rail(needs),
         "products": products[:limit],
     }
+
+
+def _strongest_needs_first(products: List[dict], needs) -> List[dict]:
+    """Open the rail with the category this shop needs MOST.
+
+    THE CATALOGUE HAS NO OPINION ABOUT THIS SHOP, and should not: it
+    returned everything across eleven categories in whatever order the
+    query produced. The engine is the only thing that knows bread
+    outranks phone chargers HERE, so the ordering belongs on this side
+    of the call.
+
+    ZERO EXTRA QUERIES. The weights are already in hand and every card
+    already carries its category -- asking the catalogue per category
+    instead would be the N+1 this codebase has removed twice (flaw B.4).
+
+    STABLE, so affordability ordering from browse_service survives
+    inside each category.
+    """
+    weights = needs.weight_by_category
+    return sorted(products, key=lambda p: -weights.get(p.get("category"), 0.0))
+
+
+def _why_this_rail(needs) -> str:
+    """The reason string, and it has to stay TRUE.
+
+    "Based on what you told us you buy" was honest in Phase 0, when a
+    declaration was all the engine had. It is now a lie to a shop whose
+    needs were learned from its own orders -- and the one thing a
+    self-explaining feed cannot afford is an explanation the reader
+    knows is wrong. A shop that never filled the form and reads "what
+    you told us" concludes the app is guessing.
+    """
+    sources = {n.source for n in needs.categories}
+    if sources == {"declared"}:
+        return "Based on what you told us you buy"
+    if "declared" in sources or "both" in sources:
+        return "Based on what you buy and what you told us"
+    return "Based on what you buy"
 
 
 def _cap_per_supplier(products: List[dict], cap: int) -> List[dict]:

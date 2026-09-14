@@ -72,6 +72,26 @@ class ShopNeeds:
     def category_values(self) -> List[str]:
         return [c.category for c in self.categories]
 
+    @property
+    def max_line_cents(self) -> Optional[int]:
+        """The most one product can cost and still lead this shop's feed.
+
+        A QUESTION THE ENGINE ANSWERS, not a sum the feed does. The
+        moment a feed source multiplies a basket by a constant of its
+        own, the constant is in two places and one of them will be
+        forgotten -- which is the entire reason weighting.py exists.
+        """
+        return weighting.max_line_cents(
+            self.typical_order_cents, self.order_ceiling_cents
+        )
+
+    @property
+    def weight_by_category(self) -> dict:
+        """{category: weight}, for ordering a rail by what matters most
+        to THIS shop rather than by whatever order the catalogue
+        returned. Cheap, and it saves every caller rebuilding it."""
+        return {c.category: c.weight for c in self.categories}
+
 
 def needs_for(business_id) -> ShopNeeds:
     """What this shop needs, as far as we can tell today.

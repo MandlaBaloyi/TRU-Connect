@@ -85,6 +85,24 @@ SPEND_BAND_ORDER_CEILING_CENTS = {
 #: first order.
 WHOLESALE_CUSTOMER_TYPES = {"OTHER_BUSINESSES", "ORGANISATIONS"}
 
+#: How far above a shop's TYPICAL basket a single product may be priced
+#: and still belong at the front of their feed.
+#:
+#: A shop whose median order is R600 can plausibly stretch to a R900
+#: item -- one big bag of maize IS the order that week. It cannot
+#: plausibly buy a R9,000 pallet, and a feed that leads with one has
+#: mistaken this shop for a different business.
+#:
+#: DELIBERATELY GENEROUS, because this orders a rail rather than
+#: censoring it (see browse_service): the cost of being too high is a
+#: card they scroll past, and of being too low is burying something they
+#: would have bought.
+#:
+#: FALSIFIED BY: real order lines landing above this multiple often. If
+#: shops routinely buy single items worth more than 1.5 baskets, the
+#: median basket is the wrong denominator, not the multiplier.
+AFFORDABLE_LINE_MULTIPLE = 1.5
+
 
 def declared_category_weight(_category: str) -> float:
     """Every declared category starts equal.
@@ -136,3 +154,23 @@ def prefers_bulk(customer_types) -> Optional[bool]:
     if not customer_types:
         return None
     return any(t in WHOLESALE_CUSTOMER_TYPES for t in customer_types)
+
+
+def max_line_cents(
+    typical_order_cents: Optional[int],
+    declared_ceiling_cents: Optional[int],
+) -> Optional[int]:
+    """The most one product can cost and still lead this shop's feed.
+
+    MEASURED BEATS DECLARED, the same rule cadence follows: a median of
+    real baskets says more about what this shop can spend than the band
+    they picked off a form once.
+
+    None means UNKNOWN, and every caller must treat it as "do not
+    filter" rather than inventing a ceiling. Most shops have neither
+    signal on day one, and a number that looks real is worse than an
+    absent one (flaw B.5).
+    """
+    if typical_order_cents:
+        return int(typical_order_cents * AFFORDABLE_LINE_MULTIPLE)
+    return declared_ceiling_cents

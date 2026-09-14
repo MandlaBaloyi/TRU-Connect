@@ -27,6 +27,7 @@ def browse_category(
     search: Optional[str] = None,
     limit: int = 24,
     offset: int = 0,
+    max_line_cents: Optional[int] = None,
 ) -> dict:
     """Products a business can actually buy, in this category, from
     anyone visible.
@@ -35,6 +36,11 @@ def browse_category(
     never permission: with it, a shop sees its own supplier's offer
     where one exists. Without it the browse still works, which matters
     because this is the screen a brand-new user reaches first.
+
+    max_line_cents is the same kind of preference: what this shop can
+    plausibly spend on ONE product (demand/weighting.max_line_cents).
+    It ORDERS the page and never trims it -- see _affordable_first.
+    None means unknown, which most shops are, and is a no-op.
     """
     groups = catalogue_browse_repository.browse(
         category=category, categories=categories, search=search, limit=limit, offset=offset
@@ -58,7 +64,9 @@ def browse_category(
             chosen_by_group.append((offer, group))
 
     return {
-        "products": _to_cards(chosen_by_group, in_stock),
+        "products": _affordable_first(
+            _to_cards(chosen_by_group, in_stock), max_line_cents
+        ),
         # A full page means there is probably another. Cheaper than a
         # COUNT over the whole catalogue on every scroll, and the only
         # cost of being wrong is one empty fetch at the end.
@@ -104,6 +112,31 @@ def _incumbent_supplier_ids(business_id) -> set:
         str(r.supplier_profile_id)
         for r in ConnectionRequestRepository.list_active_for_business(business_id)
     }
+
+
+def _affordable_first(cards: List[dict], max_line_cents: Optional[int]) -> List[dict]:
+    """Things this shop can plausibly buy, first. NEVER REMOVED.
+
+    A DELIBERATE CHOICE AGAINST FILTERING, and the reasoning matters
+    more than the code. Dropping every product above the ceiling would
+    hide the R9,000 pallet from a spaza -- which is usually right and is
+    catastrophic when it is wrong, because the shop is never told
+    anything is missing. Flaw B.2 names silence as the one unacceptable
+    outcome, and a rail that quietly omits half the category is silence
+    with extra steps.
+
+    Ordering gets the same result where it counts. The feed takes the
+    first N cards, so the pallet falls off the end of a personalised
+    rail on its own -- while a shop that deliberately taps "Grains" and
+    scrolls still finds it, because there it is not a recommendation,
+    it is the catalogue.
+
+    STABLE, so whatever ranking produced the list survives inside each
+    half.
+    """
+    if not max_line_cents:
+        return cards
+    return sorted(cards, key=lambda c: (c.get("priceCents") or 0) > max_line_cents)
 
 
 def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
