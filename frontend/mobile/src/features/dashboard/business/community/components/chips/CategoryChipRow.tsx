@@ -1,45 +1,29 @@
 import React from "react";
 import { FlatList, Pressable, StyleSheet, Text } from "react-native";
 import { useTheme } from "react-native-paper";
-import {
-  Beef,
-  Carrot,
-  Croissant,
-  CupSoda,
-  Package,
-  SprayCan,
-  type LucideIcon,
-} from "lucide-react-native";
-
+import { CategoryIcon } from "@/components/categories";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import type { FeedCategory } from "../../types";
 
 /**
- * ICONS RESOLVED BY NAME, sent by the server.
+ * ICONS COME FROM components/categories, NOT FROM A MAP HERE.
  *
- * The alternative -- the app deciding which icon each category gets --
- * means a new product category cannot appear in this row until every
- * installed build has been updated. The server names an icon, the app
- * looks it up here, and anything it does not recognise falls back
- * rather than crashing. Same forward-compatibility rule as unknown
- * section types (see types.ts).
+ * This file used to own a deliberately small, curated set of six
+ * glyphs, on the reasoning that a category row is scanned rather than
+ * read and a dozen similar shapes would slow that down. That was right
+ * when it was written and stopped being right when the taxonomy grew:
+ * with seventeen categories, ELEVEN of them fell back to the same
+ * parcel, so the row was six icons and eleven identical blanks --
+ * slower to scan than distinct glyphs, not faster.
  *
- * DELIBERATELY A SMALL, CURATED SET rather than every icon in the
- * library. A category row is scanned, not read, and a dozen visually
- * similar glyphs would slow that down; the fallback is honest and
- * unremarkable, which is exactly what an unmapped category deserves.
+ * CategoryIcon now holds one considered icon per category AND resolves
+ * the server-supplied name, so the forward-compatibility rule this
+ * comment used to defend still holds -- the server names an icon, the
+ * app prefers it, and anything unrecognised degrades to the app's own
+ * choice rather than to a hole. One map, one place.
  */
-const ICONS: Record<string, LucideIcon> = {
-  CupSoda,
-  Beef,
-  Carrot,
-  Croissant,
-  SprayCan,
-  Package,
-};
-
 export function CategoryChipRow({
   categories,
   onSelect,
@@ -57,7 +41,7 @@ export function CategoryChipRow({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
       renderItem={({ item }) => {
-        const Icon = (item.icon && ICONS[item.icon]) || Package;
+
         return (
           <Pressable
             onPress={() => onSelect(item)}
@@ -72,7 +56,13 @@ export function CategoryChipRow({
             accessibilityRole="button"
             accessibilityLabel={item.label}
           >
-            <Icon size={16} color={theme.colors.onSurfaceVariant} strokeWidth={2.2} />
+            <CategoryIcon
+              category={item.value}
+              name={item.icon}
+              size={16}
+              color={theme.colors.onSurfaceVariant}
+              strokeWidth={2.2}
+            />
             <Text style={[styles.label, { color: theme.colors.onSurface }]}>{item.label}</Text>
           </Pressable>
         );

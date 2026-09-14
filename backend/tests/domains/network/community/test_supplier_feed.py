@@ -264,13 +264,17 @@ class TestDistance:
 
 
 class TestTheRoleGate:
-    def test_the_business_feed_is_empty_not_an_error(self, app, db_session, make_business):
-        """NOT BUILT YET, and an empty list is the honest answer: the
-        business Community tab exists and is served entirely by a mock
-        today."""
+    def test_the_business_feed_is_real_now(self, app, db_session, make_business):
+        """SUPERSEDED. This asserted the business feed returned [] while
+        it was unbuilt and the tab was served by a mock. It is built --
+        see test_business_feed.py -- so the assertion now defends the
+        opposite property: a business with nothing still gets a usable
+        tab, never an empty screen."""
         user = make_business("feedbiz@example.com")
 
-        assert feed_service.feed_for(user.id, "business") == []
+        sections = feed_service.feed_for(user.id, "business")
+
+        assert [s["type"] for s in sections] == ["CATEGORY_CHIPS"]
 
     def test_an_unknown_role_is_refused(self, app, db_session):
         from src.core.exceptions import NotFoundError

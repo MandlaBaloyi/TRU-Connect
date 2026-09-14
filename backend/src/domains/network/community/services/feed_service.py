@@ -34,7 +34,7 @@ from typing import List
 from uuid import UUID
 
 from src.core.exceptions import NotFoundError
-from src.domains.network.community.services import supplier_sections
+from src.domains.network.community.services import business_sections, supplier_sections
 
 
 def feed_for(user_id: str | UUID, role: str) -> List[dict]:
@@ -48,13 +48,42 @@ def feed_for(user_id: str | UUID, role: str) -> List[dict]:
     if role == "supplier":
         return _supplier_feed(user_id)
     if role == "business":
-        # NOT BUILT YET, and returning an empty list is the honest
-        # answer rather than a 404: the business Community tab exists
-        # and is served entirely by a mock today (see the frontend's
-        # communityFeedService). When the business sections land they
-        # slot in here.
-        return []
+        return _business_feed(user_id)
     raise NotFoundError("No community feed for this account type.")
+
+
+def _business_feed(business_id) -> List[dict]:
+    """WHY THE BUSINESS ORDER IS THIS ORDER:
+
+      1  CATEGORIES            the only way to shop when nothing below
+                               applies yet, so it never moves and a new
+                               user is never handed an empty screen.
+      2  BUY IT AGAIN          their own restocking list. The highest-
+                               value rail in the app, and the reason a
+                               shopkeeper opens this tab at all.
+      3  YOUR SUPPLIERS        the fastest path back to a shopfront
+                               they already trust.
+      4  NOT ORDERED YET       a connection that stalled after the
+                               handshake -- the cheapest order to win,
+                               because the trust already happened.
+      5  COLLECT NEAR YOU      growth, last. The only section asking
+                               them to start something rather than
+                               continue it -- the same reason
+                               businesses_near_you sits last for the
+                               supplier.
+
+    SPONSORED AND THE PRICE-MOVEMENT RAIL ARE ABSENT. The price rail is
+    deferred by name in V2_09 Part 5; sponsored has nothing to put in it
+    until something is sold, and an empty paid slot is worse than none.
+    """
+    sections = [
+        business_sections.category_chips(),
+        business_sections.buy_it_again(business_id),
+        business_sections.your_suppliers(business_id),
+        business_sections.connected_but_never_ordered(business_id),
+        business_sections.collect_near_you(business_id),
+    ]
+    return [s for s in sections if s is not None]
 
 
 def _supplier_feed(supplier_user_id) -> List[dict]:

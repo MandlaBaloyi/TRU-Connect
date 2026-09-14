@@ -72,19 +72,76 @@ export const CATEGORY_ICONS: Record<
   OTHER: Shapes,
 };
 
+/**
+ * The same icons, reachable by NAME, for the server-supplied
+ * FeedCategory.icon.
+ *
+ * WHY THIS IS A MAP AND NOT `import * as lucide`. A namespace import of
+ * lucide-react-native defeats tree-shaking and drags roughly a thousand
+ * icon components into the bundle -- a real cost on a phone in a shop
+ * with a metered connection, paid by every user forever, to cover a
+ * case that happens when a category is added.
+ *
+ * SO THE CONTRACT IS HONOURED WITH ONE HONEST LIMIT. FeedCategory.icon
+ * is documented as "server-chosen so a new category doesn't need an app
+ * release to get an icon", and that holds for any icon in this map --
+ * the server can move a category to a different one of these freely. A
+ * genuinely NEW glyph still needs a release; until then the category
+ * appears with the neutral fallback rather than not appearing at all,
+ * which is the part that actually matters.
+ *
+ * WRITTEN OUT RATHER THAN DERIVED FROM displayName. Building this from
+ * `Icon.displayName` would depend on an undocumented property of
+ * lucide-react-native; if it were ever undefined the whole map would
+ * collapse to a single "" key and every server-supplied name would
+ * silently miss -- failing softly, in the direction that looks like it
+ * works. Seventeen literal lines cannot do that.
+ */
+const ICONS_BY_NAME: Record<
+  string,
+  React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
+> = {
+  ShoppingBasket,
+  CupSoda,
+  Candy,
+  Croissant,
+  Milk,
+  Carrot,
+  Beef,
+  SprayCan,
+  ShowerHead,
+  Brush,
+  Baby,
+  PencilRuler,
+  Hammer,
+  Smartphone,
+  Package,
+  Shirt,
+  Shapes,
+};
+
 export function CategoryIcon({
   category,
+  name,
   size = 20,
   color,
   strokeWidth = 1.8,
 }: {
   category: ProductCategory | string;
+  /** Server-supplied lucide name (FeedCategory.icon). Preferred when it
+   *  resolves, so the server can change a category's icon without an app
+   *  release; ignored when it does not, so a typo or an unknown glyph
+   *  degrades to the app's own map rather than rendering a hole. */
+  name?: string | null;
   size?: number;
   color?: string;
   strokeWidth?: number;
 }) {
-  // A category the app does not know yet (backend ahead of a release)
-  // falls back to OTHER rather than rendering nothing.
-  const Icon = CATEGORY_ICONS[category as ProductCategory] ?? CATEGORY_ICONS.OTHER;
+  const Icon =
+    (name ? ICONS_BY_NAME[name] : undefined) ??
+    // A category the app does not know yet (backend ahead of a release)
+    // falls back to OTHER rather than rendering nothing.
+    CATEGORY_ICONS[category as ProductCategory] ??
+    CATEGORY_ICONS.OTHER;
   return <Icon size={size} color={color} strokeWidth={strokeWidth} />;
 }

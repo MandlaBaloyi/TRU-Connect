@@ -711,3 +711,47 @@ class StockOrderRepository:
         for order in orders:
             grouped.setdefault(str(getattr(order, other.key)), []).append(order)
         return grouped
+
+    @staticmethod
+    def previously_ordered_product_ids_for_business(
+        business_id: str | UUID, limit: int = 20
+    ) -> List[UUID]:
+        """Everything this business has had accepted, ACROSS ALL
+        suppliers, most recently ordered first.
+
+        THE SIBLING OF previously_ordered_product_ids, which takes a
+        supplier and is right for a shopfront. "Buy it again" on the
+        Community feed is not per shopfront -- it is the handful of
+        things this shop actually restocks, wherever they come from --
+        and calling the per-supplier version once per connection is the
+        N+1 the trading-history queries above exist to avoid.
+
+        SAME RULES, deliberately: CONFIRMED only, because a cart nobody
+        checked out or an order a supplier declined is not something
+        the business "ordered", and offering to reorder either would be
+        offering to repeat something that never happened.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        rows = (
+            db.session.query(
+                StockOrderItem.product_id,
+                db.func.max(StockOrder.submitted_at).label("last_ordered"),
+            )
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.business_id == business_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .group_by(StockOrderItem.product_id)
+            .order_by(db.text("last_ordered DESC NULLS LAST"))
+            .limit(limit)
+            .all()
+        )
+        return [row.product_id for row in rows]

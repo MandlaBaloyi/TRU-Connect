@@ -96,3 +96,40 @@ class ProductUnit(str, enum.Enum):
 #: day the types do move there is one constant to change rather than a
 #: search across two domains.
 TAXONOMY_TYPE_SCHEMA = "supplier"
+
+
+#: HOW A CATEGORY IS SHOWN: the label a person reads, and the lucide
+#: icon name the app resolves.
+#:
+#: SERVER-SIDE BECAUSE THE FEED CONTRACT SAYS SO. FeedCategory.icon is
+#: documented as "server-chosen so a new category doesn't need an app
+#: release to get an icon" -- that is the whole reason it is a string on
+#: the wire rather than something the app looks up.
+#:
+#: THE APP STILL KEEPS ITS OWN MAP, and that is not duplication for its
+#: own sake: components/categories/CategoryIcon.tsx is a
+#: Record<ProductCategory, Icon>, so a value added to the enum without
+#: an icon is a COMPILE ERROR there. Belt and braces, each catching what
+#: the other cannot -- the app's map catches a forgotten icon at build
+#: time, and this one lets a brand-new category get a sensible icon on a
+#: phone that has not been updated yet. The app prefers this name and
+#: falls back to its own.
+CATEGORY_DISPLAY: dict[ProductCategory, tuple[str, str]] = {
+    ProductCategory.FOOD_GROCERY: ("Food & Grocery", "ShoppingBasket"),
+    ProductCategory.BEVERAGES: ("Beverages", "CupSoda"),
+    ProductCategory.SNACKS_CONFECTIONERY: ("Snacks & Confectionery", "Candy"),
+    ProductCategory.BAKERY: ("Bakery", "Croissant"),
+    ProductCategory.DAIRY_CHILLED: ("Dairy & Chilled", "Milk"),
+    ProductCategory.FRESH_PRODUCE: ("Fresh Produce", "Carrot"),
+    ProductCategory.MEAT_FROZEN: ("Meat & Frozen", "Beef"),
+    ProductCategory.HOUSEHOLD_CLEANING: ("Household & Cleaning", "SprayCan"),
+    ProductCategory.PERSONAL_CARE: ("Personal Care", "ShowerHead"),
+    ProductCategory.BEAUTY_HAIR: ("Beauty & Hair", "Brush"),
+    ProductCategory.BABY_FAMILY: ("Baby & Family", "Baby"),
+    ProductCategory.STATIONERY_SCHOOL: ("Stationery & School", "PencilRuler"),
+    ProductCategory.HARDWARE_GENERAL: ("Hardware & General", "Hammer"),
+    ProductCategory.ELECTRONICS_ACCESSORIES: ("Electronics & Accessories", "Smartphone"),
+    ProductCategory.PACKAGING_DISPOSABLE: ("Packaging & Disposable", "Package"),
+    ProductCategory.CLOTHING_APPAREL: ("Clothing & Apparel", "Shirt"),
+    ProductCategory.OTHER: ("Other", "Shapes"),
+}

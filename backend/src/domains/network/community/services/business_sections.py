@@ -1,0 +1,440 @@
+"""
+The business's Community feed, section by section.
+
+FOR THE BUSINESS, COMMUNITY IS A MARKET (V2_04 2.1) -- the mirror of
+supplier_sections.py, which builds the same tab as a DEMAND SIGNAL for
+the other role.
+
+THE UI ALREADY EXISTS AND IS GOOD. This does not get to redesign it:
+every shape below is what the app's own components already render from
+mockCommunityFeed, so switching the seam from mock to HTTP changes no
+screen. The section TYPES are the contract (V2_04 Part 1) -- the server
+chooses which sections exist and in what order, the client renders what
+it is handed and skips types it does not know.
+
+TWO RULES THAT APPLY TO EVERY BUILDER HERE:
+
+  THE CURTAIN. Every supplier reachable from this feed goes through
+  verification.visibility -- an UNVERIFIED supplier is not findable, and
+  a discovery rail is exactly where a bypass would hide. There is an
+  architecture test that fails the build if this file reaches a supplier
+  through the ungated lookup.
+
+  A THIN RAIL IS WORSE THAN NO RAIL. MIN_ITEMS_PER_RAIL, stated in the
+  app's own types.ts and enforced here too so a two-item rail cannot
+  arrive from either side. Builders return None rather than a short
+  list, for the same reason the supplier feed does: a zero card is worse
+  than no card.
+"""
+from __future__ import annotations
+
+from typing import List, Optional
+from uuid import UUID
+
+from src.shared.algorithms import distance
+
+#: A rail with almost nothing in it looks worse than no rail at all.
+#: Mirrors MIN_ITEMS_PER_RAIL in the app's community/types.ts.
+MIN_ITEMS_PER_RAIL = 3
+
+#: Avatars are a row, not a rail -- two faces you recognise is still
+#: useful where two products is not.
+MIN_AVATARS = 1
+
+
+# ---------------------------------------------------------------------------
+# Category chips
+# ---------------------------------------------------------------------------
+
+def category_chips() -> dict:
+    """The taxonomy, as chips that filter for real.
+
+    THE ONE SECTION THAT IS NEVER EMPTY and never personal -- it is the
+    same for every business, which is why it takes no arguments and
+    needs no minimum.
+
+    ICON NAMES COME FROM HERE, per the feed contract: a category added
+    to the enum gets an icon on phones that have not been updated. The
+    app keeps its own map as a fallback AND as a compile-time check that
+    nobody forgot one -- see CATEGORY_DISPLAY's own comment.
+    """
+    from src.domains.catalogue.products.models.taxonomy import CATEGORY_DISPLAY, ProductCategory
+
+    return {
+        "id": "categories",
+        "type": "CATEGORY_CHIPS",
+        "categories": [
+            {"value": category.value, "label": label, "icon": icon}
+            for category in ProductCategory
+            for label, icon in [CATEGORY_DISPLAY[category]]
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Buy it again
+# ---------------------------------------------------------------------------
+
+def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
+    """THE HIGHEST-VALUE RAIL IN THE APP (V2_04 2.2), and the cheapest
+    to compute: this business's own order history.
+
+    A spaza owner restocking buys the same handful of things every week
+    and today has to re-find each one by scrolling a category. Ordering
+    is per-BUSINESS, so this is genuinely personal history rather than a
+    popularity list wearing its clothes.
+
+    EMPTY FOR A NEW USER, AND THAT IS CORRECT -- it fills on order two.
+    """
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
+    product_ids = StockOrderRepository.previously_ordered_product_ids_for_business(
+        business_id, limit=limit * 2
+    )
+    if not product_ids:
+        return None
+
+    products = _visible_offers(product_ids)
+    if len(products) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    return {
+        "id": "buy-it-again",
+        "type": "PRODUCT_RAIL",
+        "title": "Buy it again",
+        "subtitle": "From your last orders",
+        "products": _feed_products(products[:limit]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Your suppliers
+# ---------------------------------------------------------------------------
+
+def your_suppliers(business_id) -> Optional[dict]:
+    """Existing connections as a row of avatars -- the fastest path back
+    to a shopfront they already trust."""
+    profiles = _connected_supplier_profiles(business_id)
+    if len(profiles) < MIN_AVATARS:
+        return None
+
+    return {
+        "id": "your-suppliers",
+        "type": "SUPPLIER_AVATARS",
+        "title": "Your suppliers",
+        "suppliers": _feed_suppliers(profiles),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Suppliers you haven't ordered from
+# ---------------------------------------------------------------------------
+
+def connected_but_never_ordered(business_id) -> Optional[dict]:
+    """A connection with no orders behind it is a relationship that
+    stalled after the handshake, and it is the cheapest order in the app
+    to win back -- the trust already happened.
+
+    DELIBERATELY NOT FRAMED AS A FAILURE. "Connected, but no orders yet"
+    is a fact; anything scolding would be the platform telling a
+    shopkeeper off for how they run their shop.
+    """
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
+    profiles = _connected_supplier_profiles(business_id)
+    if not profiles:
+        return None
+
+    traded_with = set(
+        StockOrderRepository.order_dates_by_counterparty(business_id=business_id).keys()
+    )
+    idle = [p for p in profiles if str(p.id) not in traded_with]
+    if len(idle) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    return {
+        "id": "not-ordered-yet",
+        "type": "SUPPLIER_RAIL",
+        "title": "Suppliers you haven't ordered from",
+        "subtitle": "Connected, but no orders yet",
+        "suppliers": _feed_suppliers(idle),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Collect near you
+# ---------------------------------------------------------------------------
+
+def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
+    """Verified suppliers close enough to collect from, that this
+    business is NOT already connected to.
+
+    A DISCOVERY RAIL CONTAINING YOUR OWN SUPPLIERS is not discovery --
+    it is the same bug the supplier feed's businesses_near_you guards
+    against, from the other side.
+
+    NO LOCATION, NO RAIL. Without the business's own coordinates there
+    is no "near", and an unsorted list of every supplier would be worse
+    than nothing because it would look like a recommendation.
+    """
+    from src.domains.business.business_profile.repositories.business_profile_repository import (
+        BusinessProfileRepository,
+    )
+    from src.domains.network.connections.repositories.connection_request_repository import (
+        ConnectionRequestRepository,
+    )
+    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierProfile
+    from src.domains.verification.visibility import visible_filter
+    from src.extensions import db
+
+    profile = BusinessProfileRepository.get_for_business(business_id)
+    if profile is None or profile.latitude is None or profile.longitude is None:
+        return None
+
+    already = {
+        str(r.supplier_profile_id)
+        for r in ConnectionRequestRepository.list_active_for_business(business_id)
+    }
+
+    candidates = (
+        db.session.query(SupplierProfile)
+        .filter(
+            visible_filter(),
+            SupplierProfile.is_deleted.is_(False),
+            SupplierProfile.collection_latitude.isnot(None),
+            SupplierProfile.collection_longitude.isnot(None),
+        )
+        .all()
+    )
+
+    measured = []
+    for candidate in candidates:
+        if str(candidate.id) in already:
+            continue
+        km = distance.km_between(
+            profile.latitude,
+            profile.longitude,
+            candidate.collection_latitude,
+            candidate.collection_longitude,
+        )
+        if km is None:
+            continue
+        measured.append((km, candidate))
+
+    if len(measured) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    measured.sort(key=lambda pair: pair[0])
+    nearest = measured[:limit]
+
+    return {
+        "id": "collect-near-you",
+        "type": "SUPPLIER_RAIL",
+        "title": "Collect near you",
+        "subtitle": _nearest_subtitle(profile),
+        "suppliers": _feed_suppliers(
+            [p for _, p in nearest], distances={p.id: round(km, 1) for km, p in nearest}
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+def _connected_supplier_profiles(business_id) -> List:
+    """Active connections, CURTAINED.
+
+    A supplier whose verification was revoked stops being discoverable,
+    but an established connection and its order history stay -- so this
+    filters the DISCOVERY surfaces without pretending the trade never
+    happened. That distinction is V2_12's, not this file's.
+    """
+    from src.domains.network.connections.repositories.connection_request_repository import (
+        ConnectionRequestRepository,
+    )
+    from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
+        SupplierProfileRepository,
+    )
+    profiles = []
+    for request in ConnectionRequestRepository.list_active_for_business(business_id):
+        # get_visible_by_id, NOT get_by_id: the gate belongs in the
+        # lookup rather than in a filter after it, so there is no window
+        # in which an unverified profile exists in a local variable on a
+        # business-facing path. The architecture test enforces exactly
+        # this and caught the first version of this function.
+        profile = SupplierProfileRepository.get_visible_by_id(request.supplier_profile_id)
+        if profile is not None:
+            profiles.append(profile)
+    return profiles
+
+
+def _visible_offers(product_ids: List[UUID]) -> List:
+    """Load supplier offers by id, keeping only those whose supplier is
+    still visible and whose listing is still live.
+
+    ORDER IS PRESERVED from product_ids, which arrived most-recently-
+    ordered first -- a set lookup would silently resort the rail into
+    whatever order the database felt like returning.
+    """
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierProfile
+    from src.domains.verification.visibility import visible_filter
+    from src.extensions import db
+
+    if not product_ids:
+        return []
+
+    rows = (
+        db.session.query(SupplierOffer, SupplierProfile.business_name)
+        .join(SupplierProfile, SupplierProfile.id == SupplierOffer.supplier_profile_id)
+        .filter(
+            SupplierOffer.id.in_(product_ids),
+            SupplierOffer.is_deleted.is_(False),
+            SupplierOffer.is_archived.is_(False),
+            visible_filter(),
+        )
+        .all()
+    )
+    # THE SUPPLIER NAME COMES OUT OF THIS QUERY, not a lookup per card.
+    # The first version fetched each supplier separately to name the
+    # card, which was both a second read and an UNGATED one -- the
+    # curtain test refused it, correctly. Joining it here is cheaper and
+    # cannot drift from the visibility filter directly above.
+    by_id = {offer.id: (offer, name) for offer, name in rows}
+    return [by_id[pid] for pid in product_ids if pid in by_id]
+
+
+def _feed_products(pairs: List) -> List[dict]:
+    """SupplierOffer rows in the shape the app's product cards render.
+
+    Reuses build_catalog_product_dicts for the parts that are easy to
+    get subtly wrong -- batched inventory rather than a query per
+    product, and APPROVED-only media -- then maps to the feed's own
+    flatter shape, which carries the supplier on every card because a
+    feed rail mixes suppliers where a shopfront never does.
+    """
+    from src.domains.network.connections.services.storefront.product_dto import (
+        build_catalog_product_dicts,
+    )
+
+    offers = [pair[0] for pair in pairs]
+    enriched = build_catalog_product_dicts(offers)
+    feed_products = []
+
+    for (offer, supplier_name), dto in zip(pairs, enriched):
+        supplier_id = offer.supplier_profile_id
+        images = dto.get("images") or []
+        feed_products.append(
+            {
+                "id": dto["id"],
+                "supplierId": str(supplier_id),
+                "supplierName": supplier_name,
+                "name": dto["name"],
+                # ONE image, not the gallery: a rail card shows a
+                # thumbnail, and shipping four URLs per card to render
+                # one is bandwidth a spaza shop pays for.
+                "imageUrl": (images[0].get("url") if isinstance(images[0], dict) else images[0])
+                if images
+                else None,
+                "priceCents": dto["priceCents"],
+                "compareAtPriceCents": dto["compareAtPriceCents"],
+                "unitLabel": _unit_label(dto),
+                "inStock": dto["inStock"],
+            }
+        )
+    return feed_products
+
+
+def _unit_label(dto: dict) -> Optional[str]:
+    """"each", "case of 12", "bag of 10kg".
+
+    BUILT SERVER-SIDE because the feed contract says so, and because the
+    three columns it is built from (selling unit, quantity, measure) are
+    exactly the ones that were never sent to a business before -- a pack
+    of 6 and a pack of 24 looked identical at the same price.
+    """
+    unit = (dto.get("sellingUnit") or "").lower()
+    quantity = dto.get("unitQuantity")
+    measure = (dto.get("unitMeasure") or "").lower() if dto.get("unitMeasure") else None
+
+    if not unit:
+        return None
+    if unit == "each" or not quantity:
+        return unit
+    if measure:
+        return f"{unit} of {quantity}{measure}"
+    return f"{unit} of {quantity}"
+
+
+def _feed_supplier(profile, distance_km: Optional[float] = None, last_active_at=None) -> dict:
+    """The supplier card shape, ungated brand assets only.
+
+    NO STREET ADDRESS, ever -- `location` is suburb or city, the same
+    rule the search results follow. A discovery rail is seen by people
+    with no relationship to this supplier.
+    """
+    return {
+        "id": str(profile.id),
+        "businessName": profile.business_name,
+        "businessImageUrl": profile.business_image_url,
+        "coverImageUrl": profile.cover_image_url,
+        "category": profile.category,
+        "location": profile.location,
+        "verificationStatus": (
+            profile.verification_status.value if profile.verification_status else None
+        ),
+        "offersDelivery": profile.offers_delivery,
+        "minimumOrderCents": profile.minimum_order_cents,
+        "distanceKm": distance_km,
+        # FROM THE SUPPLIER'S USER ROW, not the profile -- the heartbeat
+        # lives on auth.users -- and only when they have chosen to show
+        # it. Passed in rather than looked up here so the caller can
+        # batch one query for the whole rail instead of one per card.
+        "lastActiveAt": last_active_at.isoformat() if last_active_at else None,
+    }
+
+
+def _feed_suppliers(profiles: List, distances: Optional[dict] = None) -> List[dict]:
+    """Every supplier card in a rail, with the activity lookup batched."""
+    seen = _last_active_map(profiles)
+    return [
+        _feed_supplier(
+            p,
+            distance_km=(distances or {}).get(p.id),
+            last_active_at=seen.get(p.id),
+        )
+        for p in profiles
+    ]
+
+
+def _last_active_map(profiles: List) -> dict:
+    """{supplier_profile_id: last_active_at or None}, in ONE query.
+
+    Gated by the supplier's own show_last_active, the same rule
+    discovery_service applies -- a supplier who turned the indicator off
+    has turned it off everywhere, not just on their profile screen.
+    """
+    from src.domains.auth.models.user import User
+    from src.extensions import db
+
+    wanted = {p.supplier_id: p.id for p in profiles if p.show_last_active}
+    if not wanted:
+        return {}
+
+    rows = db.session.query(User.id, User.last_active_at).filter(User.id.in_(wanted.keys())).all()
+    return {wanted[user_id]: seen for user_id, seen in rows}
+
+
+def _nearest_subtitle(profile) -> Optional[str]:
+    """"Closest to Soweto" -- the business's own suburb, not a distance.
+
+    A number here would be the distance to the FIRST card, which stops
+    being true as soon as the reader scrolls.
+    """
+    where = profile.city_or_town
+    return f"Closest to {where}" if where else None
