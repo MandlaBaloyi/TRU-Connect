@@ -104,9 +104,18 @@ class TestTheCurtainHolds:
 
 
 class TestADiscoveryRailIsForDiscovery:
-    def test_it_excludes_suppliers_you_already_buy_from(
+    def test_collect_near_you_includes_your_own_suppliers_badged(
         self, app, db_session, business_at, supplier_at, make_active_connection
     ):
+        """REVERSED DELIBERATELY. An earlier version excluded connected
+        suppliers, on the reasoning that a discovery rail containing
+        your own suppliers is a bug. That is right for a rail called
+        "new near you" and wrong for one called "COLLECT near you":
+        proximity is useful whoever they are, and the wholesaler you
+        already buy from being nearest is information, not noise.
+
+        They are BADGED rather than hidden -- the card has always had an
+        isConnected flag and nothing ever set it."""
         user, _ = business_at()
         mine = supplier_at(name="Already Mine")
         for _ in range(3):
@@ -116,7 +125,12 @@ class TestADiscoveryRailIsForDiscovery:
         section = business_sections.collect_near_you(user.id)
 
         assert section is not None
-        assert "Already Mine" not in [s["businessName"] for s in section["suppliers"]]
+        by_name = {s["businessName"]: s for s in section["suppliers"]}
+        assert "Already Mine" in by_name, "a supplier you buy from is still nearby"
+        assert by_name["Already Mine"]["isConnected"] is True
+        assert all(
+            s["isConnected"] is False for n, s in by_name.items() if n != "Already Mine"
+        )
 
     def test_no_coordinates_means_no_rail(self, app, db_session, business_at, supplier_at):
         """WITHOUT OUR OWN LOCATION THERE IS NO "NEAR", and an unsorted
@@ -298,3 +312,78 @@ class TestYourSuppliers:
         db.session.commit()
 
         assert business_sections.your_suppliers(user.id) is None
+
+class TestSuppliersYouHaveNotOrderedFrom:
+    """THE SECTION THAT WAS CONNECTION-ONLY AND SHOULD NOT HAVE BEEN.
+
+    A connection that stalled after the handshake and a supplier they
+    have never met are the SAME opportunity: somebody with stock, in
+    reach, never bought from. Restricting it to connections meant a new
+    business -- who has none -- saw nothing at all, which is the old
+    pre-V2_00-2.3 model leaking back into a discovery rail.
+    """
+
+    def _with_stock(self, supplier_at, name):
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory, ProductUnit
+        from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+
+        profile = supplier_at(name=name)
+        n = next(_seq)
+        db.session.add(
+            SupplierOffer(
+                supplier_profile_id=profile.id,
+                name=f"Stock {n}",
+                category=ProductCategory.BEVERAGES,
+                price_cents=1500,
+                selling_unit=ProductUnit.EACH,
+                sku=f"SKU-NOY-{n}",
+                product_code=f"PC-NOY-{n}",
+            )
+        )
+        db.session.commit()
+        return profile
+
+    def test_it_includes_suppliers_you_have_never_connected_to(
+        self, app, db_session, business_at, supplier_at
+    ):
+        user, _ = business_at()
+        for i in range(3):
+            self._with_stock(supplier_at, f"Stranger {i}")
+
+        section = business_sections.not_ordered_from_yet(user.id)
+
+        assert section is not None
+        assert len(section["suppliers"]) == 3
+
+    def test_the_ones_you_already_know_come_first(
+        self, app, db_session, business_at, supplier_at, make_active_connection
+    ):
+        """The trust is done; only the first order is missing, which
+        makes it the cheapest one in the app to win."""
+        user, _ = business_at()
+        for i in range(3):
+            self._with_stock(supplier_at, f"Stranger {i}")
+        known = self._with_stock(supplier_at, "Connected Already")
+        make_active_connection(user, known)
+
+        section = business_sections.not_ordered_from_yet(user.id)
+
+        assert section["suppliers"][0]["businessName"] == "Connected Already"
+        assert section["suppliers"][0]["isConnected"] is True
+
+    def test_a_supplier_with_an_empty_shopfront_is_not_an_opportunity(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """Sending a shopkeeper to a blank screen teaches them the rail
+        is not worth tapping -- and the ordering gate refuses an empty
+        catalogue anyway, so the card could never have become an
+        order."""
+        user, _ = business_at()
+        for i in range(3):
+            self._with_stock(supplier_at, f"Has Stock {i}")
+        supplier_at(name="Sells Nothing")
+
+        section = business_sections.not_ordered_from_yet(user.id)
+
+        names = [s["businessName"] for s in section["suppliers"]]
+        assert "Sells Nothing" not in names

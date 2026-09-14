@@ -64,9 +64,10 @@ def _business_feed(business_id) -> List[dict]:
                                shopkeeper opens this tab at all.
       3  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      4  NOT ORDERED YET       a connection that stalled after the
-                               handshake -- the cheapest order to win,
-                               because the trust already happened.
+      4  NOT ORDERED YET       suppliers in reach they have never
+                               bought from, connected or not. The ones
+                               they already know come first: the trust
+                               is done, only the first order is missing.
       5  COLLECT NEAR YOU      growth, last. The only section asking
                                them to start something rather than
                                continue it -- the same reason
@@ -81,7 +82,7 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.category_chips(),
         business_sections.buy_it_again(business_id),
         business_sections.your_suppliers(business_id),
-        business_sections.connected_but_never_ordered(business_id),
+        business_sections.not_ordered_from_yet(business_id),
         business_sections.collect_near_you(business_id),
     ]
     return [s for s in sections if s is not None]

@@ -132,36 +132,53 @@ def your_suppliers(business_id) -> Optional[dict]:
 # Suppliers you haven't ordered from
 # ---------------------------------------------------------------------------
 
-def connected_but_never_ordered(business_id) -> Optional[dict]:
-    """A connection with no orders behind it is a relationship that
-    stalled after the handshake, and it is the cheapest order in the app
-    to win back -- the trust already happened.
+def not_ordered_from_yet(business_id, limit: int = 10) -> Optional[dict]:
+    """Visible suppliers this shop has never ordered from -- CONNECTED
+    OR NOT.
 
-    DELIBERATELY NOT FRAMED AS A FAILURE. "Connected, but no orders yet"
-    is a fact; anything scolding would be the platform telling a
-    shopkeeper off for how they run their shop.
+    IT USED TO BE CONNECTION-ONLY, and that was the smaller half of a
+    real idea. A connection that stalled after the handshake and a
+    supplier they have never met are the SAME opportunity from the
+    platform's point of view: somebody with stock, in reach, that this
+    shop has never bought from. Restricting it to connections meant a
+    new business -- who has none -- saw nothing at all.
+
+    It was also the old model leaking back in. V2_00 2.3 removed the
+    connection requirement so that discovery could exist; rebuilding it
+    inside a discovery rail put it straight back.
+
+    DELIBERATELY NOT FRAMED AS A FAILURE. The subtitle states a fact.
+    Anything scolding would be the platform telling a shopkeeper off for
+    how they run their shop.
     """
     from src.domains.network.orders.repositories.stock_order_repository import (
         StockOrderRepository,
     )
 
-    profiles = _connected_supplier_profiles(business_id)
-    if not profiles:
+    candidates = _visible_suppliers_with_stock()
+    if not candidates:
         return None
 
     traded_with = set(
         StockOrderRepository.order_dates_by_counterparty(business_id=business_id).keys()
     )
-    idle = [p for p in profiles if str(p.id) not in traded_with]
-    if len(idle) < MIN_ITEMS_PER_RAIL:
+    connected = _connected_supplier_ids(business_id)
+
+    untried = [p for p in candidates if str(p.id) not in traded_with]
+    if len(untried) < MIN_ITEMS_PER_RAIL:
         return None
+
+    # A SUPPLIER THEY ALREADY KNOW COMES FIRST. The trust is done; only
+    # the first order is missing, which makes it the cheapest one to
+    # win. Strangers follow.
+    untried.sort(key=lambda p: (str(p.id) not in connected, p.business_name or ""))
 
     return {
         "id": "not-ordered-yet",
         "type": "SUPPLIER_RAIL",
         "title": "Suppliers you haven't ordered from",
-        "subtitle": "Connected, but no orders yet",
-        "suppliers": _feed_suppliers(idle),
+        "subtitle": "In reach, and new to you",
+        "suppliers": _feed_suppliers(untried[:limit], connected_ids=connected),
     }
 
 
@@ -170,12 +187,14 @@ def connected_but_never_ordered(business_id) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 
 def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
-    """Verified suppliers close enough to collect from, that this
-    business is NOT already connected to.
+    """Verified suppliers close enough to collect from.
 
-    A DISCOVERY RAIL CONTAINING YOUR OWN SUPPLIERS is not discovery --
-    it is the same bug the supplier feed's businesses_near_you guards
-    against, from the other side.
+    IT USED TO EXCLUDE CONNECTED SUPPLIERS and that was wrong here.
+    The reasoning -- a discovery rail containing your own suppliers is a
+    bug -- is right for a rail called "new near you" and wrong for one
+    called "COLLECT near you": proximity is useful whoever they are, and
+    the wholesaler you already buy from being the nearest is
+    information, not noise. They are badged instead of hidden.
 
     NO LOCATION, NO RAIL. Without the business's own coordinates there
     is no "near", and an unsorted list of every supplier would be worse
@@ -195,10 +214,7 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     if profile is None or profile.latitude is None or profile.longitude is None:
         return None
 
-    already = {
-        str(r.supplier_profile_id)
-        for r in ConnectionRequestRepository.list_active_for_business(business_id)
-    }
+    connected = _connected_supplier_ids(business_id)
 
     candidates = (
         db.session.query(SupplierProfile)
@@ -213,8 +229,6 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
 
     measured = []
     for candidate in candidates:
-        if str(candidate.id) in already:
-            continue
         km = distance.km_between(
             profile.latitude,
             profile.longitude,
@@ -237,7 +251,9 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
         "title": "Collect near you",
         "subtitle": _nearest_subtitle(profile),
         "suppliers": _feed_suppliers(
-            [p for _, p in nearest], distances={p.id: round(km, 1) for km, p in nearest}
+            [p for _, p in nearest],
+            distances={p.id: round(km, 1) for km, p in nearest},
+            connected_ids=connected,
         ),
     }
 
@@ -245,6 +261,55 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+def _connected_supplier_ids(business_id) -> set:
+    """Just the ids, for badging and ordering -- no profile loads.
+
+    Separate from _connected_supplier_profiles because most callers only
+    need to ask "is this one of mine?", and loading a profile per
+    connection to answer a boolean is the N+1 this file has already had
+    removed once.
+    """
+    from src.domains.network.connections.repositories.connection_request_repository import (
+        ConnectionRequestRepository,
+    )
+
+    if business_id is None:
+        return set()
+    return {
+        str(r.supplier_profile_id)
+        for r in ConnectionRequestRepository.list_active_for_business(business_id)
+    }
+
+
+def _visible_suppliers_with_stock(limit: int = 200) -> List:
+    """Visible suppliers that actually have something to sell.
+
+    A SUPPLIER WITH AN EMPTY SHOPFRONT IS NOT AN OPPORTUNITY. Putting
+    one in a discovery rail sends a shopkeeper to a blank screen, which
+    teaches them the rail is not worth tapping -- and the ordering gate
+    refuses them anyway ("there is nothing to order from an empty
+    catalogue"), so the card could never have become an order.
+    """
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierProfile
+    from src.domains.verification.visibility import visible_filter
+    from src.extensions import db
+
+    return (
+        db.session.query(SupplierProfile)
+        .join(SupplierOffer, SupplierOffer.supplier_profile_id == SupplierProfile.id)
+        .filter(
+            visible_filter(),
+            SupplierProfile.is_deleted.is_(False),
+            SupplierOffer.is_deleted.is_(False),
+            SupplierOffer.is_archived.is_(False),
+        )
+        .distinct()
+        .limit(limit)
+        .all()
+    )
+
 
 def _connected_supplier_profiles(business_id) -> List:
     """Active connections, CURTAINED.
@@ -371,7 +436,12 @@ def _unit_label(dto: dict) -> Optional[str]:
     return f"{unit} of {quantity}"
 
 
-def _feed_supplier(profile, distance_km: Optional[float] = None, last_active_at=None) -> dict:
+def _feed_supplier(
+    profile,
+    distance_km: Optional[float] = None,
+    last_active_at=None,
+    is_connected: bool = False,
+) -> dict:
     """The supplier card shape, ungated brand assets only.
 
     NO STREET ADDRESS, ever -- `location` is suburb or city, the same
@@ -391,6 +461,11 @@ def _feed_supplier(profile, distance_km: Optional[float] = None, last_active_at=
         "offersDelivery": profile.offers_delivery,
         "minimumOrderCents": profile.minimum_order_cents,
         "distanceKm": distance_km,
+        # THE CARD ALREADY HAD A BADGE FOR THIS and nothing ever set
+        # it. Now that discovery rails show connected suppliers
+        # rather than hiding them, it is the field that tells a shop
+        # which of these they already deal with.
+        "isConnected": is_connected,
         # FROM THE SUPPLIER'S USER ROW, not the profile -- the heartbeat
         # lives on auth.users -- and only when they have chosen to show
         # it. Passed in rather than looked up here so the caller can
@@ -399,7 +474,11 @@ def _feed_supplier(profile, distance_km: Optional[float] = None, last_active_at=
     }
 
 
-def _feed_suppliers(profiles: List, distances: Optional[dict] = None) -> List[dict]:
+def _feed_suppliers(
+    profiles: List,
+    distances: Optional[dict] = None,
+    connected_ids: Optional[set] = None,
+) -> List[dict]:
     """Every supplier card in a rail, with the activity lookup batched."""
     seen = _last_active_map(profiles)
     return [
@@ -407,6 +486,7 @@ def _feed_suppliers(profiles: List, distances: Optional[dict] = None) -> List[di
             p,
             distance_km=(distances or {}).get(p.id),
             last_active_at=seen.get(p.id),
+            is_connected=str(p.id) in (connected_ids or set()),
         )
         for p in profiles
     ]
