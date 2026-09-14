@@ -226,7 +226,7 @@ export default function SupplierProductDetailScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ImageCarousel images={product.images} />
+        <ImageCarousel images={product.images} category={product.category} />
 
         {/* THE BUY BLOCK replaces a six-row label/value table -- see
             ProductBuyBlock's own docstring for what that table got

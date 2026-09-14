@@ -141,7 +141,7 @@ export default function ProductDetailScreen() {
   return (
     <ScreenContainer hasNativeHeader paddingHorizontal={0}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ImageCarousel images={product.images} />
+        <ImageCarousel images={product.images} category={product.category} />
 
         <View style={styles.body}>
           <View style={styles.field}>
