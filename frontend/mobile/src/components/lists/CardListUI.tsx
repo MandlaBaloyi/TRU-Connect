@@ -248,21 +248,11 @@ export function Note({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Friendly relative time — no raw timestamps in the UI. */
-export function formatWhen(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"} ago`;
-  const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? "" : "s"} ago`;
-}
+/** MOVED to utils/relativeTime.ts, re-exported so the many callers
+ *  that import it from here keep working. It left because a hook
+ *  (hooks/useRelativeTime) needs it, and a hook importing a
+ *  formatter out of a components file is the wrong direction. */
+export { formatWhen } from "@/utils/relativeTime";
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md, paddingHorizontal: spacing.md },

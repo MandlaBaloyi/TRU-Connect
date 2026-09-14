@@ -8,7 +8,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
-import { formatWhen } from "@/components/lists/CardListUI";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 
 import { useMyConnections } from "../hooks/useMyConnections";
 import type { ConnectionSummary } from "../types";
@@ -126,8 +126,15 @@ export function MyConnectionsList({
  * they arrive -- the same rule the Community feed follows by returning
  * no card at all.
  */
-function ledgerLine(connection: ConnectionSummary): { text: string; emphasis: boolean } | null {
-  const ordered = connection.lastOrderAt ? `last ordered ${formatWhen(connection.lastOrderAt)}` : null;
+function ledgerLine(
+  connection: ConnectionSummary,
+  // PASSED IN, not computed here: the live clock is a hook, and a
+  // hook cannot be called from a plain function. Keeping the rule in
+  // one pure function and the subscription at the component edge is
+  // also just the better split.
+  lastOrderedWords: string | null,
+): { text: string; emphasis: boolean } | null {
+  const ordered = lastOrderedWords ? `last ordered ${lastOrderedWords}` : null;
 
   // WAITING ORDERS WIN, AND THEY ARE COUNTED. Three orders where one
   // finished and two are still waiting is a different row from one
@@ -152,7 +159,10 @@ function ledgerLine(connection: ConnectionSummary): { text: string; emphasis: bo
 
 function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary; onPress?: () => void }) {
   const theme = useTheme();
-  const ledger = ledgerLine(connection);
+  // Subscribes to the shared clock: this row re-renders only when its
+  // own text actually turns over, and never while the app is asleep.
+  const lastOrdered = useRelativeTime(connection.lastOrderAt);
+  const ledger = ledgerLine(connection, lastOrdered);
 
   const content = (
     <>
