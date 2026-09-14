@@ -24,8 +24,11 @@ export function VerificationChecklist({ verification }: Props) {
     { label: "Email verified", done: verification.emailVerified },
     { label: "Business information", done: verification.businessInfoComplete },
     { label: "Business location", done: verification.locationComplete },
-    { label: "Identity verification", done: verification.identityVerified },
-    { label: "Business documents", done: verification.documentsVerified },
+    // Identity verification and Business documents were here. They were
+    // the SUPPLIER model's concepts on a business: the curtain gates who
+    // may SELL, and an informal business is not checked in order to
+    // shop. Neither had a backing system, so both showed a permanently
+    // unticked box implying a review that was never going to happen.
   ];
 
   return (

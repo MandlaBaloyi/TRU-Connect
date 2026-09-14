@@ -30,7 +30,15 @@ class TestGetOrCreate:
         with app.app_context():
             profile = BusinessProfileService.get_profile(business.id)
         assert profile["businessDetails"]["businessName"] == ""
-        assert profile["tradingDetails"]["products"] == []
+        # `products` became `buysCategories` (migration 5c9e2f14a7b3) --
+        # what they BUY, against the real ProductCategory taxonomy,
+        # rather than what they sell from a list that offered most shops
+        # the answer "Products".
+        assert profile["tradingDetails"]["buysCategories"] == []
+        # The two questions that let the demand engine work before any
+        # order exists. Null until asked, never defaulted to a guess.
+        assert profile["tradingDetails"]["restockRhythm"] is None
+        assert profile["tradingDetails"]["weeklySpendBand"] is None
 
     def test_second_access_returns_the_same_row_not_a_new_one(self, app, make_business_user):
         business = make_business_user("second-access@example.com")

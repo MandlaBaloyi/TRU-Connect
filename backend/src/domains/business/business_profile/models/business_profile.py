@@ -89,6 +89,48 @@ class EmployeeRange(str, enum.Enum):
     MORE_THAN_TWENTY = "MORE_THAN_TWENTY"
 
 
+class RestockRhythm(str, enum.Enum):
+    """HOW OFTEN THIS SHOP RESTOCKS -- one tap, and the single most
+    valuable thing the demand engine can know on day one.
+
+    Without it the engine waits for months of order history before it
+    can time anything, and a shop that restocks daily is served exactly
+    as badly as one that restocks monthly in the meantime.
+
+    IRREGULAR IS A REAL ANSWER, not a refusal. Plenty of shops buy when
+    they run out and when they have cash, and recording that honestly
+    is better than forcing a cadence the engine will then be wrong
+    about.
+    """
+
+    DAILY = "DAILY"
+    TWICE_WEEKLY = "TWICE_WEEKLY"
+    WEEKLY = "WEEKLY"
+    FORTNIGHTLY = "FORTNIGHTLY"
+    MONTHLY = "MONTHLY"
+    IRREGULAR = "IRREGULAR"
+
+
+class WeeklySpendBand(str, enum.Enum):
+    """ROUGHLY WHAT THEY SPEND ON STOCK IN A WEEK.
+
+    A BAND, NEVER A NUMBER. An exact figure is a question people
+    hesitate over, get wrong, and feel examined by -- and the engine
+    does not need precision. It needs to stop showing a R5,000 pallet
+    to a shop that buys R800 a week, which a band answers completely.
+
+    NOT A FINANCIAL ASSESSMENT AND MUST NEVER BE PRESENTED AS ONE. It
+    sizes a basket. V2_03 is explicit that self-reported figures cannot
+    support lending, and this is self-reported.
+    """
+
+    UNDER_500 = "UNDER_500"
+    R500_TO_2000 = "R500_TO_2000"
+    R2000_TO_5000 = "R2000_TO_5000"
+    R5000_TO_10000 = "R5000_TO_10000"
+    OVER_10000 = "OVER_10000"
+
+
 class OperatingHistory(str, enum.Enum):
     LESS_THAN_6_MONTHS = "LESS_THAN_6_MONTHS"
     SIX_MONTHS_TO_1_YEAR = "SIX_MONTHS_TO_1_YEAR"
@@ -199,10 +241,32 @@ class BusinessProfile(BaseModel):
     longitude = db.Column(db.Float, nullable=True)
 
     # --- Section 4: Trading Details ---
-    products = db.Column(ARRAY(db.String), nullable=False, default=list)
+    # WHAT THEY BUY, AGAINST THE REAL TAXONOMY. Replaces `products`,
+    # which asked what they SELL from a per-category list of adjectives
+    # -- and which, for five of the eight business categories including
+    # RETAIL, offered a shopkeeper the answer "Products". That is not a
+    # weak signal, it is no signal, and it was the strongest thing the
+    # demand engine was supposed to read.
+    #
+    # SELL BECAME BUY DELIBERATELY. A salon SELLS haircuts and BUYS
+    # relaxers; only the second is orderable here, and only the second
+    # tells the feed anything.
+    #
+    # Holds ProductCategory values (catalogue/products/taxonomy.py), so
+    # a declared need lands directly on the taxonomy the catalogue and
+    # the chips already use -- no mapping table to drift.
+    buys_categories = db.Column(ARRAY(db.String), nullable=False, default=list)
     customer_types = db.Column(ARRAY(db.String), nullable=False, default=list)
-    order_channels = db.Column(ARRAY(db.String), nullable=False, default=list)
-    payment_methods = db.Column(ARRAY(db.String), nullable=False, default=list)
+    # HOW OFTEN AND HOW MUCH -- the two questions that let the engine be
+    # useful before a single order exists. See the enums above.
+    restock_rhythm = db.Column(
+        db.Enum(RestockRhythm, name="business_profile_restock_rhythm", schema="business"),
+        nullable=True,
+    )
+    weekly_spend_band = db.Column(
+        db.Enum(WeeklySpendBand, name="business_profile_weekly_spend_band", schema="business"),
+        nullable=True,
+    )
     operating_days = db.Column(ARRAY(db.String), nullable=False, default=list)
     opening_time = db.Column(db.String(5), nullable=True)  # "HH:mm", free-form per frontend contract
     closing_time = db.Column(db.String(5), nullable=True)
@@ -214,15 +278,20 @@ class BusinessProfile(BaseModel):
     # --- Section 6: Supplier Info ---
     supplier_sources = db.Column(ARRAY(db.String), nullable=False, default=list)
 
-    # --- Section 7: Verification (read-only from this domain's API --
-    # see services/business_profile_service.py's get_profile for where
-    # phone_verified/email_verified actually come from. The other four
-    # have no backing verification system yet; they stay False until
-    # one exists, never silently faked True.) ---
+    # --- Section 7: Completeness ---
+    # identity_verified and documents_verified WERE HERE AND ARE GONE.
+    # They were the SUPPLIER model's concepts sitting on the business
+    # table: the verification curtain gates who may SELL, and an
+    # informal business is not checked in order to shop. They never had
+    # a backing system, stayed False for every row that ever existed,
+    # and their only real effect was to imply a review that does not
+    # happen and should not.
+    #
+    # What remains is completeness, which is about how much this shop
+    # has told us -- and that is a question the demand engine genuinely
+    # acts on, not a judgement about them.
     business_info_complete = db.Column(db.Boolean, nullable=False, default=False)
     location_complete = db.Column(db.Boolean, nullable=False, default=False)
-    identity_verified = db.Column(db.Boolean, nullable=False, default=False)
-    documents_verified = db.Column(db.Boolean, nullable=False, default=False)
 
     # --- Find Business narrowing methods -----------------------------
     # Mirror SupplierProfile.to_search_result_dict/to_profile_preview_dict

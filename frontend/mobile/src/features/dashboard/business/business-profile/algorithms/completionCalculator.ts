@@ -34,10 +34,15 @@ const TRACKED_FIELDS: FieldCheck[] = [
   { section: "location", isFilled: (p) => Boolean(p.location.cityOrTown) },
   { section: "location", isFilled: (p) => Boolean(p.businessDetails.operatingModel) },
 
-  { section: "tradingDetails", isFilled: (p) => p.tradingDetails.products.length > 0 },
+  // WHAT COUNTS AS COMPLETE CHANGED WITH THE FIELDS. orderChannels and
+  // paymentMethods described how orders and money reach THEIR
+  // customers — real for them, invisible to the feed — so they no
+  // longer cost a shopkeeper a question or dent their percentage.
+  // What is counted now is exactly what the demand engine reads.
+  { section: "tradingDetails", isFilled: (p) => p.tradingDetails.buysCategories.length > 0 },
   { section: "tradingDetails", isFilled: (p) => p.tradingDetails.customerTypes.length > 0 },
-  { section: "tradingDetails", isFilled: (p) => p.tradingDetails.orderChannels.length > 0 },
-  { section: "tradingDetails", isFilled: (p) => p.tradingDetails.paymentMethods.length > 0 },
+  { section: "tradingDetails", isFilled: (p) => Boolean(p.tradingDetails.restockRhythm) },
+  { section: "tradingDetails", isFilled: (p) => Boolean(p.tradingDetails.weeklySpendBand) },
 
   { section: "operatingHistory", isFilled: (p) => Boolean(p.operatingHistory.yearsOperating) },
 

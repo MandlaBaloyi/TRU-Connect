@@ -22,8 +22,8 @@ TWO THINGS THIS SERVICE DOES THAT THE REPOSITORY/MODEL ALONE CANNOT:
    email-verification flow (only phone OTP) -- reusing the phone
    signal for email would misrepresent what was actually verified, so
    it stays False until a real email-verification mechanism exists.
-   business_info_complete/location_complete/identity_verified/
-   documents_verified have no backing system at all yet and stay
+   business_info_complete/location_complete have no backing system
+   at all yet and stay
    False -- Business Profile only ever DISPLAYS verification state, it
    never invents it (see types.ts's VerificationStatus docstring on
    the frontend side of this same rule).
@@ -130,8 +130,8 @@ class BusinessProfileService:
     def update_trading_details(business_id: uuid.UUID, data: dict[str, Any]) -> dict:
         profile = BusinessProfileRepository.get_or_create_for_business(business_id)
         for field, column in [
-            ("products", "products"), ("customerTypes", "customer_types"),
-            ("orderChannels", "order_channels"), ("paymentMethods", "payment_methods"),
+            ("buysCategories", "buys_categories"), ("customerTypes", "customer_types"),
+            ("restockRhythm", "restock_rhythm"), ("weeklySpendBand", "weekly_spend_band"),
             ("operatingDays", "operating_days"),
             ("openingTime", "opening_time"), ("closingTime", "closing_time"),
             ("employeeRange", "employee_range"),
@@ -193,10 +193,12 @@ class BusinessProfileService:
                 "longitude": profile.longitude,
             },
             "tradingDetails": {
-                "products": profile.products or [],
+                "buysCategories": profile.buys_categories or [],
                 "customerTypes": profile.customer_types or [],
-                "orderChannels": profile.order_channels or [],
-                "paymentMethods": profile.payment_methods or [],
+                "restockRhythm": profile.restock_rhythm.value if profile.restock_rhythm else None,
+                "weeklySpendBand": (
+                    profile.weekly_spend_band.value if profile.weekly_spend_band else None
+                ),
                 "operatingDays": profile.operating_days or [],
                 "openingTime": profile.opening_time,
                 "closingTime": profile.closing_time,
@@ -213,8 +215,6 @@ class BusinessProfileService:
                 "emailVerified": False,
                 "businessInfoComplete": profile.business_info_complete,
                 "locationComplete": profile.location_complete,
-                "identityVerified": profile.identity_verified,
-                "documentsVerified": profile.documents_verified,
             },
             "createdAt": profile.created_at.isoformat(),
             "updatedAt": profile.updated_at.isoformat(),

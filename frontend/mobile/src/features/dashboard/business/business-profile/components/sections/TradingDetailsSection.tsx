@@ -8,7 +8,8 @@ import { useTheme } from "react-native-paper";
 
 import type { TradingDetails } from "../../types";
 import { EditButton } from "../EditButton";
-import { CUSTOMER_TYPE_LABELS, ORDER_CHANNEL_LABELS, PAYMENT_METHOD_LABELS } from "../../types";
+import { categoryLabel } from "@/constants/productCategories";
+import { RESTOCK_RHYTHM_LABELS, WEEKLY_SPEND_BAND_LABELS, CUSTOMER_TYPE_LABELS } from "../../types";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -22,10 +23,15 @@ export function TradingDetailsSection({ trading }: Props) {
 
   return (
     <View style={styles.viewMode}>
-      {trading.products.length > 0 && (
+      {trading.buysCategories.length > 0 && (
         <View style={styles.summaryRow}>
-          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Sells</Text>
-          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>{trading.products.join(", ")}</Text>
+          {/* "Buys", not "Sells". The question changed with the field:
+              a salon sells haircuts and buys relaxers, and only the
+              second is orderable here. */}
+          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Buys</Text>
+          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>
+            {trading.buysCategories.map((c) => categoryLabel(c)).join(", ")}
+          </Text>
         </View>
       )}
       {trading.customerTypes.length > 0 && (
@@ -34,16 +40,20 @@ export function TradingDetailsSection({ trading }: Props) {
           <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>{trading.customerTypes.map((t) => CUSTOMER_TYPE_LABELS[t]).join(", ")}</Text>
         </View>
       )}
-      {trading.orderChannels.length > 0 && (
+      {trading.restockRhythm && (
         <View style={styles.summaryRow}>
-          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Orders</Text>
-          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>{trading.orderChannels.map((c) => ORDER_CHANNEL_LABELS[c]).join(", ")}</Text>
+          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Restocks</Text>
+          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>
+            {RESTOCK_RHYTHM_LABELS[trading.restockRhythm]}
+          </Text>
         </View>
       )}
-      {trading.paymentMethods.length > 0 && (
+      {trading.weeklySpendBand && (
         <View style={styles.summaryRow}>
-          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Payments</Text>
-          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>{trading.paymentMethods.map((p) => PAYMENT_METHOD_LABELS[p]).join(", ")}</Text>
+          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Weekly stock spend</Text>
+          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>
+            {WEEKLY_SPEND_BAND_LABELS[trading.weeklySpendBand]}
+          </Text>
         </View>
       )}
       <EditButton onPress={() => router.push("/business/my-business/trading-details")} />

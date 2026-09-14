@@ -1,0 +1,2015 @@
+===========================================================================
+V2_15 — THE FEED: COMPOSITION, ENGINE, AND THE DEMAND MODEL
+===========================================================================
+
+Written 2026-09-14. ONE document, deliberately: this began as three
+(V2_15 composition, V2_16 the engine, V2_17 the demand model) and they
+were three views of a single system, which is exactly how a plan gets
+read in pieces and built in pieces.
+
+Nothing here is built. Each book ends with questions only Mandla can
+answer, and those are the gate.
+
+  BOOK ONE    WHAT THE FEED CONTAINS, and why the first real-data
+              version was wrong. Read this first: it is the shortest
+              and it is the mistake the other two exist to avoid
+              repeating.
+
+  BOOK TWO    THE PIPELINE. Sources, eligibility, scoring, and the
+              injection engine that turns candidates into a screen.
+
+  BOOK THREE  THE DEMAND ENGINE. The part that makes it TruConnect's
+              rather than anyone's: a model of the SHOP that never
+              mentions a supplier. Includes the audit of the business
+              profile that feeds it, what the engine needs from
+              suppliers (almost nothing), and what happens when a
+              wholesaler uploads ten thousand products.
+
+  BOOK FOUR   BEFORE WE BUILD. Keeping the TWO Community tabs apart
+              in the tree (there is a supplier For You as well as a
+              business one), the flaws found reviewing all of the
+              above, and the codebase changes that should land first.
+
+THE ONE SENTENCE, if you read nothing else:
+
+    THE ENGINE MODELS THE SHOP, NOT THE SHELF -- so a wholesaler with a
+    huge catalogue can COVER more of what a shop needs, and can never
+    MAKE it need more.
+
+
+
+###########################################################################
+#  BOOK ONE — WHAT THE FEED CONTAINS
+###########################################################################
+
+===========================================================================
+V2_15 — FEED COMPOSITION: WHAT "FOR YOU" IS ACTUALLY FOR
+===========================================================================
+
+Written 2026-09-14, after the first real-data version of the business
+feed shipped and was wrong. A PLAN. Nothing here is built.
+
+Part 8 is what only Mandla can answer.
+
+
+===========================================================================
+PART 0 — WHAT THE FIRST VERSION GOT WRONG, PLAINLY
+===========================================================================
+
+Commit f7cf8e2 replaced the mocked Community tab with five real
+sections. It was worse than the mock it replaced, for one reason that
+runs through all of it:
+
+  IT GATED DISCOVERY ON THE CONNECTION.
+
+"Collect near you" EXCLUDED suppliers the business is connected to,
+"Suppliers you haven't ordered from" only considered connected ones, and
+nothing at all showed a product from a supplier the business had no
+relationship with. So a new business — no orders, no connections — saw
+category chips and nothing else. The mock showed them a market.
+
+THE CODEBASE HAD ALREADY DECIDED AGAINST THIS, and said so in the file I
+should have read. V2_00 2.3 removed the connection requirement from the
+ordering gate, and ordering_gate.py's own docstring gives the third
+reason:
+
+    "IT BLOCKED THE DISCOVERY MODEL ENTIRELY. Browsing was already open
+    -- catalog_service and the storefront services both say so -- and
+    this was the last thing standing between the catalogue and A FEED A
+    BUSINESS CAN ACTUALLY BUY FROM."
+
+The gate was removed so this feed could exist. The feed was then built
+with the gate put back in by hand.
+
+THREE MORE THINGS MISSING, all of which the mock had:
+
+  - MOVING FAST RIGHT NOW. Absent entirely.
+  - INVITE A SUPPLIER. Absent, though the action already exists in the
+    header of this very screen.
+  - SPONSORED. Dropped on the reasoning that nothing is sold yet --
+    which is exactly the reasoning V2_04 already rejected ("built
+    before it is sold, on purpose").
+
+AND THE CATEGORY CHIPS DO NOT WORK. Tapping "Drinks" routes to SUPPLIER
+search filtered by category. It finds shops, not drinks. The code says
+so: "Category browsing across ALL suppliers has no screen yet."
+
+
+===========================================================================
+PART 1 — THE RULE EVERYTHING ELSE FOLLOWS
+===========================================================================
+
+  SEEING IS OPEN. ORDERING IS GATED. THEY ARE NOT THE SAME QUESTION.
+
+A business opening Community must be shown what is actually on
+TruConnect — products, prices, suppliers, activity — whether or not they
+have ever connected to anybody. That is the only way the tab can answer
+the question a new user actually has, which is "is there anything here
+for me?"
+
+THE CONSTRAINT LIVES AT CHECKOUT, WHERE IT ALREADY IS:
+
+  ordering_gate      the supplier's OWN choice (requires_connection,
+                     default FALSE). A supplier who wants to know who is
+                     buying before stock moves turns it on and gets the
+                     old behaviour. Nobody else is affected.
+  payment rails      accepts_direct_payment / accepts_digital_payment.
+  the curtain        an UNVERIFIED supplier is invisible everywhere.
+                     This one is NOT relaxed and never should be.
+
+SO A FEED CARD FOR A SUPPLIER YOU CANNOT YET ORDER FROM IS CORRECT, and
+it should say what it needs from you rather than hide. "Connected" is
+already rendered as a badge on these cards — the same badge is how a
+NOT-connected card explains itself.
+
+WHAT THIS IS NOT. It is not a licence to show everything everywhere. A
+street address still waits for a connection; a supplier's exact stock
+counts stay theirs; the price-comparison restraint in V2_04 2.4 is
+untouched. Open BROWSING, not open BOOKS.
+
+
+===========================================================================
+PART 2 — THE SECTIONS, ALL OF THEM
+===========================================================================
+
+Marked: [built] correct today, [fix] built but wrong, [new] absent.
+
+2.1  CATEGORY CHIPS                                      [fix]
+
+  Built, and inert. The chip must land on PRODUCTS in that category
+  across every visible supplier — that is the whole promise of a
+  resolved catalogue, and it is the cheapest proof to a new business
+  that the platform has stock in it.
+
+  Needs a catalogue-wide product browse (Part 3). Until that exists the
+  chips are decoration.
+
+2.2  BUY IT AGAIN                                        [built]
+
+  Their own confirmed order history, across all suppliers, most recent
+  first. Correct as built. Empty for a new user, which is right — it
+  fills on order two.
+
+2.3  YOUR SUPPLIERS                                      [built]
+
+  Active connections as avatars. Correct as built.
+
+2.4  COLLECT NEAR YOU                                    [fix]
+
+  Today it EXCLUDES connected suppliers, on the reasoning that a
+  discovery rail containing your own suppliers is a bug. That reasoning
+  is right for a rail called "new near you" and wrong for one called
+  "collect near you" — proximity is useful whoever they are, and the
+  supplier you already buy from being nearest is information, not noise.
+
+  SHOW ALL VISIBLE SUPPLIERS IN RADIUS. Badge the connected ones, which
+  the card already does.
+
+  RADIUS, NOT "ALL SORTED BY DISTANCE". Both sides have coordinates
+  already (Mapbox geocoding at signup), so this is a filter, not a data
+  problem. 5 / 10 / 15 km — see Part 8.
+
+2.5  INVITE A SUPPLIER                                   [new]
+
+  PROMO section. The easiest one in this document: the action already
+  exists in this screen's own header. It belongs in the feed too,
+  because a business whose usual wholesaler is not on TruConnect has a
+  real, specific thing to do about it, and the header is not where
+  anybody looks for something to do.
+
+  Placed after the personal sections and before discovery.
+
+2.6  MOVING FAST RIGHT NOW                               [new]
+
+  The most-ordered products across the platform in a recent window,
+  regardless of supplier.
+
+  ITS JOB IS TO PROVE THE PLACE IS ALIVE. A new business with no history
+  has nothing personal to show; this is what fills that space with
+  something true. It is also the first section whose ordering comes from
+  COMMUNITY ACTIVITY rather than from this one user's own data, which is
+  the property Part 5 is about.
+
+  AGGREGATE ONLY. Product and count, never "Supplier X sold 40" — a
+  supplier's volume is their business, and V2_04 2.4's restraint about
+  never turning the catalogue into a league table applies here even
+  though it was written about price.
+
+2.7  SPONSORED                                           [new]
+
+  V2_04: "already in the contract, DELIBERATELY BUILT BEFORE IT IS
+  SOLD." Dropping it because nothing is sold inverted that reasoning.
+
+  The point of building it early is that the paid-placement design is
+  proven and shipped BEFORE the first wholesaler conversation, rather
+  than retrofitted under deadline once one is signed. The label is
+  server-supplied so the wording can follow whatever the advertising
+  disclosure rules turn out to require.
+
+  What the backend needs: somewhere to say "this supplier is placed
+  here, from this date to this date, with this label". Not a billing
+  system.
+
+2.8  SUPPLIERS YOU HAVEN'T ORDERED FROM                  [fix]
+
+  Today: connected suppliers with no orders. That is one real case and
+  the smaller one.
+
+  Should be: suppliers this business has never ordered from, connected
+  or not, nearest and most active first. A connection that stalled after
+  the handshake and a supplier they have never met are the same
+  opportunity from the platform's point of view, and the subtitle can
+  distinguish them.
+
+
+===========================================================================
+PART 3 — THE DATA LAYER THIS NEEDS AND DOES NOT HAVE
+===========================================================================
+
+  3.1  CATALOGUE-WIDE PRODUCT BROWSE
+
+  There is no query that answers "products in category X across all
+  visible suppliers, ranked". Every product read today is scoped to ONE
+  supplier's shopfront (catalog_service, list_profile_products).
+
+  This is the single missing piece that blocks 2.1 and 2.6, and it is
+  the foundation the rest of the feed's product rails stand on.
+
+  Needs: filter by category, exclude archived and deleted, apply the
+  curtain, batch inventory and approved media the way
+  build_catalog_product_dicts already does, and page.
+
+  3.2  AN ORDER-COUNT WINDOW
+
+  For 2.6: order item counts grouped by product over N days. One query,
+  same shape as the trading-history queries added for the ledger.
+
+  3.3  SPONSORED PLACEMENT STORAGE
+
+  A small table: supplier, label, starts_at, ends_at, and a position
+  hint. Read by the composer, written by nobody yet — a CLI command is
+  enough until there is a reason for a screen.
+
+
+===========================================================================
+PART 4 — WHAT A CHIP TAP MUST DO
+===========================================================================
+
+  Tap "Drinks" -> a product list, across suppliers, in that category.
+
+  It is worth being exact about why this matters more than it looks. A
+  business that has just installed the app has no orders and no
+  connections. The chips are the ONLY section that works for them, and
+  today they lead to a list of shops rather than a shelf of drinks. The
+  first thing a new user does is therefore the thing that works least.
+
+  The screen itself may be an existing one reused (the supplier
+  catalogue screen already renders a category-filtered product list) or
+  a new one. That is a smaller decision than the query behind it.
+
+
+===========================================================================
+PART 5 — THE FEED SHOULD IMPROVE WITHOUT BEING REWRITTEN
+===========================================================================
+
+  Mandla's requirement, and it is the right one: composition should
+  respond to what is actually happening rather than to a hardcoded
+  order.
+
+  THE SHAPE THAT GETS THERE:
+
+    1  EVERY SECTION IS A BUILDER THAT CAN RETURN NOTHING. Already true.
+       This is what lets the order change without any section breaking.
+
+    2  A SECTION EARNS ITS PLACE FROM A SCORE, not from a position in a
+       list. Recency and volume of the user's own activity, distance,
+       how much the section actually has to show. The current order
+       becomes the tie-break rather than the rule.
+
+    3  IMPRESSIONS ARE THE INPUT THAT DOES NOT EXIST YET. V2_04 names
+       impression logging as the ONE future exception to "the feed owns
+       no tables". Without it, "improving on its own" is guesswork
+       dressed as an algorithm -- there is no signal saying which rails
+       were scrolled past.
+
+    4  AND IT STAYS EXPLAINABLE. A feed nobody can explain is a feed
+       nobody can debug, and the same argument that makes logistic
+       regression the right credit model here (V2_03) applies: a scoring
+       function you can read beats a black box that scores better.
+
+  NOT NOW: personalised ranking learned per user. There is not enough
+  data, and a recommender trained on nothing recommends nothing twice.
+
+
+===========================================================================
+PART 6 — ORDER OF WORK
+===========================================================================
+
+  1  Catalogue-wide product browse (3.1). Everything below needs it.
+  2  Chip tap lands on real products (Part 4). The new-user path.
+  3  Collect near you: radius, and stop excluding connections (2.4).
+  4  Suppliers you haven't ordered from: include unconnected (2.8).
+  5  Invite a supplier (2.5). Half an hour.
+  6  Moving fast right now (2.6) + the window query (3.2).
+  7  Sponsored storage and section (2.7, 3.3).
+  8  Scoring (Part 5 step 2), once there is more than one thing to rank.
+  9  Impressions (Part 5 step 3), which is its own decision.
+
+  1 AND 2 ARE THE ONES THAT CHANGE WHAT A NEW USER SEES. Everything
+  after is depth for a user who already has a reason to open the tab.
+
+
+===========================================================================
+PART 7 — WHAT MUST NOT HAPPEN
+===========================================================================
+
+  THE CURTAIN DOES NOT RELAX. Everything in Part 1 is about the
+  CONNECTION, never about verification. An unverified supplier stays
+  invisible in every section here.
+
+  NO LEAGUE TABLES. "Moving fast" ranks PRODUCTS. The moment it ranks
+  suppliers, or shows one supplier's volume next to another's, it
+  becomes the thing V2_04 2.4 refuses to build.
+
+  NO STREET ADDRESSES IN DISCOVERY. Suburb or city, as now. Proximity
+  can be shown as a distance without publishing where a supplier keeps
+  their stock.
+
+  SPONSORED MUST BE LABELLED, always, and never mixed silently into an
+  organic rail.
+
+
+===========================================================================
+PART 8 — WHAT ONLY MANDLA CAN ANSWER
+===========================================================================
+
+  1  WHAT RADIUS? 5, 10 or 15 km for "Collect near you" -- and does it
+     widen automatically when a radius returns too few, or stay fixed
+     and show nothing? Widening is friendlier and makes "near" a
+     softer claim than it appears.
+
+  2  HOW LONG IS "RIGHT NOW"? The window for Moving fast. 7 days is the
+     obvious guess and a slow-moving category would never appear in it.
+
+  3  DOES A BUSINESS SEE PRODUCTS FROM A SUPPLIER WHOSE
+     requires_connection IS ON? Part 1 says yes, with the card
+     explaining what is needed. The alternative -- hiding them -- is the
+     old model and makes those suppliers invisible rather than
+     protected. Worth confirming, because it is the supplier's
+     expectation that is being set.
+
+  4  WHAT DOES SPONSORED COST AND WHO DECIDES PLACEMENT? Not needed to
+     build the storage, needed before anything is sold.
+
+  5  IMPRESSION LOGGING: yes or not yet? It is the difference between a
+     feed that improves and a feed that is reordered by hand. It is also
+     the first table the composer would own, which V2_04 allows exactly
+     once.
+
+
+
+
+###########################################################################
+#  BOOK TWO — THE PIPELINE AND THE INJECTION ENGINE
+###########################################################################
+
+===========================================================================
+V2_16 — THE FEED ENGINE
+===========================================================================
+
+Written 2026-09-14. The architecture V2_15 asked for. A PLAN; nothing
+here is built. Part 14 is what only Mandla can answer.
+
+V2_15 said WHAT the For You feed should contain and why the first
+attempt was wrong. This says HOW it is assembled — the pipeline, the
+scoring, and the injection engine that decides what a particular shop
+sees on a particular morning.
+
+THE ONE-LINE VERSION. A feed is not a list of queries glued together in
+a service. It is a PIPELINE: many cheap sources propose candidates, one
+gate decides what is eligible, one function scores them, and one engine
+arranges them into sections. Every hard question in this document is a
+question about one of those four stages, and keeping them separate is
+what stops the feed becoming the 900-line service every marketplace
+eventually grows.
+
+
+===========================================================================
+PART 1 — WHY THE CATALOGUE IS THE ENGINE, NOT A LOOKUP TABLE
+===========================================================================
+
+The first feed read SupplierOffer rows directly. Anyone can do that. It
+is a shopfront list with extra steps, and a competitor with two weeks
+and a copy of the screenshots would match it.
+
+WHAT CANNOT BE COPIED QUICKLY is that "WHT SUGR 2.5KG" from one
+wholesaler and "White Sugar 2.5kg" from another already resolve to ONE
+catalogue product (V2_11, the matching ladder). SupplierOffer.product_id
+is that resolution, and it is months of measurement — barcode, alias,
+normalisation, rules, AI — already done.
+
+    WITHOUT THE CATALOGUE          WITH IT
+    ------------------------       ---------------------------------
+    three unrelated strings        one product, three prices
+    "products from your supplier"  "this product, from whoever is
+                                    best for YOU right now"
+    no comparison possible         comparison is a join
+    popularity per supplier        DEMAND per product, across the
+                                   whole platform
+
+So every product-bearing section in the feed generates candidates at the
+CATALOGUE PRODUCT level, and only at the last moment picks which
+supplier's offer to show. That inversion is the whole architecture.
+
+IT ALSO MAKES THE CATALOGUE PAY FOR ITSELF. Today the catalogue is
+write-only: offers resolve INTO it and nothing reads OUT. Matching is
+maintained, reviewed and paid for, and returns nothing a user can see.
+The feed is where it starts earning.
+
+
+===========================================================================
+PART 2 — THE PIPELINE
+===========================================================================
+
+    SOURCES            "here are things this shop might want, and why"
+       |               many, independent, cheap, none knows about the feed
+       v
+    ELIGIBILITY        one gate. curtain, deletion, demo, self-dealing
+       |               nothing downstream re-checks these
+       v
+    SCORING            one readable function per candidate kind
+       |               explainable on purpose (see Part 6)
+       v
+    INJECTION          sections built, thinned, ordered, diversified,
+       |               sponsored placed, order stabilised
+       v
+    RENDER             the typed sections the app already draws
+
+  WHY FOUR STAGES AND NOT ONE SERVICE. Each stage has a different
+  failure mode and a different test. A source that returns nothing is a
+  quiet feature gap; an eligibility leak is a SAFETY bug; a scoring
+  mistake is a bad-but-harmless ordering; an injection mistake is a
+  layout problem. Collapsing them means every bug is "the feed is
+  wrong", which is the hardest sentence in software to act on.
+
+  AND IT IS HOW THE FEED GETS TO IMPROVE ITSELF. New behaviour arrives
+  as a new SOURCE or a changed WEIGHT, not as a rewrite.
+
+
+===========================================================================
+PART 3 — CANDIDATES: THE ONE TYPE EVERYTHING SPEAKS
+===========================================================================
+
+    Candidate
+      kind          PRODUCT | SUPPLIER | ACTION
+      ref_id        catalogue product id, supplier profile id, or an
+                    action key ("invite_supplier")
+      source        which source proposed it
+      reason        A HUMAN SENTENCE. "You ordered this 3 weeks ago."
+                    "2.1 km away." "12 shops near you bought this."
+      signals       dict of raw numbers the scorer reads:
+                    days_since_last_order, order_count, distance_km,
+                    in_stock, price_advantage_cents, is_connected
+      base_score    the source's own confidence, before global scoring
+
+  THE reason FIELD IS NOT DECORATION AND IT IS NOT COPY. It is:
+
+    1  THE UI. "Because you ordered this 3 weeks ago" under a card is
+       the difference between a feed that feels like it knows the shop
+       and one that feels like an advert. It costs nothing to carry and
+       it is the single cheapest trust win available.
+    2  THE DEBUGGER. "Why is this here?" is otherwise unanswerable, and
+       an unanswerable feed is one nobody dares change.
+    3  THE HONESTY CHECK. A candidate whose reason cannot be written in
+       plain words should not be in the feed. That rule alone would
+       have caught the first version.
+
+  SIGNALS ARE RAW, NEVER PRE-SCORED. A source reports "14 days since
+  last order"; it does not report 0.7. The moment a source scores, the
+  weights are scattered across six files and nobody can retune the feed
+  without reading all of them.
+
+
+===========================================================================
+PART 4 — THE SOURCES
+===========================================================================
+
+Each is a function of (business, context) -> list[Candidate]. None reads
+another. None knows what section it ends up in — that is Part 7's job,
+and it is what lets one source feed two sections.
+
+  4.1  REPEAT PURCHASE            -> PRODUCT
+       Catalogue products this shop has had CONFIRMED before. Signals:
+       order_count, days_since_last_order, typical_gap_days.
+       Reason: "You ordered this 3 weeks ago."
+       THE HIGHEST-VALUE SOURCE IN THE SYSTEM and the cheapest.
+
+  4.2  DUE TO REORDER             -> PRODUCT
+       A subset of 4.1 where days_since_last > typical_gap. Separate
+       source, not a flag, because it deserves its own section AND its
+       own weight — reorder_gap already computes this (shared/algorithms).
+       Reason: "You usually reorder this about now."
+
+  4.3  CATEGORY AFFINITY          -> PRODUCT
+       Products in categories this shop actually buys, that they have
+       NOT bought. This is the bridge from "your list" to "the market",
+       and it is only computable because categories live on the
+       catalogue product rather than on each supplier's spelling.
+       Reason: "Other shops that buy bread also buy this."
+
+  4.4  PLATFORM DEMAND            -> PRODUCT
+       Most-ordered catalogue products in a window, platform-wide.
+       Its job is COLD START (Part 9) and proof of life.
+       Reason: "Moving fast this week."
+       AGGREGATE ONLY — never "Supplier X sold 40" (Part 12).
+
+  4.5  PROXIMITY                  -> SUPPLIER
+       Visible suppliers within a radius, connected or not. Signals:
+       distance_km, is_connected, product_count, offers_delivery.
+       Reason: "2.1 km away — collection."
+
+  4.6  RELATIONSHIP               -> SUPPLIER
+       Connections, and connections with no orders behind them.
+       Reason: "Connected, no orders yet."
+
+  4.7  UNTRIED SUPPLIERS          -> SUPPLIER
+       Visible suppliers this shop has never ordered from, connected or
+       not, whose catalogue overlaps what the shop actually buys.
+       THE OVERLAP IS THE POINT: a hardware wholesaler is not an
+       opportunity for a shop that sells bread, and a rail of
+       irrelevant shops teaches people to ignore the tab.
+
+  4.8  COMMERCE                   -> SUPPLIER
+       Sponsored placements (Part 8).
+
+  4.9  ACTIONS                    -> ACTION
+       "Invite a supplier." Cheap, real, and the only source whose
+       candidate is a thing to DO rather than a thing to buy.
+       Eligible when the shop has few connections, or always — Part 14.
+
+  A SOURCE MAY RETURN NOTHING AND THAT IS NORMAL. A new shop lights up
+  4.4, 4.5 and 4.9 only. That is a complete, honest feed.
+
+
+===========================================================================
+PART 5 — ELIGIBILITY: ONE GATE, NOT A SCATTERING OF CHECKS
+===========================================================================
+
+Every candidate passes one function before anything is scored.
+
+    THE CURTAIN                unverified supplier -> gone. Never
+                               relaxed, no exceptions, already enforced
+                               by an architecture test.
+    DELETED / ARCHIVED         offers and profiles.
+    OUT OF CATALOGUE           a product with no live offer from any
+                               visible supplier cannot be bought, so it
+                               cannot be shown.
+    DEMO                       Part 10.
+    SELF-DEALING               a supplier's own shop never appears to
+                               them. (Matters once a user can hold both
+                               roles; cheap to write now, expensive to
+                               retrofit after the bug report.)
+    DEDUPE                     the same product proposed by three
+                               sources appears ONCE, keeping the
+                               STRONGEST reason. A feed that shows a
+                               shop the same bag of maize four times
+                               looks broken and is.
+
+  WHY ONE GATE. The first feed applied the curtain in three builders
+  with three spellings, and the architecture test caught two of them.
+  A single gate means new sources are safe by construction, which is
+  the only kind of safety that survives a busy week.
+
+
+===========================================================================
+PART 6 — SCORING: READABLE ON PURPOSE
+===========================================================================
+
+  score = w1*recency + w2*frequency + w3*proximity + w4*availability
+        + w5*price_advantage + w6*relationship - w7*fatigue
+
+  Each term is a named function of ONE signal, each returns 0..1, and
+  the weights live in one config object.
+
+  IT MUST STAY EXPLAINABLE, and this is a position rather than a
+  preference. V2_03's whole thesis is that informal businesses are
+  excluded by models that cannot read their data — building an
+  unexplainable ranker on top of that argument would be incoherent.
+  When a supplier asks "why am I below them", there has to be an answer
+  that is not "the model said so".
+
+  THE TERMS, and what each is actually for:
+
+    recency          days since this shop last bought it, decayed.
+    frequency        how often. A weekly line outranks a one-off.
+    proximity        distance, with a soft cliff at the radius rather
+                     than a hard one — 5.1 km is not meaningfully
+                     further than 4.9 km, and a hard threshold is the
+                     CLIFF already recorded as a hazard in B12.
+    availability     in stock, supplier accepts an orderable payment
+                     rail, minimum order not absurd for this shop.
+                     AN UNBUYABLE CARD IS WORSE THAN NO CARD.
+    price_advantage  ONLY computable through the catalogue. Bounded
+                     hard by V2_04 2.4: it may raise a product, it may
+                     never render as a league table of suppliers.
+    relationship     connected, previously ordered, or stranger.
+                     Deliberately NOT dominant — the whole point of
+                     V2_15 is that discovery is open.
+    fatigue          shown recently and not acted on -> down. This is
+                     the term that needs impressions (Part 11) and is
+                     the reason they matter.
+
+  NO LEARNED RANKER YET. There is not enough interaction data, and a
+  recommender trained on nothing recommends nothing twice. Revisit when
+  impressions exist and there are thousands of them, not before.
+
+
+===========================================================================
+PART 7 — THE INJECTION ENGINE
+===========================================================================
+
+Mandla's word, and it is the right one: sources produce a pile, and
+something has to INJECT that pile into a screen in an order that makes
+sense. This is that thing.
+
+  7.1  SECTIONS ARE ASSEMBLED, NOT QUERIED
+
+  A section is a TEMPLATE plus a candidate filter:
+
+      section  BUY_IT_AGAIN
+        takes    PRODUCT candidates from REPEAT_PURCHASE
+        title    "Buy it again"
+        min      3
+        max      12
+
+  Adding a section is then config, not code — and one source can feed
+  several sections without being run twice.
+
+  7.2  THINNING
+
+  Below `min`, the section does not render. Already the rule in the app
+  (MIN_ITEMS_PER_RAIL) and in the supplier feed. Stated once here so
+  every future section inherits it.
+
+  7.3  SECTION ORDER IS EARNED, WITH FLOORS AND CEILINGS
+
+  Order by the aggregate score of a section's candidates, EXCEPT:
+
+    PINNED FIRST      category chips. Always present, always first: the
+                      only section that works for a shop with no
+                      history, and the first thing a new user taps.
+    PINNED LAST       actions and growth rails. A section asking a shop
+                      to start something never outranks one helping
+                      them finish something.
+    SPONSORED SLOT    a fixed position, never first, never adjacent to
+                      another sponsored section.
+
+  7.4  DIVERSITY: NO SINGLE SUPPLIER OWNS THE FEED
+
+  A wholesaler with 400 products would otherwise fill every rail —
+  their catalogue is simply bigger, and score alone would reward that.
+
+      cap: at most N cards per supplier per section (N ≈ 3)
+
+  WITHOUT THIS THE FEED STOPS BEING A MARKET. It is also a commercial
+  protection: the first supplier to notice they can dominate by bulk
+  upload will do exactly that, and the fix after the fact is a fight.
+
+  7.5  STABILITY: THE FEED MUST NOT RESHUFFLE UNDER A THUMB
+
+  Pull-to-refresh returning a different order is disorienting and makes
+  the thing a shop was reaching for disappear.
+
+      tie-break with a seed derived from (business_id, calendar day)
+
+  Same shop, same day, same order. It changes when the DATA changes, or
+  tomorrow. Jitter without chaos.
+
+  7.6  BUDGET
+
+  The whole feed is ONE request and should stay near ~150 ms of
+  database work. Sources are capped, batched, and none may run a query
+  per candidate — the N+1 removed twice already this week is the
+  failure mode this stage invites most.
+
+
+===========================================================================
+PART 8 — SPONSORED, BUILT BEFORE IT IS SOLD
+===========================================================================
+
+V2_04: "deliberately built before it is sold." The reason is leverage —
+walking into a wholesaler conversation with the placement already
+working is a different conversation from promising to build it.
+
+  STORAGE  supplier_profile_id, label, starts_at, ends_at, position
+           hint, and a cap (impressions or days). A small table in
+           `marketplace`, which exists and is empty.
+
+  RULES    always labelled; never first; never two adjacent; passes the
+           SAME eligibility gate as everything else — a sponsored
+           supplier who is unverified, deleted or has nothing to sell
+           does not render, whatever was paid. Money does not move the
+           curtain.
+
+  NOT NOW  billing, self-serve, auction. A CLI command writes the row.
+
+
+===========================================================================
+PART 9 — COLD START
+===========================================================================
+
+The hardest screen in the product: a shop that installed the app this
+morning. Nothing personal exists. The tab still has to answer "is there
+anything here for me?"
+
+    HAS NOTHING            categories, platform demand, nearby
+                           suppliers, invite. A market, not an apology.
+    HAS A LOCATION         proximity rails become real and specific.
+    HAS ONE ORDER          repeat purchase lights up. Still no rhythm.
+    HAS A RHYTHM (2+)      due-to-reorder, affinity, the real feed.
+
+  EACH STEP UNLOCKS ITSELF FROM DATA THE SHOP CREATED BY TRADING. No
+  onboarding questionnaire, no "tell us what you sell" — the app earns
+  the information by being used, which is also the only version a
+  shopkeeper at 6am will tolerate.
+
+  AND NEVER AN EMPTY SCREEN. If every source returns nothing, the feed
+  falls back to categories plus the newest visible suppliers. A blank
+  Community tab is the app saying "there is nothing here", which is a
+  lie that loses the user permanently.
+
+
+===========================================================================
+PART 10 — DEMO DATA THAT CANNOT LEAK
+===========================================================================
+
+Mandla's requirement: seed suppliers and products that can be switched
+on for a demonstration and off in production, WITHOUT the logic knowing.
+
+  THE DESIGN: A FLAG AND ONE FILTER, exactly like the curtain.
+
+    is_demo      boolean, default false, on supplier_profiles and
+                 supplier_offers. Demo rows are REAL rows.
+    DEMO_DATA    config flag, default FALSE.
+    demo_filter() one predicate, in the eligibility gate (Part 5).
+
+  WHY A FILTER AND NOT A SEPARATE CODE PATH. A demo mode that swaps in
+  fake services proves the fake services work. Demo rows travelling the
+  real pipeline mean the demonstration exercises the SAME sources,
+  scoring and injection the live feed uses — so the demo is a test, and
+  a bug found on stage is a real bug.
+
+  WHY IT CANNOT LEAK. One filter, in the gate every candidate passes,
+  defaulting to OFF. Same shape as the curtain, and it gets the same
+  treatment: an ARCHITECTURE TEST asserting no query outside the gate
+  reads demo rows, so a future source cannot forget.
+
+  AND IT IS REVERSIBLE. `flask demo seed` / `flask demo purge`, audited
+  like every other privileged command.
+
+
+===========================================================================
+PART 11 — THE FEEDBACK LOOP
+===========================================================================
+
+  Without this, "the feed improves itself" is a slogan. With it, the
+  fatigue term in Part 6 has an input and section order has evidence.
+
+    IMPRESSION   section, candidate, position, business, day
+    INTERACTION  tapped, added to cart, ordered
+
+  V2_04 names impression logging as THE ONE exception to "the composer
+  owns no tables". This is that exception being spent, and it should be
+  spent deliberately rather than drifted into.
+
+  WRITE CHEAPLY. Batched from the client, one row per section per view,
+  never one per card. Sampled if volume demands. This is telemetry, not
+  accounting: losing 5% of it costs nothing, and blocking a feed render
+  on a write costs everything.
+
+  PRIVACY. It records what a shop was SHOWN and what they tapped.
+  Aggregated for ranking. Never exposed to suppliers as "who looked at
+  you" — that is surveillance wearing an analytics hat.
+
+
+===========================================================================
+PART 12 — WHAT MUST NOT HAPPEN
+===========================================================================
+
+  THE CURTAIN NEVER RELAXES. Not for sponsorship, not for demo, not for
+  a thin rail that would otherwise not render.
+
+  NO LEAGUE TABLES. Products rank. Suppliers are never shown ranked
+  against each other, and one supplier's volume is never visible to
+  another. V2_04 2.4, and it survives everything in this document.
+
+  NO UNBUYABLE CARDS. Out of stock, no orderable payment rail, or a
+  minimum order far beyond this shop's basket — down-ranked or gone.
+
+  NO STREET ADDRESSES IN DISCOVERY. Distance, suburb, city. That is all.
+
+  THE FEED OWNS NO TABLES except impressions (Part 11), and the
+  architecture test stays.
+
+  NO DARK PATTERNS. No fake scarcity, no invented "3 people are viewing
+  this". Everything the feed says must be true, because the entire
+  product is a trust argument.
+
+
+===========================================================================
+PART 13 — THE PROJECT TREE
+===========================================================================
+
+  backend/src/domains/catalogue/discovery/          NEW
+  │  The catalogue as a READABLE surface. It resolves offers into
+  │  products today and nothing reads back out; this is that half.
+  ├── repositories/
+  │   ├── catalogue_browse_repository.py   products by category, across
+  │   │                                    all visible suppliers
+  │   ├── demand_repository.py             order counts per catalogue
+  │   │                                    product in a window
+  │   └── affinity_repository.py           what shops buying X also buy
+  └── services/
+      ├── browse_service.py                the chips' destination
+      └── offer_selection.py               ONE product, MANY offers ->
+                                           which one this shop sees.
+                                           THE FILE THAT CANNOT BE COPIED.
+
+  backend/src/domains/network/community/feed/       NEW (beside services/)
+  ├── candidate.py                 the Candidate dataclass (Part 3)
+  ├── sources/
+  │   ├── repeat_purchase.py       4.1
+  │   ├── due_to_reorder.py        4.2
+  │   ├── category_affinity.py     4.3
+  │   ├── platform_demand.py       4.4
+  │   ├── proximity.py             4.5
+  │   ├── relationship.py          4.6
+  │   ├── untried_suppliers.py     4.7
+  │   ├── commerce.py              4.8
+  │   └── actions.py               4.9
+  ├── eligibility.py               THE ONE GATE (Part 5)
+  ├── scoring.py                   the readable function (Part 6)
+  ├── weights.py                   every tunable number, one file
+  ├── sections.py                  templates: source -> section (7.1)
+  └── engine.py                    THE INJECTION ENGINE (Part 7)
+
+  backend/src/domains/marketplace/sponsorship/      NEW (domain is empty)
+  ├── models/sponsored_placement.py
+  ├── repositories/
+  └── services/
+
+  backend/src/domains/platform/demo/                NEW
+  ├── demo_filter.py               the one predicate (Part 10)
+  └── seeder.py                    flask demo seed | purge
+
+  backend/src/domains/network/community/impressions/   LATER (Part 11)
+
+  frontend/mobile/src/features/dashboard/business/browse/   NEW
+  ├── screens/CategoryBrowseScreen.tsx     where a chip lands
+  ├── services/browseService.ts
+  └── hooks/useCategoryBrowse.ts
+
+  TESTS
+    tests/domains/catalogue/discovery/       browse, demand, selection
+    tests/domains/network/community/feed/    one file per source, plus
+                                             eligibility and engine
+    tests/architecture/test_feed_gate.py     no source bypasses the gate
+    tests/architecture/test_demo_isolation.py no query reads demo rows
+                                             outside the gate
+
+  WHY feed/ IS A PACKAGE AND NOT MORE FILES IN services/. The composer
+  rule stays (nothing imports the feed), but INSIDE it there are now
+  four distinct responsibilities that each deserve their own test. A
+  flat services/ directory is how this becomes one 900-line file again.
+
+
+===========================================================================
+PART 14 — ORDER OF WORK
+===========================================================================
+
+  PHASE 1 — THE FOUNDATION (nothing user-visible works without it)
+    1  catalogue_browse_repository + browse_service
+    2  offer_selection (start simple: cheapest in-stock, buyable)
+    3  CategoryBrowseScreen + the chip destination
+       -> A NEW USER CAN NOW SHOP. This is the biggest single jump in
+          the plan and it is first for that reason.
+
+  PHASE 2 — THE PIPELINE
+    4  candidate.py, eligibility.py, the architecture test
+    5  scoring.py + weights.py
+    6  engine.py with sections.py
+    7  port the four existing sections onto it
+       -> Same feed, correct architecture, nothing visibly changed.
+
+  PHASE 3 — THE SOURCES THAT NEEDED THE PIPELINE
+    8  platform_demand, proximity (radius), untried_suppliers, actions
+    9  demo data (Part 10), because Phase 3 is the first time there is
+       something worth demonstrating
+
+  PHASE 4 — COMMERCE AND LEARNING
+   10  sponsorship
+   11  impressions
+   12  the fatigue term, once impressions exist
+
+  PHASE 2 CHANGES NOTHING A USER SEES, and that is the correct order
+  anyway: porting four known-good sections onto the new pipeline with
+  the tests already written is how the pipeline gets proven before
+  anything depends on it.
+
+
+===========================================================================
+PART 15 — WHAT ONLY MANDLA CAN ANSWER
+===========================================================================
+
+  1  RADIUS. 5, 10, 15 km — and does it widen when too few are found?
+
+  2  THE DEMAND WINDOW. "Moving fast" over 7 days? 14? A slow category
+     never appears in a short window.
+
+  3  OFFER SELECTION, THE BIG ONE. One product, three suppliers. Show
+     the cheapest? The nearest? The one they already buy from? My
+     instinct is: THEIR SUPPLIER FIRST when they have one, cheapest
+     otherwise — because switching suppliers is a relationship decision
+     and the feed should not quietly push it. But this single choice
+     shapes whether TruConnect feels loyal or mercenary, and it is
+     yours.
+
+  4  DOES A REQUIRES_CONNECTION SUPPLIER'S STOCK SHOW? V2_15 says yes,
+     with the card explaining. Confirm — it sets supplier expectations.
+
+  5  SUPPLIER CAP PER SECTION. 3 cards? 2? It decides how much a big
+     wholesaler can dominate.
+
+  6  IMPRESSIONS: now or later? It is the one table the composer may
+     own, and the difference between improving and being hand-tuned.
+
+  7  DEMO DATA SCOPE. A handful of suppliers, or a full township of
+     them with months of plausible order history? The second is far
+     more convincing on stage and takes a day to write properly.
+
+
+
+
+###########################################################################
+#  BOOK THREE — THE DEMAND ENGINE
+###########################################################################
+
+===========================================================================
+V2_17 — THE DEMAND ENGINE
+===========================================================================
+
+Written 2026-09-14. The biggest thing in these documents. A PLAN — no
+code until Part 15 is answered.
+
+V2_15 said what the feed should contain. V2_16 said how candidates flow
+into sections. Both were still organised around SUPPLY: what is in the
+catalogue, who is nearby, what is on offer.
+
+This inverts it. Mandla's proposal, and it is the right one:
+
+    THE ENGINE MODELS THE SHOP, NOT THE SHELF.
+
+An engine that understands a particular spaza in Soweto — what it
+sells, who it serves, how often it restocks, what it spends — is
+independent of which suppliers happen to exist today. Suppliers become
+a QUERY against that understanding rather than the thing the
+understanding is made of.
+
+
+===========================================================================
+PART 0 — THE FINDING THIS RESTS ON
+===========================================================================
+
+The app already asks every informal business:
+
+    products            what they sell
+    customer_types      who they serve
+    supplier_sources    where they currently buy
+    operating_days      when they trade
+    opening/closing     the hours
+    employee_range      how big they are
+    years_operating     how established
+    order_channels      how orders reach them
+    payment_methods     how they take money
+    province / city_or_town / latitude / longitude / physical_address
+    business_type / category / description
+
+All of it is collected, stored, and NEVER READ. Nothing outside the
+profile module touches `products`, `customer_types` or
+`supplier_sources` — verified 2026-09-14.
+
+    WE ASK A SHOPKEEPER WHAT THEY SELL AND THEN THROW IT AWAY.
+
+That is the whole opportunity. The fuel is already being gathered, at a
+moment the user is willing to give it, and there is already a
+`business_info_complete` flag counting whether they finished. The
+engine does not need new data collection to begin. It needs to start
+listening.
+
+
+===========================================================================
+PART 1 — THE PRINCIPLE: DEMAND IS MODELLED, SUPPLY IS RESOLVED
+===========================================================================
+
+    THE SHOP PROFILE          "this shop restocks bread twice a week,
+    (supplier-independent)     spends about R1,400 a week, sells
+       |                       cooldrinks and airtime, serves walk-in
+       |                       customers in Soweto, opens at 6am"
+       v
+    NEED RESOLUTION           which CATALOGUE PRODUCTS satisfy that
+       |                      (the catalogue, not any supplier)
+       v
+    SUPPLY RESOLUTION         which supplier's OFFER this shop should
+       |                      see for each product, given distance,
+       |                      price, relationship, stock
+       v
+    THE FEED
+
+  THE INVARIANT THAT MAKES THIS AN ENGINE:
+
+    NOTHING IN THE SHOP PROFILE MENTIONS A SUPPLIER.
+
+  Test it by deleting every supplier on the platform. The shop profile
+  is unchanged: this shop still sells bread, still restocks twice a
+  week, still spends R1,400. Only the answer to "who can supply that"
+  goes empty.
+
+  AND THE CONVERSE, WHICH IS THE COMMERCIAL POINT. A new wholesaler
+  joins on Tuesday. Every shop whose model already says "needs maize
+  meal weekly, 4km radius" is instantly better served — with no
+  recomputation of any shop, no retraining, no backfill. The engine got
+  better because the market did.
+
+  THIS IS ALSO THE ANSWER TO THE BULK-UPLOAD PROBLEM. A wholesaler with
+  400 products cannot dominate a feed built on what the SHOP needs;
+  they can only satisfy more of it. Dominance was possible when the
+  feed was assembled out of supply.
+
+
+===========================================================================
+PART 2 — THE SHOP PROFILE HAS THREE LAYERS
+===========================================================================
+
+    DECLARED    what they told us. Available on day one, before a
+                single order. Cheap, immediate, and a HYPOTHESIS.
+
+    OBSERVED    what they actually did. Orders, baskets, categories,
+                timing, taps. Slow to accumulate and it is EVIDENCE.
+
+    DERIVED     what we compute from both. Category weights, reorder
+                cadence, basket size, price sensitivity, radius
+                tolerance. THIS IS THE ONLY LAYER THE FEED READS.
+
+  WHY THREE AND NOT ONE. Declared alone is a survey — people describe
+  the shop they mean to run. Observed alone cannot start: a new shop
+  has nothing, which is the cold-start hole every recommender falls
+  into. Derived is where the two are reconciled, and keeping it
+  separate means the reconciliation rule lives in ONE place instead of
+  being re-argued in every source.
+
+  THE FEED NEVER READS DECLARED OR OBSERVED DIRECTLY. If a source wants
+  to know "does this shop sell bread", it asks the derived model, which
+  answers with a weight and a confidence — not with a checkbox the user
+  ticked eight months ago.
+
+
+===========================================================================
+PART 3 — DECLARED SIGNALS, AND WHAT EACH IS ACTUALLY WORTH
+===========================================================================
+
+  products             THE STRONGEST DECLARED SIGNAL. Maps to category
+                       weights immediately: a shop that sells bread and
+                       cooldrinks gets BAKERY and BEVERAGES weighted on
+                       day one. Needs a mapping table from the form's
+                       vocabulary to ProductCategory (Part 15 q1).
+
+  customer_types       Shapes pack size and price band. A shop serving
+                       walk-in customers buys singles and small packs;
+                       one supplying other businesses buys cases.
+
+  employee_range       A proxy for VOLUME. One person behind a counter
+                       and six staff are different basket sizes, and it
+                       is the only size signal available before orders.
+
+  operating_days
+  opening / closing    WHEN to surface things, and a real one: a shop
+                       opening at 6am is restocking the night before,
+                       so a reorder nudge at 4pm beats one at 9am.
+
+  supplier_sources     CORRECTED 2026-09-14 -- this field does NOT
+                       name suppliers. It is a closed list of TYPES:
+                       Local suppliers, Wholesalers, Distributors,
+                       Manufacturers, Markets, Other businesses. An
+                       earlier draft of this document claimed it gave
+                       acquisition leads with warm introductions
+                       attached; that was written without reading it.
+
+                       What it is actually worth: a shop buying from
+                       MANUFACTURERS or MARKETS buys differently from
+                       one buying from WHOLESALERS -- pack size, price
+                       expectation and cadence all differ. Useful, and
+                       a fraction of what was claimed. Part 16 proposes
+                       the version that would earn the claim.
+
+  province/city/coords The radius, and the only geography discovery has.
+
+  years_operating      Stability, not need. Weak for recommendation,
+                       genuinely useful later for the lending thesis.
+
+  business_type
+  category             Coarse but free. The fallback when products is
+                       empty.
+
+  WHAT IS MISSING AND WOULD BE WORTH ASKING (Part 15 q2): typical
+  restock day, and rough weekly spend. Both are things a shopkeeper
+  knows instantly and both would sharpen the model more than anything
+  else on the form. Neither is worth adding if it costs completion
+  rate.
+
+
+===========================================================================
+PART 4 — OBSERVED SIGNALS
+===========================================================================
+
+  FROM ORDERS (the strongest, and already recorded)
+    which catalogue products, how often, in what quantity, at what
+    price, from whom, and — once V2_14 lands — whether it arrived.
+
+  FROM BASKETS
+    what was added and abandoned. An abandoned basket below a minimum
+    order is a specific, fixable failure and the feed can fix it.
+
+  FROM BROWSING
+    categories opened, products viewed, searches run. Weaker than
+    orders and available far sooner.
+
+  FROM THE FEED ITSELF
+    impressions and taps (V2_16 Part 11). The correction signal for
+    everything above.
+
+  ONE RULE: OBSERVED SIGNALS ARE APPEND-ONLY FACTS, never edited. The
+  derived layer interprets; it does not rewrite history. Same
+  discipline as stock_order_events.
+
+
+===========================================================================
+PART 5 — THE DERIVED MODEL: WHAT THE FEED ACTUALLY READS
+===========================================================================
+
+  Per shop, recomputed rather than accumulated by hand:
+
+    category_weights      {BAKERY: 0.9, BEVERAGES: 0.7, ...}
+                          with a CONFIDENCE per entry, because
+                          "declared once" and "bought forty times"
+                          must not look identical to a caller.
+
+    product_cadence       per catalogue product: typical gap, last
+                          bought, due-ness. reorder_gap already
+                          computes this shape (shared/algorithms).
+
+    basket_profile        typical order value, typical line count,
+                          pack-size preference.
+
+    price_sensitivity     does this shop take the cheapest offer or
+                          stay with one supplier? Derived from actual
+                          switching behaviour, and it is what tells
+                          offer_selection whether to lead with price.
+
+    radius_tolerance      how far they actually deal. A shop ordering
+                          from 12km away tolerates more than the
+                          default; one that never leaves 2km tolerates
+                          less.
+
+    restock_rhythm        day-of-week and time-of-day patterns.
+
+    confidence            overall. Drives how much the feed leans on
+                          the model versus falling back to
+                          platform-wide defaults.
+
+  EVERY DERIVED FIELD CARRIES ITS PROVENANCE — declared, observed, or
+  both. A feed that cannot say "we think you sell bread because you
+  told us" versus "because you have bought it nine times" cannot
+  explain itself, and V2_16 Part 3 already made explainability a rule.
+
+
+===========================================================================
+PART 6 — WHEN DECLARED AND OBSERVED DISAGREE
+===========================================================================
+
+  A shop declares bread. Six months of orders contain no bread.
+
+  THE WRONG READING: they lied, drop the signal.
+  THE RIGHT READING: they buy bread SOMEWHERE ELSE.
+
+  That is not a data problem. It is the single most valuable thing the
+  engine can learn, because it names a category where TruConnect is
+  losing an existing, confirmed need — and it is the demand-gap signal
+  that makes a supplier conversation concrete (Part 10).
+
+  THE RULE:
+
+    observed CONFIRMS declared      confidence rises fast
+    observed CONTRADICTS declared   the DECLARED weight stays, flagged
+                                    as UNSERVED. Never silently dropped.
+    observed EXCEEDS declared       add the category, lower confidence
+                                    in the form's completeness, and
+                                    consider prompting an update.
+
+  DECLARED DECAYS, IT DOES NOT EXPIRE. A form filled fourteen months
+  ago is weaker evidence than one filled last week, but a shop that
+  still sells what it said it sells is the normal case. Decay the
+  confidence, keep the signal.
+
+
+===========================================================================
+PART 7 — HOW IT GROWS ON ITS OWN
+===========================================================================
+
+  Three loops, at three speeds. Together they are what "the engine
+  improves itself" actually means.
+
+  FAST — ON EVERY ORDER (synchronous, incremental)
+    update cadence for the products involved, basket profile, last-seen
+    categories. Cheap: it touches only what the order touched.
+
+  NIGHTLY — THE RECOMPUTE (a scheduled JobSpec, the existing pattern)
+    rebuild weights and confidence from the full history, apply decay,
+    recompute radius tolerance and price sensitivity, refresh
+    unserved-need flags.
+
+  ON DECLARATION — IMMEDIATELY
+    the shop edits their profile; the model is rebuilt then and there,
+    because the next thing they do is look at the feed, and a feed that
+    ignores what they just told it teaches them the form is pointless.
+
+  AND THE CORRECTION LOOP, once impressions exist: shown-and-ignored
+  lowers a weight; shown-and-tapped raises it. This is the only loop
+  that needs data we do not yet collect, and it is the one that turns
+  three heuristics into something that learns.
+
+  IDEMPOTENT AND REBUILDABLE. The derived model is a CACHE of a
+  computation over facts we keep — droppable and rebuildable from
+  scratch at any time. Nothing is lost if it is wrong; it is recomputed.
+  That property is what makes it safe to change the weights later.
+
+
+===========================================================================
+PART 8 — COLD START IS SOLVED BY DECLARATION
+===========================================================================
+
+  This is the reason declared signals earn their place.
+
+    MINUTE ONE      They finish the profile: sells bread, cooldrinks,
+                    airtime; Soweto; walk-in customers; opens 6am.
+                    The feed ALREADY has category weights, a radius and
+                    a basket guess. Not a cold start — a warm one.
+
+    WEEK ONE        First orders. Cadence begins. Declared confirmed
+                    or contradicted.
+
+    MONTH ONE       Rhythms real. Reorder timing becomes specific
+                    rather than generic.
+
+    MONTH THREE     Price sensitivity and radius tolerance are
+                    observed rather than assumed.
+
+  COMPARE WITH THE ALTERNATIVE: a shop that declares nothing sees the
+  platform-wide default feed — popular products, nearby suppliers — for
+  weeks. It works, and it is worse. That difference is what makes Part
+  9 honest rather than manipulative.
+
+
+===========================================================================
+PART 9 — ASKING FOR THE PROFILE, WITHOUT A DARK PATTERN
+===========================================================================
+
+  Mandla asked for a prompt. The rule that keeps it clean:
+
+    ONLY ASK FOR WHAT WILL VISIBLY CHANGE THE NEXT SCREEN, AND SAY
+    EXACTLY WHAT IT WILL CHANGE.
+
+    GOOD   "Tell us what you sell and we'll show you stock for it."
+           -> true, specific, and the feed measurably changes.
+    BAD    "Complete your profile!" with a progress ring.
+           -> a chore with no stated benefit, which is the pattern
+              every app uses and every user has learned to dismiss.
+
+  WHERE   A dismissible card in the feed, not a modal. It appears when
+          `business_info_complete` is false, is scored like any other
+          candidate (V2_16), and sinks as the feed fills with real
+          personalised content — because by then it has less to offer.
+
+  ONE FIELD AT A TIME, at a moment it matters. "Which of these do you
+  sell?" next to a category rail beats a twelve-field form. The form
+  still exists for anyone who wants it in one go.
+
+  AND IT MUST BE SKIPPABLE FOREVER. A shop that never fills it in gets
+  a worse feed, not a blocked one.
+
+
+===========================================================================
+PART 10 — THE MODEL TELLS US THINGS TOO
+===========================================================================
+
+  The demand model is read by the feed. It should also be read by us,
+  and this is where the ecosystem argument becomes concrete.
+
+  UNSERVED NEED          Categories shops declare and cannot buy here.
+                         "412 shops sell airtime; we have no airtime
+                         products." That is a product gap, a supplier
+                         acquisition target, and the single most
+                         persuasive slide in any wholesaler meeting.
+
+  CATALOGUE HOLES        A declared product with no catalogue match is
+                         either a missing product or a MATCHING FAILURE.
+                         Either way it belongs in the review queue that
+                         already exists — the demand model becomes an
+                         input to catalogue quality rather than only a
+                         consumer of it.
+
+  GEOGRAPHIC GAPS        Demand concentrated where no supplier delivers.
+                         Says where to recruit, with numbers.
+
+  SUPPLIER LEADS         ONLY IF THE FORM ASKS FOR NAMES, which
+                         today it does not -- see the correction in
+                         Part 3. With names it is a list of real
+                         businesses with a real reason to join. Without
+                         them it is a distribution of shop TYPES, which
+                         says where to recruit but not from whom.
+
+  NONE OF THIS IS SHOWN TO SUPPLIERS AS PER-SHOP DETAIL. Aggregate,
+  always. "12 shops within 5km buy maize meal weekly" is a market fact;
+  "Mama Ntuli buys 4 bags on Thursdays" is surveillance.
+
+
+===========================================================================
+PART 11 — THE INVARIANTS, AND THE TESTS THAT HOLD THEM
+===========================================================================
+
+  1  THE SHOP PROFILE IS SUPPLIER-INDEPENDENT.
+     Architecture test: nothing under demand/ imports a supplier
+     repository, model or service. The same AST discipline as the
+     composer and curtain tests. Without this the independence claim
+     rots within a month of convenient imports.
+
+  2  THE FEED READS ONLY THE DERIVED LAYER.
+     Test: no feed source imports the declared or observed tables.
+
+  3  THE DERIVED MODEL IS REBUILDABLE FROM SCRATCH.
+     Test: drop it, recompute, compare — identical.
+
+  4  NO PER-SHOP DATA REACHES A SUPPLIER.
+     Test: supplier-facing serialisers expose no shop-level demand
+     field.
+
+  5  DECLARED IS NEVER SILENTLY DROPPED (Part 6).
+     Test: a contradicted declaration survives as UNSERVED.
+
+
+===========================================================================
+PART 12 — PRIVACY, STATED BEFORE IT IS BUILT
+===========================================================================
+
+  This engine knows more about an informal business than anything else
+  in the platform. That is the point and the risk.
+
+  IT IS THEIR DATA AND IT MUST BE VISIBLE TO THEM. A shop should be
+  able to see what the model believes — "we think you sell bread and
+  cooldrinks, and restock about weekly" — and correct it. A model a
+  user cannot inspect is one they cannot trust, and this platform's
+  entire argument is trust.
+
+  DELETION MUST TAKE IT WITH THEM. The derived model is per-shop and
+  goes when they go. It belongs on the deletion classification already
+  in the backlog.
+
+  IT IS NOT A CREDIT SCORE AND MUST NOT BE DRESSED AS ONE. V2_03 is
+  explicit that self-reported data cannot support lending. This model
+  is substantially self-reported. It recommends stock; it does not
+  assess anybody.
+
+
+===========================================================================
+PART 13 — THE PROJECT TREE
+===========================================================================
+
+  backend/src/domains/business/demand/               NEW
+  │  THE ENGINE. Lives under `business` on purpose: it is a model OF a
+  │  business, not of the network or the catalogue. Imports no supplier
+  │  anything, ever (Part 11.1).
+  ├── models/
+  │   ├── shop_profile.py            the derived model, one row per shop
+  │   └── shop_signal.py             observed signals, append-only
+  ├── repositories/
+  ├── signals/
+  │   ├── declared.py                read the profile form -> signals
+  │   ├── observed.py                read orders/baskets -> signals
+  │   └── vocabulary.py              form words -> ProductCategory
+  ├── services/
+  │   ├── model_builder.py           declared + observed -> derived
+  │   ├── reconciliation.py          Part 6, in one place
+  │   └── needs_service.py           THE PUBLIC FACE: "what does this
+  │                                  shop need?" The only thing the
+  │                                  feed is allowed to call.
+  ├── algorithms/
+  │   ├── weighting.py
+  │   ├── decay.py
+  │   └── confidence.py
+  ├── jobs/nightly_rebuild.py
+  └── schedulers/demand_scheduler.py
+
+  backend/src/domains/business/demand/insights/      NEW (Part 10)
+  └── services/gap_service.py        unserved need, catalogue holes,
+                                     geographic gaps, supplier leads
+
+  backend/src/domains/network/community/feed/        V2_16
+      sources/ now call needs_service, not repositories directly
+
+  frontend/mobile/src/features/dashboard/business/community/
+  └── components/cards/ProfilePromptCard.tsx         Part 9
+
+  TESTS
+    tests/domains/business/demand/                   per layer
+    tests/architecture/test_demand_independence.py   invariant 1 and 2
+
+
+===========================================================================
+PART 14 — ORDER OF WORK
+===========================================================================
+
+  PHASE 0 — MAKE THE FORM MEAN SOMETHING (days, not weeks)
+    1  vocabulary.py: form words -> ProductCategory
+    2  declared.py + a first model_builder: declared-only
+    3  needs_service returning category weights
+    4  one feed source reading it
+       -> A SHOP THAT FILLS THE FORM GETS A BETTER FEED THAT DAY.
+          Smallest change with the largest visible effect, and it turns
+          data already being collected into something real.
+
+  PHASE 1 — OBSERVE
+    5  observed.py from order history
+    6  reconciliation (Part 6)
+    7  nightly rebuild job
+    8  cadence and basket profile
+
+  PHASE 2 — THE FEED LEANS ON IT
+    9  V2_16 sources read needs_service
+   10  offer_selection uses price_sensitivity and radius_tolerance
+   11  the profile prompt card (Part 9)
+
+  PHASE 3 — IT TELLS US THINGS
+   12  gap_service (Part 10)
+   13  catalogue holes into the review queue
+
+  PHASE 4 — IT LEARNS
+   14  impressions (V2_16 Part 11)
+   15  the correction loop
+
+  PHASE 0 IS DELIBERATELY TINY AND SHIPS ALONE. It proves the whole
+  thesis — that declaration beats cold start — before a single table is
+  added for observation.
+
+
+===========================================================================
+PART 15 — WHAT ONLY MANDLA CAN ANSWER
+===========================================================================
+
+  1  THE VOCABULARY. What are the actual options in the `products` and
+     `customer_types` pickers today? Everything in Phase 0 depends on
+     mapping those exact words to ProductCategory, and I should not
+     invent the list.
+
+  2  TWO MORE FORM FIELDS? Typical restock day, and rough weekly spend.
+     Both sharpen the model more than anything else on the form. Both
+     cost completion rate. Worth it?
+
+  3  DOES A SHOP SEE ITS OWN MODEL? Part 12 argues yes. It is also a
+     screen to build and a thing to explain.
+
+  4  UNSERVED NEED — ACT ON IT HOW? When a shop declares a category we
+     cannot supply, do we say so ("nobody near you sells this yet"), or
+     stay quiet and use it only as an internal signal? Saying so is
+     honest and admits a gap.
+
+  5  HOW HARD DOES OBSERVED OVERRIDE DECLARED? Fast adaptation follows
+     a shop that is changing; slow adaptation survives a quiet month.
+     A number, and it is a judgement about how much to trust what
+     people say about their own shop.
+
+  6  IS THIS ONE MODEL OR PER-ROLE? Suppliers have demand-like
+     questions too ("what should I stock?"). Same engine pointed the
+     other way, or a separate thing later?
+
+
+
+===========================================================================
+PART 16 — THE ENGINE'S FUEL: AN AUDIT OF THE BUSINESS PROFILE
+===========================================================================
+
+Read against the real form, 2026-09-14. The question for every field is
+only this: DOES THE ENGINE USE IT? A field that fails that test is
+costing completion rate and returning nothing.
+
+16.1  THE FINDING THAT MATTERS MOST
+
+  `products` -- the signal Part 3 called the strongest -- IS UNUSABLE
+  FOR MOST SHOPS.
+
+  PRODUCT_OPTIONS_BY_CATEGORY covers three of eight business
+  categories. The other five, INCLUDING "RETAIL" -- which is what a
+  spaza shop would most naturally pick -- fall through to:
+
+      DEFAULT_PRODUCT_OPTIONS = ["Products", "Services", "Other"]
+
+  So the app asks a shopkeeper what they sell and offers them the
+  answer "Products". That is not a weak signal, it is no signal, and it
+  is the single thing most worth fixing before any of this is built.
+
+16.2  FIELD BY FIELD
+
+  KEEP AS IS -- the engine reads these directly
+
+    customer_types        INDIVIDUALS vs OTHER_BUSINESSES is exactly
+                          the pack-size signal. Small, closed, fast.
+    latitude/longitude    radius. Nothing else provides geography.
+    city_or_town          the "Closest to Soweto" line, and a coarse
+                          fallback when coordinates are missing.
+    operating_days
+    opening/closing       WHEN to surface a reorder nudge. The only
+                          timing signal that exists.
+    employee_range        the only volume proxy before orders exist.
+
+  CHANGE -- right question, wrong shape
+
+    products              REPLACE THE VOCABULARY. Ask against
+                          ProductCategory itself -- the seventeen real
+                          categories, with the icons already built --
+                          not a per-category list of adjectives.
+                          "Which of these do you BUY?" as chips is
+                          faster to answer than the current picker AND
+                          lands directly on the taxonomy the catalogue
+                          uses. No mapping table, no vocabulary drift,
+                          and no shop ever answers "Products".
+
+                          IT ALSO CHANGES THE QUESTION FROM SELL TO
+                          BUY, which is what the engine actually wants.
+                          A salon SELLS haircuts and BUYS relaxers;
+                          only the second is orderable here.
+
+    supplier_sources      EITHER ask for NAMES (free text, "who do you
+                          buy from?") and earn the acquisition-lead
+                          claim, OR cut it. As a list of types it is a
+                          weak cadence hint no other field needs. Names
+                          are worth one text box; types are not worth a
+                          screen.
+
+    business_type
+    category              Keep ONE. Two overlapping coarse
+                          classifications are two chances to pick
+                          differently and no extra signal.
+
+  CUT -- nothing reads them and nothing will
+
+    identity_verified
+    documents_verified    Mandla's own review: informal businesses are
+                          NOT verification-gated in V2. These are the
+                          supplier model's concepts sitting on the
+                          business table. The curtain applies to
+                          suppliers; a business is not checked to shop.
+
+    order_channels        How orders reach THEIR customers. Real for
+                          them, invisible to the engine -- it changes
+                          nothing about what they buy or when.
+
+    payment_methods       How they take money from walk-ins. Not how
+                          they pay suppliers, which is the only payment
+                          question this platform acts on.
+
+    years_operating       Weak for recommendation. Keep the COLUMN for
+                          the lending thesis later; take it off the
+                          form now. Data we do not use should not cost
+                          a question.
+
+    physical_address      Never shown in discovery (V2_16 Part 12), and
+                          the coordinates carry the geography. Needed
+                          for DELIVERY, so keep the column -- but ask
+                          for it in the delivery flow, at the moment it
+                          is used, not in an onboarding form.
+
+  ADD -- worth more than everything cut
+
+    restock rhythm        "How often do you restock?" -- daily, twice a
+                          week, weekly, fortnightly, monthly. ONE tap.
+                          The single most valuable thing the engine
+                          could know on day one, and today it waits
+                          months of order history to guess it.
+
+    weekly spend band     A range, not a number. Sizes the basket
+                          immediately and stops the feed showing a
+                          R5,000 pallet to a shop that buys R800 a
+                          week -- which is an unbuyable card, and V2_16
+                          Part 12 already forbids those.
+
+16.3  WHAT THE SCREEN BECOMES
+
+  Before:  twelve fields, several unusable, verification concepts that
+           do not apply, and "Products" as an available answer.
+  After:   five questions, each of which visibly changes the feed.
+
+      1  What do you buy?           category chips (multi-select)
+      2  Who are your customers?    individuals / businesses
+      3  How often do you restock?  one tap
+      4  Roughly how much a week?   a band
+      5  Where are you?             map pin, already built
+
+  UNDER TWO MINUTES, which was the requirement. Every question earns
+  its place by changing what the shop sees next.
+
+16.4  WHEN TO ASK
+
+  NOT AT REGISTRATION. A form between a person and the app they just
+  installed is the highest-drop-off screen in any product, and at that
+  moment they have no reason to believe the answers matter.
+
+  ASK IN THE FEED, ONE QUESTION AT A TIME, AT THE MOMENT IT PAYS:
+
+    empty feed          -> "What do you buy? We will show you stock for
+                           it." One question, then the feed visibly
+                           changes. That change is the argument for
+                           answering the next one.
+    browsing a category -> "Do you sell these? We will keep them handy."
+    after a first order -> "How often do you restock this?"
+
+  EACH ANSWER IMPROVES THE NEXT SCREEN, VISIBLY. That is the only
+  honest reason to ask, and the only one that survives a shopkeeper who
+  is busy.
+
+
+===========================================================================
+PART 17 — WHAT THE ENGINE NEEDS FROM SUPPLIERS: ALMOST NOTHING
+===========================================================================
+
+  Mandla's requirement: the injection engine must not know who the
+  supplier is. Stated precisely, so it can be tested:
+
+    THE ENGINE ASKS "WHAT DOES THIS SHOP NEED?" AND THE ANSWER NEVER
+    CONTAINS A SUPPLIER.
+
+  The answer is a set of CATALOGUE PRODUCTS with weights and urgency.
+  Only afterwards, in a separate stage the engine does not participate
+  in, does supply resolution ask "who can fulfil this, for this shop,
+  from here".
+
+  WHAT SUPPLY MUST EXPOSE TO THAT LATER STAGE -- a short list of FACTS,
+  none of which is an identity:
+
+    does an offer exist for this catalogue product
+    is it in stock
+    what does it cost
+    how far away is it
+    minimum order
+    which payment rails
+    delivery or collection
+
+  NOTHING ABOUT WHO. Not the name, not the size of their catalogue, not
+  how long they have been on the platform, not what they pay us. Those
+  belong to the supplier's own screens and to commerce (sponsorship,
+  V2_16 Part 8), which is injected as a LABELLED slot rather than mixed
+  into the organic answer.
+
+  THE TEST, and it is the same shape as the curtain and composer tests:
+  no module under demand/ imports a supplier model, repository or
+  service. If that import is ever needed, the design is wrong and the
+  import is the symptom.
+
+  WHY THIS IS WORTH THE DISCIPLINE. The moment the engine can see who
+  the supplier is, every future feature has a cheap way to favour one:
+  a "trusted partner" boost, a "premium supplier" weight, a tie-break
+  on catalogue size. Each is individually defensible and together they
+  are a marketplace that sells its own results. Not being able to SEE
+  the supplier is what makes that impossible rather than merely
+  discouraged.
+
+
+===========================================================================
+PART 18 — WHAT IF A WHOLESALER UPLOADS TEN THOUSAND PRODUCTS?
+===========================================================================
+
+  The analysis Mandla asked for. It is the right question: it is the
+  first thing a serious supplier will do, and it is how feeds usually
+  break.
+
+  18.1  UNDER A SUPPLY-FIRST FEED (what was built first)
+
+  Catastrophic and quiet. Candidates come from what exists, so more
+  rows means more candidates and the biggest catalogue wins every rail
+  without anybody intending it. The shop sees one wholesaler's shelf
+  and calls it "the app".
+
+  18.2  UNDER A DEMAND-FIRST ENGINE
+
+  Structurally prevented, and this is the load-bearing property of the
+  whole design. The engine asks "what does this shop need?" and gets
+  back, say, eleven catalogue products. ELEVEN. That number comes from
+  the SHOP, and no upload changes it.
+
+  A supplier with ten thousand products can satisfy more of those
+  eleven than a supplier with forty. They cannot make the shop need a
+  twelfth. COVERAGE IS THE REWARD; DOMINATION IS NOT AVAILABLE.
+
+  18.3  THE THREE RESIDUAL RISKS, AND THE ANSWERS
+
+    COVERAGE MONOPOLY     One supplier is the only match for all
+                          eleven, so every card is theirs -- honestly
+                          earned, and still a feed that looks bought.
+                          ANSWER: the per-supplier cap per section
+                          (V2_16 7.4). Below the cap coverage wins;
+                          above it the rail makes room.
+
+    CATALOGUE POLLUTION   Ten thousand rows matched badly inflate a
+                          supplier's apparent coverage. This is a
+                          MATCHING problem, not a feed one, and the
+                          review queue already exists for it -- but the
+                          feed makes its consequences visible for the
+                          first time, which is a reason to watch that
+                          queue rather than to change the feed.
+
+    PRICE FLOODING        Undercutting everything to own the
+                          cheapest-offer slot. ANSWER: offer_selection
+                          is not price-only (V2_16 Part 15 q3), price
+                          sensitivity is per shop, and a supplier who
+                          sustainably undercuts everyone is one the
+                          shops should be seeing. That is a market
+                          working, not a bug.
+
+  18.4  WHAT WE SHOULD MEASURE FROM DAY ONE
+
+    share of feed cards by supplier, per shop and platform-wide
+    how many distinct suppliers appear in a typical feed
+    coverage: what fraction of a shop's needs anyone can fulfil
+
+  IF ONE SUPPLIER'S SHARE CLIMBS WITHOUT THEIR COVERAGE CLIMBING, the
+  caps are wrong. A number to watch rather than a thing to assume --
+  and cheap to compute once impressions exist.
+
+
+
+###########################################################################
+#  BOOK FOUR — BEFORE WE BUILD
+###########################################################################
+
+Added 2026-09-14 after review. Three things: keeping the two Community
+tabs apart in the tree, the flaws found reading the plan back, and the
+codebase changes that should land BEFORE any engine code.
+
+
+===========================================================================
+PART A — TWO COMMUNITY TABS, ONE CODEBASE, KEPT APART
+===========================================================================
+
+  THERE ARE TWO FEEDS AND THEY ARE NOT THE SAME PRODUCT.
+
+    BUSINESS "For You"     a MARKET. What can I buy, from whom, at what
+                           price, near me. Driven by the demand engine.
+                           Sections: buy it again, categories, collect
+                           near you, moving fast.
+
+    SUPPLIER "For You"     a DEMAND SIGNAL. Who is buying, who has gone
+                           quiet, what is stopping me selling. Already
+                           built: reorder_due, wants_to_connect,
+                           businesses_near_you, shopfront_health.
+
+  V2_04 3.1 already named the mistake of mirroring one onto the other:
+  "a supplier does not shop. Handing them a For You rail of other
+  suppliers is symmetry mistaken for design."
+
+  THE RISK IS NOT CONCEPTUAL, IT IS FILENAMES. Today both live in
+  network/community/services/ as business_sections.py and
+  supplier_sections.py, side by side. Add a pipeline, sources, scoring
+  and a demand engine to that flat folder and within a month somebody
+  imports a business source into a supplier section because the import
+  looked plausible. The tree has to make that mistake hard to make.
+
+  A.1  THE REVISED TREE
+
+  backend/src/domains/network/community/
+  │  THE COMPOSER. Still owns no tables (architecture test), still
+  │  imported by nobody.
+  ├── api/community_routes.py           ONE endpoint, both roles. The
+  │                                     role comes from the TOKEN.
+  ├── feed_service.py                   the ONLY dispatcher. Reads the
+  │                                     role, calls one side. Nothing
+  │                                     else in the tree branches on
+  │                                     role, ever.
+  ├── core/                             ROLE-AGNOSTIC MACHINERY
+  │   ├── candidate.py                  the Candidate type
+  │   ├── eligibility.py                the one gate (curtain, demo,
+  │   │                                 deleted, dedupe)
+  │   ├── scoring.py                    the readable score
+  │   ├── weights.py                    every tunable number
+  │   └── engine.py                     the injection engine
+  │                                     NOTHING HERE KNOWS WHAT A
+  │                                     SUPPLIER OR A SHOP IS. It moves
+  │                                     Candidates into sections.
+  ├── business/                         THE SHOP'S FEED
+  │   ├── sources/                      repeat_purchase, due_to_reorder,
+  │   │                                 category_affinity,
+  │   │                                 platform_demand, proximity,
+  │   │                                 untried_suppliers, actions
+  │   └── sections.py                   templates: source -> section
+  └── supplier/                         THE WHOLESALER'S FEED
+      ├── sources/                      customers_going_quiet,
+      │                                 wants_to_connect,
+      │                                 businesses_near_you,
+      │                                 shopfront_health
+      └── sections.py                   (today's supplier_sections.py,
+                                        ported onto core/)
+
+  backend/src/domains/business/demand/       THE DEMAND ENGINE
+  │  Under `business` because it is a model OF a business. Its path
+  │  says whose it is. Imports no supplier anything, ever.
+  └── (as Book Three Part 13)
+
+  A.2  THE NAMING RULE, so this cannot rot
+
+    core/       may import NEITHER business/ NOR supplier/
+    business/   may import core/, never supplier/
+    supplier/   may import core/, never business/
+
+  One architecture test asserts exactly that, in the same AST style as
+  the composer and curtain tests. It is four assertions and it makes
+  the mistake impossible rather than merely discouraged.
+
+  A.3  WHAT IS SHARED AND WHAT IS NOT
+
+  SHARED: the Candidate type, the eligibility gate, scoring, the
+  engine, diversity caps, stability seeding. These are about arranging
+  a screen and have no opinion about who is reading it.
+
+  NOT SHARED: every source, every section template, every title. A
+  supplier source answers "who among MY customers", a business source
+  answers "what should I BUY". They read different tables, mean
+  different things, and the moment one is reused for the other the
+  result is the mirrored feed V2_04 already rejected.
+
+  DO NOT FORCE THE SUPPLIER FEED THROUGH PRODUCT-SHAPED MACHINERY.
+  Business candidates are mostly PRODUCTS; supplier candidates are
+  mostly PEOPLE. The Candidate type already carries `kind` for exactly
+  this, and porting the supplier feed onto core/ is worth doing only
+  for the engine's arranging, thinning and stability -- not to make it
+  look like the other one.
+
+
+===========================================================================
+PART B — FLAWS FOUND READING THIS PLAN BACK
+===========================================================================
+
+  B.1  DECLARED GIVES CATEGORIES, NOT PRODUCTS -- AND THE PLAN IMPLIED
+       MORE PRECISION THAN THAT.
+
+  Knowing a shop buys BAKERY does not say which bread. Book Three reads
+  as though declaration produces product-level recommendations; it does
+  not. It produces category weights, and the feed fills those with
+  platform-popular products until orders say otherwise.
+
+  FIX: state the ladder honestly. DECLARED -> category targeting.
+  OBSERVED -> product targeting. Anything product-specific before the
+  first order is a guess dressed as personalisation.
+
+  B.2  A NEED WITH NO CATALOGUE PRODUCT DISAPPEARS SILENTLY.
+
+  And we created one on purpose: DIGITAL_VAS was deliberately left out
+  of the taxonomy (2026-09-13). A shop that declares airtime gets
+  nothing back and no explanation.
+
+  FIX: needs_service returns unmatched needs EXPLICITLY rather than
+  dropping them. The feed can then say "nobody near you sells this
+  yet", which is honest, and gap_service counts it, which is valuable.
+  Silence is the one unacceptable outcome.
+
+  B.3  A NIGHTLY REBUILD OF EVERY SHOP DOES NOT SCALE.
+
+  FIX: rebuild only shops with activity since the last run, plus a slow
+  rolling pass for decay. The derived model is a cache (Book Three Part
+  7) so a stale one is a degradation, never a fault.
+
+  B.4  OFFER SELECTION IS AN N+1 WAITING TO HAPPEN.
+
+  Eleven needs, each asking "who has this, in stock, how far" is
+  eleven-times-N queries. This exact bug has been written and removed
+  twice in one week.
+
+  FIX: offer_selection takes a LIST of catalogue product ids and
+  returns a map, batched, once. Make the batch signature the only
+  signature -- a single-product version will be used in a loop.
+
+  B.5  RADIUS TOLERANCE IS MEANINGLESS WITHOUT COORDINATES.
+
+  Most shops today have none (0 of 2 in dev).
+
+  FIX: the model must carry confidence per field, not just overall, and
+  every consumer must handle "unknown" rather than defaulting to a
+  number that looks real.
+
+  B.6  DEMO DATA AND THE DEMAND ENGINE INTERACT.
+
+  A demo shop with no demand model shows the platform-wide fallback
+  feed, which is exactly the boring screen a demonstration must avoid.
+
+  FIX: the seeder builds demand models for demo shops too, and the demo
+  filter applies to the model as well as the rows.
+
+  B.7  THE INITIAL WEIGHTS ARE GUESSES AND THE PLAN DID NOT SAY SO.
+
+  FIX: ship them as guesses, in one file, with a comment naming what
+  would falsify each. Until impressions exist there is nothing to tune
+  against, and pretending otherwise is how a number nobody chose
+  becomes permanent.
+
+  B.8  business_info_complete CHANGES MEANING IF THE FORM CHANGES.
+
+  It counts today's twelve fields. Book Three Part 16 proposes five.
+
+  FIX: recompute it from the new set in the same migration, or it
+  silently reports completeness against fields that no longer exist.
+
+  B.9  "UNSERVED" NEEDS A TIME LIMIT.
+
+  A category flagged unserved because nobody stocked it two years ago
+  should not still be flagged after three suppliers arrived.
+
+  FIX: unserved is DERIVED on every rebuild, never stored as a
+  permanent flag.
+
+  B.10 THE SUPPLIER FEED HAS NO DEMAND ENGINE AND SHOULD NOT PRETEND TO.
+
+  Book Three is entirely about shops. The supplier equivalent ("what
+  should I stock?") is a real idea and a different one -- it needs
+  aggregate demand near them, not a model of themselves.
+
+  FIX: out of scope, named as out of scope, with its own document when
+  it comes. Part 15 q6 stays open.
+
+
+===========================================================================
+PART C — WHAT THE CODEBASE NEEDS BEFORE ANY ENGINE CODE
+===========================================================================
+
+  Ordered. Each is small, each is independently shippable, and none
+  requires the engine to exist.
+
+  C.1  RESHAPE THE BUSINESS PROFILE (Book Three Part 16)
+
+    - `products` (free-ish strings) -> `buys_categories`
+      (ProductCategory[]), asked against the seventeen real categories
+    - ADD restock_rhythm, weekly_spend_band
+    - DROP identity_verified, documents_verified (supplier concepts on
+      a business table; informal businesses are not verification-gated)
+    - DROP order_channels, payment_methods from the FORM
+    - MOVE physical_address into the delivery flow
+    - recompute business_info_complete (B.8)
+
+    DO THIS FIRST AND DO IT NOW. There are TWO business profiles in
+    the database. This will never be cheaper, and every week of
+    signups makes it a data migration instead of a schema change.
+
+  C.2  CATALOGUE-WIDE PRODUCT BROWSE (Book Two Part 3.1)
+
+    The single missing query. Blocks the category chips, "moving fast",
+    and every product rail that is not pure order history. Nothing in
+    the engine is useful without it.
+
+  C.3  THE CHIP DESTINATION
+
+    Tapping "Drinks" currently routes to SUPPLIER search. It should
+    land on products. Biggest visible improvement available to a new
+    user, and it needs only C.2.
+
+  C.4  MOVE THE FEED INTO THE ROLE-SEPARATED TREE (Part A)
+
+    business_sections.py and supplier_sections.py move into
+    business/ and supplier/. Pure refactor, no behaviour change, and
+    it must happen BEFORE the tree fills up rather than after.
+
+  C.5  THE ARCHITECTURE TESTS, WRITTEN BEFORE THE CODE THEY GUARD
+
+    - core/ imports neither role (A.2)
+    - demand/ imports no supplier anything (Book Three Part 11)
+    - no query reads demo rows outside the gate (Book Three Part 10)
+
+    Written first, they shape the code. Written after, they are an
+    argument with code that already exists.
+
+  C.6  FIX WHAT THE FIRST FEED GOT WRONG (Book One)
+
+    collect_near_you stops excluding connected suppliers; untried
+    suppliers includes unconnected ones. Small, and it stops the
+    current feed being actively worse than the mock it replaced.
+
+  WHAT IS NOT ON THIS LIST, deliberately: impressions, sponsorship,
+  scoring, the demand model itself. All of them are easier once C.1 to
+  C.6 exist, and none of them is blocked by anything except C.2.
+
+===========================================================================
+END
+===========================================================================

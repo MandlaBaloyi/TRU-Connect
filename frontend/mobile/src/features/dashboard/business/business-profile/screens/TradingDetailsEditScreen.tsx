@@ -4,8 +4,19 @@ import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
-import type { EmployeeRange, TradingDetails as TradingDetailsType } from "../types";
-import { CUSTOMER_TYPE_LABELS, EMPLOYEE_RANGE_LABELS, ORDER_CHANNEL_LABELS, PAYMENT_METHOD_LABELS } from "../types";
+import type {
+  EmployeeRange,
+  RestockRhythm,
+  TradingDetails as TradingDetailsType,
+  WeeklySpendBand,
+} from "../types";
+import {
+  CUSTOMER_TYPE_LABELS,
+  EMPLOYEE_RANGE_LABELS,
+  RESTOCK_RHYTHM_LABELS,
+  WEEKLY_SPEND_BAND_LABELS,
+} from "../types";
+import { CATEGORY_OPTIONS } from "@/constants/productCategories";
 import { ChipMultiSelect, ChipSingleSelect } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -15,11 +26,14 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 
 const CUSTOMER_TYPE_OPTIONS = (Object.keys(CUSTOMER_TYPE_LABELS) as (keyof typeof CUSTOMER_TYPE_LABELS)[]).map((value) => ({ value, label: CUSTOMER_TYPE_LABELS[value] }));
-const ORDER_CHANNEL_OPTIONS = (Object.keys(ORDER_CHANNEL_LABELS) as (keyof typeof ORDER_CHANNEL_LABELS)[]).map((value) => ({ value, label: ORDER_CHANNEL_LABELS[value] }));
-const PAYMENT_METHOD_OPTIONS = (Object.keys(PAYMENT_METHOD_LABELS) as (keyof typeof PAYMENT_METHOD_LABELS)[]).map((value) => ({ value, label: PAYMENT_METHOD_LABELS[value] }));
+// THE REAL TAXONOMY, not a second list to keep in step. These are the
+// same seventeen categories the catalogue, the chips and the feed use.
+const BUYS_OPTIONS = CATEGORY_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }));
+const RESTOCK_OPTIONS = (Object.keys(RESTOCK_RHYTHM_LABELS) as RestockRhythm[]).map((value) => ({ value, label: RESTOCK_RHYTHM_LABELS[value] }));
+const SPEND_OPTIONS = (Object.keys(WEEKLY_SPEND_BAND_LABELS) as WeeklySpendBand[]).map((value) => ({ value, label: WEEKLY_SPEND_BAND_LABELS[value] }));
 const EMPLOYEE_OPTIONS = (Object.keys(EMPLOYEE_RANGE_LABELS) as EmployeeRange[]).map((value) => ({ value, label: EMPLOYEE_RANGE_LABELS[value] }));
 
-const EMPTY: TradingDetailsType = { products: [], customerTypes: [], orderChannels: [], paymentMethods: [], operatingDays: [] };
+const EMPTY: TradingDetailsType = { buysCategories: [], customerTypes: [], operatingDays: [] };
 
 /**
  * "What do you sell?" and "When do you usually trade?" were removed
@@ -76,9 +90,15 @@ export default function TradingDetailsEditScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* THE MOST IMPORTANT QUESTION ON THIS SCREEN, and it asks what
+            they BUY rather than what they sell. It is the only answer
+            that changes what the Community feed shows them. */}
+        <ChipMultiSelect label="What stock do you buy?" options={BUYS_OPTIONS} value={draft.buysCategories} onChange={(buysCategories) => setDraft({ ...draft, buysCategories })} />
         <ChipMultiSelect label="Who do you mainly sell to?" options={CUSTOMER_TYPE_OPTIONS} value={draft.customerTypes} onChange={(customerTypes) => setDraft({ ...draft, customerTypes })} />
-        <ChipMultiSelect label="How do customers usually place orders?" options={ORDER_CHANNEL_OPTIONS} value={draft.orderChannels} onChange={(orderChannels) => setDraft({ ...draft, orderChannels })} />
-        <ChipMultiSelect label="How do customers usually pay?" options={PAYMENT_METHOD_OPTIONS} value={draft.paymentMethods} onChange={(paymentMethods) => setDraft({ ...draft, paymentMethods })} />
+        {/* One tap each, and together they let the feed be useful before
+            a single order exists -- see docs/v2/V2_15 Book Three. */}
+        <ChipSingleSelect label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(v) => setDraft({ ...draft, restockRhythm: (v as RestockRhythm) || undefined })} />
+        <ChipSingleSelect label="Roughly what do you spend on stock a week?" options={SPEND_OPTIONS} value={draft.weeklySpendBand} onChange={(v) => setDraft({ ...draft, weeklySpendBand: (v as WeeklySpendBand) || undefined })} />
 
         <View style={styles.timeRow}>
           <View style={[styles.field, { flex: 1 }]}>

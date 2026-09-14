@@ -108,6 +108,32 @@ export const OPERATING_MODEL_LABELS: Record<OperatingModel, string> = {
 
 export type CustomerType = "INDIVIDUALS" | "OTHER_BUSINESSES" | "FRIENDS_COMMUNITY" | "ORGANISATIONS" | "OTHER";
 
+export type RestockRhythm =
+  | "DAILY" | "TWICE_WEEKLY" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "IRREGULAR";
+
+export const RESTOCK_RHYTHM_LABELS: Record<RestockRhythm, string> = {
+  DAILY: "Every day",
+  TWICE_WEEKLY: "Twice a week",
+  WEEKLY: "Once a week",
+  FORTNIGHTLY: "Every two weeks",
+  MONTHLY: "Once a month",
+  IRREGULAR: "When I run out",
+};
+
+export type WeeklySpendBand =
+  | "UNDER_500" | "R500_TO_2000" | "R2000_TO_5000" | "R5000_TO_10000" | "OVER_10000";
+
+/** A BAND, NEVER A NUMBER. An exact figure is a question people
+ *  hesitate over and feel examined by, and the engine only needs enough
+ *  to stop showing a R5,000 pallet to a shop that buys R800 a week. */
+export const WEEKLY_SPEND_BAND_LABELS: Record<WeeklySpendBand, string> = {
+  UNDER_500: "Under R500",
+  R500_TO_2000: "R500 – R2 000",
+  R2000_TO_5000: "R2 000 – R5 000",
+  R5000_TO_10000: "R5 000 – R10 000",
+  OVER_10000: "More than R10 000",
+};
+
 export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
   INDIVIDUALS: "Individuals",
   OTHER_BUSINESSES: "Other businesses",
@@ -116,26 +142,7 @@ export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
   OTHER: "Other",
 };
 
-export type OrderChannel = "IN_PERSON" | "WHATSAPP" | "PHONE" | "SOCIAL_MEDIA" | "ONLINE" | "OTHER";
 
-export const ORDER_CHANNEL_LABELS: Record<OrderChannel, string> = {
-  IN_PERSON: "In person",
-  WHATSAPP: "WhatsApp",
-  PHONE: "Phone",
-  SOCIAL_MEDIA: "Social media",
-  ONLINE: "Online",
-  OTHER: "Other",
-};
-
-export type PaymentMethod = "CASH" | "EFT" | "CARD" | "MOBILE_PAYMENT" | "OTHER";
-
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: "Cash",
-  EFT: "EFT",
-  CARD: "Card",
-  MOBILE_PAYMENT: "Mobile payment",
-  OTHER: "Other",
-};
 
 export type Weekday = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
 
@@ -272,10 +279,20 @@ export interface BusinessLocation {
  *  genuinely useful to Order Book/Loan Book/future features, not just
  *  a business card. */
 export interface TradingDetails {
-  products: string[];
+  /** WHAT THEY BUY, as ProductCategory values — the same taxonomy the
+   *  catalogue and the category chips use. Replaces `products`, which
+   *  asked what they SELL from a per-category list that offered five of
+   *  eight business categories the answer "Products".
+   *
+   *  A salon SELLS haircuts and BUYS relaxers; only the second is
+   *  orderable here, and only the second tells the feed anything. */
+  buysCategories: string[];
   customerTypes: CustomerType[];
-  orderChannels: OrderChannel[];
-  paymentMethods: PaymentMethod[];
+  /** The two questions that make the feed useful before a first order.
+   *  Undefined until asked — never defaulted to a guess, because a
+   *  wrong declared cadence is indistinguishable from a real one. */
+  restockRhythm?: RestockRhythm;
+  weeklySpendBand?: WeeklySpendBand;
   operatingDays: Weekday[];
   openingTime?: string; // "HH:mm", optional
   closingTime?: string; // "HH:mm", optional
@@ -297,13 +314,16 @@ export interface SupplierInfo {
 /** Section 7 — read-only from this feature's point of view. Business
  *  Profile only ever DISPLAYS verification state; it never sets it
  *  directly. */
+/** COMPLETENESS, NOT VETTING. identityVerified and documentsVerified
+ *  were here and are gone: they were the SUPPLIER model's concepts on a
+ *  business, they had no backing system, and they were false on every
+ *  row that ever existed. The verification curtain gates who may SELL;
+ *  an informal business is not checked in order to shop. */
 export interface VerificationStatus {
   phoneVerified: boolean;
   emailVerified: boolean;
   businessInfoComplete: boolean;
   locationComplete: boolean;
-  identityVerified: boolean;
-  documentsVerified: boolean;
 }
 
 /** The whole profile, one business per user for now (modelled so a
