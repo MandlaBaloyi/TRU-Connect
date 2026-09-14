@@ -42,6 +42,16 @@ ENV_FILE = BACKEND / ".env"
 TESTS = BACKEND / "tests"
 LOCK = BACKEND / ".pytest-running.lock"
 
+#: pytest flags whose VALUE is the next argument rather than attached
+#: with "=". Anything not listed is assumed to stand alone, which is the
+#: safe default: a flag wrongly listed here would swallow a real test
+#: path, while one wrongly omitted only reproduces the old behaviour for
+#: that single flag.
+VALUE_TAKING_FLAGS = {
+    "-k", "-m", "-n", "-p", "-c", "-o", "--maxfail", "--deselect",
+    "--ignore", "--timeout", "--durations", "--rootdir", "--junitxml",
+}
+
 #: The database tests are allowed to destroy. Deliberately NOT read from
 #: .env: POSTGRES_DB is the development database, and a typo that pointed
 #: the suite at it would drop every schema in it without asking.
@@ -183,8 +193,23 @@ def main() -> int:
         # `pytest -q` -- the whole suite in ONE process, which is the exact
         # thing the directory walk exists to avoid, while reporting a
         # cheerful "1/1 green" for a target named "-q".
-        flags = [a for a in args if a.startswith("-")]
-        named = [a for a in args if not a.startswith("-")]
+        #
+        # AND A FLAG'S VALUE TRAVELS WITH IT. Shape alone split
+        # `-k nearest_first` into a flag and a "target", so pytest got a
+        # bare -k and died on "expected one argument" while the real test
+        # file was never run. Only `-k=nearest_first` worked, which is a
+        # thing nobody would guess.
+        flags, named = [], []
+        expecting_value = False
+        for arg in args:
+            if expecting_value:
+                flags.append(arg)
+                expecting_value = False
+            elif arg.startswith("-"):
+                flags.append(arg)
+                expecting_value = arg in VALUE_TAKING_FLAGS
+            else:
+                named.append(arg)
         targets = named or [str(p.relative_to(BACKEND).as_posix()) for p in discover_targets()]
         extra = flags
 
