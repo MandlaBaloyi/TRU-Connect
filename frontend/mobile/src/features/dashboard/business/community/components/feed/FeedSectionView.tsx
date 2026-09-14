@@ -44,12 +44,14 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
       return (
         <CategoryChipRow
           categories={section.categories}
-          // Category browsing across ALL suppliers has no screen yet
-          // (phase 5). Rather than a chip that silently does nothing,
-          // these are wired to search, which is the nearest real thing
-          // that exists today.
+          // IT FINDS STOCK NOW, NOT SHOPS. This routed to supplier
+          // search until the catalogue-wide browse existed -- so
+          // tapping "Drinks" returned a list of wholesalers, and for a
+          // new business the chips are the only section of this tab
+          // that works at all. The first thing they did was the thing
+          // that worked least.
           onSelect={(category) =>
-            router.push(`/business/find-supplier?category=${encodeURIComponent(category.value)}` as any)
+            router.push(`/business/browse/${encodeURIComponent(category.value)}` as any)
           }
         />
       );
