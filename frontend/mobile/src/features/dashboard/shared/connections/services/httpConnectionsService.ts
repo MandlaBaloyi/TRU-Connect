@@ -17,6 +17,14 @@ interface ApiConnectionSummary {
   connectedSince: string | null;
   photoUrl: string | null;
   ownerName: string | null;
+  // Defaulted in the mapper above rather than required here: an
+  // older backend that has not shipped the ledger yet should render
+  // a plain row, not crash the Community tab.
+  orderCount?: number;
+  lastOrderAt?: string | null;
+  typicalGapDays?: number | null;
+  isOverdue?: boolean;
+  openOrder?: { id: string; status: string; submittedAt: string | null } | null;
 }
 
 /**
@@ -38,6 +46,11 @@ function fromApiConnectionSummary(dto: ApiConnectionSummary): ConnectionSummary 
     connectedSince: dto.connectedSince,
     photoUrl: dto.photoUrl,
     ownerName: dto.ownerName,
+    orderCount: dto.orderCount ?? 0,
+    lastOrderAt: dto.lastOrderAt ?? null,
+    typicalGapDays: dto.typicalGapDays ?? null,
+    isOverdue: dto.isOverdue ?? false,
+    openOrder: dto.openOrder ?? null,
   };
 }
 

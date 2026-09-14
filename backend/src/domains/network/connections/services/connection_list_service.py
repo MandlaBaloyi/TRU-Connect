@@ -38,9 +38,14 @@ from src.domains.network.connections.services.errors import (
     ConnectionNotActiveError,
     ConnectionRequestNotFoundError,
 )
+from src.domains.network.orders.repositories.stock_order_repository import (
+    StockOrderRepository,
+)
 from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
     SupplierProfileRepository,
 )
+from src.core.base_model import utcnow
+from src.shared.algorithms import reorder_gap
 
 
 def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
@@ -51,6 +56,14 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
     if user_role == "supplier":
         supplier_profile_id = _resolve_supplier_profile_id(user_id)
         requests = ConnectionRequestRepository.list_active_for_supplier_profile(supplier_profile_id)
+        # TWO QUERIES FOR THE WHOLE LIST, not two per row.
+        history = StockOrderRepository.order_dates_by_counterparty(
+            supplier_profile_id=supplier_profile_id
+        )
+        open_orders = StockOrderRepository.open_orders_by_counterparty(
+            supplier_profile_id=supplier_profile_id
+        )
+        now = utcnow()
         results = []
         for r in requests:
             business_profile = _lookup_business_profile(r.business_id)
@@ -75,9 +88,12 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
                     # expects the profile id specifically.
                     other_party_id=_lookup_business_profile_id(r.business_id),
                     photo_url=photo_url,
+                    trading=_trading_facts(
+                        history.get(str(r.business_id)), open_orders.get(str(r.business_id)), now
+                    ),
                 )
             )
-        return results
+        return _as_ledger(results)
 
     # EXHAUSTIVE, not a fall-through. This was reached by anything that
     # was not "supplier", which silently meant "treat them as a
@@ -89,6 +105,9 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
         raise ForbiddenError("Connections belong to a business or a supplier account.")
 
     requests = ConnectionRequestRepository.list_active_for_business(user_id)
+    history = StockOrderRepository.order_dates_by_counterparty(business_id=user_id)
+    open_orders = StockOrderRepository.open_orders_by_counterparty(business_id=user_id)
+    now = utcnow()
     results = []
     for r in requests:
         supplier_profile = SupplierProfileRepository.get_by_id(r.supplier_profile_id)
@@ -113,9 +132,14 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
                 owner_name=_person_name(supplier_user),
                 other_party_id=str(r.supplier_profile_id),
                 photo_url=photo_url,
+                trading=_trading_facts(
+                    history.get(str(r.supplier_profile_id)),
+                    open_orders.get(str(r.supplier_profile_id)),
+                    now,
+                ),
             )
         )
-    return results
+    return _as_ledger(results)
 
 
 def _connection_summary(
@@ -125,8 +149,13 @@ def _connection_summary(
     other_party_id: Optional[str],
     photo_url: Optional[str] = None,
     owner_name: Optional[str] = None,
+    trading: Optional[dict] = None,
 ) -> dict:
     return {
+        # V2_04 2.3: MY CONNECTIONS IS A RELATIONSHIP LEDGER, NOT A
+        # CONTACT LIST. Merged in rather than nested under a key so the
+        # row stays flat for the list that renders it.
+        **(trading or _trading_facts(None, None, utcnow())),
         "id": str(request.id),
         # The OTHER party's own real profile id -- a
         # supplier_profile_id when viewed by a business, a
@@ -201,3 +230,80 @@ def list_ended_connections(business_id: str | UUID) -> list[dict]:
             }
         )
     return results
+
+
+def _trading_facts(dates, open_order, now) -> dict:
+    """What the two parties' order history says about this relationship.
+
+    ALL FOUR VALUES CAN BE NULL AND OFTEN ARE. A connection that has
+    never traded is the normal state right after connecting, and it must
+    render as a plain row -- not as zeroes, and not as "overdue".
+    reorder_gap refuses to call anything overdue without a pattern
+    (MIN_ORDERS_FOR_A_PATTERN), so a single order never produces one.
+    """
+    pattern = reorder_gap.pattern_from(list(dates or []), now)
+    return {
+        "orderCount": pattern.order_count,
+        "lastOrderAt": pattern.last_order_at.isoformat() if pattern.last_order_at else None,
+        "typicalGapDays": (
+            round(pattern.typical_gap_days, 1) if pattern.typical_gap_days is not None else None
+        ),
+        "isOverdue": pattern.is_overdue,
+        "openOrder": (
+            {
+                "id": str(open_order.id),
+                "status": open_order.status.value,
+                "submittedAt": (
+                    open_order.submitted_at.isoformat() if open_order.submitted_at else None
+                ),
+            }
+            if open_order is not None
+            else None
+        ),
+    }
+
+
+def _as_ledger(rows: list[dict]) -> list[dict]:
+    """Order by TRADING REALITY, not alphabetically (V2_04 2.3).
+
+        open order first, then reorder-due, then recency.
+
+    WHY THE SERVER SORTS AND NOT THE APP. The same ordering has to hold
+    on both roles' Community tabs and in anything that later reads this
+    endpoint; a rule duplicated in two clients drifts the first time one
+    of them is edited. It is also the rule most likely to change -- the
+    moment fulfilment states exist, "open" means more than it does now.
+
+    NEVER-TRADED ROWS SINK, but they sink to the bottom rather than
+    disappearing: a supplier you have connected to and not yet ordered
+    from is a real relationship and is exactly who a nudge should be
+    aimed at later.
+    """
+
+    def key(row: dict):
+        last = row.get("lastOrderAt") or ""
+        return (
+            0 if row.get("openOrder") else 1,
+            0 if row.get("isOverdue") else 1,
+            # Descending recency: a later ISO timestamp must sort first,
+            # and these are all UTC isoformat so string order is time
+            # order. Reversed by negating the comparison below.
+            _DESCENDING(last),
+        )
+
+    return sorted(rows, key=key)
+
+
+class _DESCENDING:
+    """Sorts strings in reverse inside an otherwise ascending tuple key."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: str):
+        self.value = value
+
+    def __lt__(self, other: "_DESCENDING") -> bool:
+        return self.value > other.value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _DESCENDING) and self.value == other.value

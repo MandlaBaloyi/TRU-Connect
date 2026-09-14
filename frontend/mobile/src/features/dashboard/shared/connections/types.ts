@@ -39,6 +39,29 @@ export interface ConnectionSummary {
    *  a supplier. Null is the normal case (nobody uploaded one, or it's
    *  not shared); the list falls back to an initials avatar. */
   photoUrl: string | null;
+
+  /* ---- the relationship ledger (V2_04 2.3) ----------------------------
+   * A connection is not a contact; it is a trading relationship, and
+   * these are what make the row worth reading. ALL OF THEM ARE EMPTY FOR
+   * A FRESH CONNECTION and that is the normal state, not an error —
+   * render a plain row, never zeroes and never "overdue".
+   * The SERVER decides the order of the list; the client renders as
+   * given. See connection_list_service._as_ledger for why. */
+
+  /** Orders that count toward a rhythm — carts, declined and cancelled
+   *  are excluded, so this is not "how many times we talked". */
+  orderCount: number;
+  lastOrderAt: string | null;
+  /** Null until there is enough history to call anything typical: one
+   *  order is not a pattern. */
+  typicalGapDays: number | null;
+  /** Silent for noticeably longer than this pair's own usual gap —
+   *  a ratio, not a fixed number of days, so a weekly buyer and a
+   *  monthly one are both judged against themselves. */
+  isOverdue: boolean;
+  /** Something still in flight: somebody is waiting on somebody. Null
+   *  is the common case. */
+  openOrder: { id: string; status: string; submittedAt: string | null } | null;
   /** The PERSON behind the business, shown under the business name in
    *  the connection row. Null whenever no person name exists — owner
    *  name is optional at supplier sign-up — in which case the row shows

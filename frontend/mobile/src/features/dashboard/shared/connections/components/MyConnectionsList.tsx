@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
+import { formatWhen } from "@/components/lists/CardListUI";
 
 import { useMyConnections } from "../hooks/useMyConnections";
 import type { ConnectionSummary } from "../types";
@@ -109,8 +110,36 @@ export function MyConnectionsList({
   );
 }
 
+
+/**
+ * The one line that turns a contact into a LEDGER ENTRY (V2_04 2.3).
+ *
+ * ONE LINE, NOT THREE FACTS. A row showing order count AND typical gap
+ * AND last order AND open status is a table, and a shopkeeper scanning
+ * for who to phone reads none of it. So the row says the single most
+ * actionable thing true right now, in the same priority the server
+ * sorted by: somebody waiting, then somebody late, then plain history.
+ *
+ * RETURNS null RATHER THAN "No orders yet". A connection with no
+ * history is the normal state straight after connecting, and captioning
+ * it would be the app telling somebody how little they have on the day
+ * they arrive -- the same rule the Community feed follows by returning
+ * no card at all.
+ */
+function ledgerLine(connection: ConnectionSummary): { text: string; emphasis: boolean } | null {
+  if (connection.openOrder) return { text: "Order waiting", emphasis: true };
+  if (connection.isOverdue && connection.lastOrderAt) {
+    return { text: `Due to reorder · last ordered ${formatWhen(connection.lastOrderAt)}`, emphasis: true };
+  }
+  if (connection.lastOrderAt) {
+    return { text: `Last ordered ${formatWhen(connection.lastOrderAt)}`, emphasis: false };
+  }
+  return null;
+}
+
 function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary; onPress?: () => void }) {
   const theme = useTheme();
+  const ledger = ledgerLine(connection);
 
   const content = (
     <>
@@ -122,6 +151,17 @@ function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary;
         {connection.ownerName && (
           <Text style={[styles.owner, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
             {connection.ownerName}
+          </Text>
+        )}
+        {ledger && (
+          <Text
+            style={[
+              styles.ledger,
+              { color: ledger.emphasis ? theme.colors.primary : theme.colors.onSurfaceVariant },
+            ]}
+            numberOfLines={1}
+          >
+            {ledger.text}
           </Text>
         )}
       </View>
@@ -138,7 +178,9 @@ function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary;
       android_ripple={{ color: theme.colors.surfaceVariant }}
       style={({ pressed }) => [styles.row, { backgroundColor: pressed ? theme.colors.surfaceVariant : "transparent" }]}
       accessibilityRole="button"
-      accessibilityLabel={connection.ownerName ? `${connection.name}, ${connection.ownerName}` : connection.name}
+      accessibilityLabel={[connection.name, connection.ownerName, ledger?.text]
+        .filter(Boolean)
+        .join(", ")}
     >
       {content}
     </Pressable>
@@ -146,6 +188,7 @@ function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary;
 }
 
 const styles = StyleSheet.create({
+  ledger: { ...typography.caption, marginTop: 2 },
   centre: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: spacing.xxl },
   row: {
     flexDirection: "row",

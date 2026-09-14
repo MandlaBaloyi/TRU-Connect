@@ -1,0 +1,19 @@
+"""
+Pure computations that more than one domain needs.
+
+WHY THESE LEFT network/community/algorithms/. They were written for the
+Community feed and lived inside it, which was right until a second
+caller appeared: My Connections needs the same reorder gap to say "you
+usually reorder from Sipho about now".
+
+The feed is a COMPOSER -- it reads from domains and no domain may read
+from it, enforced by tests/architecture/test_community_is_a_composer.py
+-- so `connections` importing the feed would have failed the build. That
+test's own failure message names this exact remedy: move the function
+somewhere both can import, do not import the composer.
+
+NOTHING HERE MAY IMPORT A DOMAIN. These take plain values -- a list of
+datetimes, a pair of coordinates -- and return plain values. That is
+what makes them safe to share, and it is the property to preserve: the
+moment one of them needs a repository it belongs in a domain again.
+"""

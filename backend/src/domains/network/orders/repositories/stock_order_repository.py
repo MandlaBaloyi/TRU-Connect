@@ -616,3 +616,97 @@ class StockOrderRepository:
             "cancelledAfterConfirming": cancelled_after_confirming,
             "repeatBusinessCount": len(repeat_rows),
         }
+
+    # ------------------------------------------------------------------
+    # Trading history, grouped by the OTHER party.
+    #
+    # WHY GROUPED AND NOT PER ROW. My Connections and the supplier feed
+    # both want "when did these two last trade" for every connection a
+    # user has. Asking per connection is one query per row -- the feed
+    # already did exactly that (a db.session.query inside a for loop in
+    # supplier_sections), which is invisible at three connections and a
+    # real problem at fifty. These return the whole picture in one query
+    # and let the caller index into it.
+    # ------------------------------------------------------------------
+
+    #: A CART IS NOT AN ORDER, and a declined or cancelled one says
+    #: nothing about a buying rhythm -- counting either would make a
+    #: supplier who declines a lot look like they have loyal customers.
+    #: This predicate was written twice before it lived here.
+    RHYTHM_EXCLUDED_STATUSES = (
+        StockOrderStatus.CART,
+        StockOrderStatus.DECLINED,
+        StockOrderStatus.CANCELLED,
+    )
+
+    #: STILL IN FLIGHT -- somebody is waiting on somebody.
+    #: CONFIRMED is deliberately NOT here: there is no delivered or
+    #: completed status in this model yet, so CONFIRMED is where a
+    #: successful order ENDS, and calling it open would mean every
+    #: connection permanently showed an outstanding order. When
+    #: fulfilment states land, this set is what grows.
+    OPEN_STATUSES = (
+        StockOrderStatus.AWAITING_PAYMENT,
+        StockOrderStatus.PENDING_SUPPLIER_APPROVAL,
+    )
+
+    @staticmethod
+    def _counterparty_scope(business_id, supplier_profile_id):
+        """Returns (the column naming the other party, the filter on us)."""
+        if business_id is not None:
+            return StockOrder.supplier_profile_id, StockOrder.business_id == business_id
+        if supplier_profile_id is not None:
+            return StockOrder.business_id, StockOrder.supplier_profile_id == supplier_profile_id
+        raise ValueError("one of business_id or supplier_profile_id is required")
+
+    @staticmethod
+    def order_dates_by_counterparty(
+        *, business_id: str | UUID | None = None, supplier_profile_id: str | UUID | None = None
+    ) -> dict[str, List[datetime]]:
+        """{other party id: [submitted_at, ...]} for everyone we have traded with."""
+        other, mine = StockOrderRepository._counterparty_scope(business_id, supplier_profile_id)
+
+        rows = (
+            db.session.query(other, StockOrder.submitted_at)
+            .filter(
+                mine,
+                StockOrder.submitted_at.isnot(None),
+                StockOrder.status.notin_(StockOrderRepository.RHYTHM_EXCLUDED_STATUSES),
+                StockOrder.is_deleted.is_(False),
+            )
+            .all()
+        )
+
+        grouped: dict[str, List[datetime]] = {}
+        for counterparty_id, submitted_at in rows:
+            grouped.setdefault(str(counterparty_id), []).append(submitted_at)
+        return grouped
+
+    @staticmethod
+    def open_orders_by_counterparty(
+        *, business_id: str | UUID | None = None, supplier_profile_id: str | UUID | None = None
+    ) -> dict[str, StockOrder]:
+        """{other party id: the OLDEST open order with them}.
+
+        Oldest rather than newest on purpose: if two orders are waiting,
+        the one that has been waiting longest is the one somebody needs
+        to act on.
+        """
+        other, mine = StockOrderRepository._counterparty_scope(business_id, supplier_profile_id)
+
+        orders = (
+            db.session.query(StockOrder)
+            .filter(
+                mine,
+                StockOrder.status.in_(StockOrderRepository.OPEN_STATUSES),
+                StockOrder.is_deleted.is_(False),
+            )
+            .order_by(StockOrder.submitted_at.asc())
+            .all()
+        )
+
+        oldest: dict[str, StockOrder] = {}
+        for order in orders:
+            key = str(getattr(order, other.key))
+            oldest.setdefault(key, order)
+        return oldest
