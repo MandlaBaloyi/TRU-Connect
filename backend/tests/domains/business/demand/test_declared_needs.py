@@ -233,3 +233,127 @@ class TestAskingForTheDeclaration:
 
         assert "restock" not in body
         assert "spend" not in body
+
+
+class TestObservationChangesTheAnswer:
+    """PHASE 1'S ACTUAL CLAIM, proved end to end rather than in pieces:
+    a real confirmed order changes what the engine says about a shop."""
+
+    def _order(self, business_user, category, *, lines=1, total_cents=50_000):
+        """One confirmed order, built directly -- there is no fixture for
+        this and checkout would drag in half the platform."""
+        from src.core.base_model import utcnow
+        from src.domains.auth.models.user import User, UserRole, VerificationStatus
+        from src.domains.catalogue.products.models.taxonomy import ProductUnit
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+        from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+        from src.domains.supplier.supplier_profile.models.supplier_profile import (
+            SupplierProfile,
+            SupplierVerificationStatus,
+        )
+        import uuid
+
+        n = next(_seq)
+        seller = User(
+            id=uuid.uuid4(), email=f"obs-seller{n}@example.com", password_hash="x",
+            role=UserRole.SUPPLIER, verification_status=VerificationStatus.VERIFIED,
+        )
+        db.session.add(seller)
+        db.session.flush()
+        profile = SupplierProfile(
+            supplier_id=seller.id,
+            business_name=f"Obs Wholesale {n}",
+            verification_status=SupplierVerificationStatus.VERIFIED,
+        )
+        db.session.add(profile)
+        db.session.flush()
+
+        order = StockOrder(
+            business_id=business_user.id,
+            supplier_profile_id=profile.id,
+            status=StockOrderStatus.CONFIRMED,
+            submitted_at=utcnow(),
+            total_cents=total_cents,
+        )
+        db.session.add(order)
+        db.session.flush()
+
+        for i in range(lines):
+            offer = SupplierOffer(
+                supplier_profile_id=profile.id,
+                name=f"Thing {n}-{i}",
+                category=category,
+                price_cents=1500,
+                selling_unit=ProductUnit.EACH,
+                sku=f"SKU-OBS-{n}-{i}",
+                product_code=f"PC-OBS-{n}-{i}",
+            )
+            db.session.add(offer)
+            db.session.flush()
+            db.session.add(
+                StockOrderItem(
+                    stock_order_id=order.id, product_id=offer.id,
+                    quantity=1, price_cents_at_add_time=offer.price_cents,
+                )
+            )
+        db.session.commit()
+
+    def test_a_shop_that_declared_nothing_is_known_once_it_buys(
+        self, app, db_session, shop
+    ):
+        """The other half of cold start: a shop that never filled the
+        form still becomes known, just more slowly."""
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory
+
+        user = shop()
+        assert needs_service.needs_for(user.id).is_known is False
+
+        self._order(user, ProductCategory.BAKERY, lines=3)
+
+        needs = needs_service.needs_for(user.id)
+        assert needs.is_known is True
+        assert needs.category_values == ["BAKERY"]
+        assert needs.categories[0].source == "observed"
+
+    def test_declaring_then_buying_the_same_thing_is_confirmed(
+        self, app, db_session, shop
+    ):
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory
+
+        user = shop(categories=["BAKERY"])
+        self._order(user, ProductCategory.BAKERY, lines=4)
+
+        need = needs_service.needs_for(user.id).categories[0]
+
+        assert need.source == "both"
+        assert need.confidence > 0.8
+
+    def test_a_declared_category_bought_elsewhere_is_flagged_unserved(
+        self, app, db_session, shop
+    ):
+        """THE CASE THE ENGINE EXISTS TO NOTICE. They said bread, they
+        buy cleaning products here -- so their bread is going to
+        somebody else, and that is a number worth having."""
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory
+
+        user = shop(categories=["BAKERY"])
+        self._order(user, ProductCategory.HOUSEHOLD_CLEANING, lines=5)
+
+        needs = needs_service.needs_for(user.id)
+
+        assert "BAKERY" in needs.unserved
+        assert "BAKERY" in needs.category_values, "still a need, not deleted"
+
+    def test_the_measured_basket_beats_the_declared_band(
+        self, app, db_session, shop
+    ):
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory
+
+        user = shop(categories=["BAKERY"], spend="UNDER_500")
+        self._order(user, ProductCategory.BAKERY, total_cents=120_000)
+
+        assert needs_service.needs_for(user.id).typical_order_cents == 120_000

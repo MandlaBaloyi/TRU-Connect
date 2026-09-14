@@ -755,3 +755,76 @@ class StockOrderRepository:
             .all()
         )
         return [row.product_id for row in rows]
+
+    # ------------------------------------------------------------------
+    # What a business has actually bought.
+    #
+    # DELIBERATELY SUPPLIER-FREE RETURN SHAPES. These exist for the
+    # demand engine, which may not import anything that knows who a
+    # supplier is (tests/architecture/test_demand_independence.py) --
+    # so the join to supplier_offers happens HERE, in a domain that is
+    # allowed to make it, and what comes back is categories, dates and
+    # amounts. The interface enforces the boundary rather than trusting
+    # the caller to respect it.
+    #
+    # CONFIRMED ONLY, like every other history read in this file: a cart
+    # nobody checked out or an order a supplier declined is not
+    # something the business bought.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def category_purchase_counts(business_id: str | UUID, since: datetime = None) -> dict[str, int]:
+        """{category: how many order lines} -- what this shop ACTUALLY buys.
+
+        THE EVIDENCE HALF OF THE DEMAND MODEL. A declaration says what a
+        shop believes it buys; this says what it has paid for.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+        from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+
+        query = (
+            db.session.query(SupplierOffer.category, db.func.count(StockOrderItem.id))
+            .join(StockOrderItem, StockOrderItem.product_id == SupplierOffer.id)
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.business_id == business_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+        )
+        if since is not None:
+            query = query.filter(StockOrder.submitted_at >= since)
+
+        return {
+            (category.value if hasattr(category, "value") else str(category)): count
+            for category, count in query.group_by(SupplierOffer.category).all()
+        }
+
+    @staticmethod
+    def purchase_dates_and_totals(business_id: str | UUID) -> List[tuple]:
+        """[(submitted_at, total_cents)] for every confirmed order, newest
+        first.
+
+        Two facts in one query because the demand engine wants both and
+        they come from the same rows: WHEN they buy (cadence) and HOW
+        MUCH (basket size). Splitting them would be two scans of the
+        same table to answer one question about a shop's rhythm.
+        """
+        from src.domains.network.orders.models.stock_order import StockOrder, StockOrderStatus
+
+        return (
+            db.session.query(StockOrder.submitted_at, StockOrder.total_cents)
+            .filter(
+                StockOrder.business_id == business_id,
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.submitted_at.isnot(None),
+                StockOrder.is_deleted.is_(False),
+            )
+            .order_by(StockOrder.submitted_at.desc())
+            .all()
+        )

@@ -12,9 +12,10 @@ THE ANSWER NEVER NAMES A SUPPLIER. It names CATEGORIES, a cadence, a
 budget and a confidence. Who can fulfil any of it is a separate
 question, asked afterwards, by somebody else (catalogue/discovery).
 
-PHASE 0 IS DECLARED-ONLY. Order history is not read yet -- that is
-Phase 1 -- and the shape below is deliberately the shape it will keep,
-so adding observation changes the numbers and not the callers.
+PHASE 1: DECLARED AND OBSERVED. Order history is read now and
+reconciled against what the shop said (reconciliation.py). The public
+shape did not change when that landed, which was the point of keeping
+this module the only thing the feed may call.
 """
 from __future__ import annotations
 
@@ -22,7 +23,9 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from src.domains.business.demand.algorithms import weighting
+from src.domains.business.demand.services import reconciliation
 from src.domains.business.demand.signals import declared as declared_signals
+from src.domains.business.demand.signals import observed as observed_signals
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,12 @@ class ShopNeeds:
     #: How far the feed should lean on this rather than platform-wide
     #: defaults. 0.0 means "we know nothing", which is a real state.
     confidence: float = 0.0
+    #: Categories this shop SAYS it buys and has never bought here.
+    #: A confirmed need we are losing to somebody else -- worth more to
+    #: us than to the feed. See reconciliation.unserved_categories.
+    unserved: List[str] = field(default_factory=list)
+    #: Typical basket, measured. None until they have ordered.
+    typical_order_cents: Optional[int] = None
 
     @property
     def is_known(self) -> bool:
@@ -73,26 +82,36 @@ def needs_for(business_id) -> ShopNeeds:
     special case. An engine that throws on an unfilled form would make
     the feed depend on the form, which is exactly backwards.
     """
-    signals = declared_signals.read(business_id)
+    said = declared_signals.read(business_id)
+    did = observed_signals.read(business_id)
+
+    merged = reconciliation.merge(said.categories, did.category_counts)
 
     categories = [
         CategoryNeed(
-            category=value,
-            weight=weighting.declared_category_weight(value),
-            confidence=weighting.DECLARED_CONFIDENCE,
-            source="declared",
+            category=n["category"],
+            weight=n["weight"],
+            confidence=n["confidence"],
+            source=n["source"],
         )
-        for value in signals.categories
+        for n in merged
     ]
+
+    # MEASURED BEATS DECLARED, every time. A shop that SAID weekly and
+    # actually orders every four days is telling us two things, and only
+    # one of them is a memory of how they think their shop runs.
+    cadence = did.measured_gap_days or weighting.cadence_days(said.restock_rhythm)
 
     return ShopNeeds(
         categories=categories,
-        cadence_days=weighting.cadence_days(signals.restock_rhythm),
-        order_ceiling_cents=weighting.order_ceiling_cents(signals.weekly_spend_band),
-        prefers_bulk=weighting.prefers_bulk(signals.customer_types),
+        cadence_days=cadence,
+        order_ceiling_cents=weighting.order_ceiling_cents(said.weekly_spend_band),
+        prefers_bulk=weighting.prefers_bulk(said.customer_types),
         confidence=weighting.overall_confidence(
-            has_categories=bool(signals.categories),
-            has_rhythm=bool(signals.restock_rhythm),
-            has_spend=bool(signals.weekly_spend_band),
+            has_categories=bool(categories),
+            has_rhythm=bool(said.restock_rhythm) or did.measured_gap_days is not None,
+            has_spend=bool(said.weekly_spend_band) or did.typical_order_cents is not None,
         ),
+        unserved=reconciliation.unserved_categories(merged),
+        typical_order_cents=did.typical_order_cents,
     )
