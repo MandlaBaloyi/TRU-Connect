@@ -31,7 +31,8 @@ from itertools import count
 
 import pytest
 
-from src.domains.network.community.services import business_sections, feed_service
+from src.domains.network.community.business import sections as business_sections
+from src.domains.network.community.services import feed_service
 from src.extensions import db
 
 _seq = count()

@@ -35,7 +35,8 @@ import pytest
 
 from src.core.base_model import utcnow
 from src.domains.network.community.algorithms import distance, reorder_gap
-from src.domains.network.community.services import feed_service, supplier_sections
+from src.domains.network.community.services import feed_service
+from src.domains.network.community.supplier import sections as supplier_sections
 from src.extensions import db
 
 _seq = count()

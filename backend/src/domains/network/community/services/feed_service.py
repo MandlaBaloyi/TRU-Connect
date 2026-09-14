@@ -34,7 +34,8 @@ from typing import List
 from uuid import UUID
 
 from src.core.exceptions import NotFoundError
-from src.domains.network.community.services import business_sections, supplier_sections
+from src.domains.network.community.business import sections as business_sections
+from src.domains.network.community.supplier import sections as supplier_sections
 
 
 def feed_for(user_id: str | UUID, role: str) -> List[dict]:
