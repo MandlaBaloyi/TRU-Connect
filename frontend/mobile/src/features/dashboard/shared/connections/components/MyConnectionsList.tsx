@@ -127,12 +127,25 @@ export function MyConnectionsList({
  * no card at all.
  */
 function ledgerLine(connection: ConnectionSummary): { text: string; emphasis: boolean } | null {
-  if (connection.openOrder) return { text: "Order waiting", emphasis: true };
-  if (connection.isOverdue && connection.lastOrderAt) {
-    return { text: `Due to reorder · last ordered ${formatWhen(connection.lastOrderAt)}`, emphasis: true };
+  const ordered = connection.lastOrderAt ? `last ordered ${formatWhen(connection.lastOrderAt)}` : null;
+
+  // WAITING ORDERS WIN, AND THEY ARE COUNTED. Three orders where one
+  // finished and two are still waiting is a different row from one
+  // waiting order, and a bare "Order waiting" cannot tell them apart.
+  // The finished one's date is kept on the same line rather than being
+  // hidden by the ones still in flight -- both facts are true and a
+  // shopkeeper deciding whether to phone wants both.
+  if (connection.openOrderCount > 0) {
+    const waiting =
+      connection.openOrderCount === 1 ? "Order waiting" : `${connection.openOrderCount} orders waiting`;
+    return { text: ordered ? `${waiting} · ${ordered}` : waiting, emphasis: true };
   }
-  if (connection.lastOrderAt) {
-    return { text: `Last ordered ${formatWhen(connection.lastOrderAt)}`, emphasis: false };
+
+  if (connection.isOverdue && ordered) {
+    return { text: `Due to reorder · ${ordered}`, emphasis: true };
+  }
+  if (ordered) {
+    return { text: ordered.charAt(0).toUpperCase() + ordered.slice(1), emphasis: false };
   }
   return null;
 }

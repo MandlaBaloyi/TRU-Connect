@@ -685,12 +685,14 @@ class StockOrderRepository:
     @staticmethod
     def open_orders_by_counterparty(
         *, business_id: str | UUID | None = None, supplier_profile_id: str | UUID | None = None
-    ) -> dict[str, StockOrder]:
-        """{other party id: the OLDEST open order with them}.
+    ) -> dict[str, List[StockOrder]]:
+        """{other party id: every open order with them, OLDEST FIRST}.
 
-        Oldest rather than newest on purpose: if two orders are waiting,
-        the one that has been waiting longest is the one somebody needs
-        to act on.
+        RETURNS THE LIST, NOT JUST THE FIRST. The caller needs both the
+        oldest -- the one that has been waiting longest is the one
+        somebody needs to act on -- and HOW MANY there are. A row that
+        says "Order waiting" when three are waiting is not a summary,
+        it is wrong, and the business cannot tell the difference.
         """
         other, mine = StockOrderRepository._counterparty_scope(business_id, supplier_profile_id)
 
@@ -705,8 +707,7 @@ class StockOrderRepository:
             .all()
         )
 
-        oldest: dict[str, StockOrder] = {}
+        grouped: dict[str, List[StockOrder]] = {}
         for order in orders:
-            key = str(getattr(order, other.key))
-            oldest.setdefault(key, order)
-        return oldest
+            grouped.setdefault(str(getattr(order, other.key)), []).append(order)
+        return grouped

@@ -59,8 +59,12 @@ export interface ConnectionSummary {
    *  a ratio, not a fixed number of days, so a weekly buyer and a
    *  monthly one are both judged against themselves. */
   isOverdue: boolean;
-  /** Something still in flight: somebody is waiting on somebody. Null
-   *  is the common case. */
+  /** HOW MANY are still in flight. Three orders where one is done
+   *  and two are waiting is a different row from one waiting order,
+   *  and "Order waiting" cannot tell them apart. */
+  openOrderCount: number;
+  /** The OLDEST of them — the one that has been waiting longest, so
+   *  the one somebody needs to act on. Null is the common case. */
   openOrder: { id: string; status: string; submittedAt: string | null } | null;
   /** The PERSON behind the business, shown under the business name in
    *  the connection row. Null whenever no person name exists — owner

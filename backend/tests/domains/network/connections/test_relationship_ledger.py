@@ -122,6 +122,33 @@ class TestWhatTheRowSays:
         assert facts["typicalGapDays"] is None
         assert facts["isOverdue"] is False
 
+    def test_three_orders_one_done_two_waiting(self):
+        """MANDLA'S CASE, 2026-09-14. Three orders placed: one finished,
+        two still awaiting approval. The row must say TWO are waiting,
+        not "an order is waiting" -- a count that is silently wrong is
+        worse than no count, because a business reads it as complete.
+
+        The finished order's date survives alongside it: both facts are
+        true, and somebody deciding whether to phone wants both."""
+
+        class _Order:
+            def __init__(self, oid):
+                self.id = oid
+                self.status = type("S", (), {"value": "PENDING_SUPPLIER_APPROVAL"})()
+                self.submitted_at = None
+
+        now = utcnow()
+        facts = _trading_facts(
+            [now - timedelta(days=7)],            # the one that completed
+            [_Order("older"), _Order("newer")],   # the two still waiting
+            now,
+        )
+
+        assert facts["openOrderCount"] == 2
+        # The OLDEST is the one surfaced -- it has waited longest.
+        assert facts["openOrder"]["id"] == "older"
+        assert facts["lastOrderAt"] is not None
+
     def test_a_rhythm_produces_a_gap(self):
         now = utcnow()
 

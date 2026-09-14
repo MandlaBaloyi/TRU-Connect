@@ -232,7 +232,7 @@ def list_ended_connections(business_id: str | UUID) -> list[dict]:
     return results
 
 
-def _trading_facts(dates, open_order, now) -> dict:
+def _trading_facts(dates, open_orders, now) -> dict:
     """What the two parties' order history says about this relationship.
 
     ALL FOUR VALUES CAN BE NULL AND OFTEN ARE. A connection that has
@@ -242,6 +242,11 @@ def _trading_facts(dates, open_order, now) -> dict:
     (MIN_ORDERS_FOR_A_PATTERN), so a single order never produces one.
     """
     pattern = reorder_gap.pattern_from(list(dates or []), now)
+    waiting = list(open_orders or [])
+    # The OLDEST is the one surfaced, because it is the one that has
+    # been waiting longest; the count is what stops one standing in for
+    # all of them.
+    oldest = waiting[0] if waiting else None
     return {
         "orderCount": pattern.order_count,
         "lastOrderAt": pattern.last_order_at.isoformat() if pattern.last_order_at else None,
@@ -249,15 +254,14 @@ def _trading_facts(dates, open_order, now) -> dict:
             round(pattern.typical_gap_days, 1) if pattern.typical_gap_days is not None else None
         ),
         "isOverdue": pattern.is_overdue,
+        "openOrderCount": len(waiting),
         "openOrder": (
             {
-                "id": str(open_order.id),
-                "status": open_order.status.value,
-                "submittedAt": (
-                    open_order.submitted_at.isoformat() if open_order.submitted_at else None
-                ),
+                "id": str(oldest.id),
+                "status": oldest.status.value,
+                "submittedAt": (oldest.submitted_at.isoformat() if oldest.submitted_at else None),
             }
-            if open_order is not None
+            if oldest is not None
             else None
         ),
     }

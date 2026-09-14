@@ -24,6 +24,7 @@ interface ApiConnectionSummary {
   lastOrderAt?: string | null;
   typicalGapDays?: number | null;
   isOverdue?: boolean;
+  openOrderCount?: number;
   openOrder?: { id: string; status: string; submittedAt: string | null } | null;
 }
 
@@ -50,6 +51,7 @@ function fromApiConnectionSummary(dto: ApiConnectionSummary): ConnectionSummary 
     lastOrderAt: dto.lastOrderAt ?? null,
     typicalGapDays: dto.typicalGapDays ?? null,
     isOverdue: dto.isOverdue ?? false,
+    openOrderCount: dto.openOrderCount ?? 0,
     openOrder: dto.openOrder ?? null,
   };
 }

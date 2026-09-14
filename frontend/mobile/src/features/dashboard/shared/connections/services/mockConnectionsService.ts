@@ -17,6 +17,7 @@ const MOCK_CONNECTIONS: ConnectionSummary[] = [
     lastOrderAt: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000).toISOString(),
     typicalGapDays: 7,
     isOverdue: true,
+    openOrderCount: 0,
     openOrder: null,
   },
 ];
