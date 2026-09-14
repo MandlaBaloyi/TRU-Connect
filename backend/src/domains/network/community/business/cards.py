@@ -50,7 +50,7 @@ def feed_products(pairs: List) -> List[dict]:
 
     feed_products = []
 
-    for (offer, supplier_name), dto in zip(pairs, enriched):
+    for (offer, supplier_name, verification_status), dto in zip(pairs, enriched):
         supplier_id = offer.supplier_profile_id
         images = dto.get("images") or []
         feed_products.append(
@@ -58,6 +58,17 @@ def feed_products(pairs: List) -> List[dict]:
                 "id": dto["id"],
                 "supplierId": str(supplier_id),
                 "supplierName": supplier_name,
+                # THE TICK TRAVELS WITH THE NAME, on every surface that
+                # prints one. On a feed rail it is always true (the
+                # curtain got here first), and that is exactly why it
+                # must be present: a name WITHOUT a tick reads as a
+                # statement, so a card that simply forgot to send the
+                # field would look like an accusation.
+                "supplierVerificationStatus": (
+                    verification_status.value
+                    if hasattr(verification_status, "value")
+                    else verification_status
+                ),
                 "name": dto["name"],
                 # ONE image, not the gallery: a rail card shows a
                 # thumbnail, and shipping four URLs per card to render

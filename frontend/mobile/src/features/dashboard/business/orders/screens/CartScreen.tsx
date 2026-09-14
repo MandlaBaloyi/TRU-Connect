@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { showsAsVerified } from "@/constants/config";
 import { orderHistoryHref, productDetailHref } from "../../routes";
 import { formatCents } from "../../../supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
@@ -70,7 +71,12 @@ export default function CartScreen() {
       ...(supplier.name
         ? {
             headerTitle: () => (
-              <EntityHeaderTitle name={supplier.name!} subtitle="Cart" photoUrl={supplier.photoUrl} />
+              <EntityHeaderTitle
+                name={supplier.name!}
+                subtitle="Cart"
+                photoUrl={supplier.photoUrl}
+                verified={showsAsVerified(supplier.verificationStatus)}
+              />
             ),
           }
         : {}),

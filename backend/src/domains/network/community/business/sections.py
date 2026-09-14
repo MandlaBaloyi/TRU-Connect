@@ -178,8 +178,8 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
 
     wanted = set(needs.category_values)
     pairs = [
-        (offer, name)
-        for offer, name in visible_offers(rising)
+        (offer, name, status)
+        for offer, name, status in visible_offers(rising)
         if offer.category and offer.category.value in wanted
     ]
     if len(pairs) < MIN_ITEMS_PER_RAIL:

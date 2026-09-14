@@ -441,6 +441,7 @@ export async function getSupplierProduct(
     ...product,
     supplierName: supplier.businessName,
     supplierBusinessImageUrl: supplier.businessImageUrl,
+    supplierVerificationStatus: "VERIFIED",
     // Enough buyers that the social-proof line renders in mock mode;
     // the UI hides it below its own threshold.
     buyerCount: 9,

@@ -48,5 +48,10 @@ export function useSupplierIdentity(supplierId: string, fallbackName?: string | 
   return {
     name: cart?.supplierName ?? profile?.businessName ?? fallbackName ?? null,
     photoUrl: cart?.supplierBusinessImageUrl ?? profile?.businessImageUrl ?? null,
+    // THE THIRD THING EVERY HEADER NEEDS, alongside the name and the
+    // photo. Same two sources in the same order: the cart answers when
+    // there is one, the profile otherwise.
+    verificationStatus:
+      cart?.supplierVerificationStatus ?? profile?.verificationStatus ?? null,
   };
 }

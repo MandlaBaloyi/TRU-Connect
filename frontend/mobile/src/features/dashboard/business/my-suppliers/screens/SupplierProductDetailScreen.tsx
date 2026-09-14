@@ -7,6 +7,7 @@ import { ChevronRight, Heart, ShoppingCart } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { productDetailHref } from "../../routes";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { showsAsVerified } from "@/constants/config";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { ImageCarousel } from "../../../supplier/products/components";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
@@ -187,6 +188,7 @@ export default function SupplierProductDetailScreen() {
                 name={headerSupplierName}
                 subtitle={headerProductName ?? undefined}
                 photoUrl={product?.supplierBusinessImageUrl}
+                verified={showsAsVerified(product?.supplierVerificationStatus)}
               />
             ),
           }

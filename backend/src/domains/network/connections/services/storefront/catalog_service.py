@@ -248,6 +248,14 @@ def get_supplier_product(business_id: str | UUID, supplier_profile_id: str | UUI
         # product page should still see whose product it is. Ungated
         # brand asset, same as everywhere else it appears.
         "supplierBusinessImageUrl": supplier.business_image_url,
+        # THE TICK TRAVELS WITH THE NAME. The catalogue header above
+        # already carries this; a product page reached from an existing
+        # relationship is the other place a business can meet a supplier
+        # whose verification was revoked after they connected, because
+        # the curtain leaves established trade alone on purpose.
+        "supplierVerificationStatus": supplier.verification_status.value
+        if supplier.verification_status
+        else None,
         "contact": contact,
         "category": product.category.value,
         "priceCents": product.price_cents,

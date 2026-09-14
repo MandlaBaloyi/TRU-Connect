@@ -419,6 +419,8 @@ export interface SupplierProductDetail {
   /** For the product screen's own social top bar (avatar + business
    *  name, product name beneath). Ungated brand asset. */
   supplierBusinessImageUrl: string | null;
+  /** So the tick travels with the name here too. */
+  supplierVerificationStatus: string | null;
   contact: SupplierContactDetails | null;
   category: string;
   priceCents: number;

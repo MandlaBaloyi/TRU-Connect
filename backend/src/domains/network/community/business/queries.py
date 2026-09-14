@@ -114,7 +114,11 @@ def visible_offers(product_ids: List[UUID]) -> List:
         return []
 
     rows = (
-        db.session.query(SupplierOffer, SupplierProfile.business_name)
+        db.session.query(
+            SupplierOffer,
+            SupplierProfile.business_name,
+            SupplierProfile.verification_status,
+        )
         .join(SupplierProfile, SupplierProfile.id == SupplierOffer.supplier_profile_id)
         .filter(
             SupplierOffer.id.in_(product_ids),
@@ -129,7 +133,13 @@ def visible_offers(product_ids: List[UUID]) -> List:
     # card, which was both a second read and an UNGATED one -- the
     # curtain test refused it, correctly. Joining it here is cheaper and
     # cannot drift from the visibility filter directly above.
-    by_id = {offer.id: (offer, name) for offer, name in rows}
+    # THE VERIFICATION STATUS COMES OUT OF THE SAME QUERY for the same
+    # reason the name does. Every row here has already passed
+    # visible_filter(), so today the answer is always VERIFIED -- but
+    # SELECTING it rather than assuming it means the card stays honest
+    # if the curtain's whitelist ever grows a second status, instead of
+    # quietly labelling a new state as verified.
+    by_id = {offer.id: (offer, name, status) for offer, name, status in rows}
     return [by_id[pid] for pid in product_ids if pid in by_id]
 
 

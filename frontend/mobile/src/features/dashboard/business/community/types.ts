@@ -84,6 +84,12 @@ export interface FeedProduct {
   /** How many DISTINCT businesses have bought this. null when nobody
    *  has yet — never 0, because "0 businesses bought this" is true,
    *  useless, and reads as a warning. */
+  /** The supplier's verification, carried on every card so the tick
+   *  travels with the name. Always "verified" on a feed rail (the
+   *  curtain got here first) -- present anyway, because a name WITHOUT
+   *  a tick reads as a statement, so a card that forgot the field would
+   *  look like an accusation. */
+  supplierVerificationStatus: string | null;
   buyerCount: number | null;
   /** The sentence, built SERVER-SIDE so the wording is one decision:
    *  the feed and the catalogue browse both render product cards, and

@@ -132,6 +132,9 @@ def get_my_connections(user_id: str | UUID, user_role: str) -> list[dict]:
                 owner_name=_person_name(supplier_user),
                 other_party_id=str(r.supplier_profile_id),
                 photo_url=photo_url,
+                verification_status=(
+                    supplier_profile.verification_status.value if supplier_profile else None
+                ),
                 trading=_trading_facts(
                     history.get(str(r.supplier_profile_id)),
                     open_orders.get(str(r.supplier_profile_id)),
@@ -150,6 +153,7 @@ def _connection_summary(
     photo_url: Optional[str] = None,
     owner_name: Optional[str] = None,
     trading: Optional[dict] = None,
+    verification_status: Optional[str] = None,
 ) -> dict:
     return {
         # V2_04 2.3: MY CONNECTIONS IS A RELATIONSHIP LEDGER, NOT A
@@ -180,6 +184,25 @@ def _connection_summary(
         # by a supplier. Null is the normal case (nobody's uploaded one /
         # not shared) -- the frontend falls back to an initials avatar.
         "photoUrl": photo_url,
+        # WHERE THE TICK ACTUALLY CARRIES INFORMATION, and the reason
+        # this field is here rather than only on discovery surfaces.
+        #
+        # The curtain hides an unverified supplier from SEARCH and from
+        # NEW commerce -- so everywhere a business discovers somebody,
+        # they are verified by construction and a tick says nothing. It
+        # deliberately does NOT cover established connections
+        # (verification/visibility.py: "revoking a supplier must not
+        # rewrite trade that really happened"), which means THIS list
+        # is one of the few places a business can see a supplier whose
+        # verification was revoked after they connected.
+        #
+        # So here the tick's ABSENCE is the signal, and that is worth
+        # more than its presence is anywhere else.
+        #
+        # None when the other party is a BUSINESS (a supplier viewing
+        # their customers) -- businesses are not verified this way, and
+        # a missing key would be indistinguishable from "not verified".
+        "verificationStatus": verification_status,
     }
 
 

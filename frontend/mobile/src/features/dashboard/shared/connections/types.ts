@@ -39,6 +39,16 @@ export interface ConnectionSummary {
    *  a supplier. Null is the normal case (nobody uploaded one, or it's
    *  not shared); the list falls back to an initials avatar. */
   photoUrl: string | null;
+  /** The other party's verification, when they are a SUPPLIER. Null
+   *  when a supplier is viewing their business customers -- businesses
+   *  are not verified this way, and null must read as "this payload
+   *  does not say", never as "not verified".
+   *
+   *  THIS LIST IS ONE OF THE FEW PLACES IT VARIES. The curtain hides
+   *  unverified suppliers from discovery, but leaves established
+   *  connections alone on purpose, so a supplier revoked after you
+   *  connected still appears here -- without a tick. */
+  verificationStatus: string | null;
 
   /* ---- the relationship ledger (V2_04 2.3) ----------------------------
    * A connection is not a contact; it is a trading relationship, and

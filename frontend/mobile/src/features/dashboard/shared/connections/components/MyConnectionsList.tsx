@@ -6,6 +6,7 @@ import { Users } from "lucide-react-native";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
+import { SupplierName } from "@/components/ui/SupplierName";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
@@ -168,9 +169,11 @@ function ConnectionRow({ connection, onPress }: { connection: ConnectionSummary;
     <>
       <EntityAvatar name={connection.name} photoUrl={connection.photoUrl} size={52} />
       <View style={styles.rowText}>
-        <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={1}>
-          {connection.name}
-        </Text>
+        <SupplierName
+          name={connection.name}
+          verificationStatus={connection.verificationStatus}
+          style={[styles.name, { color: theme.colors.onSurface }]}
+        />
         {connection.ownerName && (
           <Text style={[styles.owner, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
             {connection.ownerName}

@@ -161,6 +161,7 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
     # One name lookup per SUPPLIER, not per card -- a page of 24 drinks
     # is typically a handful of wholesalers.
     names: dict = {}
+    statuses: dict = {}
 
     cards = []
     for offer, group in chosen_by_group:
@@ -168,6 +169,9 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
         if supplier_id not in names:
             profile = SupplierProfileRepository.get_visible_by_id(supplier_id)
             names[supplier_id] = profile.business_name if profile else None
+            statuses[supplier_id] = (
+                profile.verification_status.value if profile and profile.verification_status else None
+            )
 
         # A supplier that failed the curtain between the query and here
         # is dropped rather than rendered nameless.
@@ -180,6 +184,10 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
                 "id": str(offer.id),
                 "supplierId": str(supplier_id),
                 "supplierName": names[supplier_id],
+                # SAME FIELD THE FEED SENDS, so one component renders
+                # both surfaces and a supplier cannot appear ticked on
+                # one screen and bare on the other.
+                "supplierVerificationStatus": statuses.get(supplier_id),
                 "name": offer.name,
                 "category": offer.category.value if offer.category else None,
                 "imageUrl": _first_image_url(images),

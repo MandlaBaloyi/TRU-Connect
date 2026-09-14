@@ -16,6 +16,7 @@ interface ApiConnectionSummary {
   other_party_id: string | null;
   connectedSince: string | null;
   photoUrl: string | null;
+  verificationStatus: string | null;
   ownerName: string | null;
   // Defaulted in the mapper above rather than required here: an
   // older backend that has not shipped the ledger yet should render
@@ -46,6 +47,7 @@ function fromApiConnectionSummary(dto: ApiConnectionSummary): ConnectionSummary 
     otherPartyId: dto.other_party_id,
     connectedSince: dto.connectedSince,
     photoUrl: dto.photoUrl,
+    verificationStatus: dto.verificationStatus ?? null,
     ownerName: dto.ownerName,
     orderCount: dto.orderCount ?? 0,
     lastOrderAt: dto.lastOrderAt ?? null,

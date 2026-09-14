@@ -118,6 +118,16 @@ def _build_cart_dict(stock_order: StockOrder, supplier) -> dict:
         "supplierProfileId": str(stock_order.supplier_profile_id),
         "supplierName": supplier.business_name if supplier else "Unknown supplier",
         "supplierBusinessImageUrl": supplier.business_image_url if supplier else None,
+        # CARRIED WITH THE NAME, EVERYWHERE THE NAME GOES. A cart can
+        # outlive a supplier's verification: the curtain stops NEW
+        # commerce with an unverified supplier and deliberately leaves
+        # established trade alone, so a business holding a cart from a
+        # supplier revoked yesterday still sees that cart. The tick
+        # going missing is how they find out, and this is the field
+        # that lets the cart and checkout screens say so.
+        "supplierVerificationStatus": (
+            supplier.verification_status.value if supplier else None
+        ),
         # THE SUPPLIER'S OWN FULFILMENT TERMS, carried on the cart so
         # the checkout screen can honour them without a second request:
         # default to Collect when they don't deliver, and block/explain

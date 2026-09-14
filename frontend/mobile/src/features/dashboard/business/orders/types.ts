@@ -27,6 +27,12 @@ export interface Cart {
    *  bar (avatar + name). Same ungated asset the catalogue and brand
    *  profile use; null when they haven't uploaded one. */
   supplierBusinessImageUrl: string | null;
+  /** A CART CAN OUTLIVE A SUPPLIER'S VERIFICATION. The curtain stops
+   *  NEW commerce with an unverified supplier and deliberately leaves
+   *  established trade alone, so a business holding a cart from a
+   *  supplier revoked yesterday still sees it. The tick going missing
+   *  is how they find out. */
+  supplierVerificationStatus: string | null;
   /** The supplier's own stated terms, carried on the cart so checkout
    *  can honour them without a second request. checkout_service
    *  enforces both for real; these let the UI be honest BEFORE the

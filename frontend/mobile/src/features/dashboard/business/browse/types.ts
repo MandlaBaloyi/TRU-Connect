@@ -28,6 +28,8 @@ export interface BrowseProduct {
   /** How many DISTINCT businesses have bought this. null when nobody
    *  has — never 0. Counts BUSINESSES, not units, so one wholesale
    *  buyer cannot manufacture a bestseller by ordering forty cases. */
+  /** Same field the feed sends, so one rule renders both. */
+  supplierVerificationStatus: string | null;
   buyerCount: number | null;
   /** The sentence, built server-side so this screen and the Community
    *  feed cannot word it differently. */

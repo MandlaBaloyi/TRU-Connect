@@ -78,6 +78,7 @@ export async function addItem(supplierId: string, productId: string, quantity: n
       supplierProfileId: supplierId,
       supplierName: product.supplierName,
       supplierBusinessImageUrl: null,
+      supplierVerificationStatus: "verified",
       supplierOffersDelivery: null,
       supplierMinimumOrderCents: null,
       supplierCollectionAddress: null,

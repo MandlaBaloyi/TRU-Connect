@@ -12,6 +12,7 @@ const MOCK_CONNECTIONS: ConnectionSummary[] = [
     otherPartyId: "mock-supplier-001",
     connectedSince: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
     photoUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+    verificationStatus: "verified",
     ownerName: "Mandla Baloyi",
     orderCount: 6,
     lastOrderAt: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000).toISOString(),

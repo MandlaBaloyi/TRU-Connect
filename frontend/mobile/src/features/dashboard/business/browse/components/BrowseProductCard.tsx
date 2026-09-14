@@ -6,6 +6,7 @@ import { CategoryImage } from "@/components/categories";
 // Same formatter the supplier catalogue card uses. It lives in a
 // feature folder rather than utils/, which is its own small smell,
 // but a second copy would be a worse one.
+import { SupplierName } from "@/components/ui/SupplierName";
 import { formatCents } from "@/features/dashboard/supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -79,9 +80,12 @@ export function BrowseProductCard({
           )}
         </View>
 
-        <Text style={[styles.supplier, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-          {product.supplierName}
-        </Text>
+        <SupplierName
+          name={product.supplierName}
+          verificationStatus={product.supplierVerificationStatus}
+          style={[styles.supplier, { color: theme.colors.onSurfaceVariant }]}
+          tickSize={12}
+        />
 
         {product.buyerLabel ? (
           // ABOVE "also from N suppliers" on purpose. That line is

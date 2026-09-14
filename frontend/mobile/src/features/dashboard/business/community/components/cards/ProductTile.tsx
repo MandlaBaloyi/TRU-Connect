@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 import { ImageOff } from "lucide-react-native";
 
+import { SupplierName } from "@/components/ui/SupplierName";
 import { formatCents } from "@/features/dashboard/supplier/products/services/productMapper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -106,10 +107,19 @@ export function ProductTile({
         <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={2}>
           {product.name}
         </Text>
-        <Text style={[styles.supplier, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-          {product.unitLabel ? `${product.unitLabel} · ` : ""}
-          {product.supplierName}
-        </Text>
+        <View style={styles.supplierRow}>
+          {product.unitLabel ? (
+            <Text style={[styles.supplier, { color: theme.colors.onSurfaceVariant }]}>
+              {`${product.unitLabel} · `}
+            </Text>
+          ) : null}
+          <SupplierName
+            name={product.supplierName}
+            verificationStatus={product.supplierVerificationStatus}
+            style={[styles.supplier, { color: theme.colors.onSurfaceVariant }]}
+            tickSize={11}
+          />
+        </View>
         {product.buyerLabel ? (
           <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
             {product.buyerLabel}
@@ -160,6 +170,7 @@ const styles = StyleSheet.create({
   price: { ...typography.body, fontWeight: "800" },
   name: { ...typography.bodySmall, fontSize: 12, lineHeight: 16 },
   supplier: { ...typography.caption, fontSize: 11 },
+  supplierRow: { flexDirection: "row", alignItems: "center" },
   // Tinted rather than grey: this is the one line on the tile meant to
   // be a REASON, not a detail. One line only -- a tile is 148px wide
   // and a wrapped badge would push every tile in the rail to a

@@ -6,6 +6,7 @@ import { Banknote, Check, CreditCard, MapPin, Receipt, Search } from "lucide-rea
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { EntityHeaderTitle } from "@/components/navigation/EntityHeaderTitle";
+import { showsAsVerified } from "@/constants/config";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -106,7 +107,12 @@ export default function DeliveryPaymentScreen() {
       ...(supplier.name
         ? {
             headerTitle: () => (
-              <EntityHeaderTitle name={supplier.name!} subtitle="Delivery & payment" photoUrl={supplier.photoUrl} />
+              <EntityHeaderTitle
+                name={supplier.name!}
+                subtitle="Delivery & payment"
+                photoUrl={supplier.photoUrl}
+                verified={showsAsVerified(supplier.verificationStatus)}
+              />
             ),
           }
         : {}),
