@@ -767,6 +767,29 @@ on for a demonstration and off in production, WITHOUT the logic knowing.
   AND IT IS REVERSIBLE. `flask demo seed` / `flask demo purge`, audited
   like every other privileged command.
 
+  ---------------------------------------------------------------------
+  BUILT, THEN REMOVED ON MANDLA'S CALL. Not because the design was
+  wrong -- it worked end to end: DEMO_DATA off returned only the real
+  suppliers, on returned those plus four seeded ones, through the real
+  browse pipeline, with an architecture test pairing the demo gate to
+  the verification curtain. It was removed because the demonstration it
+  existed for is not one we need.
+
+  WHAT IT COST TO CARRY, and why removing it was cheap: two boolean
+  columns, one predicate module, a CLI group, and a filter in every
+  business-facing read. The last of those is the real price -- every
+  future query would have had to remember a gate that existed for a
+  demo day, forever.
+
+  IF IT COMES BACK, the shape above is right and the notes worth
+  keeping are: pin DEMO_DATA off in ProductionConfig rather than
+  merely defaulting it; give demo accounts an unusable password hash;
+  find rows to purge BY THE FLAG and never by a name match; and make
+  the architecture test assert that every query applying the CURTAIN
+  also applies the demo filter -- the curtain is already a curated
+  list of the reads that face a business, so it is the ready-made
+  answer to "which queries must not forget".
+
 
 ===========================================================================
 PART 11 — THE FEEDBACK LOOP

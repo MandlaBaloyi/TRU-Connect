@@ -142,7 +142,18 @@ def discover_targets() -> list[Path]:
         targets.append(architecture)
     domains = TESTS / "domains"
     if domains.is_dir():
-        targets.extend(sorted(p for p in domains.iterdir() if p.is_dir()))
+        # SKIP __pycache__ AND ANYTHING ELSE DUNDER. Without this the
+        # walk hands pytest tests/domains/__pycache__, which collects
+        # nothing, exits non-zero, and shows up in the summary as a
+        # FAILED suite -- a red line with no failing test behind it,
+        # which is worse than useless because it trains you to ignore
+        # the summary.
+        targets.extend(
+            sorted(
+                p for p in domains.iterdir()
+                if p.is_dir() and not p.name.startswith("__")
+            )
+        )
     shared = TESTS / "shared"
     if shared.is_dir():
         targets.append(shared)

@@ -1,9 +1,15 @@
 """
 Demand we are failing to meet, counted.
 
-THE CLAIM UNDER TEST: "412 shops tell us they sell airtime and not one
-has ever bought airtime here" is producible from data we already have,
-without naming a single shop.
+THE CLAIM UNDER TEST: "412 shops tell us they sell soap and not one has
+ever bought soap here" is producible from data we already have, without
+naming a single shop.
+
+CATEGORIES HERE ARE REAL ProductCategory VALUES, deliberately. An
+earlier draft used "AIRTIME_DATA", which passes -- buys_categories is
+an array of strings and the rule never looks the value up -- while
+testing a category the form cannot produce. A test that only works on
+impossible input is a test nobody should trust.
 
 WHY IT IS TESTED WITH REAL ORDERS rather than stubbed counts: the whole
 value of this report is that it runs the SAME reconciliation rule the
@@ -121,11 +127,11 @@ class TestTheNumberThatSellsTheEcosystem:
         self, app, db_session, declaring_shop
     ):
         for _ in range(3):
-            declaring_shop(["AIRTIME_DATA"])
+            declaring_shop(["PERSONAL_CARE"])
 
         report = gap_service.unserved_by_category()
 
-        assert _row(report, "AIRTIME_DATA")["shopsUnserved"] == 3
+        assert _row(report, "PERSONAL_CARE")["shopsUnserved"] == 3
 
     def test_a_shop_that_buys_the_thing_is_not_a_gap(
         self, app, db_session, declaring_shop, buys
@@ -163,11 +169,11 @@ class TestTheNumberThatSellsTheEcosystem:
         for _ in range(3):
             declaring_shop(["BAKERY"])
         for _ in range(5):
-            declaring_shop(["AIRTIME_DATA"])
+            declaring_shop(["PERSONAL_CARE"])
 
         report = gap_service.unserved_by_category()
 
-        assert report["categories"][0]["category"] == "AIRTIME_DATA"
+        assert report["categories"][0]["category"] == "PERSONAL_CARE"
 
     def test_partial_service_shows_as_a_share(
         self, app, db_session, declaring_shop, buys
@@ -195,8 +201,8 @@ class TestItNeverIdentifiesAShop:
         self, app, db_session, declaring_shop
     ):
         """AN AGGREGATE OF ONE IS NOT AN AGGREGATE. "1 shop needs
-        airtime" is a sentence about a person."""
-        declaring_shop(["AIRTIME_DATA"])
+        soap" is a sentence about a person."""
+        declaring_shop(["PERSONAL_CARE"])
 
         report = gap_service.unserved_by_category()
 
@@ -205,7 +211,7 @@ class TestItNeverIdentifiesAShop:
     def test_withholding_is_never_silent(self, app, db_session, declaring_shop):
         """A report that quietly drops small categories reads as "no
         gaps there", which is the opposite of what it means."""
-        declaring_shop(["AIRTIME_DATA"])
+        declaring_shop(["PERSONAL_CARE"])
 
         report = gap_service.unserved_by_category()
 
@@ -215,7 +221,7 @@ class TestItNeverIdentifiesAShop:
         self, app, db_session, declaring_shop
     ):
         """The one property that must hold whatever else changes."""
-        shops = [declaring_shop(["AIRTIME_DATA"]) for _ in range(3)]
+        shops = [declaring_shop(["PERSONAL_CARE"]) for _ in range(3)]
 
         report = gap_service.unserved_by_category()
 
@@ -229,7 +235,7 @@ class TestItNeverIdentifiesAShop:
         """So nobody reads a lowered-threshold report as a publishable
         one."""
         for _ in range(2):
-            declaring_shop(["AIRTIME_DATA"])
+            declaring_shop(["PERSONAL_CARE"])
 
         assert gap_service.unserved_by_category(min_shops=1)["minShops"] == 1
         assert gap_service.unserved_by_category()["minShops"] == 3
@@ -246,10 +252,10 @@ class TestTheEmptyCases:
 
     def test_a_named_subset_can_be_asked_about(self, app, db_session, declaring_shop):
         """A pilot, a township, one supplier's delivery area later."""
-        inside = [declaring_shop(["AIRTIME_DATA"]) for _ in range(2)]
+        inside = [declaring_shop(["PERSONAL_CARE"]) for _ in range(2)]
         declaring_shop(["BAKERY"])
 
         report = gap_service.unserved_for_shops([s.id for s in inside])
 
         assert report["shopsConsidered"] == 2
-        assert [r["category"] for r in report["categories"]] == ["AIRTIME_DATA"]
+        assert [r["category"] for r in report["categories"]] == ["PERSONAL_CARE"]

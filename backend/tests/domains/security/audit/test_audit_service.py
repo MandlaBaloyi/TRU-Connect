@@ -66,6 +66,22 @@ def test_async_event_persists_when_executed_on_a_real_background_thread(app, db_
 
         assert not captured_exceptions, f"Publishing raised on a background thread: {captured_exceptions}"
 
+        # JOINING THE PUBLISHING THREAD IS NOT ENOUGH, and this test
+        # spent a while failing intermittently because of it. An ASYNC
+        # event does not write on the thread that publishes it: it hands
+        # a deferred callable to shared.queue, which runs it on a POOL
+        # thread. So join() proves the job was ENQUEUED and says nothing
+        # about whether it has run -- leaving the assertion below in a
+        # race with the pool that it usually wins on an idle machine and
+        # loses under the load of the full suite.
+        #
+        # conftest.py already waits for the queue, but it does so at
+        # TEARDOWN, which protects the NEXT test from a straggling write
+        # and does nothing for this one's own assertion.
+        from src.shared.queue.queue import wait_until_idle
+
+        wait_until_idle(timeout=10)
+
         from src.domains.security.audit.models.audit_event import AuditEventRecord
 
         row = (
