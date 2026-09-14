@@ -1,7 +1,8 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { BadgeCheck, Check } from "lucide-react-native";
+import { Check } from "lucide-react-native";
+import { VerifiedTick } from "@/components/ui/VerifiedTick";
 
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { showsAsVerified } from "@/constants/config";
@@ -75,7 +76,7 @@ export function SupplierCard({
             {supplier.businessName}
           </Text>
           {showsAsVerified(supplier.verificationStatus) && (
-            <BadgeCheck size={14} color={theme.colors.primary} strokeWidth={2.4} />
+            <VerifiedTick size={14} />
           )}
         </View>
 

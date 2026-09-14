@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { BadgeCheck, CalendarDays, MapPin, Store } from "lucide-react-native";
+import { CalendarDays, MapPin, Store } from "lucide-react-native";
+import { VerifiedTick } from "@/components/ui/VerifiedTick";
 
 import { FullScreenImageViewer } from "@/components/ui/FullScreenImageViewer";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -112,7 +113,7 @@ export function SupplierBrandHeader({
               "It is not a guarantee about price, stock or delivery — those are between you and the supplier. Always check an order before you pay.",
             ]}
             accessibilityLabel="What does the verified tick mean?"
-            trigger={<BadgeCheck size={18} color={theme.colors.secondary} strokeWidth={2.4} />}
+            trigger={<VerifiedTick size={18} />}
           />
         )}
       </View>

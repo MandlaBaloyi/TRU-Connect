@@ -82,9 +82,11 @@ export function AddressPickerField({
       ].filter((part) => Boolean(part && part.trim()))
     : [];
 
+  const isSet = lines.length > 0;
+
   return (
     <View style={styles.wrap}>
-      {lines.length > 0 ? (
+      {isSet && (
         <Pressable
           onPress={() => {
             setPresetCenter(value ? { latitude: value.latitude, longitude: value.longitude } : null);
@@ -101,31 +103,46 @@ export function AddressPickerField({
           <Text style={[styles.address, { color: theme.colors.onSurface }]}>{lines.join("\n")}</Text>
           <Text style={[styles.edit, { color: theme.colors.primary }]}>Edit</Text>
         </Pressable>
-      ) : (
-        <View style={styles.optionsRow}>
-          <Pressable
-            onPress={() => setIsSearchVisible(true)}
-            style={[styles.option, { borderColor: theme.colors.outline }]}
-            accessibilityRole="button"
-            accessibilityLabel={searchA11yLabel ?? searchLabel}
-          >
-            <Search size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-            <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>{searchLabel}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setPresetCenter(null);
-              setIsMapVisible(true);
-            }}
-            style={[styles.option, { borderColor: theme.colors.outline }]}
-            accessibilityRole="button"
-            accessibilityLabel={mapA11yLabel ?? mapLabel}
-          >
-            <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
-            <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>{mapLabel}</Text>
-          </Pressable>
-        </View>
       )}
+
+      {/* BOTH WAYS IN, ALWAYS -- not only before an address exists.
+          The first version showed these two buttons while the field was
+          empty and, once it was set, sent every tap straight to the map.
+          So somebody who had pinned the wrong town could only nudge the
+          map towards the right one: the search box they used the first
+          time vanished exactly when they most needed it. Editing is the
+          case where you are MOST likely to want to type a place name
+          rather than hunt for it. */}
+      <View style={styles.optionsRow}>
+        <Pressable
+          onPress={() => setIsSearchVisible(true)}
+          style={[styles.option, { borderColor: theme.colors.outline }]}
+          accessibilityRole="button"
+          accessibilityLabel={searchA11yLabel ?? searchLabel}
+        >
+          <Search size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+          <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>
+            {isSet ? "Search again" : searchLabel}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            // A DELIBERATE FRESH START: no preset centre, so this opens
+            // where they are rather than where the old pin was. The card
+            // above is the "adjust what I already have" path.
+            setPresetCenter(null);
+            setIsMapVisible(true);
+          }}
+          style={[styles.option, { borderColor: theme.colors.outline }]}
+          accessibilityRole="button"
+          accessibilityLabel={mapA11yLabel ?? mapLabel}
+        >
+          <MapPin size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
+          <Text style={[styles.optionText, { color: theme.colors.onSurface }]}>
+            {isSet ? "Move the pin" : mapLabel}
+          </Text>
+        </Pressable>
+      </View>
 
       <SearchAddressModal
         visible={isSearchVisible}

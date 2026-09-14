@@ -125,10 +125,21 @@ export default function ProfileScreen() {
       ...(location ?? {}),
       latitude: picked.latitude,
       longitude: picked.longitude,
-      // Filled only when empty: moving a pin must not rewrite a town
-      // somebody typed themselves. They know what their area is called
-      // better than a geocoder does.
-      cityOrTown: location?.cityOrTown?.trim() ? location.cityOrTown : picked.city || undefined,
+      // WHAT THEY CONFIRMED IS WHAT GETS SAVED. The first version only
+      // filled these when they were EMPTY, reasoning that moving a pin
+      // should not rewrite a town somebody typed. That produced a worse
+      // bug than the one it avoided: a shop whose profile already said
+      // "Elim" pinned a different town, confirmed it, and the card went
+      // on reading "Elim" -- so the app appeared to have saved an
+      // address they never chose.
+      //
+      // Confirming an address IS the intent. The fields fall back to
+      // what was there only when the geocoder returned nothing for
+      // them, which is normal for a rural or informal pin.
+      cityOrTown: picked.city?.trim() || location?.cityOrTown,
+      physicalAddress:
+        [picked.building, picked.street, picked.suburb].filter((part) => part?.trim()).join(", ") ||
+        location?.physicalAddress,
     });
   };
 

@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { BadgeCheck } from "lucide-react-native";
+import { VerifiedTick } from "@/components/ui/VerifiedTick";
 
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { spacing } from "@/theme/spacing";
@@ -56,7 +56,7 @@ export function EntityHeaderTitle({
           >
             {name}
           </Text>
-          {verified && <BadgeCheck size={15} color={theme.colors.primary} strokeWidth={2.4} />}
+          {verified && <VerifiedTick size={15} />}
         </View>
         {subtitle && (
           <Text

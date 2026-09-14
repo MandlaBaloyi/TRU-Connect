@@ -79,12 +79,17 @@ export default function LocationEditScreen() {
       ...current,
       latitude: picked.latitude,
       longitude: picked.longitude,
-      // FILLED ONLY WHEN EMPTY. Moving a pin should not silently
-      // rewrite a town somebody typed themselves -- they know what
-      // their area is called better than a geocoder does, and an
-      // informal settlement's real name is often not the one on the
-      // map.
-      cityOrTown: current.cityOrTown?.trim() ? current.cityOrTown : picked.city || undefined,
+      // WHAT THEY CONFIRMED IS WHAT GETS SAVED -- see the same handler
+      // on the My Account profile screen for why the "only when empty"
+      // version was wrong: it left the old town on screen after a new
+      // pin was confirmed, so the app looked like it had saved an
+      // address nobody chose. Falls back to the existing value only
+      // when the geocoder returned nothing, which is normal for a rural
+      // or informal pin.
+      cityOrTown: picked.city?.trim() || current.cityOrTown,
+      physicalAddress:
+        [picked.building, picked.street, picked.suburb].filter((part) => part?.trim()).join(", ") ||
+        current.physicalAddress,
     }));
   };
 

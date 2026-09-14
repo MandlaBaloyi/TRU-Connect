@@ -17,7 +17,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { BadgeCheck } from "lucide-react-native";
+import { VerifiedTick } from "@/components/ui/VerifiedTick";
 
 import { spacing, radius } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -31,7 +31,7 @@ export function VerificationBadge() {
       accessibilityRole="text"
       accessibilityLabel="Verified"
     >
-      <BadgeCheck size={14} color={theme.colors.secondary} strokeWidth={2.2} />
+      <VerifiedTick size={14} />
       <Text style={[styles.text, { color: theme.colors.secondary }]}>Verified</Text>
     </View>
   );
