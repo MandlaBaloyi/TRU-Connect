@@ -264,6 +264,53 @@ Real work, none of it urgent. Ordered roughly by value, not by date.
       default data to fit anything to. Recorded here so the analogy is
       not mistaken for a roadmap item later.
 
+  B14 INHERIT A CATEGORY FROM THE PRODUCT AN OFFER MATCHED TO.
+      The importer NORMALISES a category ("beverages" -> BEVERAGES via
+      match_category) but deliberately refuses to INFER one: an
+      unmatched category errors the row, and fields.py says why -- a
+      product filed under the wrong category is worse than an honest
+      error, because it lands somewhere nobody looks.
+
+      THE MISSING HALF IS ALREADY PAID FOR. The matching ladder links
+      an offer to a catalogue product, and catalogue products carry
+      their own category. So a blank category can be INHERITED from
+      the row it resolved to rather than guessed from its text -- not
+      inference, and not a weakening of the rule in fields.py: the
+      link was already earned through barcode, alias or normalised
+      matching before the category is read off it.
+
+      Only applies at tiers 0-3. An AI-tier match should NOT silently
+      set a category the supplier never typed.
+
+  B15 ASK CLOUDINARY INSTEAD OF GIVING UP ON IT.
+      stuck_media_sweep marks a row ERROR when it has sat PENDING for
+      30 minutes -- correct as far as it goes, because this backend
+      never learned the asset failed a scan, only that it never heard
+      back. But a missing WEBHOOK is not a missing ASSET: the image is
+      sitting in Cloudinary with a moderation status we could simply
+      read.
+
+      So the job should reconcile before it condemns -- query the
+      provider, and only mark ERROR when the provider itself has
+      nothing. RECONCILIATION, NOT RETRY: there is nothing to retry
+      here, the upload already succeeded.
+
+      Fits the existing job contract exactly (pure run() -> JobResult
+      in shared/media/jobs/, a JobSpec in media_scheduler.py). About an
+      hour.
+
+  B16 AN UPLOAD QUEUE ON THE DEVICE, SURVIVING APP CLOSE.
+      The other half of B15, and the half no scheduler can ever do:
+      when an upload dies mid-flight the bytes are on the phone and
+      Cloudinary never saw them. No server job can retry an upload it
+      did not receive. Only the app can.
+
+      So this is a local queue -- record the intent, hold the file,
+      retry when signal returns, survive the app being killed. It
+      belongs with the offline write-path work rather than on its own,
+      because it needs the same local-first storage decision and would
+      otherwise be that decision made twice.
+
 
 ===========================================================================
 C — WAITING ON A TRIGGER, NOT ON US
