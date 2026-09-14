@@ -178,6 +178,13 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.network.community.api.community_routes import community_bp
     app.register_blueprint(community_bp)
 
+    # THE CATALOGUE'S FIRST HTTP SURFACE. It had none until now --
+    # matching ran inside imports and the review queue lived in the
+    # CLI -- which is why a category chip could only route to
+    # supplier search.
+    from src.domains.catalogue.discovery.api.browse_routes import catalogue_browse_bp
+    app.register_blueprint(catalogue_browse_bp)
+
 
 def _register_error_handlers(app: Flask) -> None:
     """
