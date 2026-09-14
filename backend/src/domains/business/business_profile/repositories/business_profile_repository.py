@@ -61,3 +61,31 @@ class BusinessProfileRepository:
             .limit(limit)
             .all()
         )
+
+    @staticmethod
+    def declared_categories_by_business() -> dict:
+        """{business_id: [category, ...]} for every shop that answered.
+
+        THE DECLARED HALF OF THE GAP REPORT. Shops that declared
+        nothing are ABSENT rather than present-and-empty: they have not
+        told us they need anything, so they cannot be counted as
+        unserved, and an empty list would quietly become a zero in an
+        average somewhere.
+
+        TWO COLUMNS, NOT WHOLE ROWS. This is read across the entire
+        platform, and hydrating full BusinessProfile objects to look at
+        one array each is the kind of waste that only shows up at the
+        scale where it matters.
+        """
+        rows = (
+            db.session.query(BusinessProfile.business_id, BusinessProfile.buys_categories)
+            .filter(BusinessProfile.buys_categories.isnot(None))
+            .filter(BusinessProfile.is_deleted.is_(False))
+            .all()
+        )
+        return {
+            str(business_id): list(categories)
+            for business_id, categories in rows
+            if categories
+        }
+

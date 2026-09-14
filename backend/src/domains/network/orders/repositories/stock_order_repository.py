@@ -806,6 +806,61 @@ class StockOrderRepository:
         }
 
     @staticmethod
+    def category_purchase_counts_by_business() -> dict:
+        """{business_id: {category: order lines}} for EVERY shop, in one
+        query.
+
+        THE AGGREGATE HALF. category_purchase_counts answers "what does
+        this shop buy" for a feed; this answers "what does the market
+        buy" for us, and the difference is one GROUP BY. Calling the
+        per-shop version in a loop over ten thousand shops is the same
+        N+1 that has been removed from this codebase twice.
+
+        NO business_id FILTER AND NO LIMIT, deliberately: a gap report
+        that sampled would under-count exactly the categories it exists
+        to find. It is read by an operator on demand, never on a
+        request path -- if that ever changes, this needs a cursor, not
+        a smaller sample.
+
+        SUPPLIER-FREE RETURN SHAPE, like its sibling. The join to
+        supplier_offers happens HERE, in the orders domain, where it is
+        allowed; what leaves this function is categories and counts, so
+        the demand engine can read it without learning who sold
+        anything (tests/architecture/test_demand_independence.py).
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+        from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+
+        rows = (
+            db.session.query(
+                StockOrder.business_id,
+                SupplierOffer.category,
+                db.func.count(StockOrderItem.id),
+            )
+            .join(StockOrderItem, StockOrderItem.product_id == SupplierOffer.id)
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .group_by(StockOrder.business_id, SupplierOffer.category)
+            .all()
+        )
+
+        counts: dict = {}
+        for business_id, category, count in rows:
+            if category is None:
+                continue
+            key = category.value if hasattr(category, "value") else str(category)
+            counts.setdefault(str(business_id), {})[key] = count
+        return counts
+
+    @staticmethod
     def purchase_dates_and_totals(business_id: str | UUID) -> List[tuple]:
         """[(submitted_at, total_cents)] for every confirmed order, newest
         first.

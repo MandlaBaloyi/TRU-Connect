@@ -1446,16 +1446,52 @@ PART 14 — ORDER OF WORK
           Smallest change with the largest visible effect, and it turns
           data already being collected into something real.
 
-  PHASE 1 — OBSERVE
-    5  observed.py from order history
-    6  reconciliation (Part 6)
-    7  nightly rebuild job
-    8  cadence and basket profile
+  PHASE 1 — OBSERVE                                            [BUILT]
+    5  observed.py from order history                          done
+    6  reconciliation (Part 6)                                 done
+    7  nightly rebuild job                             MOVED TO PHASE 3
+    8  cadence and basket profile                              done
 
-  PHASE 2 — THE FEED LEANS ON IT
-    9  V2_16 sources read needs_service
-   10  offer_selection uses price_sensitivity and radius_tolerance
-   11  the profile prompt card (Part 9)
+    ON 7 — WHY IT MOVED. The job was to rebuild weights, apply decay
+    and refresh unserved flags. needs_service computes all three live
+    on every call, so all three already happen, and happen more
+    accurately than a nightly pass could: flaw B.9 asks that unserved
+    be DERIVED on every rebuild and never stored, and computing it live
+    satisfies that more strictly than a job would.
+
+    What a stored model genuinely unlocks is AGGREGATION across shops
+    — Phase 3's question, not Phase 2's. Building the table earlier
+    means a cache, a migration and an invalidation story serving
+    nothing that reads it for two phases, and inviting the
+    cache-staleness bug class onto the feed path in exchange for
+    nothing measurable. It earns its place when a consumer exists.
+
+    WHAT WOULD BRING IT BACK: measured feed latency showing the live
+    read hurts, or wanting the aggregate numbers before Phase 3.
+
+  PHASE 2 — THE FEED LEANS ON IT                               [BUILT]
+    9  V2_16 sources read needs_service                        done
+         the rail now opens with the shop's HEAVIEST need, and says
+         something true about why — "based on what you told us" was
+         correct in Phase 0 and became a lie the moment needs could
+         come from order history instead.
+   10  price sensitivity, at the RAIL and not in offer_selection
+         CORRECTED. As written this item put price sensitivity in
+         offer_selection, which is the wrong level: that function
+         chooses between suppliers OF ONE PRODUCT and already leads
+         with price, and since V2_11 makes different pack sizes
+         different products, prices inside a resolved group are
+         near-identical. A rule there would change almost nothing. The
+         decision that bites is which PRODUCTS reach the rail.
+         Built as ordering, never filtering — see B.2 and
+         browse_service._affordable_first.
+   10b RADIUS TOLERANCE — NOT BUILDABLE, deferred by flaw B.5. Most
+         shops have no coordinates (0 of 2 in dev), and inventing a
+         radius is precisely the number that looks real and is not.
+         Waits for coordinates to exist.
+   11  the profile prompt card (Part 9)             backend section is
+         built (tell_us_what_you_buy); the CARD is UI and deferred with
+         the rest of the UI pass.
 
   PHASE 3 — IT TELLS US THINGS
    12  gap_service (Part 10)
