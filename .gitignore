@@ -53,3 +53,6 @@ yarn-error.log*
 Thumbs.db
 # Excel/Word lock files -- created while a document is open, never ours to commit
 ~$*
+
+# Held while run_tests.py is running -- machine state, never ours to commit
+.pytest-running.lock
