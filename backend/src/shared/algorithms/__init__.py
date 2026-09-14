@@ -16,4 +16,18 @@ NOTHING HERE MAY IMPORT A DOMAIN. These take plain values -- a list of
 datetimes, a pair of coordinates -- and return plain values. That is
 what makes them safe to share, and it is the property to preserve: the
 moment one of them needs a repository it belongs in a domain again.
+
+
+GROUPED BY WHAT THEY COMPUTE, NOT BY WHO CALLS THEM. `geo` is distance
+and location maths; `trading` is what a pair's order history says about
+how they trade. Naming a folder after a consumer -- `community/` was
+considered -- would quietly re-couple these to the domain they were just
+moved out of, and the next reader would assume the feed owns them again.
+
+    geo/      distance
+    trading/  reorder_gap
 """
+from src.shared.algorithms.geo import distance  # noqa: F401
+from src.shared.algorithms.trading import reorder_gap  # noqa: F401
+
+__all__ = ["distance", "geo", "reorder_gap", "trading"]

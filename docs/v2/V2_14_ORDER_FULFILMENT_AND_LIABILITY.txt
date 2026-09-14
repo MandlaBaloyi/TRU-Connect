@@ -1,0 +1,317 @@
+===========================================================================
+V2_14 — ORDER FULFILMENT, AND WHO CARRIES THE RISK
+===========================================================================
+
+Written 2026-09-14. A PLAN, not a decision. Part 7 lists what only
+Mandla can answer; nothing here gets built before those are settled.
+
+It exists because building D (My Connections as a relationship ledger,
+V2_04 2.3) needed to show "an outstanding order, if one is open" and
+there turned out to be no honest way to compute it.
+
+
+===========================================================================
+PART 0 — THE PROBLEM, IN ONE PAGE
+===========================================================================
+
+An order today walks one of two paths and both stop in the same place.
+
+    DIRECT (off-platform — notes, EFT, a deposit, a transfer)
+
+        cart ──▶ PENDING_SUPPLIER_APPROVAL ──▶ CONFIRMED ──▶ ·
+                    supplier decides                          nothing
+
+    PAYFAST (the observed rail)
+
+        cart ──▶ AWAITING_PAYMENT ─────────▶ CONFIRMED ──▶ ·
+                    money reaches the                        nothing
+                    provider; verified,
+                    no approval needed
+
+NOTHING EVER MOVES AN ORDER OUT OF CONFIRMED. There is no DELIVERED
+status, no delivered_at, no received_at. The model carries delivery
+DETAILS — delivery_type, delivery_address_text — and no delivery
+OUTCOME.
+
+So CONFIRMED is doing two jobs at once and they are not the same job:
+
+    what it is used as     "the successful order" — sales totals,
+                           trust stats, repeat-business counts
+    what it actually means "paid or approved; the goods have not been
+                           accounted for"
+
+The stock arrives in real life. TruConnect never finds out.
+
+0.1  THE THREE THINGS THIS BREAKS
+
+  A BADGE THAT CAN NEVER CLEAR. "Is there an open order with this
+  supplier" has no correct answer. Count CONFIRMED and every business
+  who has ever paid shows an outstanding order forever. Exclude it and
+  somebody who paid this morning and is waiting for bread sees nothing.
+  D currently excludes it, which is the quieter wrong answer, not a
+  right one.
+
+  RECOURSE HAS NOTHING TO STAND ON. The whole argument for the digital
+  rail is that a business who pays and receives nothing has proof and
+  the platform can act. But there is no field in this system that could
+  ever record that the goods did not arrive. TruConnect cannot today
+  tell a completed trade from an abandoned one — on either rail.
+
+  THE REORDER RHYTHM IS MEASURED FROM THE WRONG DATE. reorder_gap reads
+  submitted_at: when they ORDERED. What actually sets the next order is
+  when the stock ARRIVED and started selling. Two suppliers, one
+  same-day and one three days out, produce rhythms wrong by exactly that
+  difference — and the whole point of the ledger is telling a supplier
+  who is due.
+
+
+===========================================================================
+PART 1 — THE RULE THAT DECIDES THE DESIGN: LIABILITY FOLLOWS THE MONEY
+===========================================================================
+
+This is the constraint everything else hangs off, and it is Mandla's,
+stated 2026-09-14.
+
+  ON THE DIRECT RAIL WE HOLD NOTHING. The money never touched us. We
+  did not see it move, we cannot prove it moved, and we cannot prove
+  what was promised. The model already says this in
+  StockOrderPaymentMethod's own docstring: "TruConnect observes none of
+  them, and that, not the instrument, is what makes them one thing."
+  Both parties carry that risk and must know they carry it.
+
+  ON THE PAYFAST RAIL WE HOLD THE EVIDENCE. There is a provider record:
+  an amount, a timestamp, two identified parties. If a business pays
+  and the supplier does not deliver, that is a thing we can establish
+  and therefore a thing we can act on — suspend, revoke verification,
+  remove from the curtain.
+
+  THEREFORE: ONE STATE MACHINE, TWO DIFFERENT CONSEQUENCES. The states
+  below are identical on both rails, because the rhythm and the badge
+  need them on both. What differs is what a FAILURE TO COMPLETE
+  entitles anyone to. Non-delivery on PayFast opens a case. Non-delivery
+  on DIRECT opens a record and nothing more.
+
+  This is not timidity. A platform that promises protection it cannot
+  deliver is worse than one that is clear about where its protection
+  ends — the promise is discovered to be empty at the exact moment
+  somebody is already out of pocket.
+
+1.1  A CORRECTION THAT CHANGES THE MITIGATION STORY
+
+  It is tempting to say the connection requirement is what protects a
+  cash buyer — connect first, so you only trade with somebody you have
+  a relationship with.
+
+  THAT IS NO LONGER TRUE BY DEFAULT. V2_00 2.3 changed the ordering
+  gate from mandatory to OPT-IN: SupplierProfile.requires_connection
+  defaults to FALSE, and the reasoning was sound — order accept/decline
+  is a strictly better control, per transaction, with the supplier
+  seeing what is actually being ordered.
+
+  So on the DIRECT rail today the real mitigations are: the supplier's
+  own decline, the per-transaction cap on direct payments (invisible
+  money is what the caps exist to bound), and the verification curtain
+  keeping unverified suppliers unreachable. Not the connection.
+
+  WORTH DECIDING SEPARATELY (Part 7): whether requires_connection should
+  default TRUE for suppliers who accept DIRECT payment. It is the one
+  place where the old instinct and the new gate could be reconciled.
+
+
+===========================================================================
+PART 2 — THE STATES
+===========================================================================
+
+  ADD
+
+    DISPATCHED     the supplier says it has left them.
+                   dispatched_at.
+                   Optional — see 3.1. Not every informal supplier
+                   will ever tap this, and the design must not break
+                   when they do not.
+
+    COMPLETED      the trade is finished and nothing further is
+                   expected. completed_at, plus completed_by
+                   (BUSINESS | SUPPLIER | SYSTEM) — because "who said
+                   so" is the entire value of the field.
+
+    DISPUTED       the business says it did not arrive, or did not
+                   arrive as ordered. disputed_at, reason.
+                   REACHABLE ON BOTH RAILS, actionable on one.
+
+  KEEP AS IS
+
+    CART, AWAITING_PAYMENT, PENDING_SUPPLIER_APPROVAL, CONFIRMED,
+    DECLINED, CANCELLED.
+
+  WHAT "OPEN" THEN MEANS, and it becomes computable rather than argued
+  about:
+
+    open      = submitted, and not in a terminal state
+    terminal  = DECLINED, CANCELLED, COMPLETED
+                (DISPUTED is NOT terminal — it is the loudest possible
+                 kind of open)
+
+  NOTE WHAT THIS DOES TO EVERY EXISTING QUERY. Sales totals, trust
+  stats, repeat-business counts and performance_stats_for_supplier all
+  currently read status == CONFIRMED and mean "a real sale". Once
+  CONFIRMED can move to COMPLETED, every one of those is silently wrong
+  unless it is changed to read "CONFIRMED or beyond". That migration of
+  MEANING is the largest and least visible part of this work, and it is
+  the part most likely to be missed.
+
+
+===========================================================================
+PART 3 — WHO MARKS IT COMPLETE
+===========================================================================
+
+  THE SUPPLIER ALONE          They know when it left. But they are
+                              already paid on the PayFast rail, it
+                              flatters their own stats, and nobody is
+                              checking — so the incentive points the
+                              wrong way at exactly the moment the
+                              record matters.
+
+  THE BUSINESS ALONE          The honest signal, and the only one a
+                              dispute can rest on. But a shopkeeper
+                              unpacking stock at 6am is not going to
+                              open an app, so orders sit open forever
+                              and we are back where we started.
+
+  BOTH, IN SEQUENCE           Supplier marks DISPATCHED; business
+  + A TIMEOUT                 confirms received (COMPLETED); if neither
+                              happens within N days, a sweep completes
+  ← RECOMMENDED               it as SYSTEM.
+
+  WHY THE TIMEOUT IS THE PART THAT MAKES IT WORK. It is what stops
+  "open forever" without nagging anybody, and TruConnect already has
+  this exact machinery: auto_decline_sweep_job closes orders a supplier
+  never answered, on the same JobSpec contract. A completion sweep is
+  the same shape.
+
+  AND completed_by IS WHY IT IS SAFE. A SYSTEM completion is not
+  evidence of anything and must never be treated as the business
+  confirming receipt — it only means nobody objected in time. A
+  BUSINESS completion is the strong signal. Collapsing the two into one
+  boolean would destroy the only distinction that matters in a dispute.
+
+  3.1  THE SUPPLIER WHO NEVER TAPS ANYTHING
+
+  Most informal suppliers will not mark dispatch. The design must treat
+  DISPATCHED as decoration, never as a precondition: a business can
+  confirm receipt of an order that was never marked dispatched, and the
+  sweep completes orders that were never touched at all. If DISPATCHED
+  becomes required, suppliers who ignore it silently break their
+  customers' rhythm data.
+
+
+===========================================================================
+PART 4 — WHAT IT UNBLOCKS
+===========================================================================
+
+  THE LEDGER BADGE BECOMES HONEST. D can then define open as
+  "not terminal" and include CONFIRMED, which is what Mandla asked for:
+  a business who paid this morning sees their order, and it clears when
+  the trade finishes.
+
+  THE RHYTHM GETS MEASURED FROM ARRIVAL. reorder_gap takes a list of
+  dates; feeding it completed_at rather than submitted_at is a one-line
+  change at the call site and makes "due to reorder" mean what it says.
+  KEEP submitted_at AS THE FALLBACK for historical orders that have no
+  completion — never silently drop them from the history.
+
+  RECOURSE BECOMES POSSIBLE ON THE RAIL WHERE WE CAN ACT. A DISPUTED
+  order with a PayFast payment record is a case with evidence attached.
+  It is also the first thing the audit trail has been waiting for — the
+  supplier-side consequence (suspend, revoke verification) already
+  exists in the verification service.
+
+  AND IT FEEDS THE ONE ASSET THAT COMPOUNDS. A completed order with a
+  provider record is third-party-attested: two identified parties, an
+  amount, a date, an outcome. That is the only class of data in this
+  platform that could ever support a lending decision, and today it
+  stops one step short of being a completed fact.
+
+
+===========================================================================
+PART 5 — WHAT MUST NOT HAPPEN
+===========================================================================
+
+  NEVER IMPLY PROTECTION ON A DIRECT ORDER. If the dispute flow looks
+  identical on both rails, a business will reasonably believe paying
+  cash through TruConnect is covered. The wording, and probably the
+  affordance itself, has to differ — a DIRECT dispute records, it does
+  not promise.
+
+  NEVER LET A SUPPLIER SELF-CERTIFY DELIVERY AS PROOF. DISPATCHED is
+  the supplier's claim about their own conduct. It is useful context
+  and it is not evidence.
+
+  NEVER TREAT A SYSTEM COMPLETION AS CONFIRMATION. See Part 3.
+
+  DO NOT BUILD A REFUND MECHANISM HERE. TruConnect holds no funds — the
+  money is at the provider, and anything resembling us returning it
+  makes us a payment intermediary with the licensing that implies. The
+  consequence we control is the supplier's standing on the platform,
+  not the money.
+
+
+===========================================================================
+PART 6 — THE WORK, IN ORDER
+===========================================================================
+
+  1  Migration: three enum values, dispatched_at, completed_at,
+     completed_by, disputed_at, dispute_reason.
+     ALTER TYPE ... ADD VALUE, no downgrade (Postgres cannot remove an
+     enum value — same note as 4b7e1a05c9d2).
+
+  2  Audit the meaning of CONFIRMED across every existing query
+     (Part 2). This is the risky step and it comes before any new
+     behaviour, not after.
+
+  3  Service: mark_dispatched, confirm_received, raise_dispute — with
+     the actor recorded on stock_order_events, which already exists and
+     is append-only.
+
+  4  The completion sweep, on the auto_decline_sweep_job pattern.
+
+  5  Wire "open" in connection_list_service to terminal-state logic and
+     delete the interim OPEN_STATUSES comment.
+
+  6  Feed completed_at into reorder_gap, with submitted_at as fallback.
+
+  7  UI: the two actions, and the rail-dependent dispute wording.
+
+  Steps 1-2 are the ones that can go wrong quietly. 3-7 are ordinary.
+
+
+===========================================================================
+PART 7 — WHAT ONLY MANDLA CAN ANSWER
+===========================================================================
+
+  1  HOW LONG IS THE TIMEOUT? Days from CONFIRMED to a SYSTEM
+     completion. Too short and it completes things that never arrived;
+     too long and the ledger is stale. Suggest 7 days, no evidence.
+
+  2  CAN A DIRECT ORDER BE DISPUTED AT ALL? Recording it costs nothing
+     and builds a pattern — a supplier with many DIRECT disputes is
+     worth looking at even if no single one is actionable. But it must
+     not read as a claims process. Record, or leave the rail silent?
+
+  3  SHOULD requires_connection DEFAULT TRUE FOR SUPPLIERS WHO ACCEPT
+     DIRECT? See 1.1. It is the one place the old connection instinct
+     still has force.
+
+  4  WHO CAN CANCEL AFTER CONFIRMED? Today CANCELLED exists and is
+     reachable by both sides. Once money has moved through PayFast,
+     "cancel" and "dispute" are different things and the UI must not
+     offer the wrong one.
+
+  5  IS DISPUTED VISIBLE TO THE SUPPLIER IMMEDIATELY? A business
+     raising one is an accusation. Immediate visibility invites a phone
+     call that resolves it; it also invites pressure.
+
+
+===========================================================================
+END
+===========================================================================
