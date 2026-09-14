@@ -34,6 +34,8 @@ export function InfoHint({
   size = 16,
   accessibilityLabel,
   trigger,
+  open: openProp,
+  onClose,
 }: {
   title: string;
   /** One or more short paragraphs. An array renders as separate
@@ -46,13 +48,23 @@ export function InfoHint({
    *  verified tick itself, so the badge explains itself rather than
    *  growing a second icon beside it. */
   trigger?: React.ReactNode;
+  /** CONTROLLED MODE. Pass this and the component renders NO trigger at
+   *  all — something else owns the tap. Added so a screen's "⋮" menu
+   *  can open this same explanation card instead of a second one built
+   *  by hand: one modal, one look, one place to change it. */
+  open?: boolean;
+  onClose?: () => void;
 }) {
   const theme = useTheme();
-  const [open, setOpen] = useState(false);
+  const [openInternal, setOpenInternal] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openInternal;
+  const setOpen = (next: boolean) => (controlled ? !next && onClose?.() : setOpenInternal(next));
   const paragraphs = Array.isArray(body) ? body : [body];
 
   return (
     <>
+      {!controlled && (
       <Pressable
         onPress={() => setOpen(true)}
         // Generous hitSlop: the icon is deliberately small so it stays
@@ -64,6 +76,7 @@ export function InfoHint({
       >
         {trigger ?? <Info size={size} color={theme.colors.onSurfaceVariant} strokeWidth={2} />}
       </Pressable>
+      )}
 
       <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>

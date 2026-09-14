@@ -59,10 +59,14 @@ import type { SupplierCollectionAddress } from "../types";
 export function SupplierFulfilmentBlock({
   offersDelivery,
   minimumOrderCents,
+  acceptsDirectPayment,
+  acceptsDigitalPayment,
   address,
 }: {
   offersDelivery: boolean | null;
   minimumOrderCents: number | null;
+  acceptsDirectPayment?: boolean;
+  acceptsDigitalPayment?: boolean;
   address: SupplierCollectionAddress | null;
 }) {
   const theme = useTheme();
@@ -78,6 +82,12 @@ export function SupplierFulfilmentBlock({
     : [];
 
   const showDelivery = offersDelivery !== null;
+  // Only worth a row when it NARROWS the choice. A supplier who
+  // takes both rails tells a business nothing by saying so, and an
+  // extra row that never varies is noise.
+  const directOnly = acceptsDirectPayment === true && acceptsDigitalPayment === false;
+  const onlineOnly = acceptsDigitalPayment === true && acceptsDirectPayment === false;
+  const showPayment = directOnly || onlineOnly;
   const showMinimum = minimumOrderCents !== null;
   const showAddress = addressLines.length > 0;
 
@@ -123,9 +133,29 @@ export function SupplierFulfilmentBlock({
           />
         )}
 
-        {showMinimum && (
+        {showPayment && (
           <>
             {showDelivery && <Divider />}
+            <Row
+              icon={<Wallet size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />}
+              title={directOnly ? "Direct payment only" : "Online payment only"}
+              hint={
+                <InfoHint
+                  title={directOnly ? "Direct payment only" : "Online payment only"}
+                  body={
+                    directOnly
+                      ? "This supplier takes cash, an EFT or a deposit, arranged directly with them. TruConnect doesn't see that money move, so we can't confirm a payment was made or step in if something goes wrong."
+                      : "This supplier is paid through TruConnect's payment provider, so there's a record of what you paid and when. You can't arrange payment with them directly."
+                  }
+                />
+              }
+            />
+          </>
+        )}
+
+        {showMinimum && (
+          <>
+            {(showDelivery || showPayment) && <Divider />}
             <Row
               icon={<Wallet size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />}
               title={`Minimum order ${formatCents(minimumOrderCents)}`}

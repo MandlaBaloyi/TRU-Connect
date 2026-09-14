@@ -242,3 +242,59 @@ def test_update_my_profile_rejects_out_of_range_collection_coordinates(make_supp
         supplier_profile_service.update_my_profile(
             supplier.id, business_name="Bad Coords Co", collection_latitude=999.0, collection_longitude=29.0
         )
+
+
+class TestHowThisSupplierWantsToBePaid:
+    """The two flags existed and were ENFORCED at checkout since the
+    d0e1f2345678 migration -- a business simply could not pay by a
+    method the supplier had not enabled. What did not exist was any way
+    for a supplier to set them, or for anyone to read them: they were in
+    no schema, no service and no response, so every supplier was stuck
+    on the column defaults (direct on, digital off) forever."""
+
+    def test_a_supplier_can_turn_the_digital_rail_on(self, make_supplier):
+        supplier = make_supplier()
+
+        profile = supplier_profile_service.update_my_profile(
+            supplier.id,
+            business_name="Digital Wholesale",
+            accepts_direct_payment=False,
+            accepts_digital_payment=True,
+        )
+
+        assert profile.accepts_digital_payment is True
+        assert profile.accepts_direct_payment is False
+
+    def test_accepting_neither_is_refused(self, make_supplier):
+        """THE TRAP THIS CLOSES. checkout_service checks every method
+        against these flags, so a supplier with both off is not a
+        cash-only supplier -- they are a shopfront that looks open and
+        rejects every order at the final step, with an error message
+        that blames the buyer's choice of payment method."""
+        supplier = make_supplier()
+
+        with pytest.raises(ProfileValidationError) as exc:
+            supplier_profile_service.update_my_profile(
+                supplier.id,
+                business_name="Unpayable Wholesale",
+                accepts_direct_payment=False,
+                accepts_digital_payment=False,
+            )
+
+        # AppError carries the field messages on .errors, not in args.
+        assert any("at least one" in str(m).lower() for m in exc.value.errors)
+
+    def test_a_supplier_who_never_opens_the_screen_keeps_their_rail(self, make_supplier):
+        """The update schema is a FULL REPLACE, so an omitted field is
+        reset to its load_default. Those defaults match the column
+        defaults on purpose -- otherwise a supplier editing their
+        business name would silently lose the rail they were trading
+        on."""
+        from src.domains.supplier.supplier_profile.schemas.supplier_profile_schemas import (
+            UpdateSupplierProfileSchema,
+        )
+
+        data = UpdateSupplierProfileSchema().load({"business_name": "Unchanged Wholesale"})
+
+        assert data["accepts_direct_payment"] is True
+        assert data["accepts_digital_payment"] is False

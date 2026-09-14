@@ -25,6 +25,47 @@
  * This is a factual description of how those payment methods already
  * work (money changes hands directly, off-platform), not a new
  * limitation introduced by adding cancellation.
+ *
+ * ------------------------------------------------------------------
+ * DRAFTING NOTES — NOT RENDERED. Things the platform now does, or is
+ * about to do, that this document does not yet say. Delete a line when
+ * the text covers it.
+ *
+ * 1  THE SUPPLIER CHOOSES THEIR RAILS. accepts_direct_payment and
+ *    accepts_digital_payment are now settable by the Supplier User
+ *    (My Account -> Profile -> How you get paid), and checkout refuses
+ *    any method they have turned off. Section 6 already says a direct
+ *    payment is between the two parties; it does not yet say that the
+ *    SUPPLIER decides which methods exist for a given order, or that a
+ *    supplier must keep at least one enabled.
+ *
+ * 2  "CASH / PROOF OF PAYMENT" IS NOW ONE RAIL CALLED DIRECT. Section 6
+ *    still names the two historical values. They were merged because a
+ *    cap resting on an unverifiable self-declaration is not a cap. The
+ *    old values remain valid on historical orders, so the wording needs
+ *    to cover both without implying they are still offered.
+ *
+ * 3  NOTHING YET SAYS WHEN AN ORDER IS FINISHED. There is no delivered
+ *    or completed state (see docs/v2/V2_14), so the document cannot
+ *    currently define when TruConnect considers a transaction closed,
+ *    how long a Business User has to raise a problem, or what a
+ *    Supplier User is taken to have agreed by not responding. When
+ *    V2_14 is built this becomes a real section, and the timeout in it
+ *    is a term, not an implementation detail.
+ *
+ * 4  DISPUTES WILL DIFFER BY RAIL, AND THE DOCUMENT MUST SAY SO. On the
+ *    payment-provider rail there is a record and TruConnect can act
+ *    against a Supplier User's standing (suspension, revoked
+ *    verification). On the direct rail there is no record and the
+ *    consequence is recording only. Writing one dispute process for
+ *    both would promise protection that does not exist on the rail most
+ *    informal trade actually uses.
+ *
+ * 5  TRUCONNECT NEVER HOLDS FUNDS, and no future dispute or
+ *    cancellation wording may imply otherwise -- money sits with the
+ *    payment provider, and TruConnect returning it would make it a
+ *    payment intermediary with the licensing that implies.
+ * ------------------------------------------------------------------
  */
 import React from "react";
 import {

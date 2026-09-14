@@ -47,6 +47,8 @@ export function useSupplierProfileField() {
       shareContactDetails: profile.shareContactDetails,
       offersDelivery: profile.offersDelivery,
       minimumOrderCents: profile.minimumOrderCents,
+      acceptsDirectPayment: profile.acceptsDirectPayment,
+      acceptsDigitalPayment: profile.acceptsDigitalPayment,
       collectionBuilding: profile.collectionBuilding,
       collectionStreet: profile.collectionStreet,
       collectionSuburb: profile.collectionSuburb,

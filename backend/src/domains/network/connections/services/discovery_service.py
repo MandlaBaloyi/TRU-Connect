@@ -152,6 +152,12 @@ def get_supplier_profile(business_id: str | UUID, supplier_profile_id: str | UUI
     # cart. Contrast collectionAddress below, which is a real street
     # address and stays connection-only.
     profile["offersDelivery"] = supplier.offers_delivery
+    # BEFORE THE CART, NOT AT CHECKOUT. Without these the business
+    # builds a whole basket, picks a method, and only then learns the
+    # supplier does not take it -- checkout_service raises a perfectly
+    # clear error at the worst possible moment.
+    profile["acceptsDirectPayment"] = supplier.accepts_direct_payment
+    profile["acceptsDigitalPayment"] = supplier.accepts_digital_payment
     profile["minimumOrderCents"] = supplier.minimum_order_cents
 
     # ---- SOCIAL PROOF + REAL TRACK RECORD, all ungated ----------------

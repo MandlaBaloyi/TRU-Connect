@@ -132,6 +132,13 @@ export interface SupplierProfilePreview {
    *  their terms and must never render as "collection only".
    *  minimumOrderCents null means no minimum (never 0). */
   offersDelivery: boolean | null;
+  /** WHICH RAILS THIS SUPPLIER ACCEPTS. Shown before the basket is
+   *  built, not at checkout: the backend enforces these and would
+   *  otherwise refuse the order at the last step, after the work of
+   *  choosing everything. Not tri-state — every supplier has a real
+   *  answer, defaulting to direct-on / online-off. */
+  acceptsDirectPayment?: boolean;
+  acceptsDigitalPayment?: boolean;
   minimumOrderCents: number | null;
   /** Who sent the connection request — null when there isn't one. */
   connectionInitiatedBy: ConnectionInitiator | null;

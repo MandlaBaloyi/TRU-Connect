@@ -53,6 +53,8 @@ interface MockSupplier {
   coverImageUrl: string | null;
   productCount: number;
   offersDelivery: boolean | null;
+  acceptsDirectPayment?: boolean;
+  acceptsDigitalPayment?: boolean;
   minimumOrderCents: number | null;
 }
 
@@ -74,6 +76,10 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     productCount: 3,
     offersDelivery: true,
     minimumOrderCents: 50000,
+    // Takes both rails -- the payment row stays hidden, which is
+    // the point: it only appears when it narrows the choice.
+    acceptsDirectPayment: true,
+    acceptsDigitalPayment: true,
   },
   {
     id: "sup_002",
@@ -89,6 +95,9 @@ const MOCK_SUPPLIERS: MockSupplier[] = [
     productCount: 0,
     offersDelivery: false,
     minimumOrderCents: null,
+    // Direct only -- shows the row, and the warning behind its ⓘ.
+    acceptsDirectPayment: true,
+    acceptsDigitalPayment: false,
   },
   {
     id: "sup_003",

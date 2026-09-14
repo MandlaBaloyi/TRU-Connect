@@ -105,6 +105,8 @@ def _to_dto(profile) -> dict:
         "tiktokHandle": profile.tiktok_handle,
         "shareContactDetails": profile.share_contact_details,
         "offersDelivery": profile.offers_delivery,
+        "acceptsDirectPayment": profile.accepts_direct_payment,
+        "acceptsDigitalPayment": profile.accepts_digital_payment,
         "minimumOrderCents": profile.minimum_order_cents,
         "showLastActive": profile.show_last_active,
         # The supplier's OWN last-active timestamp, so the settings row

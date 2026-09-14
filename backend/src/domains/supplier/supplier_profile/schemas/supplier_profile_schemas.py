@@ -66,6 +66,16 @@ class UpdateSupplierProfileSchema(Schema):
     # Defaults TRUE here to match the column -- see its own comment on
     # why this one defaults on where show_last_active defaults off.
     show_track_record = fields.Bool(required=False, load_default=True)
+    # HOW THIS SUPPLIER WANTS TO BE PAID, and the load_defaults MATCH
+    # THE COLUMN DEFAULTS deliberately: this schema is applied as a full
+    # replace, so a field the client omits is reset to its default. A
+    # supplier who has never opened the payment screen must come out the
+    # way they went in -- direct on, digital off -- rather than silently
+    # losing the rail they were trading on.
+    #
+    # The service refuses to let BOTH be false: see its own comment.
+    accepts_direct_payment = fields.Bool(required=False, load_default=True)
+    accepts_digital_payment = fields.Bool(required=False, load_default=False)
     # The supplier's own premises -- all optional, same reasoning as
     # every other optional field here: a supplier who hasn't set this
     # up yet still has a fully working profile otherwise.

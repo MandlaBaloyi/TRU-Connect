@@ -224,6 +224,8 @@ export default function SupplierProfileScreen() {
         <SupplierFulfilmentBlock
           offersDelivery={supplier.offersDelivery}
           minimumOrderCents={supplier.minimumOrderCents}
+          acceptsDirectPayment={supplier.acceptsDirectPayment}
+          acceptsDigitalPayment={supplier.acceptsDigitalPayment}
           address={supplier.collectionAddress}
         />
 

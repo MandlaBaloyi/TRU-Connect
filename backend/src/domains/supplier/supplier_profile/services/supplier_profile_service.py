@@ -98,6 +98,8 @@ def update_my_profile(
     minimum_order_cents: Optional[int] = None,
     show_last_active: bool = False,
     show_track_record: bool = True,
+    accepts_direct_payment: bool = True,
+    accepts_digital_payment: bool = False,
     collection_building: Optional[str] = None,
     collection_street: Optional[str] = None,
     collection_suburb: Optional[str] = None,
@@ -113,6 +115,17 @@ def update_my_profile(
         business_name = normalize_business_name(business_name)
     except ValueError as exc:
         errors.extend(exc.args[0])
+
+    # A SUPPLIER WITH NO PAYMENT RAIL CANNOT BE PAID, and checkout
+    # already refuses every method against these two flags -- so turning
+    # both off does not produce a supplier who takes cash only, it
+    # produces a shopfront that looks open and rejects every order at
+    # the last step. Caught here rather than discovered there.
+    if not accepts_direct_payment and not accepts_digital_payment:
+        errors.append(
+            "Choose at least one way to be paid. A supplier who accepts neither "
+            "cannot receive orders."
+        )
 
     if category is not None and len(category) > MAX_CATEGORY_LENGTH:
         errors.append(f"Category must be {MAX_CATEGORY_LENGTH} characters or fewer.")
@@ -170,6 +183,8 @@ def update_my_profile(
         "minimum_order_cents": minimum_order_cents,
         "show_last_active": show_last_active,
         "show_track_record": show_track_record,
+        "accepts_direct_payment": accepts_direct_payment,
+        "accepts_digital_payment": accepts_digital_payment,
         "collection_building": collection_building.strip() if collection_building else None,
         "collection_street": collection_street.strip() if collection_street else None,
         "collection_suburb": collection_suburb.strip() if collection_suburb else None,

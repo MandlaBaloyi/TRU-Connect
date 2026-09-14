@@ -93,6 +93,14 @@ export interface SupplierProfileData {
   /** TRI-STATE: null until the supplier actually chooses. */
   offersDelivery: boolean | null;
   minimumOrderCents: number | null;
+  /** WHICH RAILS THIS SUPPLIER WILL BE PAID ON. Enforced at
+   *  checkout since the backend shipped them -- a business cannot
+   *  pay by a method that is off. NOT tri-state, unlike
+   *  offersDelivery above: every supplier has a real answer here
+   *  from the moment they exist, because the columns default to
+   *  direct-on / digital-off and checkout reads them immediately. */
+  acceptsDirectPayment: boolean;
+  acceptsDigitalPayment: boolean;
   /** The supplier's own fixed premises -- what a connected business
    *  sees as "Collect from" on the profile, and at checkout when they
    *  choose COLLECT. Structured (not one text blob) because the
@@ -167,6 +175,10 @@ let mockProfile: SupplierProfileData = {
   shareContactDetails: false,
   offersDelivery: null,
   minimumOrderCents: null,
+  // Mirrors the column defaults exactly. A different default here
+  // would show a supplier a rail they are not actually on.
+  acceptsDirectPayment: true,
+  acceptsDigitalPayment: false,
   collectionBuilding: null,
   collectionStreet: null,
   collectionSuburb: null,
@@ -212,6 +224,8 @@ export async function updateMyProfile(input: SupplierProfileData): Promise<Suppl
     share_contact_details: input.shareContactDetails,
     offers_delivery: input.offersDelivery,
     minimum_order_cents: input.minimumOrderCents,
+    accepts_direct_payment: input.acceptsDirectPayment,
+    accepts_digital_payment: input.acceptsDigitalPayment,
     collection_building: input.collectionBuilding,
     collection_street: input.collectionStreet,
     collection_suburb: input.collectionSuburb,
