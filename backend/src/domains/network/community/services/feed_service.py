@@ -82,11 +82,21 @@ def _business_feed(business_id) -> List[dict]:
                                its first order.
       6  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      7  NOT ORDERED YET       suppliers in reach they have never
+      7  THEY JOINED BECAUSE   suppliers this shop personally invited,
+         OF YOU                who signed up and got verified. Above
+                               cold discovery because these are people
+                               the shopkeeper already trades with
+                               offline and vouched for hard enough to
+                               go and recruit -- and because inviting
+                               somebody was, until now, the one action
+                               in this app that got no reply at all.
+                               RARE, so it costs the rails below it
+                               nothing on the days it is absent.
+      8  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-      8  COLLECT NEAR YOU      growth, last. The only section asking
+      9  COLLECT NEAR YOU      growth, last. The only section asking
                                them to start something rather than
                                continue it -- the same reason
                                businesses_near_you sits last for the
@@ -103,6 +113,7 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.moving_fast(business_id),
         business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),
+        business_sections.invited_suppliers(business_id),
         business_sections.not_ordered_from_yet(business_id),
         business_sections.collect_near_you(business_id),
     ]

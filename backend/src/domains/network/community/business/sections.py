@@ -200,6 +200,95 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
     }
 
 
+def invited_suppliers(business_id, limit: int = 10) -> Optional[dict]:
+    """Suppliers who joined because THIS business invited them.
+
+    THE ONE LOOP THE FEED NEVER CLOSED. Inviting a supplier is the most
+    effort a shopkeeper can put into this platform -- they leave the
+    app, message somebody they already trade with, and talk them into
+    signing up. Until now the app said nothing afterwards. No "they
+    joined", no "still waiting". The single most invested action a user
+    can take had no reply, which is the surest way to make sure nobody
+    does it twice.
+
+    ONE CARD IS ENOUGH HERE, unlike every other rail on this screen.
+    MIN_ITEMS_PER_RAIL exists because a discovery rail with two cards
+    looks broken -- it implies a thin catalogue. This rail is not
+    discovery: "Thabo Beverages joined because you invited them" is a
+    complete thought on its own, and padding it would be the mistake.
+
+    THE CURTAIN IS NOT RELAXED FOR IT. An invited supplier who has
+    registered but not been verified does NOT appear -- they are hidden
+    from buyers like any other unverified supplier (V2_15 Part 12: the
+    curtain never relaxes, not for sponsorship, not for demo, not for a
+    thin rail). The waiting count in the subtitle is a NUMBER, never a
+    name, so nothing here tells a business that a particular email now
+    has an account.
+
+        WORTH A DECISION LATER, and flagged rather than taken here: a
+        business that invited somebody arguably already knows they
+        exist, so showing them pre-verification leaks nothing new to
+        that reader. That is a real argument for a narrow exception --
+        and a curtain exception is exactly the kind of thing that
+        should be decided deliberately, not introduced by a feed rail.
+    """
+    from src.domains.network.connections.models.network_invitation import (
+        InvitationStatus,
+        InvitedRole,
+    )
+    from src.domains.network.connections.repositories.network_invitation_repository import (
+        NetworkInvitationRepository,
+    )
+    from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
+        SupplierProfileRepository,
+    )
+    from src.domains.verification.visibility import is_visible_to_buyers
+
+    invitations = NetworkInvitationRepository.list_sent_by(business_id, InvitedRole.SUPPLIER)
+    if not invitations:
+        return None
+
+    waiting = sum(1 for i in invitations if i.status == InvitationStatus.PENDING)
+
+    joined = []
+    for invitation in invitations:
+        if invitation.status == InvitationStatus.PENDING or not invitation.invited_user_id:
+            continue
+        profile = SupplierProfileRepository.get_by_supplier_id(invitation.invited_user_id)
+        # THE GATE, and it is the sanctioned helper rather than a
+        # verification_status comparison written out here -- the curtain
+        # is defined in one module and the architecture test enforces
+        # that (tests/architecture/test_verification_curtain.py).
+        if profile is None or not is_visible_to_buyers(profile):
+            continue
+        joined.append(profile)
+
+    if not joined:
+        return None
+
+    connected = connected_supplier_ids(business_id)
+
+    return {
+        "id": "invited-suppliers",
+        "type": "SUPPLIER_RAIL",
+        "title": "They joined because of you",
+        "subtitle": _invitation_subtitle(waiting),
+        "suppliers": feed_suppliers(joined[:limit], connected_ids=connected),
+    }
+
+
+def _invitation_subtitle(waiting: int) -> Optional[str]:
+    """A COUNT, NEVER A NAME. Saying "waiting on joe@example.com" would
+    confirm to the reader that a particular address does or does not
+    have an account, which is the supplier's business and not theirs --
+    even though they supplied the address themselves."""
+    if waiting <= 0:
+        return "Suppliers you brought to TruConnect"
+    if waiting == 1:
+        return "1 more invitation still waiting"
+    return f"{waiting} more invitations still waiting"
+
+
 # ---------------------------------------------------------------------------
 # Tell us what you buy  --  the only thing that asks for a declaration
 # ---------------------------------------------------------------------------

@@ -38,6 +38,29 @@ class NetworkInvitationRepository:
         return invitation
 
     @staticmethod
+    def list_sent_by(inviter_id: str | UUID, invited_role: InvitedRole) -> List[NetworkInvitation]:
+        """Every invitation this account sent to that kind of person,
+        newest first.
+
+        NO STATUS FILTER, deliberately: the caller wants all three
+        states at once -- who joined, who registered, who has not
+        answered -- and three queries to assemble one count would be
+        three round trips for arithmetic.
+
+        EXPIRED ONES STILL COME BACK. An invitation whose ticket has
+        expired is still something this business DID, and the cleanup
+        job (jobs/expired_invitations_cleanup_job.py) is what decides
+        when it stops existing. A caller that cares can read expires_at.
+        """
+        return (
+            NetworkInvitation.query.filter_by(
+                inviter_id=inviter_id, invited_role=invited_role, is_deleted=False
+            )
+            .order_by(NetworkInvitation.created_at.desc())
+            .all()
+        )
+
+    @staticmethod
     def get_by_ticket_hash(ticket_hash: str) -> Optional[NetworkInvitation]:
         return NetworkInvitation.query.filter_by(ticket_hash=ticket_hash, is_deleted=False).first()
 
