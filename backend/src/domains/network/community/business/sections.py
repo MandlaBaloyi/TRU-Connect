@@ -110,6 +110,90 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Stock for what you buy  --  THE DEMAND ENGINE'S FIRST CONSUMER
+# ---------------------------------------------------------------------------
+
+#: No single supplier may own this rail. A wholesaler with four hundred
+#: products would otherwise fill it entirely -- their catalogue is
+#: simply bigger, and "more matches" is not "better for this shop".
+#:
+#: Coverage is still rewarded: below the cap, whoever stocks more of
+#: what this shop buys appears more. Above it the rail makes room. See
+#: docs/v2/V2_15 Book Two 7.4.
+MAX_CARDS_PER_SUPPLIER = 3
+
+
+def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
+    """Products in the categories this shop SAID it buys.
+
+    THE FIRST THING THAT READS THE DEMAND ENGINE, and the whole argument
+    for asking the questions at all: a shop that fills in the form gets
+    a better feed THE SAME DAY, before it has placed a single order.
+
+    Without it, a new business waits months of order history before the
+    feed knows anything about them -- which is the cold-start hole every
+    recommender falls into, and the reason declaration earns its place
+    (Book Three Part 8).
+
+    IT ASKS THE ENGINE, NOT THE PROFILE. needs_service is the only
+    module the feed may call, so when the model gains an observed layer
+    and a nightly rebuild, this source does not change at all.
+
+    THE SUBTITLE SAYS WHY, DELIBERATELY. "Based on what you told us you
+    buy" is the reason string V2_15 Book Two Part 3 requires -- it
+    explains the rail, and it makes answering the next question feel
+    worth doing.
+    """
+    from src.domains.business.demand.services import needs_service
+    from src.domains.catalogue.discovery.services import browse_service
+
+    needs = needs_service.needs_for(business_id)
+    if not needs.is_known:
+        # Nothing declared. NOT an empty rail -- a shop that has told us
+        # nothing should see the platform-wide sections instead, not a
+        # heading with nothing under it.
+        return None
+
+    result = browse_service.browse_category(
+        business_id=business_id,
+        categories=needs.category_values,
+        # Over-fetch, because the supplier cap below removes cards and a
+        # thin rail is worse than none.
+        limit=limit * 3,
+    )
+
+    products = _cap_per_supplier(result.get("products") or [], MAX_CARDS_PER_SUPPLIER)
+    if len(products) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    return {
+        "id": "stock-for-you",
+        "type": "PRODUCT_RAIL",
+        "title": "Stock for your shop",
+        "subtitle": "Based on what you told us you buy",
+        "products": products[:limit],
+    }
+
+
+def _cap_per_supplier(products: List[dict], cap: int) -> List[dict]:
+    """Keep the rail a MARKET rather than one wholesaler's shelf.
+
+    ORDER IS PRESERVED, so whatever ranking produced the list survives;
+    this only removes a supplier's fourth, fifth and fortieth card.
+    """
+    seen: dict = {}
+    kept = []
+    for product in products:
+        supplier_id = product.get("supplierId")
+        count = seen.get(supplier_id, 0)
+        if count >= cap:
+            continue
+        seen[supplier_id] = count + 1
+        kept.append(product)
+    return kept
+
+
+# ---------------------------------------------------------------------------
 # Your suppliers
 # ---------------------------------------------------------------------------
 

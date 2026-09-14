@@ -62,13 +62,18 @@ def _business_feed(business_id) -> List[dict]:
       2  BUY IT AGAIN          their own restocking list. The highest-
                                value rail in the app, and the reason a
                                shopkeeper opens this tab at all.
-      3  YOUR SUPPLIERS        the fastest path back to a shopfront
+      3  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
+                               own history, which is evidence, and
+                               above everything else, because it is the
+                               only personal section a shop has before
+                               its first order.
+      4  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      4  NOT ORDERED YET       suppliers in reach they have never
+      5  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-      5  COLLECT NEAR YOU      growth, last. The only section asking
+      6  COLLECT NEAR YOU      growth, last. The only section asking
                                them to start something rather than
                                continue it -- the same reason
                                businesses_near_you sits last for the
@@ -81,6 +86,7 @@ def _business_feed(business_id) -> List[dict]:
     sections = [
         business_sections.category_chips(),
         business_sections.buy_it_again(business_id),
+        business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),
         business_sections.not_ordered_from_yet(business_id),
         business_sections.collect_near_you(business_id),

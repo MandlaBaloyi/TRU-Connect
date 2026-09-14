@@ -23,6 +23,7 @@ def browse_category(
     *,
     business_id: Optional[str | UUID] = None,
     category: Optional[str] = None,
+    categories: Optional[List[str]] = None,
     search: Optional[str] = None,
     limit: int = 24,
     offset: int = 0,
@@ -36,7 +37,7 @@ def browse_category(
     because this is the screen a brand-new user reaches first.
     """
     groups = catalogue_browse_repository.browse(
-        category=category, search=search, limit=limit, offset=offset
+        category=category, categories=categories, search=search, limit=limit, offset=offset
     )
     if not groups:
         return {"products": [], "hasMore": False}

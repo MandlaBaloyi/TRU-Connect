@@ -51,6 +51,7 @@ _OVERFETCH = 4
 def browse(
     *,
     category: Optional[str] = None,
+    categories: Optional[List[str]] = None,
     search: Optional[str] = None,
     limit: int = 24,
     offset: int = 0,
@@ -81,7 +82,13 @@ def browse(
         )
     )
 
-    if category:
+    # SEVERAL CATEGORIES IN ONE QUERY, because the demand engine asks
+    # for everything a shop buys at once. Looping a single-category
+    # browse would be one query per declared category -- the N+1 this
+    # codebase has removed three times now, arriving by a new route.
+    if categories:
+        query = query.filter(SupplierOffer.category.in_(categories))
+    elif category:
         query = query.filter(SupplierOffer.category == category)
 
     if search:
