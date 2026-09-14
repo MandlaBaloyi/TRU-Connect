@@ -1493,9 +1493,31 @@ PART 14 — ORDER OF WORK
          built (tell_us_what_you_buy); the CARD is UI and deferred with
          the rest of the UI pass.
 
-  PHASE 3 — IT TELLS US THINGS
-   12  gap_service (Part 10)
-   13  catalogue holes into the review queue
+  PHASE 3 — IT TELLS US THINGS                                 [PART]
+   12  gap_service (Part 10)                                   done
+         unserved demand, counted, with a privacy floor beneath it
+         (MIN_SHOPS_TO_REPORT) and `flask demand gaps` to read it.
+         Reuses reconciliation.merge rather than re-asking the
+         question in SQL, so the rule stays in one place.
+   13  catalogue holes into the review queue        NOT BUILDABLE YET
+         AS WRITTEN THIS ASSUMES SHOPS DECLARE PRODUCTS. The form
+         collects CATEGORIES (buys_categories, reshaped in C.1), so
+         there is no unmatched product NAME to put in the queue -- a
+         category is not a matching failure, it is a heading.
+
+         It becomes buildable the day the form asks "what do you
+         struggle to find?" in free text, which is the same question
+         Part 15 asks about supplier names and has the same answer:
+         one more field, only if it earns its place.
+
+   ALSO OUT: geographic gaps and supplier leads, both named in Part 10.
+   Geography needs coordinates most shops do not have (flaw B.5), and
+   leads need names the form does not ask for (Part 3).
+
+   THE PART OF PHASE 3 THAT REMAINS is the snapshot table deferred from
+   Phase 1 item 7 -- and it is still not needed. gap_service answers
+   the aggregate question in two platform-wide queries without one.
+   It earns its place when that stops being fast enough, measured.
 
   PHASE 4 — IT LEARNS
    14  impressions (V2_16 Part 11)
