@@ -1,7 +1,9 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { CategoryImage } from "@/components/categories";
 import { useTheme } from "react-native-paper";
-import { Package, Plus } from "lucide-react-native";
+import { Plus } from "lucide-react-native";
 
 import { ProductActionsRow } from "@/components/products/ProductActionsRow";
 import { calculateDiscount } from "../../../supplier/products/algorithms/discount";
@@ -82,13 +84,10 @@ export function SupplierCatalogProductCard({ product, onPress, cardStyle, onAddT
       accessibilityLabel={`View ${product.name}`}
     >
       <View style={[styles.imageWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
-        {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.image} resizeMode="contain" />
-        ) : (
-          <View style={styles.fallback}>
-            <Package size={28} color={theme.colors.onSurfaceVariant} strokeWidth={1.5} />
-          </View>
-        )}
+        {/* See ProductCard -- one chain, one behaviour: photo, then the
+            category tile, then neutral, with a dead URL falling through
+            rather than rendering an empty box. */}
+        <CategoryImage photoUrl={photoUrl} category={product.category} fill resizeMode="contain" />
         {discount && (
           <View style={[styles.discountBadge, { backgroundColor: theme.colors.error }]}>
             <Text style={styles.discountBadgeText}>{discount.percentOff}% OFF</Text>
@@ -203,8 +202,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  image: { width: "100%", height: "100%" },
-  fallback: { alignItems: "center", justifyContent: "center" },
   discountBadge: { position: "absolute", top: spacing.xs, left: spacing.xs, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3 },
   discountBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   outOfStockOverlay: {

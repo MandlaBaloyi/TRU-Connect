@@ -19,9 +19,11 @@
  */
 
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { CategoryImage } from "@/components/categories";
 import { useTheme } from "react-native-paper";
-import { Archive, Check, Package, Pin } from "lucide-react-native";
+import { Archive, Check, Pin } from "lucide-react-native";
 
 import type { Product } from "../types";
 import type { InventoryStatus } from "../../inventory/types";
@@ -95,11 +97,16 @@ export function ProductCard({
       )}
 
       <View style={[styles.thumb, { backgroundColor: theme.colors.surfaceVariant }]}>
-        {product.images.length > 0 ? (
-          <Image source={{ uri: product.images[0] }} style={styles.thumbImage} />
-        ) : (
-          <Package size={22} color={theme.colors.onSurfaceVariant} strokeWidth={1.75} />
-        )}
+        {/* Photo, else the CATEGORY tile, else a neutral square -- and a
+            broken URL now falls through instead of rendering nothing.
+            This used to be a generic Package glyph, identical for a bag
+            of maize meal and a box of hair relaxer. */}
+        <CategoryImage
+          photoUrl={product.images[0]}
+          category={product.category}
+          fill
+          resizeMode="cover"
+        />
         {discount && (
           <View style={[styles.saleBadge, { backgroundColor: theme.colors.error }]}>
             <Text style={styles.saleBadgeText}>{discount.percentOff}% OFF</Text>
@@ -166,7 +173,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  thumbImage: { width: "100%", height: "100%" },
   saleBadge: {
     position: "absolute",
     bottom: 2,

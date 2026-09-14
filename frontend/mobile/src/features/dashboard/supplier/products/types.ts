@@ -39,57 +39,20 @@ export type Cents = number;
 export type StockStatus = "IN_STOCK" | "OUT_OF_STOCK";
 
 /**
- * TRU-CONNECT-CONTROLLED taxonomy, not free text and not
- * supplier-created -- free text fragments badly across suppliers
- * ("Drinks" vs "drinks" vs "Beverages"), which breaks filtering and
- * search the moment more than one supplier is on the platform. Flat
- * list (not nested) matching exactly what was reviewed and approved --
- * "Food & Grocery" is its own catch-all value alongside the more
- * specific food categories, not a parent/section header, since that's
- * how it was shown in the approved Select Category example (no
- * indentation, no grouping).
+ * MOVED to src/constants/productCategories.ts and re-exported here.
  *
- * Picked via a searchable picker (components/CategoryPickerModal.tsx),
- * never rendered as 16 buttons on the Add Product form -- that's
- * exactly the "ugly at scale" problem flagged in review, same
- * reasoning that already applied to keeping stock_status to two states.
+ * The taxonomy belongs to neither role -- a supplier files a product
+ * under it, a business filters by it -- and three business screens were
+ * importing it from this supplier feature folder through
+ * "../../../supplier/products/types", which is the wrong direction. The
+ * re-export keeps every one of those imports working; new code should
+ * reach for @/constants/productCategories directly.
  */
-export type ProductCategory =
-  | "FOOD_GROCERY"
-  | "BEVERAGES"
-  | "SNACKS_CONFECTIONERY"
-  | "BAKERY"
-  | "DAIRY_CHILLED"
-  | "FRESH_PRODUCE"
-  | "MEAT_FROZEN"
-  | "HOUSEHOLD_CLEANING"
-  | "PERSONAL_CARE"
-  | "BABY_FAMILY"
-  | "STATIONERY_SCHOOL"
-  | "HARDWARE_GENERAL"
-  | "ELECTRONICS_ACCESSORIES"
-  | "PACKAGING_DISPOSABLE"
-  | "CLOTHING_APPAREL"
-  | "OTHER";
+import type { ProductCategory } from "@/constants/productCategories";
 
-export const CATEGORY_OPTIONS: { value: ProductCategory; label: string }[] = [
-  { value: "FOOD_GROCERY", label: "Food & Grocery" },
-  { value: "BEVERAGES", label: "Beverages" },
-  { value: "SNACKS_CONFECTIONERY", label: "Snacks & Confectionery" },
-  { value: "BAKERY", label: "Bakery" },
-  { value: "DAIRY_CHILLED", label: "Dairy & Chilled" },
-  { value: "FRESH_PRODUCE", label: "Fresh Produce" },
-  { value: "MEAT_FROZEN", label: "Meat & Frozen" },
-  { value: "HOUSEHOLD_CLEANING", label: "Household & Cleaning" },
-  { value: "PERSONAL_CARE", label: "Personal Care" },
-  { value: "BABY_FAMILY", label: "Baby & Family" },
-  { value: "STATIONERY_SCHOOL", label: "Stationery & School" },
-  { value: "HARDWARE_GENERAL", label: "Hardware & General" },
-  { value: "ELECTRONICS_ACCESSORIES", label: "Electronics & Accessories" },
-  { value: "PACKAGING_DISPOSABLE", label: "Packaging & Disposable" },
-  { value: "CLOTHING_APPAREL", label: "Clothing & Apparel" },
-  { value: "OTHER", label: "Other" },
-];
+// Re-exported for the callers that already import it from here.
+export type { ProductCategory } from "@/constants/productCategories";
+export { CATEGORY_OPTIONS, categoryLabel } from "@/constants/productCategories";
 
 /**
  * Expanded from 3 to 12 per review -- "allow the backend to add more
