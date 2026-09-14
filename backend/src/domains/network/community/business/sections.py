@@ -120,6 +120,86 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
     }
 
 
+def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
+    """Products selling faster than they usually do -- in the categories
+    THIS shop buys.
+
+    NOT A BESTSELLER LIST, and the distinction is the whole reason it
+    exists. A bestseller is a product that has always sold well, which a
+    shopkeeper already knows about; this is a product selling faster
+    than ITSELF. Maize meal before a long weekend, cooldrink in a
+    heatwave, stationery in January. The judgement lives in
+    algorithms/velocity.py, deliberately, where the numbers can be read
+    as the guesses they are.
+
+    IT ASKS THE DEMAND ENGINE FIRST. A spike in nappies means nothing to
+    a shop that does not sell them, and an unfiltered version of this
+    rail would be a platform leaderboard wearing a personal title --
+    which is also how one wholesaler's volume would start deciding what
+    everybody sees. Filtering to the shop's own categories keeps it
+    personal AND keeps the anti-domination property the whole
+    demand-first design is built on.
+
+    TWO QUERIES, both windowed aggregates over the whole platform, and
+    they do not grow with the number of products on the rail.
+    """
+    from datetime import timedelta
+
+    from src.core.base_model import utcnow
+    from src.domains.business.demand.services import needs_service
+    from src.domains.network.community.algorithms import velocity
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
+    needs = needs_service.needs_for(business_id)
+    if not needs.is_known:
+        # WE DO NOT KNOW WHAT THEY SELL, so "moving fast" could only be
+        # a platform-wide list. Better to show nothing and let the
+        # declaration prompt do its job.
+        return None
+
+    now = utcnow()
+    recent_since = now - timedelta(days=velocity.RECENT_DAYS)
+    baseline_since = recent_since - timedelta(days=velocity.BASELINE_DAYS)
+
+    recent = StockOrderRepository.units_sold_by_product(since=recent_since)
+    if not recent:
+        return None
+    baseline = StockOrderRepository.units_sold_by_product(
+        since=baseline_since, until=recent_since
+    )
+
+    # Over-fetch: the category filter and the supplier cap below both
+    # remove cards, and a thin rail is worse than none.
+    rising = velocity.rising_products(recent, baseline, limit=limit * 4)
+    if not rising:
+        return None
+
+    wanted = set(needs.category_values)
+    pairs = [
+        (offer, name)
+        for offer, name in visible_offers(rising)
+        if offer.category and offer.category.value in wanted
+    ]
+    if len(pairs) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    products = _cap_per_supplier(feed_products(pairs), MAX_CARDS_PER_SUPPLIER)
+    if len(products) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    return {
+        "id": "moving-fast",
+        "type": "PRODUCT_RAIL",
+        "title": "Moving fast right now",
+        # THE REASON STRING, and it has to stay true like every other
+        # one: this is about the last week, not about all time.
+        "subtitle": f"Selling quicker than usual in the last {velocity.RECENT_DAYS} days",
+        "products": products[:limit],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tell us what you buy  --  the only thing that asks for a declaration
 # ---------------------------------------------------------------------------

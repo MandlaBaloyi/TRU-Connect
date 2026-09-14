@@ -67,18 +67,26 @@ def _business_feed(business_id) -> List[dict]:
       3  BUY IT AGAIN          their own restocking list. The highest-
                                value rail in the app, and the reason a
                                shopkeeper opens this tab at all.
-      4  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
+      4  MOVING FAST           things selling quicker than usual, in
+                               the categories this shop buys. Above
+                               "stock for your shop" because it is
+                               TIME-SENSITIVE: the same product will
+                               still be there next week, the reason to
+                               look at it today will not. Below "buy it
+                               again" because a shop's own restock list
+                               beats anything the market is doing.
+      5  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
                                own history, which is evidence, and
                                above everything else, because it is the
                                only personal section a shop has before
                                its first order.
-      5  YOUR SUPPLIERS        the fastest path back to a shopfront
+      6  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      6  NOT ORDERED YET       suppliers in reach they have never
+      7  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-      7  COLLECT NEAR YOU      growth, last. The only section asking
+      8  COLLECT NEAR YOU      growth, last. The only section asking
                                them to start something rather than
                                continue it -- the same reason
                                businesses_near_you sits last for the
@@ -92,6 +100,7 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.category_chips(),
         business_sections.tell_us_what_you_buy(business_id),
         business_sections.buy_it_again(business_id),
+        business_sections.moving_fast(business_id),
         business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),
         business_sections.not_ordered_from_yet(business_id),

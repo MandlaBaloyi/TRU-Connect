@@ -142,9 +142,20 @@ def _affordable_first(cards: List[dict], max_line_cents: Optional[int]) -> List[
 def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
     """The card shape, matching the feed's FeedProduct so one component
     renders both."""
+    from src.shared.algorithms import social_proof
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
     from src.domains.supplier.products.services import product_media_service
     from src.domains.supplier.supplier_profile.repositories.supplier_profile_repository import (
         SupplierProfileRepository,
+    )
+
+    # ONE COUNT QUERY FOR THE PAGE. Same batching rule as everything
+    # else in this file -- the whole reason it exists is that the
+    # alternative is four lookups per card.
+    buyer_counts = StockOrderRepository.buyer_counts_for_products(
+        [offer.id for offer, _ in chosen_by_group]
     )
 
     # One name lookup per SUPPLIER, not per card -- a page of 24 drinks
@@ -180,6 +191,11 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
                 # does, this card starts saying "also from 3 suppliers"
                 # with no change here.
                 "alternativeCount": offer_selection.alternatives_count(group, offer),
+                # THE SAME BADGE THE FEED CARRIES, built from the same
+                # rule, so one component renders both surfaces and the
+                # wording cannot drift between them.
+                "buyerCount": buyer_counts.get(offer.id) or None,
+                "buyerLabel": social_proof.label(buyer_counts.get(offer.id)),
             }
         )
     return cards

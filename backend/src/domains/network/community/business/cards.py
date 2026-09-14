@@ -32,8 +32,22 @@ def feed_products(pairs: List) -> List[dict]:
         build_catalog_product_dicts,
     )
 
+    from src.shared.algorithms import social_proof
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
     offers = [pair[0] for pair in pairs]
     enriched = build_catalog_product_dicts(offers)
+
+    # ONE COUNT QUERY FOR THE WHOLE RAIL, not one per card. The number
+    # itself is the most persuasive thing on the card (social_proof.py);
+    # fetching it per product would be the N+1 this package has removed
+    # twice already.
+    buyer_counts = StockOrderRepository.buyer_counts_for_products(
+        [offer.id for offer in offers]
+    )
+
     feed_products = []
 
     for (offer, supplier_name), dto in zip(pairs, enriched):
@@ -55,6 +69,12 @@ def feed_products(pairs: List) -> List[dict]:
                 "compareAtPriceCents": dto["compareAtPriceCents"],
                 "unitLabel": unit_label(dto),
                 "inStock": dto["inStock"],
+                # WHAT OTHER SHOPS DID -- the one claim on this card
+                # that is neither our opinion nor the supplier's. None
+                # when nobody has bought it yet: a "0 businesses bought
+                # this" badge is true, useless, and reads as a warning.
+                "buyerCount": buyer_counts.get(offer.id) or None,
+                "buyerLabel": social_proof.label(buyer_counts.get(offer.id)),
             }
         )
     return feed_products

@@ -713,6 +713,100 @@ class StockOrderRepository:
         return grouped
 
     @staticmethod
+    def buyer_counts_for_products(product_ids) -> dict:
+        """{product_id: how many DISTINCT businesses have bought it}.
+
+        THE NUMBER A SHOPKEEPER ACTUALLY TRUSTS. "27 businesses bought
+        this" is the only thing on a product card that is neither our
+        opinion nor the supplier's -- it is what other shops did, and it
+        is the one claim a competitor cannot fake into existence.
+
+        BUSINESSES, NOT UNITS, and the difference is the whole point. A
+        count of units lets one wholesale buyer manufacture a bestseller
+        by ordering forty cases; a count of distinct businesses cannot
+        be moved by anybody except more businesses.
+
+        BATCHED, taking a list and returning a map. A per-card version
+        would be the N+1 this file has spent three docstrings warning
+        about.
+
+        CONFIRMED ONLY, the same rule every other trading query here
+        follows: a cart nobody checked out and an order a supplier
+        declined are not purchases, and counting either would put a
+        number on the card that never happened.
+        """
+        if not product_ids:
+            return {}
+
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        rows = (
+            db.session.query(
+                StockOrderItem.product_id,
+                db.func.count(db.distinct(StockOrder.business_id)),
+            )
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrderItem.product_id.in_(list(product_ids)),
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+            )
+            .group_by(StockOrderItem.product_id)
+            .all()
+        )
+        return {product_id: count for product_id, count in rows}
+
+    @staticmethod
+    def units_sold_by_product(since, until=None) -> dict:
+        """{product_id: units sold} inside a time window.
+
+        THE INPUT TO "MOVING FAST". Called twice -- once for the recent
+        window and once for the baseline before it -- and comparing the
+        two is what separates a genuine spike from a product that has
+        always sold well. A single window would just be a bestseller
+        list wearing a more urgent label.
+
+        UNITS HERE, NOT BUSINESSES, and deliberately the opposite choice
+        to buyer_counts_for_products above. Velocity is about VOLUME
+        moving: a shop doubling its usual order is exactly the signal,
+        and counting distinct buyers would erase it.
+
+        WINDOWED ON submitted_at, not created_at: a cart built in March
+        and submitted in June is June's trade.
+        """
+        from src.domains.network.orders.models.stock_order import (
+            StockOrder,
+            StockOrderItem,
+            StockOrderStatus,
+        )
+
+        query = (
+            db.session.query(
+                StockOrderItem.product_id,
+                db.func.sum(StockOrderItem.quantity),
+            )
+            .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
+            .filter(
+                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.is_deleted.is_(False),
+                StockOrderItem.is_deleted.is_(False),
+                StockOrder.submitted_at >= since,
+            )
+        )
+        if until is not None:
+            query = query.filter(StockOrder.submitted_at < until)
+
+        return {
+            product_id: int(units or 0)
+            for product_id, units in query.group_by(StockOrderItem.product_id).all()
+        }
+
+    @staticmethod
     def previously_ordered_product_ids_for_business(
         business_id: str | UUID, limit: int = 20
     ) -> List[UUID]:
