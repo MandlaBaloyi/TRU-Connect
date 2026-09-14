@@ -188,3 +188,48 @@ class TestTheRailItself:
         user = shop()
 
         assert sections.stock_for_what_you_buy(user.id) is None
+
+
+class TestAskingForTheDeclaration:
+    """WITHOUT THE ASK, PHASE 0 IS INERT. The engine is fed by a form
+    and nothing invited anybody to fill it in."""
+
+    def test_it_appears_when_nothing_is_declared(self, app, db_session, shop):
+        user = shop()
+
+        promo = sections.tell_us_what_you_buy(user.id)
+
+        assert promo is not None
+        assert promo["type"] == "PROMO"
+        # SAYS WHAT IT WILL CHANGE. "Complete your profile!" is a chore
+        # with no stated benefit -- the pattern every user has learned
+        # to dismiss.
+        assert "stock" in promo["promo"]["body"].lower()
+
+    def test_it_disappears_once_answered(self, app, db_session, shop):
+        user = shop(categories=["BAKERY"])
+
+        assert sections.tell_us_what_you_buy(user.id) is None
+
+    def test_its_destination_is_one_the_app_will_accept(self, app, db_session, shop):
+        """PromoCard refuses any href that does not start with
+        /business/ rather than navigating somewhere a server told it
+        to. A promo the app silently will not open is worse than none,
+        because it looks tappable."""
+        user = shop()
+
+        href = sections.tell_us_what_you_buy(user.id)["promo"]["href"]
+
+        assert href.startswith("/business/")
+
+    def test_it_asks_for_ONE_thing(self, app, db_session, shop):
+        """It does NOT ask for restock rhythm or spend band, even though
+        the engine reads both -- nothing visible uses them in Phase 0,
+        and asking for what changes nothing is the rule this section
+        exists to keep."""
+        user = shop()
+
+        body = sections.tell_us_what_you_buy(user.id)["promo"]["body"].lower()
+
+        assert "restock" not in body
+        assert "spend" not in body

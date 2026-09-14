@@ -167,14 +167,20 @@ class TestTheNewBusiness:
         self, app, db_session, make_business
     ):
         """No orders, no connections, no location -- and the tab must
-        still work. Categories are how you shop before you have
-        anything."""
+        still work.
+
+        TWO SECTIONS, AND BOTH EARN THEIR PLACE. Categories are how you
+        shop before you have anything; the prompt is the one thing that
+        can make the NEXT visit better, and without it the demand engine
+        would sit waiting for a declaration nobody was invited to
+        make."""
         user = make_business("brandnew@example.com")
 
         sections = feed_service.feed_for(user.id, "business")
 
-        assert [s["type"] for s in sections] == ["CATEGORY_CHIPS"]
+        assert [s["type"] for s in sections] == ["CATEGORY_CHIPS", "PROMO"]
         assert len(sections[0]["categories"]) == 17
+        assert sections[1]["id"] == "tell-us-what-you-buy"
 
     def test_buy_it_again_carries_the_supplier_on_every_card(
         self, app, db_session, business_at, supplier_at

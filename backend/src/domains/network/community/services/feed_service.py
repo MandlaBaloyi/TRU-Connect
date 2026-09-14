@@ -59,21 +59,26 @@ def _business_feed(business_id) -> List[dict]:
       1  CATEGORIES            the only way to shop when nothing below
                                applies yet, so it never moves and a new
                                user is never handed an empty screen.
-      2  BUY IT AGAIN          their own restocking list. The highest-
+      2  TELL US WHAT YOU BUY  only while they have declared nothing.
+                               High, because for a shop with no history
+                               it is the most useful thing on the
+                               screen -- and it vanishes the moment it
+                               is answered.
+      3  BUY IT AGAIN          their own restocking list. The highest-
                                value rail in the app, and the reason a
                                shopkeeper opens this tab at all.
-      3  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
+      4  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
                                own history, which is evidence, and
                                above everything else, because it is the
                                only personal section a shop has before
                                its first order.
-      4  YOUR SUPPLIERS        the fastest path back to a shopfront
+      5  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      5  NOT ORDERED YET       suppliers in reach they have never
+      6  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-      6  COLLECT NEAR YOU      growth, last. The only section asking
+      7  COLLECT NEAR YOU      growth, last. The only section asking
                                them to start something rather than
                                continue it -- the same reason
                                businesses_near_you sits last for the
@@ -85,6 +90,7 @@ def _business_feed(business_id) -> List[dict]:
     """
     sections = [
         business_sections.category_chips(),
+        business_sections.tell_us_what_you_buy(business_id),
         business_sections.buy_it_again(business_id),
         business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),

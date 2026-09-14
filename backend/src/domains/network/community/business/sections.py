@@ -110,6 +110,62 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Tell us what you buy  --  the only thing that asks for a declaration
+# ---------------------------------------------------------------------------
+
+def tell_us_what_you_buy(business_id) -> Optional[dict]:
+    """Ask a shop what it buys, in the feed, at the moment it pays.
+
+    WITHOUT THIS, PHASE 0 IS INERT. The demand engine is fed by a form,
+    and nothing anywhere asked anybody to fill it in -- so an engine
+    that turns a declaration into a better feed would sit waiting for a
+    declaration nobody was invited to make.
+
+    THE RULE THAT KEEPS IT HONEST (Book Three Part 9):
+
+        ONLY ASK FOR WHAT WILL VISIBLY CHANGE THE NEXT SCREEN, AND SAY
+        EXACTLY WHAT IT WILL CHANGE.
+
+        GOOD  "Tell us what you buy and we will show you stock for it."
+              -- true, specific, and the feed measurably changes.
+        BAD   "Complete your profile!" with a progress ring -- a chore
+              with no stated benefit, which is the pattern every app
+              uses and every user has learned to dismiss.
+
+    SO IT ASKS FOR ONE THING ONLY, and deliberately not for restock
+    rhythm or spend band even though the engine reads both. Nothing
+    VISIBLE uses those yet -- cadence feeds no section in Phase 0 -- and
+    asking for them now would break the rule above in the first week it
+    existed. They get asked when something uses them.
+
+    IT DISAPPEARS THE MOMENT IT IS ANSWERED, and it is skippable
+    forever: a shop that never answers gets a worse feed, never a
+    blocked one.
+
+    NO NEW CLIENT CODE. PROMO is already in the feed contract and the
+    app already renders it -- which is the section-types-as-contract
+    property doing exactly what V2_04 Part 1 promised.
+    """
+    from src.domains.business.demand.services import needs_service
+
+    if needs_service.needs_for(business_id).is_known:
+        return None
+
+    return {
+        "id": "tell-us-what-you-buy",
+        "type": "PROMO",
+        "promo": {
+            "title": "What stock do you buy?",
+            "body": "Tell us and we will show you stock for your shop, from suppliers near you.",
+            "imageUrl": None,
+            # Must start with /business/ -- PromoCard refuses anything
+            # else rather than navigating somewhere a server told it to.
+            "href": "/business/my-business/trading-details",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # Stock for what you buy  --  THE DEMAND ENGINE'S FIRST CONSUMER
 # ---------------------------------------------------------------------------
 

@@ -275,7 +275,7 @@ class TestTheRoleGate:
 
         sections = feed_service.feed_for(user.id, "business")
 
-        assert [s["type"] for s in sections] == ["CATEGORY_CHIPS"]
+        assert [s["type"] for s in sections] == ["CATEGORY_CHIPS", "PROMO"]
 
     def test_an_unknown_role_is_refused(self, app, db_session):
         from src.core.exceptions import NotFoundError
