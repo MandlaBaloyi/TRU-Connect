@@ -4,13 +4,14 @@ import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { productDetailHref, supplierCatalogHref, supplierProfileHref } from "../../../routes";
-import { radius, spacing } from "@/theme/spacing";
+import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { Rail } from "./Rail";
-import { SupplierCard, SUPPLIER_CARD_WIDTH } from "../cards/SupplierCard";
+import { SupplierCard } from "../cards/SupplierCard";
+import { SponsoredSupplierCard } from "../cards/SponsoredSupplierCard";
 import { SupplierAvatarTile } from "../cards/SupplierAvatarTile";
-import { ProductTile, PRODUCT_TILE_WIDTH } from "../cards/ProductTile";
+import { ProductTile } from "../cards/ProductTile";
 import { PromoCard } from "../cards/PromoCard";
 import { CategoryChipRow } from "../chips/CategoryChipRow";
 import type { FeedSection } from "../../types";
@@ -142,23 +143,21 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
       // the server so the exact wording can follow whatever those
       // rules end up requiring, but the app never renders this section
       // without one.
+      //
+      // THE CARD IS ITS OWN COMPONENT NOW. This used to stretch a
+      // SupplierCard to SUPPLIER_CARD_WIDTH + PRODUCT_TILE_WIDTH, and a
+      // 240px rail tile does not become a banner by being told it is
+      // wider -- its cover band became a large empty rectangle. See
+      // SponsoredSupplierCard for the shape that replaced it.
       return (
         <View style={styles.sponsored}>
           <Text style={[styles.sponsoredLabel, { color: theme.colors.onSurfaceVariant }]}>
             {section.label}
           </Text>
-          <View
-            style={[
-              styles.sponsoredCard,
-              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
-            ]}
-          >
-            <SupplierCard
-              supplier={section.supplier}
-              width={SUPPLIER_CARD_WIDTH + PRODUCT_TILE_WIDTH - spacing.md}
-              onPress={() => openSupplier(section.supplier.id, section.supplier.businessName)}
-            />
-          </View>
+          <SponsoredSupplierCard
+            supplier={section.supplier}
+            onPress={() => openSupplier(section.supplier.id, section.supplier.businessName)}
+          />
         </View>
       );
 
@@ -175,5 +174,4 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  sponsoredCard: { padding: spacing.sm, borderRadius: radius.lg, borderWidth: 1 },
 });

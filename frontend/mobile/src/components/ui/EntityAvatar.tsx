@@ -21,13 +21,18 @@ import { palette } from "@/theme/colors";
 
 const TILE_COLOURS = [palette.truePointBlue, palette.emeraldGreenDark, "#6B4E9E", "#B45309"];
 
-function colourFor(seed: string): string {
+/** EXPORTED so a card can paint a LARGER surface in the same colour
+ *  this avatar would have used — see SupplierCard's cover fallback.
+ *  The promise that "the same entity always gets the same colour" only
+ *  holds if there is exactly one function deciding it, which is why
+ *  the cover reuses this rather than deriving its own. */
+export function entityColour(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   return TILE_COLOURS[hash % TILE_COLOURS.length];
 }
 
-function initialsFor(name: string): string {
+export function entityInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -50,8 +55,8 @@ export function EntityAvatar({
   }
 
   return (
-    <View style={[dimension, styles.fallback, { backgroundColor: colourFor(name) }]}>
-      <Text style={[styles.fallbackText, { fontSize: Math.round(size * 0.34) }]}>{initialsFor(name)}</Text>
+    <View style={[dimension, styles.fallback, { backgroundColor: entityColour(name) }]}>
+      <Text style={[styles.fallbackText, { fontSize: Math.round(size * 0.34) }]}>{entityInitials(name)}</Text>
     </View>
   );
 }
