@@ -33,7 +33,7 @@ from src.domains.catalogue.matching.algorithms.confidence import (
     MatchProposal,
     MatchTier,
 )
-from src.domains.catalogue.matching.algorithms.pack_size import PackSize
+from src.domains.catalogue.matching.algorithms.pack_size import PackSize, resolve_pack
 from src.domains.catalogue.matching.config import matching_config
 from src.domains.catalogue.matching.models.match_alias import AliasSource
 from src.domains.catalogue.matching.models.match_review import ReviewStatus
@@ -171,10 +171,39 @@ def match_and_link(
         # having a middle band at all.
         return MatchOutcome(decision, proposal.tier, proposal.confidence, None)
 
+    # THE SIZE IT WAS MATCHED ON IS THE SIZE IT IS STORED WITH.
+    #
+    # This used to pass the caller's own unit_quantity/unit_measure
+    # straight through -- which are None whenever a supplier gave a name
+    # and no structured pack, which is most of the time. So a product
+    # matched on "Ace Maize Meal 5kg", using a size read out of that
+    # name, was CREATED with no size at all.
+    #
+    # Every such entry then became a magnet: _pack_agreement reads a
+    # missing size as "unknown" rather than "different" -- correctly --
+    # so the -0.40 penalty that exists for exactly this never fired
+    # against it. The 2.5kg, the 5kg and the 25kg all collapsed into one
+    # product, ten suppliers and R40.50 to R340.50 presented as a choice
+    # between alternatives.
+    effective = resolve_pack(pack, name)
     return _create_and_link(
-        supplier_offer, proposal, name, category, brand, unit_quantity, unit_measure,
+        supplier_offer, proposal, name, category, brand,
+        effective.unit_quantity, _as_product_unit(effective.unit_measure),
         barcode, fingerprint,
     )
+
+
+def _as_product_unit(measure: Optional[str]) -> Optional[ProductUnit]:
+    """A PackSize carries its measure as a plain string; the column
+    wants the enum. An unrecognised value becomes None rather than
+    raising -- a size we cannot express is the same as no size, and
+    failing here would fail a supplier's upload over a unit."""
+    if not measure:
+        return None
+    try:
+        return ProductUnit(measure)
+    except ValueError:
+        return None
 
 
 def _apply_link(

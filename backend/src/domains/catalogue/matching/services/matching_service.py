@@ -37,7 +37,7 @@ from src.domains.catalogue.matching.algorithms.confidence import (
     MatchTier,
     score_rules_match,
 )
-from src.domains.catalogue.matching.algorithms.pack_size import PackSize, extract_pack_size
+from src.domains.catalogue.matching.algorithms.pack_size import PackSize, resolve_pack
 from src.domains.catalogue.matching.config import matching_config
 from src.domains.catalogue.matching.repositories.match_alias_repository import (
     MatchAliasRepository,
@@ -83,7 +83,11 @@ def propose_match(
 
     # The row's own evidence, resolved ONCE. Tier 0's consistency check
     # and tier 3's scoring both need the same two facts.
-    row_pack = pack if pack is not None and not pack.is_empty else extract_pack_size(name)
+    # resolve_pack, NOT the fallback spelled out here. linking_service
+    # needs the identical rule when it CREATES a product, and when the
+    # two were written separately they diverged -- see resolve_pack's
+    # own docstring for what that cost.
+    row_pack = resolve_pack(pack, name)
     row_brand = BrandRepository.resolve(normalise.brand_slug(brand)) if brand else None
 
     # --- tier 0: barcode ---------------------------------------------------

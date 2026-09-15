@@ -34,11 +34,35 @@ import unicodedata
 
 from src.domains.catalogue.matching.algorithms import abbreviations
 
-#: Anything that is not a letter, digit or space becomes a space. Kept
-#: deliberately broad -- hyphens, slashes, brackets, ampersands and
-#: asterisks all appear in real supplier files and none of them carry
-#: meaning we can rely on.
-_NON_ALNUM = re.compile(r"[^a-z0-9\s]+")
+#: A decimal separator BETWEEN TWO DIGITS, normalised to a full stop.
+#: South African price and product files use both "1,5kg" and "1.5kg"
+#: for the same size, and they have to reduce to one token.
+_DECIMAL = re.compile(r"(?<=\d)[.,](?=\d)")
+
+#: Anything that is not a letter, digit, full stop or space becomes a
+#: space. Kept deliberately broad -- hyphens, slashes, brackets,
+#: ampersands and asterisks all appear in real supplier files and none
+#: of them carry meaning we can rely on.
+#:
+#: THE FULL STOP IS SPARED HERE AND REMOVED BELOW unless it is a
+#: decimal point, which is the fix for a real and expensive collision:
+#:
+#:     "Ace Maize Meal 2.5kg" -> "ace maize meal 2 5kg"
+#:                            -> tokens sorted and JOINED WITH NOTHING
+#:                            -> "25kgacemaizemeal"
+#:     "Ace Maize Meal 25kg"  -> "25kgacemaizemeal"
+#:
+#: Identical keys. Tier 2 links on an exact key match at confidence 1.0
+#: with the words "matches this product word for word", and consults no
+#: pack size at all -- so a 2.5kg bag and a 25kg bag became one product
+#: with maximum confidence. Found by running the matcher over the
+#: seeded catalogue: R40.50 next to R340.50, offered as alternatives.
+_NON_ALNUM = re.compile(r"[^a-z0-9.\s]+")
+
+#: A full stop that is NOT a decimal point -- end of a sentence, an
+#: abbreviation, a stray. These still become spaces, exactly as before.
+_STRAY_DOT = re.compile(r"(?<!\d)\.|\.(?!\d)")
+
 _WHITESPACE = re.compile(r"\s+")
 
 
@@ -70,7 +94,12 @@ def normalise_text(value: str | None) -> str:
     if not value:
         return ""
     text = strip_accents(value).lower()
+    # DECIMALS FIRST, so "1,5kg" and "1.5kg" are one token before
+    # anything else touches them -- and so the stray-dot pass below can
+    # tell a decimal point from a full stop.
+    text = _DECIMAL.sub(".", text)
     text = _NON_ALNUM.sub(" ", text)
+    text = _STRAY_DOT.sub(" ", text)
     text = _WHITESPACE.sub(" ", text).strip()
     return abbreviations.expand(text)
 
@@ -87,11 +116,29 @@ def matching_key(value: str | None) -> str:
     probably a typo, silently treating them as identical would be a
     guess -- and a guess made here is invisible, whereas one made at
     tier 3 or 4 arrives with a confidence score attached.
+
+    THE TOKENS ARE JOINED WITH A SEPARATOR, and the one character is
+    load-bearing. Joining with nothing makes the key AMBIGUOUS BY
+    CONSTRUCTION: any two adjacent tokens concatenate into whatever a
+    single token could have spelled. "bread" + "roll" collides with
+    "breadroll", and -- the case that was actually found in the seeded
+    catalogue -- "2" + "5kg" collided with "25kg".
+
+    The decimal fix above stops that particular pair ever splitting, so
+    this is belt and braces. It is kept because the class of collision
+    is silent, arrives at tier 2 with confidence 1.0 and the words
+    "matches word for word", and costs one character to make impossible.
+
+    KEYS FROM BEFORE THIS CHANGE DO NOT MATCH KEYS AFTER IT. The stored
+    matching_key on catalogue.match_aliases is the only place the old
+    format lives; aliases are learned from barcodes and are re-learned
+    on the next import that carries one, so the cost of invalidating
+    them is one re-match rather than lost data.
     """
     normalised = normalise_text(value)
     if not normalised:
         return ""
-    return "".join(sorted(normalised.split(" ")))
+    return "|".join(sorted(normalised.split(" ")))
 
 
 def brand_slug(value: str | None) -> str:

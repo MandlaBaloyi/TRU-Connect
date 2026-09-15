@@ -135,6 +135,10 @@ def _as_int(raw: str) -> Optional[int]:
     an integer column, and 1.5kg silently becoming 1kg or 2kg would put
     a wrong per-unit price on a product card. Returning None sends the
     row to a later tier, which is the honest outcome.
+
+    FOR A *MEASURED* SIZE, PREFER _as_base_quantity BELOW -- rejecting
+    is only correct where there is no smaller unit to fall back on (a
+    pack count has none; "2.5 x 6-pack" is not a thing).
     """
     cleaned = raw.replace(",", ".")
     try:
@@ -142,6 +146,92 @@ def _as_int(raw: str) -> Optional[int]:
     except ValueError:
         return None
     return int(value) if value.is_integer() and value > 0 else None
+
+
+def _as_base_quantity(raw: str, measure: str) -> tuple[Optional[int], Optional[str]]:
+    """"2.5" + "KG" -> (2500, "G"). "5" + "KG" -> (5, "KG").
+
+    WHY FRACTIONAL SIZES GET CONVERTED RATHER THAN DROPPED, and what it
+    cost when they did not:
+
+        "Ace Maize Meal 2.5kg" produced an EMPTY pack size, because 2.5
+        is not an integer. The first supplier to list it therefore
+        created a CATALOGUE ENTRY WITH NO PACK SIZE AT ALL -- from a
+        name that visibly contains one.
+
+        That entry then behaved as a magnet. _pack_agreement returns
+        None, meaning "unknown", when either side has no base size, and
+        unknown is correctly not treated as disagreement -- so the
+        -0.40 penalty that exists for exactly this case never fired.
+        "Ace Maize Meal 5kg" scored 1.0 against it instead of 0.65 and
+        auto-linked. So did the 25kg.
+
+        Measured on the seeded catalogue: one canonical product holding
+        2.5kg, 5kg and 25kg maize meal from ten suppliers, R40.50 to
+        R340.50, presented as alternatives to each other.
+
+    THE CONVERSION LOSES NOTHING. ML and G are the base units this
+    module already reduces everything to for comparison, and every
+    fractional size a supplier writes is a whole number of them: 2.5kg
+    is exactly 2500g, 1.5L is exactly 1500ml. to_base() already made
+    5kg and 5000g compare equal, so storing the small unit changes no
+    comparison -- it only stops a real size being thrown away.
+
+    IT STILL REFUSES TO GUESS. A fraction with no smaller unit to
+    express it in (2.5 of a bare count) returns None exactly as before,
+    and so does anything that will not parse. The rule the module
+    opened with holds: an unparsed size leaves the row for a later
+    tier, a WRONG one silently corrupts a per-unit price.
+    """
+    cleaned = raw.replace(",", ".")
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None, None
+    if value <= 0:
+        return None, None
+
+    if value.is_integer():
+        return int(value), measure
+
+    base_measure = _BASE_OF.get(measure)
+    factor = _BASE_FACTORS.get(measure)
+    if base_measure is None or factor is None or base_measure == measure:
+        # Already the smallest unit we have, so there is nowhere to go:
+        # "2.5ml" stays unparsed rather than becoming 2 or 3.
+        return None, None
+
+    in_base = value * factor
+    if not float(in_base).is_integer():
+        # Finer than the base unit (0.0005L). Real files do not contain
+        # this; guessing at it is how a per-unit price goes wrong.
+        return None, None
+    return int(in_base), base_measure
+
+
+def resolve_pack(pack: Optional["PackSize"], text: str | None) -> "PackSize":
+    """The pack size to actually USE: what the caller supplied, or what
+    the description says.
+
+    ONE RULE, ONE PLACE, and it earned its own function the hard way.
+    matching_service applied exactly this fallback when deciding a
+    match, and linking_service did NOT when CREATING a product -- so a
+    row matched on a size extracted from its name entered the catalogue
+    with no size at all.
+
+    Every such entry then behaved as a magnet: _pack_agreement reads a
+    missing size as "unknown" rather than "different", which is correct,
+    so the -0.40 penalty for a pack mismatch never fired against it.
+    Measured on the seeded catalogue, one canonical product ended up
+    holding 2.5kg, 5kg and 25kg maize meal from ten suppliers at
+    R40.50 to R340.50, offered as alternatives to one another.
+
+    Both callers now ask this, so the size a product is MATCHED on and
+    the size it is STORED with cannot diverge again.
+    """
+    if pack is not None and not pack.is_empty:
+        return pack
+    return extract_pack_size(text)
 
 
 def extract_pack_size(text: str | None) -> PackSize:
@@ -161,11 +251,18 @@ def extract_pack_size(text: str | None) -> PackSize:
     remainder = text
     measure_match = _MEASURE.search(text)
     if measure_match:
-        quantity = _as_int(measure_match.group(1))
         alias = MEASURE_ALIASES.get(measure_match.group(2).lower())
-        if quantity is not None and alias is not None:
+        # _as_base_quantity, NOT _as_int: a fractional size is expressed
+        # in the base unit (2.5kg -> 2500 G) instead of being discarded.
+        # Discarding it created catalogue entries with no pack size,
+        # which then swallowed every other size of the same product --
+        # see that function's docstring for the measured damage.
+        quantity, resolved_measure = (
+            _as_base_quantity(measure_match.group(1), alias) if alias else (None, None)
+        )
+        if quantity is not None and resolved_measure is not None:
             unit_quantity = quantity
-            unit_measure = alias
+            unit_measure = resolved_measure
             # Blank out what we just consumed so the pack search cannot
             # mistake the size for a count.
             remainder = text[: measure_match.start()] + " " + text[measure_match.end() :]
