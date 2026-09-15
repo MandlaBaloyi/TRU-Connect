@@ -1,15 +1,9 @@
-$files = Get-ChildItem -Recurse -File |
-    Where-Object {
-        $_.FullName -notmatch '\\(\.git|\.venv|node_modules|__pycache__|dist|build)\\'
-    } |
-    Where-Object {
-        $_.Extension -in '.py','.ts','.tsx','.js','.jsx','.html','.css','.scss'
-    }
+Moved to lines_code.ps1 in this folder.
 
-$total = 0
+PowerShell refuses `-File` on a .txt, so this could only ever be run by
+pasting it into a terminal or piping it through Invoke-Expression --
+which is why it never felt like a script. Same content, runnable:
 
-foreach ($file in $files) {
-    $total += (Get-Content -LiteralPath $file.FullName | Measure-Object -Line).Lines
-}
+    powershell -NoProfile -File tests\backend\lines_code.ps1
 
-"Total lines of source code: $total"
+Run it from the repository root.
