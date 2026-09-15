@@ -1,5 +1,5 @@
 """
-"27 businesses bought this."
+"Bought by 27 businesses."
 
 THE ONLY CLAIM ON A PRODUCT CARD THAT IS NOBODY'S OPINION. The price is
 the supplier's. The ranking is ours. This is what other shops actually
@@ -81,9 +81,18 @@ def label(buyer_count: Optional[int]) -> Optional[str]:
     Two clients already render the same card shape (the feed and the
     catalogue browse), and a phrase duplicated across them is a phrase
     that will disagree with itself within a release.
+
+    "BOUGHT BY 5 BUSINESSES", NOT "5 BUSINESSES BOUGHT THIS". The first
+    version was grammatically fine and landed wrong on a card: "this"
+    has no antecedent when the phrase sits under a product name with no
+    sentence around it, so the line read as though a word were missing.
+    Leading with the verb makes the card itself the subject, which is
+    what the reader is already looking at. It also pairs with the people
+    icon the card draws beside it -- icon, then what happened, then how
+    many.
     """
     if not should_show(buyer_count):
         return None
     if buyer_count == 1:
-        return "1 business bought this"
-    return f"{buyer_count:,} businesses bought this"
+        return "Bought by 1 business"
+    return f"Bought by {buyer_count:,} businesses"

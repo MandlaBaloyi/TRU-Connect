@@ -141,7 +141,7 @@ const product = (
   // would have hidden the badge entirely during UI work.
   supplierVerificationStatus: "verified",
   buyerCount: 4,
-  buyerLabel: "4 businesses bought this",
+  buyerLabel: "Bought by 4 businesses",
   ...extra,
 });
 

@@ -97,5 +97,9 @@ const styles = StyleSheet.create({
   name: { ...typography.caption, fontSize: 11, lineHeight: 14, textAlign: "center" },
   // Centred, because this tile stacks a name under a round avatar
   // rather than running a row left to right like every other card.
-  nameRow: { justifyContent: "center" },
+  // flex-end, not centre: this name wraps to two lines, and a tick
+  // vertically centred against a two-line block floats beside the name
+  // instead of sitting at the end of it. Aligning to the last line is
+  // what makes it read as attached.
+  nameRow: { justifyContent: "center", alignItems: "flex-end" },
 });

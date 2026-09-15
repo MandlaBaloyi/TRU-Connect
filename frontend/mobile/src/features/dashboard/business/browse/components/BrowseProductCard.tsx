@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
+import { Users } from "lucide-react-native";
 
 import { CategoryImage } from "@/components/categories";
 // Same formatter the supplier catalogue card uses. It lives in a
@@ -93,9 +94,12 @@ export function BrowseProductCard({
           // actually did, and it is the more persuasive of the two.
           // The sentence itself comes from the server so this screen
           // and the Community feed cannot word it differently.
-          <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
-            {product.buyerLabel}
-          </Text>
+          <View style={styles.buyersRow}>
+            <Users size={12} color={theme.colors.primary} strokeWidth={2.4} />
+            <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
+              {product.buyerLabel}
+            </Text>
+          </View>
         ) : null}
 
         {product.alternativeCount > 0 && (
@@ -124,7 +128,8 @@ const styles = StyleSheet.create({
   price: { ...typography.body, fontWeight: "700" },
   was: { ...typography.caption, textDecorationLine: "line-through" },
   supplier: { ...typography.caption },
-  buyers: { ...typography.caption, fontWeight: "700" },
+  buyers: { ...typography.caption, fontWeight: "700", flexShrink: 1 },
+  buyersRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   alternatives: { ...typography.caption, fontWeight: "600" },
   outOfStock: { ...typography.caption, fontStyle: "italic" },
 });

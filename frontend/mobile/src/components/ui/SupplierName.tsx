@@ -84,7 +84,10 @@ export function SupplierName({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flexShrink: 1 },
+  // gap 3, NOT spacing.xs (4). The tick is not a sibling of the name,
+  // it is PART of it -- at 4px on an 11px caption it read as a separate
+  // little symbol sitting nearby rather than as a mark on the business.
+  row: { flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1 },
   // flexShrink so a long business name truncates rather than pushing
   // the tick off the edge -- the tick is the part that must survive.
   name: { flexShrink: 1 },

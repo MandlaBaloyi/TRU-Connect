@@ -1,5 +1,5 @@
 """
-"27 businesses bought this."
+"Bought by 27 businesses."
 
 THE PROPERTY THAT MAKES THE NUMBER WORTH SHOWING: it counts BUSINESSES,
 not units, so one wholesale buyer cannot manufacture a bestseller by
@@ -24,11 +24,11 @@ class TestTheBadgeAppearsFromOne:
         """THE OVERRULED FLOOR. If somebody adds a minimum later, this
         is the test that should make them come and argue for it."""
         assert social_proof.should_show(1) is True
-        assert social_proof.label(1) == "1 business bought this"
+        assert social_proof.label(1) == "Bought by 1 business"
 
     def test_singular_and_plural_are_both_correct(self):
-        assert social_proof.label(1) == "1 business bought this"
-        assert social_proof.label(2) == "2 businesses bought this"
+        assert social_proof.label(1) == "Bought by 1 business"
+        assert social_proof.label(2) == "Bought by 2 businesses"
 
     def test_the_number_increments_exactly(self):
         """NEVER ROUNDED, NEVER "A FEW". A rounded number is a claim
@@ -38,12 +38,12 @@ class TestTheBadgeAppearsFromOne:
             assert str(n) in social_proof.label(n)
 
     def test_thousands_are_readable(self):
-        assert social_proof.label(1500) == "1,500 businesses bought this"
+        assert social_proof.label(1500) == "Bought by 1,500 businesses"
 
 
 class TestNobodyHasBoughtIt:
     def test_zero_shows_no_badge_at_all(self):
-        """"0 businesses bought this" is true, useless, and reads as a
+        """"Bought by 0 businesses" is true, useless, and reads as a
         warning. The badge is a POSITIVE claim -- its absence says
         nothing, while a zero says something discouraging we did not
         mean."""

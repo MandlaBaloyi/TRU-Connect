@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
-import { ImageOff } from "lucide-react-native";
+import { ImageOff, Users } from "lucide-react-native";
 
 import { SupplierName } from "@/components/ui/SupplierName";
 import { formatCents } from "@/features/dashboard/supplier/products/services/productMapper";
@@ -121,9 +121,16 @@ export function ProductTile({
           />
         </View>
         {product.buyerLabel ? (
-          <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
-            {product.buyerLabel}
-          </Text>
+          // ICON, THEN WHAT HAPPENED, THEN HOW MANY. The people glyph
+          // does the work "this" was failing to do in the old wording:
+          // it says at a glance that the number is other SHOPS, not
+          // units sold or a rating, before the sentence is even read.
+          <View style={styles.buyersRow}>
+            <Users size={11} color={theme.colors.primary} strokeWidth={2.4} />
+            <Text style={[styles.buyers, { color: theme.colors.primary }]} numberOfLines={1}>
+              {product.buyerLabel}
+            </Text>
+          </View>
         ) : null}
       </View>
     </Pressable>
@@ -175,5 +182,6 @@ const styles = StyleSheet.create({
   // be a REASON, not a detail. One line only -- a tile is 148px wide
   // and a wrapped badge would push every tile in the rail to a
   // different height.
-  buyers: { ...typography.caption, fontSize: 10, fontWeight: "700" },
+  buyers: { ...typography.caption, fontSize: 10, fontWeight: "700", flexShrink: 1 },
+  buyersRow: { flexDirection: "row", alignItems: "center", gap: 3 },
 });
