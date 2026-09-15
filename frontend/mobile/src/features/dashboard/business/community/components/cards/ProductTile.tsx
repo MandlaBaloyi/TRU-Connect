@@ -1,5 +1,12 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type DimensionValue,
+} from "react-native";
 import { useTheme } from "react-native-paper";
 import { ImageOff, Users } from "lucide-react-native";
 
@@ -49,7 +56,11 @@ export function ProductTile({
 }: {
   product: FeedProduct;
   onPress: () => void;
-  width?: number;
+  /** A number on a rail, "100%" inside a grid cell. DimensionValue
+   *  rather than number so the grid can let the cell decide the width
+   *  instead of computing pixels from the screen size -- which breaks
+   *  on rotation, on tablets, and on split screen. */
+  width?: DimensionValue;
 }) {
   const theme = useTheme();
   const savingCents =

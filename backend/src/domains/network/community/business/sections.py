@@ -75,15 +75,24 @@ RAIL_LIMITS = {
 #: section TYPES: the client renders what it recognises and ignores what
 #: it does not, so a new destination ships server-side.
 SEE_ALL_HREFS = {
-    "buy-it-again": "/business/community/buy-it-again",
-    "moving-fast": "/business/community/moving-fast",
-    "stock-for-you": "/business/community/stock-for-you",
-    "collect-near-you": "/business/community/collect-near-you",
-    "not-ordered-yet": "/business/community/not-ordered-yet",
-    # NOT A NEW SCREEN. "Your suppliers" past the cap is My Connections,
-    # which already exists and is already the right screen for the full
-    # list -- building a second one would be two places to keep honest.
-    "your-suppliers": "/business/my-connections",
+    # /business/feed/... AND NOT /business/community/..., which was the
+    # first spelling and would have collided: the Community TAB is
+    # already at /business/community, so a sibling directory of the same
+    # name puts one segment in two places. "feed" is also the truer
+    # word -- these screens belong to For You, not to the whole
+    # Community tab, which also holds My Connections.
+    "buy-it-again": "/business/feed/buy-it-again",
+    "moving-fast": "/business/feed/moving-fast",
+    "stock-for-you": "/business/feed/stock-for-you",
+    "collect-near-you": "/business/feed/collect-near-you",
+    # NO SCREEN YET. The endpoint exists; the screen does not, so this
+    # rail gets no chevron rather than one that leads nowhere -- absent
+    # is the honest state, and adding the path here is all it will take.
+    #
+    # "your-suppliers" LIKEWISE HAS NO PATH: past the cap it belongs in
+    # My Connections, which is a TAB inside the Community screen rather
+    # than a route, and its selection is local state with no URL. Making
+    # it addressable is a small change and a separate one.
 }
 
 #: Avatars are a row, not a rail -- two faces you recognise is still
