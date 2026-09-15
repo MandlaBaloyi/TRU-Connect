@@ -41,6 +41,13 @@ export default function CommunityDetailLayout() {
         name="not-ordered-yet"
         options={{ title: "Suppliers you haven't ordered from" }}
       />
+      {/* NOT A RAIL'S SEE-ALL, unlike its four neighbours -- Explore is
+          reached from the Community tab's own menu and has no rail
+          behind it. It lives in this group because it is the same kind
+          of screen (a full list of suppliers, under the community
+          header) and a group of its own for one route would be a
+          navigator with nothing to coordinate. */}
+      <Stack.Screen name="explore" options={{ title: "Explore suppliers" }} />
     </Stack>
   );
 }

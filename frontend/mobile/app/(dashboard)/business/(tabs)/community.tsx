@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ChevronLeft, Search, Settings, UserPlus, UserX } from "lucide-react-native";
+import { ChevronLeft, Compass, Search, Settings, UserPlus, UserX } from "lucide-react-native";
 import { TextInput, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -125,6 +125,20 @@ export default function BusinessCommunity() {
             rightIcon={
               <CommunityOverflowMenu
                 items={[
+                  {
+                    // BROWSING BY WHAT A SUPPLIER *IS*, as opposed to
+                    // searching by name (the magnifier, left of this
+                    // menu) or being shown suppliers by the feed. It
+                    // is here rather than as a tab or a rail because
+                    // it is an occasional, deliberate act -- "show me
+                    // the wholesalers" -- not something to put in
+                    // front of somebody who opened this tab to check
+                    // their connections.
+                    key: "explore",
+                    title: "Explore Suppliers",
+                    icon: ({ size, color }) => <Compass size={size} color={color} strokeWidth={2} />,
+                    onPress: () => router.push("/business/feed/explore" as any),
+                  },
                   {
                     key: "disconnected",
                     title: "Disconnected Suppliers",
