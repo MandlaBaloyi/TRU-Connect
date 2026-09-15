@@ -43,7 +43,6 @@ from src.domains.network.community.business.queries import (
     visible_suppliers_with_stock,
 )
 from src.domains.network.community.algorithms import interleave
-from src.shared.algorithms import distance
 
 #: A rail with almost nothing in it looks worse than no rail at all.
 #: Mirrors MIN_ITEMS_PER_RAIL in the app's community/types.ts.
@@ -154,17 +153,10 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
 
     EMPTY FOR A NEW USER, AND THAT IS CORRECT -- it fills on order two.
     """
-    from src.domains.network.orders.repositories.stock_order_repository import (
-        StockOrderRepository,
-    )
+    from src.domains.network.community.services import feed_detail_service
 
-    product_ids = StockOrderRepository.previously_ordered_product_ids_for_business(
-        business_id, limit=limit * 2
-    )
-    if not product_ids:
-        return None
-
-    products = visible_offers(product_ids)
+    limit = RAIL_LIMITS["buy-it-again"]
+    products = feed_detail_service.buy_it_again_cards(business_id, limit=limit * 2)
     if len(products) < MIN_ITEMS_PER_RAIL:
         return None
 
@@ -175,14 +167,12 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
     # own stock from itself. The anti-domination rule is a rule about
     # RECOMMENDATION; this rail only remembers.
     # tests/architecture/test_placement_boundaries.py holds that.
-    limit = RAIL_LIMITS["buy-it-again"]
-
     return {
         "id": "buy-it-again",
         "type": "PRODUCT_RAIL",
         "title": "Buy it again",
         "subtitle": "From your last orders",
-        "products": feed_products(products[:limit]),
+        "products": products[:limit],
         **_rail_tail("buy-it-again", min(limit, len(products)), len(products)),
     }
 
@@ -210,50 +200,16 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
     TWO QUERIES, both windowed aggregates over the whole platform, and
     they do not grow with the number of products on the rail.
     """
-    from datetime import timedelta
-
-    from src.core.base_model import utcnow
-    from src.domains.business.demand.services import needs_service
-    from src.domains.network.community.algorithms import velocity
-    from src.domains.network.orders.repositories.stock_order_repository import (
-        StockOrderRepository,
-    )
-
-    needs = needs_service.needs_for(business_id)
-    if not needs.is_known:
-        # WE DO NOT KNOW WHAT THEY SELL, so "moving fast" could only be
-        # a platform-wide list. Better to show nothing and let the
-        # declaration prompt do its job.
-        return None
-
-    now = utcnow()
-    recent_since = now - timedelta(days=velocity.RECENT_DAYS)
-    baseline_since = recent_since - timedelta(days=velocity.BASELINE_DAYS)
-
-    recent = StockOrderRepository.units_sold_by_product(since=recent_since)
-    if not recent:
-        return None
-    baseline = StockOrderRepository.units_sold_by_product(
-        since=baseline_since, until=recent_since
-    )
-
-    # Over-fetch: the category filter and the supplier cap below both
-    # remove cards, and a thin rail is worse than none.
-    rising = velocity.rising_products(recent, baseline, limit=limit * 4)
-    if not rising:
-        return None
-
-    wanted = set(needs.category_values)
-    pairs = [
-        (offer, name, status)
-        for offer, name, status in visible_offers(rising)
-        if offer.category and offer.category.value in wanted
-    ]
-    if len(pairs) < MIN_ITEMS_PER_RAIL:
-        return None
+    from src.domains.network.community.services import feed_detail_service
 
     limit = RAIL_LIMITS["moving-fast"]
-    all_cards = feed_products(pairs)
+    # THE GATHERING LIVES IN feed_detail_service so this rail and the
+    # screen its arrow opens cannot rank differently -- a "see all" that
+    # disagreed with the rail it came from is a bug the reader sees
+    # immediately and no test ever would.
+    all_cards = feed_detail_service.moving_fast_cards(business_id, limit=limit * 4)
+    if len(all_cards) < MIN_ITEMS_PER_RAIL:
+        return None
     # CAP, INTERLEAVE, THEN TRIM -- see algorithms/interleave.arrange.
     # A rail of one wholesaler's spike is that wholesaler's news, not
     # the market's.
@@ -449,27 +405,11 @@ def tell_us_what_you_buy(business_id) -> Optional[dict]:
 #: Coverage is still rewarded: below the cap, whoever stocks more of
 #: what this shop buys appears more. Above it the rail makes room. See
 #: docs/v2/V2_15 Book Two 7.4.
-#: How far away a supplier can be and still count as "near you", for
-#: COLLECTION -- the shop gets in a bakkie and drives there.
-#:
-#: WITHOUT THIS THE RAIL LIED. It sorted by distance and took the
-#: nearest N with no ceiling at all, so on a thin platform a supplier
-#: 328km away appeared under a heading that says "near you" simply
-#: because nothing closer existed. Sorting is not filtering: the
-#: nearest of a bad set is still a bad answer, and a rail that renames
-#: "the only ones we have" as "the ones near you" is the kind of untrue
-#: thing V2_15 Part 12 exists to forbid.
-#:
-#: 25km IS A GUESS. It is meant to cover a peri-urban shop reaching the
-#: nearest town's wholesale strip, and to exclude the next city. It is
-#: deliberately generous, because the cost of being slightly too wide is
-#: a card somebody scrolls past, and of being too narrow is an empty
-#: rail for a shop that really does drive that far.
-#:
-#: FALSIFIED BY: shops routinely collecting from further, or ignoring
-#: everything past 10km. Either would be visible the day impressions
-#: exist; until then this is one number in one place.
-MAX_COLLECTION_KM = 25.0
+# MAX_COLLECTION_KM MOVED TO services/feed_detail_service.py, with the
+# distance measuring it bounds. Two definitions of "near" -- one for the
+# rail and one for the screen its arrow opens -- is precisely the drift
+# that made moving the gathering worth doing. Imported from there by
+# anything that needs the number.
 
 MAX_CARDS_PER_SUPPLIER = 3
 
@@ -496,7 +436,7 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
     worth doing.
     """
     from src.domains.business.demand.services import needs_service
-    from src.domains.catalogue.discovery.services import browse_service
+    from src.domains.network.community.services import feed_detail_service
 
     needs = needs_service.needs_for(business_id)
     if not needs.is_known:
@@ -505,19 +445,10 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
         # heading with nothing under it.
         return None
 
-    result = browse_service.browse_category(
-        business_id=business_id,
-        categories=needs.category_values,
-        # Over-fetch, because the supplier cap below removes cards and a
-        # thin rail is worse than none.
-        limit=limit * 3,
-        # What this shop can plausibly spend on one product. The
-        # catalogue orders by it; nothing is removed.
-        max_line_cents=needs.max_line_cents,
-    )
-
-    products = _strongest_needs_first(result.get("products") or [], needs)
     limit = RAIL_LIMITS["stock-for-you"]
+    # THE SAME CALL THE SCREEN BEHIND THE ARROW MAKES -- affordability
+    # ordering, category weighting and all -- differing only in length.
+    products = feed_detail_service.stock_for_you_cards(business_id, limit=limit * 3)
     available = len(products)
     products = interleave.arrange(
         products, absolute_cap=MAX_CARDS_PER_SUPPLIER, limit=limit
@@ -535,24 +466,9 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
     }
 
 
-def _strongest_needs_first(products: List[dict], needs) -> List[dict]:
-    """Open the rail with the category this shop needs MOST.
-
-    THE CATALOGUE HAS NO OPINION ABOUT THIS SHOP, and should not: it
-    returned everything across eleven categories in whatever order the
-    query produced. The engine is the only thing that knows bread
-    outranks phone chargers HERE, so the ordering belongs on this side
-    of the call.
-
-    ZERO EXTRA QUERIES. The weights are already in hand and every card
-    already carries its category -- asking the catalogue per category
-    instead would be the N+1 this codebase has removed twice (flaw B.4).
-
-    STABLE, so affordability ordering from browse_service survives
-    inside each category.
-    """
-    weights = needs.weight_by_category
-    return sorted(products, key=lambda p: -weights.get(p.get("category"), 0.0))
+# _strongest_needs_first MOVED TO services/feed_detail_service.py, so
+# the rail and the screen behind its arrow sort by the same weights
+# rather than each holding a copy of the rule.
 
 
 def _why_this_rail(needs) -> str:
@@ -629,27 +545,12 @@ def not_ordered_from_yet(business_id, limit: int = 10) -> Optional[dict]:
     Anything scolding would be the platform telling a shopkeeper off for
     how they run their shop.
     """
-    from src.domains.network.orders.repositories.stock_order_repository import (
-        StockOrderRepository,
-    )
+    from src.domains.network.community.services import feed_detail_service
 
-    candidates = visible_suppliers_with_stock()
-    if not candidates:
-        return None
-
-    traded_with = set(
-        StockOrderRepository.order_dates_by_counterparty(business_id=business_id).keys()
-    )
     connected = connected_supplier_ids(business_id)
-
-    untried = [p for p in candidates if str(p.id) not in traded_with]
+    untried = feed_detail_service.not_ordered_yet_suppliers(business_id)
     if len(untried) < MIN_ITEMS_PER_RAIL:
         return None
-
-    # A SUPPLIER THEY ALREADY KNOW COMES FIRST. The trust is done; only
-    # the first order is missing, which makes it the cheapest one to
-    # win. Strangers follow.
-    untried.sort(key=lambda p: (str(p.id) not in connected, p.business_name or ""))
 
     limit = RAIL_LIMITS["not-ordered-yet"]
 
@@ -691,49 +592,20 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     from src.domains.business.business_profile.repositories.business_profile_repository import (
         BusinessProfileRepository,
     )
-    from src.domains.network.connections.repositories.connection_request_repository import (
-        ConnectionRequestRepository,
-    )
-    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierProfile
-    from src.domains.verification.visibility import visible_filter
-    from src.extensions import db
+    from src.domains.network.community.services import feed_detail_service
 
     profile = BusinessProfileRepository.get_for_business(business_id)
-    if profile is None or profile.latitude is None or profile.longitude is None:
+    if profile is None:
         return None
 
     connected = connected_supplier_ids(business_id)
 
-    candidates = (
-        db.session.query(SupplierProfile)
-        .filter(
-            visible_filter(),
-            SupplierProfile.is_deleted.is_(False),
-            SupplierProfile.collection_latitude.isnot(None),
-            SupplierProfile.collection_longitude.isnot(None),
-        )
-        .all()
-    )
-
-    measured = []
-    for candidate in candidates:
-        km = distance.km_between(
-            profile.latitude,
-            profile.longitude,
-            candidate.collection_latitude,
-            candidate.collection_longitude,
-        )
-        if km is None:
-            continue
-        # THE CEILING, not just the sort. See MAX_COLLECTION_KM.
-        if km > MAX_COLLECTION_KM:
-            continue
-        measured.append((km, candidate))
-
+    # DISTANCES AND THE RADIUS CEILING LIVE IN feed_detail_service, so
+    # the rail and the screen behind its arrow cannot disagree about
+    # what "near" means.
+    measured = feed_detail_service.collect_near_you_suppliers(business_id)
     if len(measured) < MIN_ITEMS_PER_RAIL:
         return None
-
-    measured.sort(key=lambda pair: pair[0])
     nearest = measured[: RAIL_LIMITS["collect-near-you"]]
 
     return {

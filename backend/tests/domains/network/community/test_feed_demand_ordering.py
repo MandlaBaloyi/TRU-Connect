@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from src.domains.business.demand.services.needs_service import CategoryNeed, ShopNeeds
 from src.domains.network.community.business import sections
+from src.domains.network.community.services import feed_detail_service
 
 
 def _needs(*pairs) -> ShopNeeds:
@@ -34,7 +35,7 @@ class TestTheRailOpensWithTheStrongestNeed:
         ]
         needs = _needs(("BAKERY", 1.0, "both"), ("ELECTRONICS_ACCESSORIES", 0.4, "observed"))
 
-        ordered = sections._strongest_needs_first(products, needs)
+        ordered = feed_detail_service.strongest_needs_first(products, needs)
 
         assert [p["id"] for p in ordered] == ["2", "1"]
 
@@ -47,7 +48,7 @@ class TestTheRailOpensWithTheStrongestNeed:
             {"id": "pallet", "category": "BAKERY"},
         ]
 
-        ordered = sections._strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
+        ordered = feed_detail_service.strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
 
         assert [p["id"] for p in ordered] == ["cheap", "pallet"]
 
@@ -58,7 +59,7 @@ class TestTheRailOpensWithTheStrongestNeed:
             {"id": "bread", "category": "BAKERY"},
         ]
 
-        ordered = sections._strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
+        ordered = feed_detail_service.strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
 
         assert [p["id"] for p in ordered] == ["bread", "stray"]
         assert len(ordered) == 2
@@ -68,7 +69,7 @@ class TestTheRailOpensWithTheStrongestNeed:
         repository and can arrive without one."""
         products = [{"id": "x", "category": None}, {"id": "bread", "category": "BAKERY"}]
 
-        ordered = sections._strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
+        ordered = feed_detail_service.strongest_needs_first(products, _needs(("BAKERY", 1.0, "both")))
 
         assert [p["id"] for p in ordered] == ["bread", "x"]
 
