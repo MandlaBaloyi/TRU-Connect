@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ApiError } from "@/services/api/apiClient";
 
 import { getSupplierProducts } from "../services/supplierSearchService";
 import type { SupplierProductsQuery } from "../types";
@@ -25,6 +26,13 @@ export function useSupplierProducts(supplierId: string, query: SupplierProductsQ
     totalCount: result.data?.totalCount ?? 0,
     isLoading: result.isLoading,
     isError: result.isError,
+    // WHY IT FAILED, not just that it did. A 404 here is not a broken
+    // connection -- it is the verification curtain: this supplier is
+    // not currently visible to buyers. Telling a shopkeeper to check
+    // their signal when their signal is fine sends them to fix
+    // something that is not broken.
+    isUnavailable:
+      result.error instanceof ApiError && result.error.status === 404,
     refetch: result.refetch,
   };
 }

@@ -115,6 +115,7 @@ export default function SupplierCatalogScreen() {
     totalCount,
     isLoading,
     isError,
+    isUnavailable,
     refetch,
   } = useSupplierProducts(supplierId ?? "", {
     page,
@@ -283,7 +284,27 @@ export default function SupplierCatalogScreen() {
   if (isError) {
     return (
       <ScreenContainer hasNativeHeader>
-        <ErrorState message="Couldn't load this supplier's products. Check your connection and try again." onRetry={refetch} />
+        <ErrorState
+          message={
+            isUnavailable
+              ? // THE CURTAIN, SAID PLAINLY. An established connection
+                // survives a supplier losing verification -- that is
+                // deliberate, because revoking a supplier must not
+                // rewrite trade that really happened -- so a business
+                // can reach this screen for a supplier they genuinely
+                // deal with and who genuinely cannot sell right now.
+                //
+                // IT LEAKS NOTHING. This business is already connected
+                // to them; they know the supplier exists. What they did
+                // not know is why the screen was empty.
+                "This supplier isn't available to order from right now. They may be completing verification."
+              : "Couldn't load this supplier's products. Check your connection and try again."
+          }
+          // Nothing to retry when the answer is "not available" -- a
+          // retry button that cannot succeed is the app pretending the
+          // problem is the reader's.
+          onRetry={isUnavailable ? undefined : refetch}
+        />
       </ScreenContainer>
     );
   }
