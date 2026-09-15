@@ -42,11 +42,50 @@ from src.domains.network.community.business.queries import (
     visible_offers,
     visible_suppliers_with_stock,
 )
+from src.domains.network.community.algorithms import interleave
 from src.shared.algorithms import distance
 
 #: A rail with almost nothing in it looks worse than no rail at all.
 #: Mirrors MIN_ITEMS_PER_RAIL in the app's community/types.ts.
 MIN_ITEMS_PER_RAIL = 3
+
+#: HOW MANY CARDS EACH RAIL SHOWS BEFORE THE ARROW (V2_17 Part 3.1).
+#:
+#: A RAIL IS A PREVIEW, NOT A CONTAINER, and until now it was neither:
+#: it scrolled right for as long as the query happened to return, which
+#: looks fine with four suppliers and will not. Without a cap AND a way
+#: out, a shop with sixty previously-ordered products silently loses
+#: forty-eight of them -- the cap alone is just truncation.
+#:
+#: THE NUMBERS DIFFER BY WHAT THE RAIL IS FOR. Product rails carry a
+#: dozen because scanning stock is quick; "collect near you" carries
+#: five because choosing between SUPPLIERS is a slower, heavier decision
+#: and a long row of them is a chore rather than a choice.
+RAIL_LIMITS = {
+    "buy-it-again": 12,
+    "moving-fast": 10,
+    "stock-for-you": 12,
+    "your-suppliers": 12,
+    "collect-near-you": 5,
+    "not-ordered-yet": 10,
+    "invited-suppliers": 10,
+}
+
+#: Where the arrow goes. THE APP OWNS THESE PATHS and the server only
+#: names them, which is the same contract the feed already has for
+#: section TYPES: the client renders what it recognises and ignores what
+#: it does not, so a new destination ships server-side.
+SEE_ALL_HREFS = {
+    "buy-it-again": "/business/community/buy-it-again",
+    "moving-fast": "/business/community/moving-fast",
+    "stock-for-you": "/business/community/stock-for-you",
+    "collect-near-you": "/business/community/collect-near-you",
+    "not-ordered-yet": "/business/community/not-ordered-yet",
+    # NOT A NEW SCREEN. "Your suppliers" past the cap is My Connections,
+    # which already exists and is already the right screen for the full
+    # list -- building a second one would be two places to keep honest.
+    "your-suppliers": "/business/my-connections",
+}
 
 #: Avatars are a row, not a rail -- two faces you recognise is still
 #: useful where two products is not.
@@ -56,6 +95,24 @@ MIN_AVATARS = 1
 # ---------------------------------------------------------------------------
 # Category chips
 # ---------------------------------------------------------------------------
+
+def _rail_tail(rail_id: str, shown: int, available: int) -> dict:
+    """hasMore and seeAllHref, or nothing at all.
+
+    ABSENT RATHER THAN FALSE when everything fits. The app renders the
+    arrow when it sees the key, so a rail that has nothing behind it
+    says nothing -- and an arrow leading to a screen identical to the
+    rail is a worse lie than no arrow.
+
+    available IS "HOW MANY WE FOUND", not a COUNT(*). Every caller here
+    already over-fetches past its own cap for other reasons, so the
+    comparison is free; asking the database for a true total on every
+    feed load would be six extra counts to render one chevron.
+    """
+    if available <= shown:
+        return {}
+    return {"hasMore": True, "seeAllHref": SEE_ALL_HREFS.get(rail_id)}
+
 
 def category_chips() -> dict:
     """The taxonomy, as chips that filter for real.
@@ -111,12 +168,22 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
     if len(products) < MIN_ITEMS_PER_RAIL:
         return None
 
+    # NO PER-SUPPLIER CEILING HERE, AND THAT IS DELIBERATE (V2_17 Q3).
+    # This is the shop's own confirmed purchase history. If they buy
+    # fifteen things from MacMan that is a fact about their trading, not
+    # a wholesaler crowding a feed, and capping it would hide a shop's
+    # own stock from itself. The anti-domination rule is a rule about
+    # RECOMMENDATION; this rail only remembers.
+    # tests/architecture/test_placement_boundaries.py holds that.
+    limit = RAIL_LIMITS["buy-it-again"]
+
     return {
         "id": "buy-it-again",
         "type": "PRODUCT_RAIL",
         "title": "Buy it again",
         "subtitle": "From your last orders",
         "products": feed_products(products[:limit]),
+        **_rail_tail("buy-it-again", min(limit, len(products)), len(products)),
     }
 
 
@@ -185,7 +252,14 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
     if len(pairs) < MIN_ITEMS_PER_RAIL:
         return None
 
-    products = _cap_per_supplier(feed_products(pairs), MAX_CARDS_PER_SUPPLIER)
+    limit = RAIL_LIMITS["moving-fast"]
+    all_cards = feed_products(pairs)
+    # CAP, INTERLEAVE, THEN TRIM -- see algorithms/interleave.arrange.
+    # A rail of one wholesaler's spike is that wholesaler's news, not
+    # the market's.
+    products = interleave.arrange(
+        all_cards, absolute_cap=MAX_CARDS_PER_SUPPLIER, limit=limit
+    )
     if len(products) < MIN_ITEMS_PER_RAIL:
         return None
 
@@ -204,7 +278,8 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
         # behind "usual". And it says WHO: other shops, which is the
         # part a shopkeeper actually trusts.
         "subtitle": "Shops are buying these faster than last month",
-        "products": products[:limit],
+        "products": products,
+        **_rail_tail("moving-fast", len(products), len(all_cards)),
     }
 
 
@@ -281,7 +356,17 @@ def invited_suppliers(business_id, limit: int = 10) -> Optional[dict]:
         "type": "SUPPLIER_RAIL",
         "title": "They joined because of you",
         "subtitle": _invitation_subtitle(waiting),
-        "suppliers": feed_suppliers(joined[:limit], connected_ids=connected),
+        "suppliers": feed_suppliers(
+            joined[: RAIL_LIMITS["invited-suppliers"]], connected_ids=connected
+        ),
+        # No seeAllHref: there is no screen for this and there should
+        # not be one. A shop that invited more than ten suppliers who
+        # all joined is a case worth celebrating, not paginating.
+        **_rail_tail(
+            "invited-suppliers",
+            min(RAIL_LIMITS["invited-suppliers"], len(joined)),
+            len(joined),
+        ),
     }
 
 
@@ -432,7 +517,11 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
     )
 
     products = _strongest_needs_first(result.get("products") or [], needs)
-    products = _cap_per_supplier(products, MAX_CARDS_PER_SUPPLIER)
+    limit = RAIL_LIMITS["stock-for-you"]
+    available = len(products)
+    products = interleave.arrange(
+        products, absolute_cap=MAX_CARDS_PER_SUPPLIER, limit=limit
+    )
     if len(products) < MIN_ITEMS_PER_RAIL:
         return None
 
@@ -441,7 +530,8 @@ def stock_for_what_you_buy(business_id, limit: int = 12) -> Optional[dict]:
         "type": "PRODUCT_RAIL",
         "title": "Stock for your shop",
         "subtitle": _why_this_rail(needs),
-        "products": products[:limit],
+        "products": products,
+        **_rail_tail("stock-for-you", len(products), available),
     }
 
 
@@ -483,22 +573,11 @@ def _why_this_rail(needs) -> str:
     return "Based on what you buy"
 
 
-def _cap_per_supplier(products: List[dict], cap: int) -> List[dict]:
-    """Keep the rail a MARKET rather than one wholesaler's shelf.
-
-    ORDER IS PRESERVED, so whatever ranking produced the list survives;
-    this only removes a supplier's fourth, fifth and fortieth card.
-    """
-    seen: dict = {}
-    kept = []
-    for product in products:
-        supplier_id = product.get("supplierId")
-        count = seen.get(supplier_id, 0)
-        if count >= cap:
-            continue
-        seen[supplier_id] = count + 1
-        kept.append(product)
-    return kept
+# _cap_per_supplier MOVED TO algorithms/interleave.py, where it sits
+# beside the run rule it is half of. Keeping a rail a market turned out
+# to be two protections, not one -- how many cards a supplier may hold,
+# and how many may sit next to each other -- and they were a file apart
+# while being read as the same thing. Call interleave.arrange().
 
 
 # ---------------------------------------------------------------------------
@@ -512,11 +591,18 @@ def your_suppliers(business_id) -> Optional[dict]:
     if len(profiles) < MIN_AVATARS:
         return None
 
+    limit = RAIL_LIMITS["your-suppliers"]
+
     return {
         "id": "your-suppliers",
         "type": "SUPPLIER_AVATARS",
         "title": "Your suppliers",
-        "suppliers": feed_suppliers(profiles),
+        "suppliers": feed_suppliers(profiles[:limit]),
+        # PAST THE CAP THIS GOES TO MY CONNECTIONS rather than to a
+        # screen of its own: the full list of who you trade with is
+        # already a screen, already maintained, and already the place a
+        # shopkeeper looks for it.
+        **_rail_tail("your-suppliers", min(limit, len(profiles)), len(profiles)),
     }
 
 
@@ -565,12 +651,15 @@ def not_ordered_from_yet(business_id, limit: int = 10) -> Optional[dict]:
     # win. Strangers follow.
     untried.sort(key=lambda p: (str(p.id) not in connected, p.business_name or ""))
 
+    limit = RAIL_LIMITS["not-ordered-yet"]
+
     return {
         "id": "not-ordered-yet",
         "type": "SUPPLIER_RAIL",
         "title": "Suppliers you haven't ordered from",
         "subtitle": "In reach, and new to you",
         "suppliers": feed_suppliers(untried[:limit], connected_ids=connected),
+        **_rail_tail("not-ordered-yet", min(limit, len(untried)), len(untried)),
     }
 
 
@@ -645,7 +734,7 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
         return None
 
     measured.sort(key=lambda pair: pair[0])
-    nearest = measured[:limit]
+    nearest = measured[: RAIL_LIMITS["collect-near-you"]]
 
     return {
         "id": "collect-near-you",
@@ -657,4 +746,12 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
             distances={p.id: round(km, 1) for km, p in nearest},
             connected_ids=connected,
         ),
+        # FIVE ON THE RAIL, because choosing between SUPPLIERS is a
+        # slower decision than scanning stock and a long row of them is
+        # a chore rather than a choice. The rest are a tap away.
+        #
+        # AND STRICTLY DISTANCE-ORDERED, at every tier, forever: this is
+        # the only rail that prints the number it is sorted by, so any
+        # reordering is a contradiction the reader is holding (V2_17 Q5).
+        **_rail_tail("collect-near-you", len(nearest), len(measured)),
     }

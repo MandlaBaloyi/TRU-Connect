@@ -142,13 +142,21 @@ def test_buy_it_again_is_never_capped_per_supplier() -> None:
 
     assert target is not None, "buy_it_again has moved -- this test needs updating"
 
-    calls = [
-        n.func.id
-        for n in ast.walk(target)
-        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
-    ]
-    assert "_cap_per_supplier" not in calls, (
-        "buy_it_again must not apply the per-supplier ceiling: it is the "
-        "shop's own confirmed orders, and a wholesaler appearing often "
-        "there is a fact about their trading rather than domination."
+    calls = []
+    for n in ast.walk(target):
+        if not isinstance(n, ast.Call):
+            continue
+        if isinstance(n.func, ast.Name):
+            calls.append(n.func.id)
+        elif isinstance(n.func, ast.Attribute):
+            # interleave.arrange(...) -- the ceiling's new home. Checking
+            # only the bare name would have let the rename slip the test.
+            calls.append(n.func.attr)
+
+    capping = {"_cap_per_supplier", "arrange", "cap_per_supplier"} & set(calls)
+    assert not capping, (
+        f"buy_it_again must not apply the per-supplier ceiling (found "
+        f"{sorted(capping)}): it is the shop's own confirmed orders, and a "
+        "wholesaler appearing often there is a fact about their trading "
+        "rather than domination."
     )
