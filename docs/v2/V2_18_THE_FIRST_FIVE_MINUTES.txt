@@ -1,0 +1,346 @@
+===========================================================================
+V2_18 — THE FIRST FIVE MINUTES: FUEL, AND THE COLUMNS THAT NEVER BURNED
+===========================================================================
+
+Written 2026-09-15. A PLAN, and an audit.
+
+WHAT THIS DOCUMENT IS. V2_15 built a demand engine and V2_17 taught the
+feed to survive scale. Both assumed a shop that had told us something.
+Nothing in the product ever asked.
+
+Mandla named the gap in one sentence:
+
+    "these r not jsu questions these r the data they feed to the emgine
+     / this is the fuel we give to our community engine"
+
+And named the failure it causes:
+
+    "coz there community tab, must tell an informal tht wait here i can
+     find suppliers, but sock orders, seacrh my own suppiliers, invite
+     mur own suppliers, than going on community tab and its blank"
+
+So this document does three things. It audits every column on
+business_profiles against what actually reads it, decides which of them
+earn a place in a mandatory signup flow, and lays out the build order
+for that flow plus the four smaller repairs the audit turned up on the
+way.
+
+
+===========================================================================
+PART 1 — THE AUDIT
+===========================================================================
+
+Method: every column on BusinessProfile, grepped against the whole of
+backend/src/, with the profile domain's own read/write excluded. A
+column that only its own service touches is a column that only its own
+screen touches.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.1  FUEL — code outside the profile domain reads it
+  ─────────────────────────────────────────────────────────────────────
+
+      buys_categories       declared.py:67. Every category-driven rail,
+                            and the gate on the sponsored slot.
+      restock_rhythm        needs_service.py:123 -> cadence_days. The
+                            timing of everything.
+      weekly_spend_band     needs_service.py:128 -> order_ceiling_cents.
+                            Basket sizing.
+      customer_types        weighting.py:147 -> prefers_bulk.
+      latitude/longitude    feed_detail_service.py:201, collect near
+                            you, not ordered yet, businesses near you.
+      business_name         Identity, everywhere. Already NOT NULL.
+
+  These six are the fuel. Nothing else on the table is.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.2  UTILITY — the app needs it, the engine does not
+  ─────────────────────────────────────────────────────────────────────
+
+      city_or_town, province, phone, email, whatsapp and their flags,
+      normalized_phone, normalized_email, business_image_url,
+      visible_image_source, photo_visibility, category, description.
+
+  Find Business, contact, avatars, profile previews. Real work, none of
+  it the engine's.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.3  DEAD — written by the profile screen, read by nothing
+  ─────────────────────────────────────────────────────────────────────
+
+      business_type         SOLE_TRADER / PARTNERSHIP / ...
+      operating_model       HOME / SHOP / MARKET_STALL / ...
+      years_operating
+      supplier_sources      an entire section, "Suppliers"
+      operating_days
+      opening_time
+      closing_time
+      employee_range        carried into DeclaredSignal and then never
+                            used by needs_service
+      physical_address
+      business_info_complete
+      location_complete
+
+  Eleven columns and two whole sections of a screen that produce no
+  effect anywhere in the product.
+
+
+===========================================================================
+PART 2 — WHAT TO DO WITH THE DEAD LIST
+===========================================================================
+
+Mandla asked which columns we are dropping. The honest answer is that
+"drop" is the wrong verb for nine of the eleven.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE RULE
+  ─────────────────────────────────────────────────────────────────────
+
+      A FIELD EARNS A PLACE IN THE MANDATORY STEPS ONLY IF A NAMED
+      PIECE OF CODE READS IT.
+
+      Everything else is demoted from the ASK, not from the TABLE.
+
+  WHY NOT DROP THEM. A nullable column nobody queries costs nothing:
+  no join, no index, no migration risk, no confusion at the call site
+  because there is no call site. A QUESTION at signup costs something
+  real and measurable — a person who closes the app on step two. The
+  asymmetry is the whole argument. Dropping is also irreversible, and
+  at least two of these (operating_model, years_operating) are
+  plausible fuel for work that has not been designed yet.
+
+  So business_type, operating_model, years_operating, supplier_sources,
+  operating_days, opening_time, closing_time, employee_range and
+  physical_address stay on the table, stay editable in My Business for
+  anyone who wants to fill them, and appear in NO onboarding step.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE TWO EXCEPTIONS, AND THEY GO ENTIRELY
+  ─────────────────────────────────────────────────────────────────────
+
+  business_info_complete and location_complete are not merely unused.
+  Nothing has ever written them, so they are false on every row that
+  has ever existed — and completionCalculator.ts already answers the
+  same question client-side, correctly, from the data itself. Two
+  columns holding a worse answer to a question already answered
+  elsewhere are a trap for the next person who trusts them.
+
+  They are also the backing for the VERIFICATION TAB, which is the
+  larger problem:
+
+      emailVerified is HARD-CODED False at
+      business_profile_service.py:222.
+
+  So the tab shows a checklist of four boxes, two of which can never
+  tick, implying a review of an informal business that does not happen
+  and that Mandla has decided should not. identity_verified and
+  documents_verified were already removed from this model for exactly
+  that reason; this is the rest of the same removal.
+
+  REMOVED: the VERIFICATION tab, VerificationChecklist.tsx, the
+  VerificationStatus type, the "verification" block in the profile
+  payload, and both columns. The completion bar stays — it is the
+  honest version of the same idea, and it measures how much this shop
+  has told us rather than passing judgement on them.
+
+
+===========================================================================
+PART 3 — A BUG THE AUDIT TURNED UP
+===========================================================================
+
+A business's business_name is seeded from the OWNER'S PERSONAL NAME:
+
+    otp_service.py:175
+    default_name = " ".join([user.first_name, user.last_name]) or
+                   "New business"
+
+and businessName on BusinessRegisterSchema is accepted at registration
+and never persisted. The column's own default is the empty string.
+
+This is the identical gap already fixed on the supplier side. The
+consequence is visible today: a supplier using Find Business sees their
+customer listed as "Mandla Baloyi" rather than as a shop.
+
+It is fixed here rather than in the setup flow because it is wrong
+independently of whether the setup flow exists.
+
+
+===========================================================================
+PART 4 — THE MANDATORY STEPS
+===========================================================================
+
+  ─────────────────────────────────────────────────────────────────────
+  4.1  WHERE THE GATE LIVES
+  ─────────────────────────────────────────────────────────────────────
+
+  app/(dashboard)/index.tsx, which is ALREADY the single role fork —
+  every authenticated path in the app passes through it, and it is the
+  only file that knows the role before a dashboard is chosen. Business
+  role plus incomplete setup redirects to /(setup)/step-1 instead of
+  /business/home.
+
+  Putting the gate anywhere else means putting it in several places.
+
+  ─────────────────────────────────────────────────────────────────────
+  4.2  THE THREE STEPS
+  ─────────────────────────────────────────────────────────────────────
+
+      1  YOUR SHOP       business name, what stock you buy, who you
+                         sell to
+                         -> business_name, buys_categories,
+                            customer_types
+                         REQUIRED
+
+      2  HOW YOU BUY     how often you restock, roughly what you spend
+                         in a week
+                         -> restock_rhythm, weekly_spend_band
+                         REQUIRED
+
+      3  WHERE YOU ARE   a pin on a map
+                         -> latitude, longitude, city_or_town, province
+                         SKIPPABLE, ONCE
+
+  Six fields. Exactly the six in 1.1, in the order a person can answer
+  them.
+
+  ─────────────────────────────────────────────────────────────────────
+  4.3  THREE RULES THAT KEEP IT HONEST
+  ─────────────────────────────────────────────────────────────────────
+
+  EVERY STEP SAYS WHAT IT CHANGES. Step one's footer reads "This is
+  what fills your Community tab." This is not a new rule — it is the
+  rule tell_us_what_you_buy already follows, quoted in its own
+  docstring: only ask for what will visibly change the next screen, and
+  say exactly what it will change. A signup flow that asks the same
+  questions without the same promise is a worse version of a screen we
+  already got right.
+
+  STEP THREE GETS ONE SKIP. It needs a location permission or a map
+  drag, and blocking a brand-new account behind a permission dialog is
+  the single most expensive place in an app to lose somebody. Skipping
+  costs exactly two rails — collect near you, not ordered from yet —
+  and the feed can say so, which is a better conversation to have on
+  day three than on minute one.
+
+      DELEGATED BY MANDLA, decided here. Falsified by: a completion
+      rate on step 3 far below steps 1 and 2 with no later recovery,
+      which would mean the skip is a trapdoor rather than a deferral.
+
+  A STEP ANSWERED HERE IS THE SAME EDIT AS IN MY BUSINESS. Same
+  service, same validation, no second write path. My Business stays
+  exactly where it is in the More tab, because a person who wants to
+  change an answer later must be able to.
+
+  ─────────────────────────────────────────────────────────────────────
+  4.4  EXISTING ACCOUNTS ARE NOT PUSHED THROUGH IT
+  ─────────────────────────────────────────────────────────────────────
+
+  New accounts only. Thirty seeded shops and Mandla's own half-filled
+  profile keep working untouched.
+
+  WHY. A gate that appears in front of somebody who has already been
+  using the app reads as a fault, not as a welcome — and the mechanism
+  for catching those accounts already exists and is gentler: the
+  tell_us_what_you_buy rail sits third in the feed, vanishes the moment
+  it is answered, and asks inside the screen the answer improves.
+
+      DELEGATED BY MANDLA, decided here. Falsified by: a long tail of
+      pre-setup accounts whose feeds stay empty because the rail is
+      being scrolled past rather than answered.
+
+  Once setup exists, that rail correctly disappears for everybody who
+  came through it — it is gated on "has declared nothing", which a
+  completed step 1 makes false.
+
+
+===========================================================================
+PART 5 — WHAT ELSE IS STILL MISSING IN "FOR YOU"
+===========================================================================
+
+Recorded here because the work was halted mid-flight and the list
+otherwise lives only in conversation. Worst first.
+
+  1  THE CATALOGUE IS STILL NOT A CATALOGUE. 271 product names are
+     stocked by more than one supplier; 0 offers are matched to a
+     canonical product. So alternativeCount is 0 on every card,
+     "compare suppliers" cannot exist, and the price-movement rail
+     V2_09 defers can never be built — a price only moves if two offers
+     are known to be the same thing. V2_11 defines the matching;
+     nothing runs it.
+
+  2  NOTHING RECORDS THAT A CARD WAS SEEN. Declared answers and
+     confirmed orders only. No impressions, no taps. Every falsifier in
+     weighting.py, velocity.py and tier_rules.py says "visible the day
+     impressions exist" — so none of those numbers can currently be
+     proved wrong. This is V2_15 Phase 4.
+
+  3  TWO RAILS HAVE ARROWS THAT GO NOWHERE. not-ordered-yet has
+     service, endpoint and paging and no screen, so sections.py
+     withholds the chevron rather than shipping one that leads nowhere.
+     your-suppliers past the cap belongs in My Connections, which is a
+     TAB with local state and no URL.
+
+  4  EXPLORE WHOLESALERS HAS NO FRONT END. Service, routes, chips and
+     the business-named-"Wholesalers" collision guard are all built and
+     committed. Zero screens.
+
+  5  NOTHING IN THE PRODUCT CAN SET A SUPPLIER'S PLAN. plan_tier exists
+     with server_default FREE and nothing in src/ writes it — no CLI
+     command, no admin route. The only MAX rows were set by a seed
+     script. The tier ladder is real in code and unreachable in the
+     product.
+
+  6  SPONSORED HAS NO IMPRESSION OR CLICK RECORD. The slot is picked
+     alphabetically, which is an honest placeholder and not a billable
+     one.
+
+  7  FULFILMENT HAS NO UI. mark_dispatched and confirm_received are
+     built and tested; no screen calls them. V2_14's five questions are
+     still open.
+
+
+===========================================================================
+PART 6 — AND ONE THAT LOOKED LIKE A SPONSORED BUG AND IS NOT
+===========================================================================
+
+The empty coloured block in the sponsored slot is not a sponsored
+defect.
+
+SupplierCard renders a 120px cover band. With no cover image AND no
+logo it falls back to a flat surfaceVariant rectangle with a 56px
+avatar centred in it. Every supplier currently seeded has neither
+image. At the rail's 240px that block reads as a card; the sponsored
+section stretches the same component to roughly 360px, and it becomes a
+large empty rectangle.
+
+The defect is on EVERY image-less supplier card. Sponsored only makes
+it biggest.
+
+THE SLOT STAYS. It is the thing MAX and PARTNER actually buy, and
+deleting it deletes the top of the ladder V2_16 designed. What changes
+is the rendering: the sponsored supplier gets its own HORIZONTAL
+layout — logo left, name and tick and meta right — rather than a
+stretched rail card, and the cover band is omitted entirely when there
+is no image rather than being filled with colour.
+
+
+===========================================================================
+PART 7 — BUILD ORDER
+===========================================================================
+
+  1  Sponsored card and the image-less supplier card.
+     Visible immediately, no migration, no backend.
+
+  2  Verification tab out. Trading Details time inputs to a picker.
+
+  3  Business name persisted at registration (Part 3).
+
+  4  setup-state endpoint, the three setup screens, the gate.
+
+  5  not-ordered-yet screen.
+
+  6  Migration dropping the two completeness columns — LAST, once
+     nothing reads them.
+
+Each step is a commit. Six is deliberately last: a column is dropped
+only after the code that read it is already gone and proven gone,
+because the reverse order is a broken deploy window.
