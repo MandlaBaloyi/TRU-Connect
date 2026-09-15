@@ -16,11 +16,30 @@ export const signInSchema = z.object({
 });
 export type SignInFormValues = z.infer<typeof signInSchema>;
 
+/** Mirrors backend shared.validation.business_name exactly: 2–50 chars,
+ *  at least one letter, and not a single repeated character.
+ *
+ *  SHARED BY BOTH ROLES, and it has to be declared above the first
+ *  schema that uses it -- `const` is not hoisted, so a reference from
+ *  businessRegisterSchema below its own definition would hit the
+ *  temporal dead zone at module evaluation, not at call time. That is
+ *  a crash on import, before any form is ever rendered. */
+const businessNameField = z
+  .string()
+  .trim()
+  .min(2, "Business name must be at least 2 characters")
+  .max(50, "Business name must be 50 characters or fewer")
+  .refine((v) => /[^\W\d_]/u.test(v), "Business name must contain at least one letter")
+  .refine((v) => new Set(v.replace(/\s/g, "")).size > 1, "Enter a real business name");
+
 export const businessRegisterSchema = z
   .object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    businessName: z.string().optional(),
+    // REQUIRED NOW. It was optional, and the backend accepted it and
+    // threw it away -- so a shop's profile was seeded with the owner's
+    // personal name, which is what a supplier saw in Find Business.
+    businessName: businessNameField,
     email: z.string().email("Enter a valid email address"),
     password: z
       .string()
@@ -36,17 +55,8 @@ export const businessRegisterSchema = z
   });
 export type BusinessRegisterFormValues = z.infer<typeof businessRegisterSchema>;
 
-/** Mirrors backend shared.validation.business_name exactly: 2–50 chars,
- *  at least one letter, and not a single repeated character. Owner name
- *  is the optional field now. */
-const businessNameField = z
-  .string()
-  .trim()
-  .min(2, "Business name must be at least 2 characters")
-  .max(50, "Business name must be 50 characters or fewer")
-  .refine((v) => /[^\W\d_]/u.test(v), "Business name must contain at least one letter")
-  .refine((v) => new Set(v.replace(/\s/g, "")).size > 1, "Enter a real business name");
-
+/** Owner name is the optional field on the supplier side -- see
+ *  businessNameField above for the shared name rule. */
 export const supplierRegisterSchema = z
   .object({
     businessName: businessNameField,

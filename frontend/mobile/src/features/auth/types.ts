@@ -72,7 +72,11 @@ export interface BusinessRegisterPayload {
   role: "business";
   firstName: string;
   lastName: string;
-  businessName?: string;
+  /** REQUIRED. It was optional and the backend dropped it, so a shop's
+   *  profile was seeded from the owner's personal name — which is the
+   *  name a supplier saw when they looked their own customer up in
+   *  Find Business. */
+  businessName: string;
   email: string;
   password: string;
   confirmPassword: string;

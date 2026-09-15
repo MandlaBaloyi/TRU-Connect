@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from src.shared.email.email import get_fake_provider
 
 
@@ -224,13 +226,21 @@ def test_get_or_create_is_idempotent(client, db_session):
     assert count == 1
 
 
-def _register_business(client, *, first_name="Thabo", last_name="Nkosi", email="thabo@example.com"):
+def _register_business(
+    client,
+    *,
+    first_name="Thabo",
+    last_name="Nkosi",
+    email="thabo@example.com",
+    business_name="Nkosi Spaza",
+):
     return client.post(
         "/api/v1/auth/register",
         json={
             "role": "business",
             "firstName": first_name,
             "lastName": last_name,
+            "businessName": business_name,
             "email": email,
             "password": "Abcd1234!",
             "confirmPassword": "Abcd1234!",
@@ -246,13 +256,29 @@ def test_business_profile_seeded_with_real_name_at_verification(client):
     get_or_create_for_business is ALSO lazy-only), so a supplier
     reviewing an incoming connection request saw "Unknown business"
     instead of a real name. Same fix (_seed_business_profile), same
-    placeholder-name reasoning as the supplier side."""
+    reasoning as the supplier side.
+
+    THIS USED TO ASSERT "Thabo Nkosi" -- THE OWNER'S OWN NAME. That was
+    the bug rather than the behaviour: registration collected
+    businessName and never stored it, so the seed fell through to
+    firstName + lastName and every shop on the platform was listed
+    under the person who signed it up. A supplier looking their own
+    customer up in Find Business saw a human name where a shop should
+    be. Both roles now carry the name on users.business_name from
+    registration.
+    """
     from src.domains.business.business_profile.repositories.business_profile_repository import (
         BusinessProfileRepository,
     )
     from src.domains.auth.models.user import User
 
-    response = _register_business(client, first_name="Thabo", last_name="Nkosi", email="thabo-seed@example.com")
+    response = _register_business(
+        client,
+        first_name="Thabo",
+        last_name="Nkosi",
+        email="thabo-seed@example.com",
+        business_name="Nkosi Corner Store",
+    )
     assert response.status_code == 201
     code = _extract_otp("thabo-seed@example.com")
     verify_response = client.post(
@@ -263,4 +289,47 @@ def test_business_profile_seeded_with_real_name_at_verification(client):
     user = User.query.filter_by(email="thabo-seed@example.com").first()
     profile = BusinessProfileRepository.get_for_business(user.id)
     assert profile is not None
-    assert profile.business_name == "Thabo Nkosi"
+    assert profile.business_name == "Nkosi Corner Store"
+    assert profile.business_name != "Thabo Nkosi", "the shop is not the shopkeeper"
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        pytest.param("a", id="too-short"),
+        pytest.param("aaaa", id="one-character-repeated"),
+        pytest.param("1234", id="no-letter"),
+        pytest.param("N" * 60, id="too-long"),
+    ],
+)
+def test_a_business_name_must_be_a_real_name(client, bad_name):
+    """Same validator as the supplier side (shared.validation.
+    business_name), so the two roles cannot drift into having different
+    ideas of a usable name."""
+    response = _register_business(
+        client, email=f"badname-{len(bad_name)}-{bad_name[:2]}@example.com", business_name=bad_name
+    )
+
+    # 422, not 400 -- this route reports schema failures as
+    # "Validation failed" with a 422, which is the shape every
+    # registration error already has.
+    assert response.status_code == 422
+
+
+def test_a_business_cannot_register_without_a_business_name(client):
+    """It is the name every business-facing screen shows. Optional was
+    the old behaviour and it is what produced the owner-name bug."""
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "role": "business",
+            "firstName": "Thabo",
+            "lastName": "Nkosi",
+            "email": "business-noname@example.com",
+            "password": "Abcd1234!",
+            "confirmPassword": "Abcd1234!",
+            "acceptPrivacyPolicy": True,
+        },
+    )
+
+    assert response.status_code == 422

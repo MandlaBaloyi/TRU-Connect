@@ -162,6 +162,18 @@ class OTPService:
         unsearchable until they happened to open My Business and touch
         their contact details, same class of bug the supplier-side
         auto-seed was originally built to close.
+
+        THE PLACEHOLDER-NAME GAP IS CLOSED. This used to seed the
+        profile with first_name + last_name, because registration
+        accepted businessName and never stored it -- so every shop was
+        listed under the OWNER'S personal name, which is what a
+        supplier saw in Find Business when they looked up their own
+        customer. BusinessRegisterSchema now requires the name and
+        register_business persists it on users.business_name, exactly
+        as the supplier side already did.
+
+        The fallbacks below remain for accounts that registered before
+        that change and therefore have no stored name.
         """
         try:
             from src.domains.business.business_profile.repositories.business_profile_repository import (
@@ -172,7 +184,11 @@ class OTPService:
             )
             from src.extensions import db
 
-            default_name = " ".join(filter(None, [user.first_name, user.last_name])).strip() or "New business"
+            default_name = (
+                user.business_name
+                or " ".join(filter(None, [user.first_name, user.last_name])).strip()
+                or "New business"
+            )
             profile = BusinessProfileRepository.get_or_create_for_business(user.id, default_name=default_name)
             _refresh_normalized_contact(profile, user)
             db.session.commit()

@@ -220,7 +220,12 @@ function BusinessRegisterForm({
 
         <FormTextField control={control} name="firstName" label="First Name" />
         <FormTextField control={control} name="lastName" label="Last Name" />
-        <FormTextField control={control} name="businessName" label="Business Name (optional)" />
+        {/* NO LONGER OPTIONAL. This is the name every business-facing
+            screen shows -- Find Business, an incoming connection
+            request, the Community card -- and while it was optional it
+            was also never persisted, so the fallback was the owner's
+            own name on all three. */}
+        <FormTextField control={control} name="businessName" label="Business Name" />
         <FormTextField control={control} name="email" label="Email Address" autoCapitalize="none" keyboardType="email-address" />
         <PasswordField control={control} name="password" label="Password" />
         <PasswordField control={control} name="confirmPassword" label="Confirm Password" />

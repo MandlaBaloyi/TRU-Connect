@@ -22,9 +22,17 @@ from src.shared.validation.business_name import normalize_business_name
 class BusinessRegisterSchema(Schema):
     first_name = fields.String(required=True, data_key="firstName", validate=validate.Length(min=1, max=100))
     last_name = fields.String(required=True, data_key="lastName", validate=validate.Length(min=1, max=100))
-    business_name = fields.String(
-        required=False, allow_none=True, data_key="businessName", validate=validate.Length(max=255)
-    )
+    # MANDATORY, AND IT USED TO BE COLLECTED AND THROWN AWAY. The field
+    # was optional with a bare Length(max=255) and nothing persisted it,
+    # so business_profiles.business_name was seeded from the OWNER'S
+    # personal name (otp_service._seed_business_profile) -- which is
+    # what a supplier using Find Business saw when they looked up their
+    # own customer.
+    #
+    # This is the same gap SupplierRegisterSchema already closed, and it
+    # is closed the same way, against the same validator. See
+    # shared/validation/business_name.py for the rule.
+    business_name = fields.String(required=True, data_key="businessName")
     email = fields.Email(required=True)
     password = fields.String(required=True, load_only=True)
     confirm_password = fields.String(required=True, load_only=True, data_key="confirmPassword")
@@ -34,6 +42,13 @@ class BusinessRegisterSchema(Schema):
     # invitation link. Same optional, never-blocks-registration
     # reasoning as SupplierRegisterSchema's own invitation_ticket.
     invitation_ticket = fields.String(required=False, allow_none=True, data_key="invitationTicket")
+
+    @validates("business_name")
+    def validate_business_name(self, value, **kwargs):
+        try:
+            normalize_business_name(value)
+        except ValueError as exc:
+            raise MarshmallowValidationError(exc.args[0])
 
     @validates("password")
     def validate_password_strength(self, value, **kwargs):

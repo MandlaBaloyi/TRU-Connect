@@ -97,8 +97,20 @@ class AuthService:
 
     @staticmethod
     def register_business(data: dict) -> User:
+        from src.shared.validation.business_name import normalize_business_name
+
+        # THE NAME USED TO BE COLLECTED AND DROPPED. Without this line
+        # business_profiles.business_name is seeded from first_name +
+        # last_name at OTP time, so every shop on the platform was
+        # listed under the owner's personal name -- visible to any
+        # supplier using Find Business. Same fix, same validator and
+        # same column as register_supplier below.
         user = AuthService._create_or_resume(
-            data=data, role=UserRole.BUSINESS, first_name=data["first_name"], last_name=data["last_name"]
+            data=data,
+            role=UserRole.BUSINESS,
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            business_name=normalize_business_name(data["business_name"]),
         )
         AuthService._send_verification_otp(user)
 

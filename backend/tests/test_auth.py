@@ -92,6 +92,11 @@ class TestBusinessRegisterSchema:
         payload = {
             "firstName": "Thabo",
             "lastName": "Nkosi",
+            # MANDATORY SINCE THE OWNER-NAME BUG. Without it the profile
+            # was seeded from firstName + lastName, so a shop appeared
+            # under its owner's personal name everywhere a supplier
+            # could look it up.
+            "businessName": "Nkosi Spaza",
             "email": "thabo@example.com",
             "password": "Abcd1234!",
             "confirmPassword": "Abcd1234!",
@@ -103,10 +108,24 @@ class TestBusinessRegisterSchema:
     def test_accepts_valid_payload(self):
         data = BusinessRegisterSchema().load(self._valid_payload())
         assert data["first_name"] == "Thabo"
+        assert data["business_name"] == "Nkosi Spaza"
 
     def test_rejects_missing_privacy_policy(self):
         with pytest.raises(Exception):
             BusinessRegisterSchema().load(self._valid_payload(acceptPrivacyPolicy=False))
+
+    def test_rejects_a_missing_business_name(self):
+        payload = self._valid_payload()
+        del payload["businessName"]
+
+        with pytest.raises(Exception):
+            BusinessRegisterSchema().load(payload)
+
+    def test_rejects_a_name_that_is_not_a_name(self):
+        """Same validator as the supplier side, so the two roles cannot
+        drift into different ideas of a usable name."""
+        with pytest.raises(Exception):
+            BusinessRegisterSchema().load(self._valid_payload(businessName="1234"))
 
 
 class TestSupplierRegisterSchema:
@@ -188,13 +207,18 @@ def client(app):
     return app.test_client()
 
 
-def _register_business(client, email="thabo@example.com", password="Abcd1234!"):
+def _register_business(client, email="thabo@example.com", password="Abcd1234!", business_name="Nkosi Spaza"):
+    # businessName IS MANDATORY NOW. It was optional and dropped on the
+    # floor, so business_profiles.business_name was seeded from
+    # firstName + lastName and every shop was listed under its owner's
+    # personal name -- see auth_service.register_business.
     return client.post(
         "/api/v1/auth/register",
         json={
             "role": "business",
             "firstName": "Thabo",
             "lastName": "Nkosi",
+            "businessName": business_name,
             "email": email,
             "password": password,
             "confirmPassword": password,
