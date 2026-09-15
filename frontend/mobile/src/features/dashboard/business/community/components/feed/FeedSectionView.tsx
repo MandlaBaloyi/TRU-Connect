@@ -32,22 +32,6 @@ import type { FeedSection } from "../../types";
  * keeps the destination's own header correct on its first frame (see
  * business/routes.ts on the header-flash fix).
  */
-/** [a, b, c, d, e] -> [[a, b], [c, d], [e]].
- *
- * COLUMN-MAJOR ON PURPOSE. Pairing consecutive suppliers puts the two
- * most relevant side by side vertically, so the first swipe-width holds
- * ranks 1 and 2 rather than 1 and 7 -- which is what a row-major fill
- * of two FlatLists would have produced, and it would have looked
- * identical while quietly burying the second-best supplier off-screen.
- */
-function pairUp<T>(items: T[]): [T, T | undefined][] {
-  const pairs: [T, T | undefined][] = [];
-  for (let i = 0; i < items.length; i += 2) {
-    pairs.push([items[i], items[i + 1]]);
-  }
-  return pairs;
-}
-
 export function FeedSectionView({ section }: { section: FeedSection }) {
   const router = useRouter();
   const theme = useTheme();
@@ -83,31 +67,23 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
       );
 
     case "SUPPLIER_AVATARS":
-      // TWO ROWS, NOT ONE. Supplier avatars are small enough that
-      // stacking them pairs twelve into the width that held six, and a
-      // shop with ten suppliers should not have to swipe four times to
-      // see the one they want. Past the cap the chevron goes to My
-      // Connections, which is already the screen for the full list.
+      // ONE ROW. A two-row version was built and rejected on sight:
+      // it fits twelve avatars in the width that holds six, and it
+      // reads as a contact grid rather than as a shelf -- which is the
+      // wrong shape for a rail whose neighbours are all single rows.
+      // Density was never the problem this screen had.
       return (
         <Rail
           title={section.title}
-          data={pairUp(section.suppliers)}
-          keyExtractor={([first, second]) => `${first.id}-${second?.id ?? "solo"}`}
+          data={section.suppliers}
+          keyExtractor={(supplier) => supplier.id}
           itemGap={spacing.md}
           onSeeAll={seeAll}
-          renderItem={([first, second]) => (
-            <View style={styles.avatarColumn}>
-              <SupplierAvatarTile
-                supplier={first}
-                onPress={() => openSupplier(first.id, first.businessName)}
-              />
-              {second ? (
-                <SupplierAvatarTile
-                  supplier={second}
-                  onPress={() => openSupplier(second.id, second.businessName)}
-                />
-              ) : null}
-            </View>
+          renderItem={(supplier) => (
+            <SupplierAvatarTile
+              supplier={supplier}
+              onPress={() => openSupplier(supplier.id, supplier.businessName)}
+            />
           )}
         />
       );
@@ -192,7 +168,6 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
 }
 
 const styles = StyleSheet.create({
-  avatarColumn: { gap: spacing.md },
   sponsored: { paddingHorizontal: spacing.md, gap: spacing.xs },
   sponsoredLabel: {
     ...typography.caption,
