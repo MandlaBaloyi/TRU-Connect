@@ -298,13 +298,62 @@ PART 5 — WHAT ELSE IS STILL MISSING IN "FOR YOU"
 Recorded here because the work was halted mid-flight and the list
 otherwise lives only in conversation. Worst first.
 
-  1  THE CATALOGUE IS STILL NOT A CATALOGUE. 271 product names are
-     stocked by more than one supplier; 0 offers are matched to a
-     canonical product. So alternativeCount is 0 on every card,
-     "compare suppliers" cannot exist, and the price-movement rail
-     V2_09 defers can never be built — a price only moves if two offers
-     are known to be the same thing. V2_11 defines the matching;
-     nothing runs it.
+  1  THE CATALOGUE — AND A CORRECTION TO WHAT WAS SAID ABOUT IT.
+
+     WHAT WAS SAID: "V2_11 defines the matching; nothing runs it."
+     THAT WAS WRONG, and it mattered, because it described a large
+     unbuilt feature where there was a small unfed one.
+
+     linking_service.match_and_link is wired into
+     product_service.create_product and runs on EVERY product added
+     through the app. The catalogue was empty because seed_suppliers.py
+     constructed SupplierOffer rows directly and add_all()'d them,
+     bypassing the service layer — so 1,049 products were written
+     without the catalogue ever seeing them. A flaw in the seed, not in
+     the product.
+
+     RUNNING IT OVER THE SEEDED OFFERS FOUND FOUR REAL BUGS, all of one
+     family: things merging that are not the same. Three are fixed —
+     fractional sizes parsing to nothing, the size a product matched on
+     not being the size it was stored with, and the exact-match key
+     dropping the decimal point so "2.5kg" and "25kg" keyed identically
+     at confidence 1.0. See the commit for each.
+
+     AFTER: 230 canonical products, 833 of 1,049 offers linked, 198
+     products carrying offers from more than one supplier, and ZERO
+     holding more than one pack size. alternativeCount is real now.
+
+     THE FOURTH IS OPEN AND NEEDS A DECISION:
+
+         THE PACK COUNT IS EXTRACTED AND THEN DISCARDED.
+         pack_size.py reads "x6" perfectly well and PackSize carries
+         pack_quantity — but catalogue.products has NO pack_quantity
+         COLUMN, so it is dropped on the way in and nothing can compare
+         it. "Clover Long Life Milk 1L" and the same milk "x6" are
+         structurally indistinguishable: same brand, same unit size,
+         so they agree on every fact the catalogue stores and merge.
+         R26.00 against R133.50, presented as a choice.
+
+         Nine products are affected today.
+
+         THE FIX is a migration adding pack_quantity to
+         catalogue.products, persisting it in _create_and_link
+         alongside the unit size, and comparing it in _pack_agreement
+         — where a differing count must be a disagreement, carrying
+         the same -0.40 weight a differing size does, for the same
+         reason: the two read almost identically as text and are not
+         the same purchase.
+
+         NOT DONE OVERNIGHT ON PURPOSE. It is a schema change to the
+         most safety-critical path in the domain, and the test suite
+         could not be run at the time.
+
+     MATCHING COST NOTHING TO RUN. MATCHING_MODE defaults to
+     "deterministic", so tier 4 — the only tier that calls a model —
+     never fired. All of the above is rules, GTIN, normalisation and
+     trigram similarity. That is the answer to "we cannot spend money
+     on something we are not using": the deterministic tiers carry
+     1,049 offers to 79% linked before anybody is asked for a budget.
 
   2  NOTHING RECORDS THAT A CARD WAS SEEN. Declared answers and
      confirmed orders only. No impressions, no taps. Every falsifier in
