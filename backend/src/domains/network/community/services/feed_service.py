@@ -113,6 +113,10 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.moving_fast(business_id),
         business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),
+        # THE ONE PAID SLOT, below everything the shop earned and above
+        # cold discovery. It is labelled, it is gated on the shop's own
+        # categories, and it is the only section here anybody paid for.
+        business_sections.sponsored_supplier(business_id),
         business_sections.invited_suppliers(business_id),
         business_sections.not_ordered_from_yet(business_id),
         business_sections.collect_near_you(business_id),

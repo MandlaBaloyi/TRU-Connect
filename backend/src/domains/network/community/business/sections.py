@@ -347,6 +347,88 @@ def _invitation_subtitle(waiting: int) -> Optional[str]:
     return f"{waiting} more invitations still waiting"
 
 
+def sponsored_supplier(business_id) -> Optional[dict]:
+    """A paid placement, and it says so.
+
+    THE ONE PROMOTED SLOT IN "FOR YOU" (V2_16). Everything else on this
+    screen is EARNED -- the shop's own history, its own declared needs,
+    real measured velocity -- and their whole value is that nobody paid
+    for them. This is the exception, which is exactly why it carries a
+    label in the same size as everything else on the card.
+
+        A magazine has advertising pages and nobody is deceived,
+        because they look like advertising pages. What is dishonest is
+        an advert dressed as a recommendation.
+
+    ONLY MAX AND PARTNER MAY APPEAR HERE. It is the top of the ladder
+    and the thing those plans actually buy; PRO buys tie-break
+    priority, not a slot of its own.
+
+    IT STILL HAS TO BE RELEVANT. A sponsored supplier who stocks
+    nothing this shop buys is an advert for a stranger, and V2_16 is
+    explicit that money buys priority AMONG relevant results and never
+    relevance itself. So the shop's own categories gate it before the
+    plan is even read -- and a shop we know nothing about sees no
+    sponsorship at all rather than a random wholesaler.
+
+    NEVER THE SHOP'S OWN SUPPLIER. Paying to be shown to somebody who
+    already buys from you is money spent on nothing, and it would push
+    a genuinely new supplier out of the only slot they can buy.
+    """
+    from src.domains.business.demand.services import needs_service
+    from src.domains.network.community.placement import tier_rules
+    from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierProfile
+    from src.domains.verification.visibility import visible_filter
+    from src.extensions import db
+
+    needs = needs_service.needs_for(business_id)
+    if not needs.is_known:
+        return None
+
+    connected = connected_supplier_ids(business_id)
+
+    candidates = (
+        db.session.query(SupplierProfile)
+        .join(SupplierOffer, SupplierOffer.supplier_profile_id == SupplierProfile.id)
+        .filter(
+            visible_filter(),
+            SupplierProfile.is_deleted.is_(False),
+            SupplierOffer.is_deleted.is_(False),
+            SupplierOffer.is_archived.is_(False),
+            SupplierOffer.category.in_(needs.category_values),
+        )
+        .distinct()
+        .all()
+    )
+
+    payers = [
+        p
+        for p in candidates
+        if tier_rules.effective_tier(p) in ("MAX", "PARTNER")
+        and str(p.id) not in connected
+    ]
+    if not payers:
+        return None
+
+    # DETERMINISTIC, not random. A slot that changes on every refresh
+    # is one nobody can debug and no advertiser can be shown they got.
+    # Rotation belongs to a real ad server, with impressions behind it;
+    # until then, stable is the honest placeholder.
+    payers.sort(key=lambda p: (p.business_name or "").lower())
+    chosen = payers[0]
+
+    return {
+        "id": "sponsored",
+        "type": "SPONSORED_SUPPLIER",
+        # THE LABEL COMES FROM THE SERVER so the exact wording can
+        # follow whatever advertising rules end up requiring, and the
+        # app never renders this section without one.
+        "label": "Sponsored",
+        "supplier": feed_suppliers([chosen], connected_ids=connected)[0],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tell us what you buy  --  the only thing that asks for a declaration
 # ---------------------------------------------------------------------------
