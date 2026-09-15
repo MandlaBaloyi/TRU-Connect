@@ -1,0 +1,281 @@
+===========================================================================
+V2_16 — SUPPLIER PLANS: WHAT A TIER CAN BUY, AND WHAT IT MUST NEVER
+===========================================================================
+
+Written 2026-09-15. A PLAN, and an argument before it is a plan.
+
+NOT TO BE CONFUSED WITH V2_13, despite both saying "tiers". That
+document is about how a supplier CONNECTS — a phone, a spreadsheet, an
+ERP. This one is about what a supplier PAYS FOR, and what that money is
+and is not allowed to move. They share a word and nothing else.
+
+WHY THIS DOCUMENT EXISTS AT ALL, stated plainly because it is a
+correction: the feed was designed, built and shipped across four phases
+without anybody asking what a supplier's plan buys them in it.
+Sponsorship was repeatedly deferred with "there is nothing to sell
+yet", which is true and is not the same as "there is nothing to
+decide yet". Mandla asked the question; it should have been asked
+during Book Two.
+
+
+===========================================================================
+PART 1 — THE INSIGHT THIS TURNS ON
+===========================================================================
+
+Mandla's, and it is the cleanest framing of TruConnect's economics
+anybody has written down:
+
+  ─────────────────────────────────────────────────────────────────────
+  MY CONNECTIONS is the shop's OWN network. Suppliers they already
+  know, already trade with, already chose. That is theirs. It is free
+  and it must stay free.
+
+  FOR YOU is REACH. It puts a supplier in front of a shop that does
+  not know them yet. Reach is the thing we create. Reach is the thing
+  that can be sold.
+  ─────────────────────────────────────────────────────────────────────
+
+That line is not a pricing decision. It is a PRODUCT decision that
+happens to make pricing obvious, and it draws the boundary in exactly
+the place where the value is created rather than where the money is
+easiest to take.
+
+It also explains, after the fact, why "Buy it again" always felt like
+the highest-value rail in the app and the least appropriate one to
+touch. It is not discovery. It is the shop's own memory, handed back.
+
+
+===========================================================================
+PART 2 — THE INVARIANT AT STAKE
+===========================================================================
+
+Everything under `demand/` is supplier-blind, and not by convention:
+
+    tests/architecture/test_demand_independence.py
+    FORBIDDEN_PREFIXES = supplier, network.connections, verification
+
+The demand engine cannot see who sells anything. It answers one
+question — WHAT DOES THIS SHOP NEED — and who can fulfil that is asked
+afterwards by somebody else. The whole anti-domination property rests
+on it: a wholesaler with four hundred products cannot fill a shop's
+feed, because the feed returns N products for the reasons the SHOP has,
+not the reasons a supplier has.
+
+  IF TIER MONEY REACHES THAT RANKING, THE PROPERTY IS GONE. Not
+  weakened — gone. A feed where spend moves organic results is an
+  auction wearing a recommendation's clothes, and the shopkeeper finds
+  out. They always find out: they notice the same wholesaler at the top
+  of everything, they stop reading the rail, and the rail becomes
+  worthless to the very suppliers who paid for it.
+
+So this document's job is not to decide whether to monetise the feed.
+It is to decide WHERE the money is allowed to touch it, precisely
+enough that an architecture test can hold the line.
+
+
+===========================================================================
+PART 3 — THE RULE: TIER MAY BREAK A TIE, NEVER BEAT A FACT
+===========================================================================
+
+Every surface in the feed falls into one of three classes. The class
+decides what money can do there, and nothing else does.
+
+  ─────────────────────────────────────────────────────────────────────
+  EARNED — ranked by the shop's own behaviour. NOT FOR SALE, at any
+           tier, for any amount, ever.
+  ─────────────────────────────────────────────────────────────────────
+
+    Buy it again          their own confirmed orders
+    Stock for your shop   their declared + observed needs
+    Moving fast           measured velocity, real units, real shops
+
+  These are the rails that make the tab worth opening. Their entire
+  value is that nobody paid for them. The moment one is sellable it
+  stops being evidence and starts being an advert, and the platform
+  has sold the only thing it had.
+
+  ─────────────────────────────────────────────────────────────────────
+  PROMOTED — explicitly a promotion, labelled as one, sold by tier.
+  ─────────────────────────────────────────────────────────────────────
+
+    Sponsored slot        the one V2_15 Book Two Part 8 already reserves
+    Explore wholesalers   a browsing surface that is honest about being
+                          browsing rather than recommendation
+
+  A promoted slot is not dishonest. A magazine has advertising pages
+  and nobody is deceived, because they look like advertising pages.
+  What is dishonest is an advert dressed as a recommendation.
+
+  ─────────────────────────────────────────────────────────────────────
+  TIE-BROKEN — an organic FACT ranks first. Tier orders the equals.
+  ─────────────────────────────────────────────────────────────────────
+
+    Collect near you           distance is the fact
+    Suppliers you haven't      relevance and reach are the facts
+      ordered from
+
+  THIS IS WHERE MOST OF THE REVENUE ACTUALLY LIVES, and it is the class
+  that needs the most discipline. The rule is one sentence:
+
+      A MAX SUPPLIER 20KM AWAY NEVER OUTRANKS A FREE SUPPLIER 1KM AWAY
+      IN A RAIL WHOSE TITLE PROMISES PROXIMITY.
+
+  But two suppliers both about 2km away, both stocking what this shop
+  buys? Nothing in the shop's own data separates them. Ordering them by
+  tier costs the reader nothing, because the fact the rail promised has
+  already been honoured. That is sellable and it is honest.
+
+  The implementation follows from the sentence: tier enters the sort
+  key AFTER the organic one, never inside it, and only within a
+  tolerance band the rail declares (e.g. distances within 2km of each
+  other are "equal" for ordering purposes).
+
+
+===========================================================================
+PART 4 — THE LADDER
+===========================================================================
+
+Four levels. The names are Mandla's; what each buys is a proposal.
+
+  FREE          Verified, findable, orderable. Present in every EARNED
+                rail whenever the shop's own data says they belong
+                there. No promoted placement, no tie-break priority.
+
+  PRO           Tie-break priority in the TIE-BROKEN rails. Limited
+                sponsored eligibility. A higher ceiling on how many of
+                their products may surface in one shop's feed.
+
+  MAX           Stronger tie-break. Full sponsored eligibility.
+                Highest product ceiling. Featured placement in
+                Explore wholesalers.
+
+  PARTNER       Sales-negotiated, and the answer to Mandla's pilot
+                question. Time-boxed and labelled like any other
+                promotion — a pilot partner gets reach, not a secret.
+                Written as a contract with an END DATE, because a
+                permanent unlabelled advantage is how a marketplace
+                quietly becomes a storefront for one supplier.
+
+FREE TRIALS AND PROMOTIONAL WINDOWS belong here and are not a
+discount — they are how a new supplier finds out whether the platform
+works before paying for it. A supplier who joins, sells nothing for
+sixty days and never had reach has learned nothing about us except
+that we charge.
+
+
+===========================================================================
+PART 5 — WHAT A FREE SUPPLIER MUST ALWAYS KEEP
+===========================================================================
+
+This part is self-interest, not charity.
+
+  A free verified supplier is FINDABLE, ORDERABLE, and appears in the
+  EARNED rails whenever a shop's own needs match what they stock.
+
+If free suppliers get no traction at all they leave. When they leave
+the catalogue thins. When the catalogue thins the feed has less to
+recommend, matching has less to resolve, "also from 3 suppliers"
+disappears, and the rails that PAYING suppliers bought placement in
+stop being worth opening.
+
+  THE PAYING SUPPLIERS ARE BUYING ATTENTION THAT A HEALTHY CATALOGUE
+  CREATES. Starving the free tier destroys the inventory they are
+  paying to stand in front of.
+
+Tiers buy REACH BEYOND WHAT YOU HAVE EARNED. They do not buy the right
+to exist, and they cannot buy somebody else's absence.
+
+
+===========================================================================
+PART 6 — LABELLING, WHICH IS NOT NEGOTIABLE
+===========================================================================
+
+V2_15 Part 12 already bans dark patterns: no fake scarcity, no invented
+"3 people are viewing this", everything the feed says must be true. A
+promoted card that does not say it is promoted breaks that rule as
+surely as an invented number would.
+
+  SAY IT PLAINLY. Not six-point grey text in a corner. The card says
+  what it is, in the same size as everything else on it.
+
+The cost of clear labelling is smaller than it looks and the benefit is
+structural: once promotion is visibly separate, the EARNED rails become
+MORE credible, not less. The reader can see which is which, so they can
+trust the part that was never for sale.
+
+
+===========================================================================
+PART 7 — WHAT MUST NEVER HAPPEN
+===========================================================================
+
+The list an architecture test should eventually hold:
+
+  1  A shop's own purchase history reordered by supplier spend.
+  2  The needs model influenced by tier. `demand/` stays supplier-blind
+     and test_demand_independence.py keeps passing, unchanged.
+  3  Unlabelled promotion anywhere.
+  4  A paid supplier surfacing for a category the shop does not buy.
+     Money buys priority AMONG relevant results; it does not buy
+     relevance itself.
+  5  A free supplier hidden, delisted, or made unorderable.
+  6  Tier visible to another supplier. One supplier's plan is not
+     another supplier's business, the same rule V2_04 2.4 applies to
+     volume.
+  7  Tier reaching `offer_selection`. Which supplier's offer a shop
+     sees for a product they already want is a RELATIONSHIP and PRICE
+     decision. If that becomes purchasable, the price comparison is a
+     lie, and the catalogue -- the most expensive thing we own -- stops
+     meaning anything.
+
+Point 7 is the one most likely to be argued for later and it is the
+most important on the list.
+
+
+===========================================================================
+PART 8 — WHAT THIS CHANGES IN THE CODE
+===========================================================================
+
+Smaller than it sounds, because the boundary was already drawn:
+
+  NEW     supplier_profiles.plan_tier          enum, default FREE
+          supplier_profiles.plan_expires_at    for trials and PARTNER
+  NEW     a placement module that owns the tie-break, OUTSIDE demand/.
+          The feed composer may read it; the demand engine may not,
+          and the existing architecture test already enforces that.
+  NEW     an architecture test for Part 7 items 1, 2 and 7 -- the same
+          AST discipline as the curtain and the composer tests.
+  EDIT    the TIE-BROKEN rails, to sort by (organic fact, tier) with a
+          declared tolerance band.
+  EDIT    the card shape, to carry a promoted flag the app renders.
+
+NOT TOUCHED: demand/, offer_selection.py, buy_it_again, the matching
+ladder. That is the point of the boundary.
+
+
+===========================================================================
+PART 9 — WHAT ONLY MANDLA CAN ANSWER
+===========================================================================
+
+  1  PRICE. What do Pro and Max cost, per month, in rands? Everything
+     above is structure; none of it says what to charge.
+
+  2  THE TOLERANCE BAND. How close is "equally near"? 2km? 5km? It
+     decides how much tie-break priority is actually worth, and it is
+     the number a supplier is really buying.
+
+  3  THE PRODUCT CEILING. How many of one supplier's products may
+     appear in one shop's feed at each tier? Today it is
+     MAX_CARDS_PER_SUPPLIER = 3 for everybody. Does Max get 5? And
+     does that ceiling apply to EARNED rails too, or only to the
+     ones where money is allowed?  (My reading: it must apply
+     everywhere, because it is an anti-domination rule before it is a
+     pricing lever -- otherwise tier has silently entered an EARNED
+     rail through the back door.)
+
+  4  EXPLORE WHOLESALERS. A new surface, named but not designed. Is it
+     a tab, a rail, or a screen behind a chip?
+
+  5  WHETHER "COLLECT NEAR YOU" IS SELLABLE AT ALL. It is the rail most
+     obviously about a fact (distance) and therefore the one where a
+     tie-break is least visible and most defensible -- but also the one
+     a shopkeeper would feel most betrayed by if it were wrong.
