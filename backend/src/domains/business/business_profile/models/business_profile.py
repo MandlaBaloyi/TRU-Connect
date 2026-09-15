@@ -283,20 +283,27 @@ class BusinessProfile(BaseModel):
     # --- Section 6: Supplier Info ---
     supplier_sources = db.Column(ARRAY(db.String), nullable=False, default=list)
 
-    # --- Section 7: Completeness ---
-    # identity_verified and documents_verified WERE HERE AND ARE GONE.
-    # They were the SUPPLIER model's concepts sitting on the business
-    # table: the verification curtain gates who may SELL, and an
-    # informal business is not checked in order to shop. They never had
-    # a backing system, stayed False for every row that ever existed,
-    # and their only real effect was to imply a review that does not
-    # happen and should not.
+    # --- Section 7 IS GONE ENTIRELY (V2_18 Part 2) ---
     #
-    # What remains is completeness, which is about how much this shop
-    # has told us -- and that is a question the demand engine genuinely
-    # acts on, not a judgement about them.
-    business_info_complete = db.Column(db.Boolean, nullable=False, default=False)
-    location_complete = db.Column(db.Boolean, nullable=False, default=False)
+    # identity_verified and documents_verified went first. They were the
+    # SUPPLIER model's concepts sitting on the business table: the
+    # verification curtain gates who may SELL, and an informal business
+    # is not checked in order to shop. They never had a backing system,
+    # stayed False for every row that ever existed, and their only real
+    # effect was to imply a review that does not happen and should not.
+    #
+    # business_info_complete and location_complete followed, for a
+    # sharper version of the same reason. Nothing in this codebase has
+    # ever WRITTEN either one, so both were False on every row -- and
+    # the frontend's completionCalculator already answers the same
+    # question, derived from the data on every read rather than from a
+    # column somebody has to remember to set. Two columns holding a
+    # worse answer to a question answered elsewhere are a trap for
+    # whoever trusts them next.
+    #
+    # COMPLETENESS ITSELF STILL MATTERS -- it is how much this shop has
+    # told us, which the demand engine genuinely acts on. It is just not
+    # stored here, because storing it made it wrong.
 
     # --- Find Business narrowing methods -----------------------------
     # Mirror SupplierProfile.to_search_result_dict/to_profile_preview_dict
