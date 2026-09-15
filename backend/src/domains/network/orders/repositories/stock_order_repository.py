@@ -11,7 +11,12 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 
 from src.extensions import db
-from src.domains.network.orders.models.stock_order import StockOrder, StockOrderItem, StockOrderStatus
+from src.domains.network.orders.models.stock_order import (
+    TRADED_STATUSES,
+    StockOrder,
+    StockOrderItem,
+    StockOrderStatus,
+)
 
 
 class StockOrderRepository:
@@ -130,7 +135,11 @@ class StockOrderRepository:
             )
             .filter(
                 StockOrder.status.in_(
-                    [StockOrderStatus.PENDING_SUPPLIER_APPROVAL, StockOrderStatus.CONFIRMED, StockOrderStatus.DECLINED]
+                    # TRADED_STATUSES, not CONFIRMED: an order that
+                    # completed successfully must not vanish from the
+                    # history of the shop that placed it.
+                    (StockOrderStatus.PENDING_SUPPLIER_APPROVAL, StockOrderStatus.DECLINED)
+                    + TRADED_STATUSES
                 )
             )
             .order_by(StockOrder.updated_at.desc())
@@ -392,7 +401,7 @@ class StockOrderRepository:
         accepted = StockOrder.query.filter(
             StockOrder.supplier_profile_id == supplier_profile_id,
             StockOrder.is_deleted.is_(False),
-            StockOrder.status == StockOrderStatus.CONFIRMED,
+            StockOrder.status.in_(TRADED_STATUSES),
         )
 
         return {
@@ -438,7 +447,7 @@ class StockOrderRepository:
             .filter(
                 StockOrder.business_id == business_id,
                 StockOrder.supplier_profile_id == supplier_profile_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -478,7 +487,7 @@ class StockOrderRepository:
             .join(StockOrderItem, StockOrderItem.stock_order_id == StockOrder.id)
             .filter(
                 StockOrderItem.product_id == product_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -526,14 +535,14 @@ class StockOrderRepository:
                 StockOrder.supplier_profile_id == supplier_profile_id,
                 StockOrder.is_deleted.is_(False),
                 StockOrder.decided_at.isnot(None),
-                StockOrder.status.in_([StockOrderStatus.CONFIRMED, StockOrderStatus.DECLINED]),
+                StockOrder.status.in_(TRADED_STATUSES + (StockOrderStatus.DECLINED,)),
             )
             .with_entities(StockOrder.status, StockOrder.submitted_at, StockOrder.decided_at)
             .order_by(StockOrder.decided_at.desc())
             .limit(window)
             .all()
         )
-        accepted_recent = sum(1 for row in decided if row.status == StockOrderStatus.CONFIRMED)
+        accepted_recent = sum(1 for row in decided if row.status in TRADED_STATUSES)
 
         durations = sorted(
             (row.decided_at - row.submitted_at).total_seconds() / 3600
@@ -552,7 +561,7 @@ class StockOrderRepository:
         confirmed = StockOrder.query.filter(
             StockOrder.supplier_profile_id == supplier_profile_id,
             StockOrder.is_deleted.is_(False),
-            StockOrder.status == StockOrderStatus.CONFIRMED,
+            StockOrder.status.in_(TRADED_STATUSES),
         )
 
         sales_cents = (
@@ -560,7 +569,7 @@ class StockOrderRepository:
             .filter(
                 StockOrder.supplier_profile_id == supplier_profile_id,
                 StockOrder.is_deleted.is_(False),
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
             )
             .scalar()
         )
@@ -570,7 +579,7 @@ class StockOrderRepository:
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
                 StockOrder.supplier_profile_id == supplier_profile_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -752,7 +761,7 @@ class StockOrderRepository:
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
                 StockOrderItem.product_id.in_(list(product_ids)),
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -792,7 +801,7 @@ class StockOrderRepository:
             )
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
                 StockOrder.submitted_at >= since,
@@ -839,7 +848,7 @@ class StockOrderRepository:
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
                 StockOrder.business_id == business_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -886,7 +895,7 @@ class StockOrderRepository:
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
                 StockOrder.business_id == business_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -938,7 +947,7 @@ class StockOrderRepository:
             .join(StockOrderItem, StockOrderItem.product_id == SupplierOffer.id)
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )
@@ -970,7 +979,7 @@ class StockOrderRepository:
             db.session.query(StockOrder.submitted_at, StockOrder.total_cents)
             .filter(
                 StockOrder.business_id == business_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.submitted_at.isnot(None),
                 StockOrder.is_deleted.is_(False),
             )

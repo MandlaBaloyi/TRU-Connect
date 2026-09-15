@@ -79,6 +79,12 @@ EXISTING_RECORD_PATHS = {
     "orders/services/cart_service.py",
     # Past orders. The clearest case of all.
     "orders/services/order_history_service.py",
+    # Finishing an order that was placed while the supplier was live.
+    # The lookup here is a SUPPLIER fetching their OWN profile to stamp
+    # themselves on a dispatch event -- the curtain applied there would
+    # hide a supplier from themselves, which is the one thing
+    # visibility.py says it must never do.
+    "orders/services/fulfilment_service.py",
 }
 
 

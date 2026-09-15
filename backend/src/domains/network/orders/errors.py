@@ -215,3 +215,26 @@ class PaymentProviderNotConfiguredError(AppError):
 
     status_code = 503
     code = "PAYMENT_PROVIDER_NOT_CONFIGURED"
+
+
+class OrderNotDispatchableError(ConflictError):
+    """Only a CONFIRMED order can be marked dispatched.
+
+    A supplier tapping this on an order they already dispatched, or on
+    one that was cancelled underneath them, is not doing anything
+    wrong -- they are looking at a stale screen. The message says what
+    the order IS rather than scolding them for what they tapped.
+    """
+
+    code = "ORDER_NOT_DISPATCHABLE"
+
+
+class OrderNotCompletableError(ConflictError):
+    """Only a live order can be confirmed as received.
+
+    THE MOST LIKELY CAUSE IS A DOUBLE TAP, on a slow connection, by
+    somebody holding a box. It must read as "already done" rather than
+    as an error they caused.
+    """
+
+    code = "ORDER_NOT_COMPLETABLE"

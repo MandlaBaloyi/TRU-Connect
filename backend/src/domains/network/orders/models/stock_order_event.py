@@ -69,6 +69,18 @@ class StockOrderEventType(str, enum.Enum):
     #: supplier never answered is a different story from one they
     #: actively refused, and support will be asked about both.
     AUTO_DECLINED = "auto_declined"
+    #: The supplier says it left them. OPTIONAL -- most informal
+    #: suppliers will never tap it, and its absence is not a gap.
+    DISPATCHED = "dispatched"
+    #: The business says it arrived. THE STRONG SIGNAL, and the only
+    #: one a dispute can rest on.
+    COMPLETED = "completed"
+    #: Declared ahead of the sweep that will write it, exactly as
+    #: AUTO_DECLINED was. An order nobody closed is a different story
+    #: from one a shopkeeper confirmed receiving, and support will be
+    #: asked about both. It means "nobody objected in time" and is not
+    #: evidence that anything arrived.
+    AUTO_COMPLETED = "auto_completed"
     #: Payment events, for when a real provider settles rather than a
     #: cash arrangement. Nothing writes these yet.
     PAYMENT_RECEIVED = "payment_received"

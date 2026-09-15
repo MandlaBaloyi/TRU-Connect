@@ -23,7 +23,13 @@ from src.core.decorators import fully_authenticated, idempotent, role_required
 from src.core.responses import error_response, success_response
 from src.domains.network.orders.rate_limit import policies as rate_limit_policies
 from src.domains.network.orders.schemas.checkout_schemas import AddCartItemSchema, SubmitCheckoutSchema, UpdateCartItemSchema
-from src.domains.network.orders.services import cancellation_service, cart_service, checkout_service, order_history_service
+from src.domains.network.orders.services import (
+    cancellation_service,
+    cart_service,
+    checkout_service,
+    fulfilment_service,
+    order_history_service,
+)
 from src.domains.security.rate_limit.limiter import limiter
 
 orders_bp = Blueprint("orders", __name__)
@@ -127,6 +133,28 @@ def get_order_detail(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
     """Tapping into one specific past order from the history list."""
     result = order_history_service.get_order_detail(_business_id(), supplier_profile_id, order_id)
     return success_response(data=result)
+
+
+@orders_bp.route(
+    "/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/history/<uuid:order_id>/received",
+    methods=["POST"],
+)
+@fully_authenticated
+@role_required("business")
+def confirm_received(supplier_profile_id: uuid.UUID, order_id: uuid.UUID):
+    """CONFIRMED or DISPATCHED -> COMPLETED. The shop says it arrived.
+
+    BUSINESS ONLY, and not for symmetry: the supplier is already paid
+    on the digital rail, completion flatters their own statistics, and
+    nobody is checking -- so their incentive points the wrong way at
+    exactly the moment the record starts mattering. completed_by
+    records BUSINESS so this can never be confused with the timeout
+    closing it later.
+    """
+    result = fulfilment_service.confirm_received(
+        _business_id(), supplier_profile_id, order_id
+    )
+    return success_response(data=result, message="Thanks — this order is closed.")
 
 
 @orders_bp.route("/api/v1/checkout/suppliers/<uuid:supplier_profile_id>/history/<uuid:order_id>/cancel", methods=["POST"])

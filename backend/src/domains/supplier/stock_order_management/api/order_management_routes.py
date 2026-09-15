@@ -89,6 +89,26 @@ def decline_order(order_id: uuid.UUID):
     return success_response(data=result)
 
 
+@order_management_bp.route(
+    "/api/v1/supplier/stock-orders/<uuid:order_id>/dispatched", methods=["POST"]
+)
+@fully_authenticated
+@role_required("supplier")
+def mark_dispatched(order_id: uuid.UUID):
+    """CONFIRMED -> DISPATCHED. The supplier says it has left them.
+
+    NOT A CLAIM THAT IT ARRIVED. They know when stock left their yard;
+    only the shop knows when it reached theirs -- which is why this is
+    a separate state from COMPLETED and why it is OPTIONAL. Most
+    informal suppliers will never tap it, and an order going straight
+    from CONFIRMED to COMPLETED is the ordinary path.
+    """
+    from src.domains.network.orders.services import fulfilment_service
+
+    result = fulfilment_service.mark_dispatched(_supplier_profile_id(), order_id)
+    return success_response(data=result, message="Marked as on its way.")
+
+
 @order_management_bp.route("/api/v1/supplier/stock-orders/<uuid:order_id>/cancel", methods=["POST"])
 @fully_authenticated
 @role_required("supplier")

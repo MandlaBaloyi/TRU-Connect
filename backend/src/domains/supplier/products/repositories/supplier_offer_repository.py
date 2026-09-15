@@ -190,6 +190,7 @@ class SupplierOfferRepository:
         would silently hide a supplier's newest stock.
         """
         from src.domains.network.orders.models.stock_order import (
+                TRADED_STATUSES,
             StockOrder,
             StockOrderItem,
             StockOrderStatus,
@@ -205,7 +206,7 @@ class SupplierOfferRepository:
                 .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
                 .filter(
                     StockOrder.supplier_profile_id == supplier_profile_id,
-                    StockOrder.status == StockOrderStatus.CONFIRMED,
+                    StockOrder.status.in_(TRADED_STATUSES),
                     StockOrder.is_deleted.is_(False),
                     StockOrderItem.is_deleted.is_(False),
                 )
@@ -647,6 +648,7 @@ class SupplierOfferRepository:
         claim false.
         """
         from src.domains.network.orders.models.stock_order import (
+                TRADED_STATUSES,
             StockOrder,
             StockOrderItem,
             StockOrderStatus,
@@ -660,7 +662,7 @@ class SupplierOfferRepository:
             .join(StockOrder, StockOrder.id == StockOrderItem.stock_order_id)
             .filter(
                 StockOrder.supplier_profile_id == supplier_profile_id,
-                StockOrder.status == StockOrderStatus.CONFIRMED,
+                StockOrder.status.in_(TRADED_STATUSES),
                 StockOrder.is_deleted.is_(False),
                 StockOrderItem.is_deleted.is_(False),
             )

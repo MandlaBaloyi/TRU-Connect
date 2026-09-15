@@ -78,6 +78,75 @@ class StockOrderStatus(str, enum.Enum):
     DECLINED = "DECLINED"
     CANCELLED = "CANCELLED"
 
+    #: The supplier says it has left them. OPTIONAL, and the design must
+    #: not break when it is never used -- most informal suppliers will
+    #: never tap it, and an order that goes straight from CONFIRMED to
+    #: COMPLETED is the normal case rather than a degraded one.
+    DISPATCHED = "DISPATCHED"
+
+    #: The trade is finished and nothing further is expected. See
+    #: completed_by: "who said so" is the entire value of the field.
+    COMPLETED = "COMPLETED"
+
+
+class StockOrderCompletedBy(str, enum.Enum):
+    """WHO said the trade was finished, which is the whole point of
+    recording completion at all.
+
+    BUSINESS   the strong signal, and the only one a dispute can rest
+               on. The shopkeeper has the stock in their hands.
+    SUPPLIER   weaker, and the incentive points the wrong way: they are
+               already paid on the digital rail, it flatters their own
+               stats, and nobody is checking.
+    SYSTEM     NOT EVIDENCE OF ANYTHING. It means nobody objected in
+               time. Collapsing this into the same boolean as a BUSINESS
+               completion would destroy the only distinction that
+               matters when somebody says the stock never arrived.
+
+    NAME == VALUE, for the reason SupplierIngestionMode explains: the
+    ORM persists a member's name, and a mismatch there has already
+    had to be corrected once in this project.
+    """
+
+    BUSINESS = "BUSINESS"
+    SUPPLIER = "SUPPLIER"
+    SYSTEM = "SYSTEM"
+
+
+#: A REAL SALE HAPPENED. Read this, never `status == CONFIRMED`.
+#:
+#: THE MOST DANGEROUS LINE IN THIS FILE, and V2_14 says so before it
+#: was written: every sales total, trust statistic, repeat-business
+#: count and reorder query in this codebase used to read
+#: `status == CONFIRMED` and MEAN "a real sale". The moment CONFIRMED
+#: could advance, all seventeen of them became silently wrong -- an
+#: order that completed successfully would vanish from a supplier's
+#: own sales figures.
+#:
+#: Nothing about that failure is visible: no error, no exception, just
+#: numbers that quietly shrink as trade succeeds. So the meaning lives
+#: in one named tuple, and an architecture test refuses a bare
+#: comparison anywhere it could mean this.
+TRADED_STATUSES = (
+    StockOrderStatus.CONFIRMED,
+    StockOrderStatus.DISPATCHED,
+    StockOrderStatus.COMPLETED,
+)
+
+#: Submitted and not finished. DISPUTED, when it exists, belongs here
+#: too -- V2_14 calls it "the loudest possible kind of open".
+OPEN_STATUSES = (
+    StockOrderStatus.CONFIRMED,
+    StockOrderStatus.DISPATCHED,
+)
+
+#: Nothing further is expected.
+TERMINAL_STATUSES = (
+    StockOrderStatus.DECLINED,
+    StockOrderStatus.CANCELLED,
+    StockOrderStatus.COMPLETED,
+)
+
 
 class StockOrderDeclineReason(str, enum.Enum):
     """A supplier's own reason for declining a PENDING_SUPPLIER_APPROVAL
@@ -374,6 +443,22 @@ class StockOrder(BaseModel):
     # and when. A business cancelling a still-PENDING order never
     # touches decided_at at all (the supplier never decided anything).
     cancelled_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    #: When the supplier said it left them. NULL is the NORMAL case,
+    #: not a gap: most informal suppliers will never tap dispatch, and
+    #: an order that goes straight from CONFIRMED to COMPLETED is the
+    #: ordinary path rather than a degraded one.
+    dispatched_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    #: WHO said it was finished. The entire value of recording
+    #: completion -- a SYSTEM completion means "nobody objected in
+    #: time" and must never be read as the business confirming receipt.
+    completed_by = db.Column(
+        db.Enum(StockOrderCompletedBy, name="stock_order_completed_by", schema="checkout"),
+        nullable=True,
+    )
 
     # Reminder tracking -- nullable, set once each reminder actually
     # sends. Two separate columns, not one, since the 24h and 3-day
