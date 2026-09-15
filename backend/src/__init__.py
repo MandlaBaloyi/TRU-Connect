@@ -179,6 +179,8 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(community_bp)
     from src.domains.network.community.api.feed_detail_routes import feed_detail_bp
     app.register_blueprint(feed_detail_bp)
+    from src.domains.network.community.explore.api.explore_routes import explore_bp
+    app.register_blueprint(explore_bp)
 
     # THE CATALOGUE'S FIRST HTTP SURFACE. It had none until now --
     # matching ran inside imports and the review queue lived in the
