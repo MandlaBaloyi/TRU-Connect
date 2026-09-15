@@ -167,6 +167,10 @@ export const MOCK_COMMUNITY_FEED: CommunityFeed = {
     // built and tested and renders nowhere in the app today.
     {
       id: "buy-again",
+      // So the chevron and the screen behind it are visible while
+      // designing against mock mode.
+      hasMore: true,
+      seeAllHref: "/business/community/buy-it-again",
       type: "PRODUCT_RAIL",
       title: "Buy it again",
       subtitle: "From your last orders",
@@ -189,6 +193,8 @@ export const MOCK_COMMUNITY_FEED: CommunityFeed = {
 
     {
       id: "your-suppliers",
+      hasMore: true,
+      seeAllHref: "/business/my-connections",
       type: "SUPPLIER_AVATARS",
       title: "Your suppliers",
       suppliers: [macman, thabo, kasi, zenzele, nomvula],

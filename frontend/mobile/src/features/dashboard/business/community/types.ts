@@ -124,6 +124,15 @@ interface SectionBase {
   /** Stable across refreshes — used as the React key and, later, as
    *  the impression key when this feed is measured. */
   id: string;
+  /** THERE IS MORE BEHIND THIS RAIL. Absent rather than false when
+   *  everything already fits: a chevron leading to a screen identical
+   *  to the rail is a worse lie than no chevron. */
+  hasMore?: boolean;
+  /** Where the chevron goes. THE SERVER NAMES THE PATH, the app owns
+   *  it — same contract as section types: the client follows what it
+   *  recognises and ignores what it does not, so a new destination
+   *  ships server-side. */
+  seeAllHref?: string | null;
 }
 
 export type FeedSection =

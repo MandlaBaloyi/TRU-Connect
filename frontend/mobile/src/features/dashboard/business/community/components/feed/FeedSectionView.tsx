@@ -32,12 +32,38 @@ import type { FeedSection } from "../../types";
  * keeps the destination's own header correct on its first frame (see
  * business/routes.ts on the header-flash fix).
  */
+/** [a, b, c, d, e] -> [[a, b], [c, d], [e]].
+ *
+ * COLUMN-MAJOR ON PURPOSE. Pairing consecutive suppliers puts the two
+ * most relevant side by side vertically, so the first swipe-width holds
+ * ranks 1 and 2 rather than 1 and 7 -- which is what a row-major fill
+ * of two FlatLists would have produced, and it would have looked
+ * identical while quietly burying the second-best supplier off-screen.
+ */
+function pairUp<T>(items: T[]): [T, T | undefined][] {
+  const pairs: [T, T | undefined][] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    pairs.push([items[i], items[i + 1]]);
+  }
+  return pairs;
+}
+
 export function FeedSectionView({ section }: { section: FeedSection }) {
   const router = useRouter();
   const theme = useTheme();
 
   const openSupplier = (id: string, name: string) =>
     router.push(supplierProfileHref(id, name) as any);
+
+  // ONE PLACE DECIDES WHETHER A RAIL HAS A CHEVRON, so a new rail
+  // cannot accidentally ship without one -- or with one that leads
+  // nowhere. Rail itself only renders the affordance when this is
+  // non-null, which is why undefined is the right "no" rather than a
+  // handler that does nothing.
+  const seeAll =
+    section.hasMore && section.seeAllHref
+      ? () => router.push(section.seeAllHref as any)
+      : undefined;
 
   switch (section.type) {
     case "CATEGORY_CHIPS":
@@ -57,17 +83,31 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
       );
 
     case "SUPPLIER_AVATARS":
+      // TWO ROWS, NOT ONE. Supplier avatars are small enough that
+      // stacking them pairs twelve into the width that held six, and a
+      // shop with ten suppliers should not have to swipe four times to
+      // see the one they want. Past the cap the chevron goes to My
+      // Connections, which is already the screen for the full list.
       return (
         <Rail
           title={section.title}
-          data={section.suppliers}
-          keyExtractor={(supplier) => supplier.id}
+          data={pairUp(section.suppliers)}
+          keyExtractor={([first, second]) => `${first.id}-${second?.id ?? "solo"}`}
           itemGap={spacing.md}
-          renderItem={(supplier) => (
-            <SupplierAvatarTile
-              supplier={supplier}
-              onPress={() => openSupplier(supplier.id, supplier.businessName)}
-            />
+          onSeeAll={seeAll}
+          renderItem={([first, second]) => (
+            <View style={styles.avatarColumn}>
+              <SupplierAvatarTile
+                supplier={first}
+                onPress={() => openSupplier(first.id, first.businessName)}
+              />
+              {second ? (
+                <SupplierAvatarTile
+                  supplier={second}
+                  onPress={() => openSupplier(second.id, second.businessName)}
+                />
+              ) : null}
+            </View>
           )}
         />
       );
@@ -77,6 +117,7 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
         <Rail
           title={section.title}
           subtitle={section.subtitle}
+          onSeeAll={seeAll}
           data={section.suppliers}
           keyExtractor={(supplier) => supplier.id}
           renderItem={(supplier) => (
@@ -93,6 +134,7 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
         <Rail
           title={section.title}
           subtitle={section.subtitle}
+          onSeeAll={seeAll}
           data={section.products}
           keyExtractor={(product) => product.id}
           renderItem={(product) => (
@@ -150,6 +192,7 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
 }
 
 const styles = StyleSheet.create({
+  avatarColumn: { gap: spacing.md },
   sponsored: { paddingHorizontal: spacing.md, gap: spacing.xs },
   sponsoredLabel: {
     ...typography.caption,

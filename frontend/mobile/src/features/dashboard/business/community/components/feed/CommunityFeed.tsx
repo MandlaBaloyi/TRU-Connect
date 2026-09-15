@@ -21,6 +21,25 @@ import { useCommunityFeed } from "../../hooks/useCommunityFeed";
  * for -- what did I buy last time, and who is around now -- both go
  * stale within a day.
  */
+/**
+ * The seam between two shelves.
+ *
+ * SOUNDS COSMETIC AND IS NOT. Six rails of horizontally-scrolling
+ * cards with nothing between them read as one undifferentiated wall,
+ * and the titles stop doing their job -- which matters most for the
+ * rails whose titles carry the REASON they exist ("Based on what you
+ * buy", "Shops are buying these faster than last month"). A reader
+ * scanning a wall does not attribute a heading to the row beneath it.
+ */
+function FeedDivider() {
+  const theme = useTheme();
+  return (
+    <View style={styles.divider}>
+      <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+    </View>
+  );
+}
+
 export function CommunityFeed() {
   const theme = useTheme();
   const { sections, isLoading, isError, refetch, isRefetching } = useCommunityFeed();
@@ -41,7 +60,7 @@ export function CommunityFeed() {
       data={sections}
       keyExtractor={(section) => section.id}
       renderItem={({ item }) => <FeedSectionView section={item} />}
-      ItemSeparatorComponent={() => <View style={styles.gap} />}
+      ItemSeparatorComponent={() => <FeedDivider />}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -97,7 +116,11 @@ function FeedSkeleton() {
 
 const styles = StyleSheet.create({
   content: { paddingVertical: spacing.md, paddingBottom: spacing.xxl },
-  gap: { height: spacing.lg },
+  divider: { height: spacing.lg, justifyContent: "center" },
+  // A HAIRLINE, INSET TO THE CONTENT MARGIN rather than edge to edge:
+  // full-bleed rules read as page breaks and chop the feed into
+  // documents, where an inset one reads as a seam between shelves.
+  dividerLine: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.md },
 
   skeleton: { paddingVertical: spacing.md, gap: spacing.lg },
   skeletonChips: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },
