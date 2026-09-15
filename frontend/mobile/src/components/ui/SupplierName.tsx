@@ -1,5 +1,12 @@
 import React from "react";
-import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
 import { showsAsVerified } from "@/constants/config";
 import { VerifiedTick } from "@/components/ui/VerifiedTick";
@@ -39,6 +46,7 @@ export function SupplierName({
   name,
   verificationStatus,
   style,
+  containerStyle,
   numberOfLines = 1,
   tickSize = 13,
 }: {
@@ -47,6 +55,9 @@ export function SupplierName({
    *  which renders no tick -- never an assumed one. */
   verificationStatus?: string | null;
   style?: StyleProp<TextStyle>;
+  /** For layouts that are not left-aligned rows -- the "Your
+   *  suppliers" tile centres a two-line name under a round avatar. */
+  containerStyle?: StyleProp<ViewStyle>;
   numberOfLines?: number;
   tickSize?: number;
 }) {
@@ -63,7 +74,7 @@ export function SupplierName({
   }
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, containerStyle]}>
       <Text style={[style, styles.name]} numberOfLines={numberOfLines}>
         {name}
       </Text>

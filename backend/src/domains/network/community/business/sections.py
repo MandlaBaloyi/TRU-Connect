@@ -194,8 +194,16 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
         "type": "PRODUCT_RAIL",
         "title": "Moving fast right now",
         # THE REASON STRING, and it has to stay true like every other
-        # one: this is about the last week, not about all time.
-        "subtitle": f"Selling quicker than usual in the last {velocity.RECENT_DAYS} days",
+        # one. It also has to sound like a person wrote it: "selling
+        # quicker than usual in the last 7 days" was accurate and read
+        # like a database talking.
+        #
+        # WHAT IT SAYS NOW IS LITERALLY WHAT THE ALGORITHM MEASURES --
+        # the last 7 days against that product's own previous 28 --
+        # which is why it can name a comparison rather than hiding
+        # behind "usual". And it says WHO: other shops, which is the
+        # part a shopkeeper actually trusts.
+        "subtitle": "Shops are buying these faster than last month",
         "products": products[:limit],
     }
 

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 
 import { EntityAvatar } from "@/components/ui/EntityAvatar";
+import { SupplierName } from "@/components/ui/SupplierName";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -60,9 +61,14 @@ export function SupplierAvatarTile({
           />
         )}
       </View>
-      <Text style={[styles.name, { color: theme.colors.onSurface }]} numberOfLines={2}>
-        {supplier.businessName}
-      </Text>
+      <SupplierName
+        name={supplier.businessName}
+        verificationStatus={supplier.verificationStatus}
+        style={[styles.name, { color: theme.colors.onSurface }]}
+        containerStyle={styles.nameRow}
+        numberOfLines={2}
+        tickSize={11}
+      />
     </Pressable>
   );
 }
@@ -89,4 +95,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
   },
   name: { ...typography.caption, fontSize: 11, lineHeight: 14, textAlign: "center" },
+  // Centred, because this tile stacks a name under a round avatar
+  // rather than running a row left to right like every other card.
+  nameRow: { justifyContent: "center" },
 });
