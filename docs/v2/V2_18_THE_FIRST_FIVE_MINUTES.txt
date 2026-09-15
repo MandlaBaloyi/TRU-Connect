@@ -180,27 +180,45 @@ PART 4 — THE MANDATORY STEPS
 
   Putting the gate anywhere else means putting it in several places.
 
+  IT FAILS OPEN. If setup-state cannot be fetched -- no network, a
+  backend that is down, an older build against a newer server -- the
+  person goes to their dashboard. A gate that failed CLOSED would lock
+  an established shop out of an app that works perfectly well without
+  three answers it gave months ago, and would do it on exactly the day
+  the network was bad.
+
   ─────────────────────────────────────────────────────────────────────
   4.2  THE THREE STEPS
   ─────────────────────────────────────────────────────────────────────
 
-      1  YOUR SHOP       business name, what stock you buy, who you
-                         sell to
-                         -> business_name, buys_categories,
-                            customer_types
-                         REQUIRED
+      1  YOUR SHOP       what stock you buy, who you sell to
+                         -> buys_categories, customer_types
+                         REQUIRED (on categories only)
 
       2  HOW YOU BUY     how often you restock, roughly what you spend
                          in a week
                          -> restock_rhythm, weekly_spend_band
-                         REQUIRED
+                         REQUIRED (both)
 
       3  WHERE YOU ARE   a pin on a map
-                         -> latitude, longitude, city_or_town, province
+                         -> latitude, longitude, city_or_town
                          SKIPPABLE, ONCE
 
-  Six fields. Exactly the six in 1.1, in the order a person can answer
-  them.
+  BUSINESS NAME LEFT THIS LIST DURING THE BUILD, and the reason is
+  Part 3: registration now REQUIRES it, so asking again in step one
+  would be asking a question whose answer is already on the row. It is
+  also identity rather than fuel -- the engine never reads it. Five
+  fields, then, plus a name collected one screen earlier.
+
+  CUSTOMER TYPES IS ASKED AND DOES NOT GATE. It feeds prefers_bulk,
+  which refines the model that categories create. Blocking somebody on
+  the less important half of a question is how a setup flow starts
+  feeling like an interview.
+
+  BOTH HALVES OF STEP TWO ARE REQUIRED. Rhythm sets WHEN the feed
+  should press, spend sets WHAT SIZE of basket it may show. Neither
+  substitutes for the other, and a shop with one of them gets half a
+  model.
 
   ─────────────────────────────────────────────────────────────────────
   4.3  THREE RULES THAT KEEP IT HONEST

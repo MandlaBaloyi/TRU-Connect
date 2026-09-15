@@ -100,4 +100,19 @@ export const STORAGE_KEYS = {
   PENDING_VERIFICATION_EMAIL: "tru_connect_pending_verification_email",
 
   ONBOARDING_COMPLETE: "tru_connect_onboarding_complete",
+
+  /**
+   * "Not now" on setup step 3, the only skippable one.
+   *
+   * ON THE DEVICE, DELIBERATELY, AND THERE IS NO COLUMN FOR IT. The
+   * server's truth is simply whether a location exists; "they said not
+   * now" is a fact about a phone, not about a business, and a
+   * skipped_at column would be a second thing to keep true.
+   *
+   * A REINSTALL ASKS ONCE MORE, which is the right trade: the cost is
+   * one dismissible screen, and the alternative is a shop that
+   * declined on a lost phone never being offered the two rails that
+   * need a location again.
+   */
+  SETUP_LOCATION_SKIPPED: "tru_connect_setup_location_skipped",
 } as const;

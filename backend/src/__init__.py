@@ -139,6 +139,14 @@ def _register_blueprints(app: Flask) -> None:
     from src.domains.business.business_profile.api.business_profile_routes import business_profile_bp
     app.register_blueprint(business_profile_bp)
 
+    # THE SIGNUP GATE'S ONE ENDPOINT, and it belongs to the demand
+    # engine rather than to the profile: "which answers are mandatory"
+    # is the list of columns the engine reads, and that list must not
+    # exist twice. The setup screens WRITE through the profile routes
+    # above.
+    from src.domains.business.demand.api.setup_routes import demand_setup_bp
+    app.register_blueprint(demand_setup_bp)
+
     from src.domains.network.connections.api.connections_routes import connections_bp
     app.register_blueprint(connections_bp)
 

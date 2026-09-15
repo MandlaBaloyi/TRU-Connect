@@ -37,6 +37,7 @@ import pytest
 
 from src.domains.business.demand.algorithms import weighting
 from src.domains.business.demand.services import needs_service
+from src.domains.network.community.algorithms import interleave
 from src.domains.network.community.business import sections
 from src.extensions import db
 
@@ -152,6 +153,22 @@ class TestTheCarefulNulls:
 
 
 class TestNoSupplierOwnsARail:
+    """THESE POINTED AT sections._cap_per_supplier AND HAD BEEN RED
+    SINCE V2_17 MOVED IT.
+
+    The rule now lives in algorithms/interleave.py, next to the run
+    rule, because the ceiling and the run-breaker are two halves of one
+    property and were a file apart. The move renamed it (no leading
+    underscore -- it is a module's public function now), the tests were
+    not brought along, and an AttributeError in a test is a silent
+    failure in a suite nobody runs per-directory.
+
+    The tier ceiling also moved on: FREE is 3, and a plan can raise it
+    to 5, bound underneath by interleave's proportional 40%. These test
+    the mechanism, so they name a cap explicitly rather than importing
+    whatever today's default happens to be.
+    """
+
     def test_the_cap_keeps_the_rail_a_market(self):
         """A wholesaler with four hundred products would otherwise fill
         it entirely -- their catalogue is simply bigger, and "more
@@ -162,7 +179,7 @@ class TestNoSupplierOwnsARail:
         products = [{"supplierId": "big", "id": f"p{i}"} for i in range(10)]
         products += [{"supplierId": "small", "id": "s1"}]
 
-        kept = sections._cap_per_supplier(products, sections.MAX_CARDS_PER_SUPPLIER)
+        kept = interleave.cap_per_supplier(products, 3)
 
         assert len([p for p in kept if p["supplierId"] == "big"]) == 3
         assert len([p for p in kept if p["supplierId"] == "small"]) == 1
@@ -176,9 +193,18 @@ class TestNoSupplierOwnsARail:
             {"supplierId": "a", "id": "3"},
         ]
 
-        kept = sections._cap_per_supplier(products, 3)
+        kept = interleave.cap_per_supplier(products, 3)
 
         assert [p["id"] for p in kept] == ["1", "2", "3"]
+
+    def test_the_free_tier_ceiling_is_still_what_the_rail_gets_by_default(self):
+        """The number the two tests above used to import. It is pinned
+        here so the mechanism tests stay about the mechanism, and a
+        change to what FREE buys shows up as exactly one failure."""
+        from src.domains.network.community.placement import tier_rules
+
+        assert tier_rules.absolute_cap("FREE") == 3
+        assert tier_rules.absolute_cap(None) == 3, "unknown must cost reach, never grant it"
 
 
 class TestTheRailItself:
