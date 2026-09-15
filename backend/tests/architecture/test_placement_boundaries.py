@@ -53,6 +53,10 @@ SRC_ROOT = BACKEND_ROOT / "src"
 DEMAND_ROOT = SRC_ROOT / "domains" / "business" / "demand"
 OFFER_SELECTION = SRC_ROOT / "domains" / "catalogue" / "discovery" / "services" / "offer_selection.py"
 SECTIONS = SRC_ROOT / "domains" / "network" / "community" / "business" / "sections.py"
+PLACEMENT_ROOT = SRC_ROOT / "domains" / "network" / "community" / "placement"
+FEED_DETAIL = (
+    SRC_ROOT / "domains" / "network" / "community" / "services" / "feed_detail_service.py"
+)
 
 #: The names that mean "this supplier pays us". Any of them appearing
 #: where the rules above forbid is the violation, however it got there.
@@ -159,4 +163,68 @@ def test_buy_it_again_is_never_capped_per_supplier() -> None:
         f"{sorted(capping)}): it is the shop's own confirmed orders, and a "
         "wholesaler appearing often there is a fact about their trading "
         "rather than domination."
+    )
+
+
+def _imported_modules(tree: ast.Module) -> List[str]:
+    modules: List[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.append(node.module)
+    return modules
+
+
+def test_placement_cannot_see_what_a_shop_needs() -> None:
+    """THE OTHER DIRECTION, and it is the one nobody thinks to test.
+
+    demand/ not reading a plan is the famous half. This is the twin:
+    placement must not read the demand engine either. If it could, a
+    tier rule could be written that applies "only to shops that buy
+    bakery" -- targeting dressed as placement, and a short walk from
+    selling a category.
+    """
+    offenders = []
+    for path in _python_files(PLACEMENT_ROOT):
+        bad = [m for m in _imported_modules(_parse(path)) if "business.demand" in m]
+        if bad:
+            offenders.append(f"{path.relative_to(BACKEND_ROOT)} -> {bad}")
+
+    assert not offenders, (
+        "placement must not read the demand engine:\n  " + "\n  ".join(sorted(offenders))
+    )
+
+
+def test_collect_near_you_is_never_tie_broken() -> None:
+    """V2_17 Q5, AND THE CODE DECIDED IT RATHER THAN A PREFERENCE.
+
+    That rail is the only surface in the app that PRINTS the number it
+    is sorted by. Reordering it puts 2.0km above 1.2km in front of a
+    reader who can see both, who then concludes the order was bought --
+    correctly, which is what makes it unrecoverable.
+    """
+    tree = _parse(FEED_DETAIL)
+
+    target = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "collect_near_you_suppliers":
+            target = node
+            break
+
+    assert target is not None, "collect_near_you_suppliers has moved -- update this test"
+
+    names = []
+    for node in ast.walk(target):
+        if isinstance(node, ast.Attribute):
+            names.append(node.attr)
+        elif isinstance(node, ast.Name):
+            names.append(node.id)
+
+    forbidden = {"tie_break", "order_untried_suppliers", "tier_rules", "effective_tier", "rank"}
+    found = forbidden & set(names)
+    assert not found, (
+        f"collect_near_you must rank on distance alone -- found {sorted(found)}. "
+        "It prints the number it is sorted by, so any reordering is a "
+        "contradiction the reader is holding."
     )

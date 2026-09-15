@@ -31,6 +31,7 @@ from typing import List, Optional, Tuple
 
 from src.core.base_model import utcnow
 from src.domains.network.community.algorithms import velocity
+from src.domains.network.community.placement import tie_break
 from src.domains.network.community.business.cards import feed_products
 from src.domains.network.community.business.queries import (
     connected_supplier_ids,
@@ -244,8 +245,13 @@ def not_ordered_yet_suppliers(business_id) -> List:
     connected = connected_supplier_ids(business_id)
 
     untried = [p for p in candidates if str(p.id) not in traded_with]
-    untried.sort(key=lambda p: (str(p.id) not in connected, p.business_name or ""))
-    return untried
+
+    # THE ONE RAIL WHERE A PLAN MAY ORDER THE EQUALS. It prints no
+    # distance and no score, so its order is not a claim the reader can
+    # check -- unlike "collect near you", which prints the very number
+    # it is sorted by. Whether they already KNOW a supplier still ranks
+    # first, at every tier, for any money.
+    return tie_break.order_untried_suppliers(untried, connected_ids=connected)
 
 
 def paginate(items: List, *, limit: int, offset: int) -> dict:
