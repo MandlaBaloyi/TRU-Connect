@@ -37,6 +37,10 @@ export default function CommunityDetailLayout() {
       <Stack.Screen name="moving-fast" options={{ title: "Moving fast right now" }} />
       <Stack.Screen name="stock-for-you" options={{ title: "Stock for your shop" }} />
       <Stack.Screen name="collect-near-you" options={{ title: "Collect near you" }} />
+      <Stack.Screen
+        name="not-ordered-yet"
+        options={{ title: "Suppliers you haven't ordered from" }}
+      />
     </Stack>
   );
 }

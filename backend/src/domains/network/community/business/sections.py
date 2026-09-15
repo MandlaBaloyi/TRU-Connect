@@ -85,14 +85,14 @@ SEE_ALL_HREFS = {
     "moving-fast": "/business/feed/moving-fast",
     "stock-for-you": "/business/feed/stock-for-you",
     "collect-near-you": "/business/feed/collect-near-you",
-    # NO SCREEN YET. The endpoint exists; the screen does not, so this
-    # rail gets no chevron rather than one that leads nowhere -- absent
-    # is the honest state, and adding the path here is all it will take.
-    #
-    # "your-suppliers" LIKEWISE HAS NO PATH: past the cap it belongs in
-    # My Connections, which is a TAB inside the Community screen rather
-    # than a route, and its selection is local state with no URL. Making
-    # it addressable is a small change and a separate one.
+    # The screen it was waiting for now exists, so the rail gets its
+    # chevron. It was withheld rather than shipped broken, which is why
+    # turning it on was one line.
+    "not-ordered-yet": "/business/feed/not-ordered-yet",
+    # "your-suppliers" STILL HAS NO PATH: past the cap it belongs in My
+    # Connections, which is a TAB inside the Community screen rather
+    # than a route, and its selection is local state with no URL.
+    # Making it addressable is a small change and a separate one.
 }
 
 #: Avatars are a row, not a rail -- two faces you recognise is still
