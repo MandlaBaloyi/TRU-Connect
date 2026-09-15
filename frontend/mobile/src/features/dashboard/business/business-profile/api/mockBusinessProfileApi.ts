@@ -74,12 +74,6 @@ let profile: BusinessProfile = {
   },
   operatingHistory: {},
   supplierInfo: { sources: [] },
-  verification: {
-    phoneVerified: true,
-    emailVerified: true,
-    businessInfoComplete: false,
-    locationComplete: false,
-  },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

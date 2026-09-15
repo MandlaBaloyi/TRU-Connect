@@ -2,12 +2,16 @@
  * BusinessProfileScreen — "My Business". Thin orchestration only.
  *
  * LAYOUT: native header (from _layout.tsx) -> guided/settled banner +
- * completion bar (fixed, does not scroll) -> the Contact/Business/
- * Verification tab bar (also fixed) -> tab-specific content
- * (scrollable). The tab bar being fixed matters: it should always be
- * reachable without scrolling back up, since switching tabs is the
- * primary way to move around this screen now that there's no
- * accordion collapse to fall back on.
+ * completion bar (fixed, does not scroll) -> the Contact/Business tab
+ * bar (also fixed) -> tab-specific content (scrollable). The tab bar
+ * being fixed matters: it should always be reachable without scrolling
+ * back up, since switching tabs is the primary way to move around this
+ * screen now that there's no accordion collapse to fall back on.
+ *
+ * THERE WAS A THIRD TAB, "Verification", and it is gone -- see
+ * ProfileTabBar for why. What is left is what Mandla asked for: the
+ * contact details and the business details, displayed, and nothing
+ * pretending to be a review.
  *
  * Each tab shows plain ProfileCards (no collapse/expand — the tabs
  * already provide the focus an accordion used to), each with its own
@@ -19,7 +23,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { useTheme } from "react-native-paper";
 
 import { useBusinessProfile } from "../hooks";
-import { CompletionBar, ProfileCard, ProfileTabBar, VerificationChecklist } from "../components";
+import { CompletionBar, ProfileCard, ProfileTabBar } from "../components";
 import type { ProfileTab } from "../components";
 import {
   BusinessDetailsSection,
@@ -96,11 +100,6 @@ export default function BusinessProfileScreen() {
           </>
         )}
 
-        {tab === "VERIFICATION" && (
-          <ProfileCard title="Verification">
-            <VerificationChecklist verification={profile.verification} />
-          </ProfileCard>
-        )}
       </ScrollView>
     </ScreenContainer>
   );

@@ -14,26 +14,40 @@ TWO THINGS THIS SERVICE DOES THAT THE REPOSITORY/MODEL ALONE CANNOT:
    case (uses_same_as_account_phone=False) -- see
    models/business_profile.py's ContactDetails-equivalent columns.
 
-2. Verification status is derived from REAL signals where they exist,
-   never faked. phone_verified reflects User.verification_status
-   (VERIFIED means the OTP flow completed -- see
-   domains/auth/models/user.py) -- that's a genuine, existing signal.
-   email_verified is honestly False: this backend has no distinct
-   email-verification flow (only phone OTP) -- reusing the phone
-   signal for email would misrepresent what was actually verified, so
-   it stays False until a real email-verification mechanism exists.
-   business_info_complete/location_complete have no backing system
-   at all yet and stay
-   False -- Business Profile only ever DISPLAYS verification state, it
-   never invents it (see types.ts's VerificationStatus docstring on
-   the frontend side of this same rule).
+2. THE "verification" BLOCK IS GONE, and this is the note that used to
+   defend it. It returned four booleans, and not one of them could
+   tell a reader anything (V2_18 Part 2):
+
+     phoneVerified          could only ever be TRUE. Every route on
+                            this blueprint is @fully_authenticated,
+                            which already means the OTP flow completed
+                            -- so nobody who can see the answer can see
+                            it be False.
+     emailVerified          could only ever be FALSE. This backend has
+                            no email-verification flow, and reusing the
+                            phone signal for it would have
+                            misrepresented what was actually checked.
+     businessInfoComplete   never written by anything, ever.
+     locationComplete       never written by anything, ever.
+
+   Rendered as a checklist, that is four boxes of which two can never
+   tick and one can never fail to -- which implied a review of an
+   informal business that does not happen and that we have decided
+   should not. identity_verified and documents_verified were removed
+   from the model earlier for the same reason; this is the rest of that
+   removal.
+
+   COMPLETENESS SURVIVES, because it is a real question the demand
+   engine acts on. It is answered by the frontend's own
+   completionCalculator from the data itself, which is both more
+   accurate than the two columns and impossible to leave stale.
 """
 from __future__ import annotations
 
 import uuid
 from typing import Any
 
-from src.domains.auth.models.user import User, VerificationStatus as UserVerificationStatus
+from src.domains.auth.models.user import User
 from src.domains.business.business_profile.models.business_profile import BusinessProfile
 from src.domains.business.business_profile.repositories.business_profile_repository import (
     BusinessProfileRepository,
@@ -163,7 +177,6 @@ class BusinessProfileService:
     def _to_dict(profile: BusinessProfile, user: "User | None") -> dict:
         live_phone = user.phone_number if user else None
         live_email = user.email if user else None
-        phone_verified = bool(user and user.verification_status == UserVerificationStatus.VERIFIED)
 
         return {
             "id": str(profile.id),
@@ -217,12 +230,6 @@ class BusinessProfileService:
             },
             "supplierInfo": {
                 "sources": profile.supplier_sources or [],
-            },
-            "verification": {
-                "phoneVerified": phone_verified,
-                "emailVerified": False,
-                "businessInfoComplete": profile.business_info_complete,
-                "locationComplete": profile.location_complete,
             },
             "createdAt": profile.created_at.isoformat(),
             "updatedAt": profile.updated_at.isoformat(),

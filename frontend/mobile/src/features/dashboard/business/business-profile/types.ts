@@ -311,20 +311,24 @@ export interface SupplierInfo {
   sources: SupplierSource[];
 }
 
-/** Section 7 — read-only from this feature's point of view. Business
- *  Profile only ever DISPLAYS verification state; it never sets it
- *  directly. */
-/** COMPLETENESS, NOT VETTING. identityVerified and documentsVerified
- *  were here and are gone: they were the SUPPLIER model's concepts on a
- *  business, they had no backing system, and they were false on every
- *  row that ever existed. The verification curtain gates who may SELL;
- *  an informal business is not checked in order to shop. */
-export interface VerificationStatus {
-  phoneVerified: boolean;
-  emailVerified: boolean;
-  businessInfoComplete: boolean;
-  locationComplete: boolean;
-}
+/** SECTION 7 WAS "VerificationStatus" AND IS GONE (V2_18 Part 2).
+ *
+ *  identityVerified and documentsVerified went first: they were the
+ *  SUPPLIER model's concepts on a business, with no backing system,
+ *  false on every row that ever existed. The verification curtain
+ *  gates who may SELL; an informal business is not checked in order to
+ *  shop.
+ *
+ *  The four that remained went for the same reason once anyone looked
+ *  at what they could actually say. phoneVerified could only ever be
+ *  true (the endpoint is @fully_authenticated, so the OTP is done by
+ *  definition). emailVerified could only ever be false (there is no
+ *  email-verification flow). businessInfoComplete and locationComplete
+ *  were never written by anything.
+ *
+ *  Completeness itself is still measured, and better: see
+ *  algorithms/completionCalculator.ts, which derives it from the data
+ *  rather than from a column somebody has to remember to set. */
 
 /** The whole profile, one business per user for now (modelled so a
  *  second business later is an additive change, not a rewrite). */
@@ -336,7 +340,6 @@ export interface BusinessProfile {
   tradingDetails: TradingDetails;
   operatingHistory: OperatingHistoryInfo;
   supplierInfo: SupplierInfo;
-  verification: VerificationStatus;
   createdAt: string;
   updatedAt: string;
 }

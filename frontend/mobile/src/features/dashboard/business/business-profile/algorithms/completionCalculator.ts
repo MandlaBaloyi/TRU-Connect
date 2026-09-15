@@ -5,10 +5,17 @@
  * toward the percentage. OPTIONAL fields (physical address, social
  * links, operating hours, employee count) never block or dilute the
  * number — matches the spec's explicit "the goal is completion, not
- * gamification" and "under 5 minutes" requirements. Verification is
- * excluded entirely from this percentage; it's shown as its own
- * separate checklist (see VerificationStatus) so a business is never
- * made to feel "incomplete" for not having submitted documents yet.
+ * gamification" and "under 5 minutes" requirements.
+ *
+ * THIS IS NOW THE ONLY ANSWER TO "HOW COMPLETE IS THIS PROFILE". There
+ * used to be a second one -- business_info_complete and
+ * location_complete on the row, feeding a separate Verification
+ * checklist -- and it was worse in both directions: nothing ever wrote
+ * those columns, and a column has to be remembered while this is
+ * derived from the data every time it is read. Both are gone (V2_18
+ * Part 2). Nothing on this screen passes judgement on a business any
+ * more; it measures how much they have told us, which is a question
+ * the demand engine genuinely acts on.
  */
 import type { BusinessProfile, ProfileCompletion, ProfileSectionKey } from "../types";
 

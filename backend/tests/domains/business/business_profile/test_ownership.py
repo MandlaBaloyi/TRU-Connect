@@ -67,8 +67,24 @@ class TestContactDetailsLiveOverlay:
         assert refreshed["contactDetails"]["phone"] == "0829999999"
 
 
-class TestVerificationDerivedFromRealSignal:
-    def test_phone_verified_reflects_real_user_verification_status(self, app, db_session):
+class TestThereIsNoVerificationBlock:
+    """THIS CLASS USED TO ASSERT THE OPPOSITE, and the reversal is the
+    point (V2_18 Part 2).
+
+    It checked that phoneVerified reflected a real signal and that
+    emailVerified was honestly False. Both were true and neither was
+    useful: every route on this blueprint is @fully_authenticated, so
+    no caller who can read phoneVerified can ever read it as False --
+    the test could only reach the interesting case by calling the
+    SERVICE directly, around the decorator that makes it unreachable.
+    That is the shape of a test defending something no user can see.
+
+    The block is gone rather than corrected. A profile payload that
+    stops carrying it is the contract this test now holds, so nobody
+    adds it back without reading why it left.
+    """
+
+    def test_the_payload_carries_no_verification_claims(self, app, db_session):
         from src.domains.auth.models.user import User, UserRole, VerificationStatus
 
         unverified = User(
@@ -80,10 +96,13 @@ class TestVerificationDerivedFromRealSignal:
 
         with app.app_context():
             profile = BusinessProfileService.get_profile(unverified.id)
-        assert profile["verification"]["phoneVerified"] is False
-        # Honest, not faked: no email-verification flow exists in this
-        # backend yet.
-        assert profile["verification"]["emailVerified"] is False
+
+        assert "verification" not in profile, (
+            "Business Profile does not judge a business. Completeness is "
+            "derived on the client from the data itself "
+            "(completionCalculator.ts); a verification claim here implies a "
+            "review of an informal shop that does not happen."
+        )
 
 
 class TestSectionOwnershipIsolation:

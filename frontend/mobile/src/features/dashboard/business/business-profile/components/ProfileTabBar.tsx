@@ -5,12 +5,19 @@ import { useTheme } from "react-native-paper";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
-export type ProfileTab = "CONTACT" | "BUSINESS" | "VERIFICATION";
+export type ProfileTab = "CONTACT" | "BUSINESS";
 
+/** VERIFICATION WAS A THIRD TAB AND IS GONE (V2_18 Part 2). It showed
+ *  four boxes: two that could never tick (no email-verification flow;
+ *  two columns nothing ever wrote), and one that could never fail to
+ *  tick (every route on this screen is @fully_authenticated, so the
+ *  OTP is already done by definition). A checklist where no row can
+ *  change is not a checklist -- and on a business it implied a review
+ *  that does not happen and should not. The completion bar above this
+ *  bar is the honest version of the same idea. */
 const TABS: { key: ProfileTab; label: string }[] = [
   { key: "CONTACT", label: "Contact" },
   { key: "BUSINESS", label: "Business" },
-  { key: "VERIFICATION", label: "Verification" },
 ];
 
 interface Props {

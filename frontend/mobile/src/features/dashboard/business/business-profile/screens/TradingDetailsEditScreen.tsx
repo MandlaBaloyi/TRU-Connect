@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
@@ -24,6 +24,7 @@ import { typography } from "@/theme/typography";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { TimePickerField } from "@/components/forms/TimePickerField";
 
 const CUSTOMER_TYPE_OPTIONS = (Object.keys(CUSTOMER_TYPE_LABELS) as (keyof typeof CUSTOMER_TYPE_LABELS)[]).map((value) => ({ value, label: CUSTOMER_TYPE_LABELS[value] }));
 // THE REAL TAXONOMY, not a second list to keep in step. These are the
@@ -100,27 +101,24 @@ export default function TradingDetailsEditScreen() {
         <ChipSingleSelect label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(v) => setDraft({ ...draft, restockRhythm: (v as RestockRhythm) || undefined })} />
         <ChipSingleSelect label="Roughly what do you spend on stock a week?" options={SPEND_OPTIONS} value={draft.weeklySpendBand} onChange={(v) => setDraft({ ...draft, weeklySpendBand: (v as WeeklySpendBand) || undefined })} />
 
+        {/* PICKED, NOT TYPED. These were two free-text boxes with an
+            "08:00" placeholder and no validation anywhere -- not here,
+            not in the schema, not on the column (db.String(5),
+            "free-form per frontend contract"). "8", "8am" and "eight"
+            all saved, into a field read back as "HH:mm". The keyboard
+            also covered the Save button, which is what made it read as
+            broken rather than merely loose. See TimePickerField. */}
         <View style={styles.timeRow}>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Opening time (optional)</Text>
-            <TextInput
-              value={draft.openingTime ?? ""}
-              onChangeText={(text) => setDraft({ ...draft, openingTime: text })}
-              placeholder="08:00"
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
-            />
-          </View>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Closing time (optional)</Text>
-            <TextInput
-              value={draft.closingTime ?? ""}
-              onChangeText={(text) => setDraft({ ...draft, closingTime: text })}
-              placeholder="17:00"
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
-            />
-          </View>
+          <TimePickerField
+            label="Opening time (optional)"
+            value={draft.openingTime}
+            onChange={(openingTime) => setDraft({ ...draft, openingTime })}
+          />
+          <TimePickerField
+            label="Closing time (optional)"
+            value={draft.closingTime}
+            onChange={(closingTime) => setDraft({ ...draft, closingTime })}
+          />
         </View>
 
         <ChipSingleSelect label="How many people work in the business? (optional)" options={EMPLOYEE_OPTIONS} value={draft.employeeRange} onChange={(employeeRange) => setDraft({ ...draft, employeeRange })} />
@@ -138,9 +136,9 @@ export default function TradingDetailsEditScreen() {
 const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.lg },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-  field: { gap: spacing.xs },
-  label: { ...typography.bodySmall, fontWeight: "600" },
+  // The two fields flex inside this row -- TimePickerField carries its
+  // own flex: 1, so they split the width evenly without either needing
+  // to know about the other.
   timeRow: { flexDirection: "row", gap: spacing.md },
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: spacing.md, minHeight: 48, ...typography.body },
   error: { ...typography.bodySmall },
 });
