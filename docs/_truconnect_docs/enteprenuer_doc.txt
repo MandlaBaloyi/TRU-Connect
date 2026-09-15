@@ -1,0 +1,6 @@
+Young African Entrepreneurs Institute - YAEI NPC x Absa Group
+
+
+
+
+The Modern Data StackLayerFunctionPopular ExamplesIngestionExtracts raw data from apps, databases, and event streams into a central repository.Fivetran, Airbyte, Kafka, SegmentStorageHouses massive volumes of raw and modeled data (Data Warehouses, Data Lakes, Vector DBs).Snowflake, Google BigQuery, Databricks, PineconeTransformationCleans, filters, and models messy raw data into structured, query-ready assets.dbt (data build tool), Coalesce, FlinkOrchestrationSchedules and monitors the automated sequence of data pipelines to ensure reliable data flow.Apache Airflow, Dagster, PrefectBusiness Intelligence (BI)Visualizes data through charts and dashboards to uncover trends and metrics for human users.Tableau, Microsoft Power BI, Looker, MetabaseActivationPushes processed data back into operational platforms (like CRMs or marketing tools) to automate actions.Hightouch, Census

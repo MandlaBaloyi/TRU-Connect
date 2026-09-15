@@ -1,0 +1,402 @@
+===========================================================================
+V2_17 — THE FEED AT SCALE: CAPS, SCREENS, AND WHAT IS ACTUALLY SOLD
+===========================================================================
+
+Written 2026-09-15. A PLAN, and the answers to V2_16's open questions.
+
+WHAT THIS DOCUMENT IS. V2_16 drew the boundary between what a supplier's
+plan may buy and what it may never touch, and ended with five questions
+only Mandla could answer. He answered one, delegated four, and added a
+catch nobody had noticed. This document does that research, answers
+them, and turns the whole thing into a build order.
+
+It also absorbs the feed-at-scale work that has been accumulating in
+conversation and was never written down: rail caps, "see all" screens,
+grid layouts, and the anti-domination arithmetic that has to survive a
+wholesaler arriving with four hundred products.
+
+
+===========================================================================
+PART 1 — THE FIVE QUESTIONS, ANSWERED
+===========================================================================
+
+  ─────────────────────────────────────────────────────────────────────
+  Q1  PRICE
+  ─────────────────────────────────────────────────────────────────────
+
+  PLACEHOLDERS FOR MODELLING, NOT DECISIONS, and they should be argued
+  with rather than adopted:
+
+      FREE      R0
+      PRO       ~R299 / month
+      MAX       ~R899 / month
+      PARTNER   negotiated, per agreement
+
+  THE REASONING, such as it is. A small cash-and-carry must be able to
+  say yes to PRO without a meeting — that is the entire point of a
+  self-serve tier, and anything that needs a meeting is PARTNER by
+  definition. R299 sits inside the band South African SMEs already pay
+  for accounting and point-of-sale software, so it is a familiar number
+  rather than a new category of expense.
+
+  MAX is priced for a supplier who has already proven the platform
+  works for them — it is not a first purchase, and pricing it as though
+  it were would just make PRO look expensive.
+
+  WHAT WOULD FALSIFY THESE: the first ten real conversations. Nothing
+  here is evidence; it is a starting position so the rest of the
+  document can be concrete about what is being bought.
+
+  ─────────────────────────────────────────────────────────────────────
+  Q2  THE TOLERANCE BAND — 2.0 KM, and it is narrower than it looks
+  ─────────────────────────────────────────────────────────────────────
+
+  The band decides when two suppliers count as "equally near", which is
+  when tier is allowed to order them. Get it wrong in either direction
+  and the feature is worthless:
+
+      TOO WIDE (say 10km)   a supplier 1km away and one 11km away are
+                            "tied", so tier has beaten a fact. The rule
+                            V2_16 exists to hold is broken on day one.
+      TOO NARROW (0.5km)    the tie-break almost never fires, and PRO
+                            and MAX buy nothing they can feel.
+
+  2km is about the same trip in township and peri-urban density — the
+  same taxi, the same bakkie run, the same decision. It is also small
+  enough, against MAX_COLLECTION_KM = 25, that the rail's proximity
+  promise visibly holds: a band is 8% of the radius.
+
+  ABSOLUTE, NOT PROPORTIONAL. "Within 25% of each other" was the
+  tempting alternative and it fails at the top of the range: 20km and
+  25km are within 25% and are not the same trip by any reading.
+
+  FALSIFIED BY: shopkeepers treating 2km as a meaningful difference —
+  visible the day impressions exist, as a tap-rate gap between the
+  first and second card of a banded pair.
+
+  ─────────────────────────────────────────────────────────────────────
+  Q3  THE PRODUCT CEILING — two ceilings, and tier can only move one
+  ─────────────────────────────────────────────────────────────────────
+
+  Today MAX_CARDS_PER_SUPPLIER = 3, for everybody, on the rails that
+  recommend. The proposal:
+
+      ABSOLUTE CEILING, per supplier, per rail — tier MAY raise it:
+          FREE 3      PRO 4      MAX 5      PARTNER 5
+
+      PROPORTIONAL CEILING — NO TIER MAY PASS IT:
+          no supplier may hold more than 40% of any rail
+
+  THE SECOND CEILING IS THE REAL PROTECTION and the first is the
+  pricing lever. On a 12-card rail, 40% is 4 cards — so a MAX
+  supplier's absolute 5 is bound down to 4, and a rail can never be
+  fewer than three distinct suppliers. On a short rail the
+  proportional ceiling bites harder, which is correct: a 5-card rail
+  with 2 cards from one supplier is already lopsided.
+
+  AND IT APPLIES TO EARNED RAILS TOO — Mandla's reading in V2_16, and
+  it is right. If the ceiling only bound where money is allowed, tier
+  would have entered an EARNED rail through the back door: raising a
+  MAX supplier's ceiling on "stock for your shop" is buying organic
+  placement, whatever we call it.
+
+      WITH ONE EXCEPTION, AND IT IS NOT A LOOPHOLE: "Buy it again" has
+      NO per-supplier cap at any tier. It is the shop's own confirmed
+      purchase history. If they buy fifteen things from MacMan, that is
+      a fact about their trading, not a wholesaler crowding a feed —
+      and capping it would hide a shop's own stock from itself. The
+      domination risk is a risk about RECOMMENDATION. This rail only
+      remembers.
+
+  ─────────────────────────────────────────────────────────────────────
+  Q4  EXPLORE WHOLESALERS — and the catch, which is real
+  ─────────────────────────────────────────────────────────────────────
+
+  Mandla asked whether the backend can even tell what a wholesaler is,
+  and warned that a supplier naming themselves "Wholesalers" must not
+  break it. The research says he was right to ask. See Part 2 — it is
+  the largest single finding in this document.
+
+  THE SURFACE ITSELF: a SCREEN behind a chip, not a tab and not a rail.
+
+      NOT A TAB       a fifth tab is the most expensive real estate in
+                      the app and this is not a daily destination.
+      NOT A RAIL      a rail inside "For You" competes with the EARNED
+                      rails for the same attention, which is exactly
+                      the blurring V2_16 forbids.
+      A SCREEN        reached deliberately. Somebody who opens "Explore
+                      wholesalers" has ASKED to browse suppliers, which
+                      makes promoted placement there honest: they came
+                      to look at suppliers, and we are showing them
+                      suppliers.
+
+  That is also why it is the best home for paid placement in the whole
+  app — the reader's intent and the advertiser's intent point the same
+  way.
+
+  ─────────────────────────────────────────────────────────────────────
+  Q5  IS "COLLECT NEAR YOU" SELLABLE? — NO, and the code decides it
+  ─────────────────────────────────────────────────────────────────────
+
+  Not a judgement call in the end. One line of evidence settles it:
+
+      sections.py:657 — collect_near_you is the ONLY rail that passes
+      `distances` to its cards. Every card shows a number.
+
+  A TIE-BREAK IS ONLY DEFENSIBLE WHEN IT IS NOT FALSIFIABLE BY THE
+  READER. Here the reader is holding the contradiction: they would see
+  2.0 km sitting above 1.2 km and conclude either that the app is
+  broken or that the order was bought. The second conclusion is the
+  correct one, which is what makes it unrecoverable.
+
+  SO: the organic cards in "Collect near you" stay in TRUE DISTANCE
+  ORDER, at every tier, forever. If promotion belongs there at all it
+  is a LABELLED INSERT — a card that says what it is and does not
+  pretend to be part of the distance ordering.
+
+  WHICH RAIL IS TIE-BREAKABLE, THEN: "Suppliers you haven't ordered
+  from". It passes no distances and shows no ranking number, so its
+  order is not a claim the reader can check — which is the same test,
+  applied honestly, giving the opposite answer.
+
+  THE GENERAL RULE THIS PRODUCES, worth more than either answer:
+
+      A RAIL MAY BE TIE-BROKEN ONLY IF IT DOES NOT DISPLAY THE FACT IT
+      IS ORDERED BY.
+
+
+===========================================================================
+PART 2 — WHAT IS A WHOLESALER? (THE CATCH)
+===========================================================================
+
+THE FINDING:
+
+    supplier_profiles.category   String(120), nullable, UNVALIDATED
+    every supplier in dev        category = None
+    no supplier-kind enum        anywhere in the codebase
+
+And the names in the database make the trap concrete:
+
+    "Qwen Wholesale"          would match a name filter
+    "Lepelle Wholesalers"     would match
+    "Seshego Cash & Carry"    obviously a wholesaler, would NOT match
+    "MacMan Businesses"       would not match
+
+A NAME FILTER IS WRONG IN BOTH DIRECTIONS AT ONCE. It misses real
+wholesalers and it admits anybody who types the word — a retailer
+called "Wholesale Beauty Supplies" would be listed, and there is
+nothing they did wrong.
+
+  ─────────────────────────────────────────────────────────────────────
+  THE FIX: supplier_kind, an explicit enum, never inferred from text.
+  ─────────────────────────────────────────────────────────────────────
+
+      WHOLESALER      sells to businesses for resale
+      DISTRIBUTOR     represents brands in a territory
+      MANUFACTURER    makes what they sell
+      RETAILER        sells to the public, and also to shops
+      UNSPECIFIED     the default, and the honest state for everybody
+                      already in the database
+
+  SET, NOT GUESSED. The supplier chooses at onboarding; staff can
+  correct it; sales-onboarded PARTNERs have it set as part of the
+  agreement. UNSPECIFIED is a real answer and must never be quietly
+  rewritten by a heuristic.
+
+  WHY NOT INFER IT FROM BEHAVIOUR. There are real signals — selling by
+  CASE or BOX, a minimum order, a wide catalogue — and they are
+  tempting because they need no migration. They are also wrong often
+  enough to matter: a spaza selling single units through TruConnect is
+  not a retailer for that reason, and a new wholesaler with three
+  products is still a wholesaler. Behaviour can CORROBORATE a
+  declaration; it cannot replace one.
+
+  EXPLORE WHOLESALERS THEN FILTERS ON supplier_kind = WHOLESALER, which
+  is a fact somebody stated rather than a string somebody typed, and
+  the screen cannot be gamed by renaming a business.
+
+  BEFORE ANY SEEDING FOR THE APP TESTS, which is what Mandla asked:
+  the column has to exist first, or the seed teaches us nothing about
+  a screen that cannot work yet.
+
+
+===========================================================================
+PART 3 — THE FEED AT SCALE
+===========================================================================
+
+Everything below exists because the feed currently has no ceiling and
+no exit. It scrolls right forever, it fetches whatever it fetches, and
+on a platform with four suppliers that looks fine. It will not.
+
+  3.1  RAIL CAPS AND THE WAY OUT
+
+  Every rail shows a bounded number of cards, and says so when there
+  is more behind it:
+
+      RAIL                    ON THE RAIL     ARROW LEADS TO
+      Buy it again            12              new screen, up to 50
+      Moving fast right now   10              new screen
+      Stock for your shop     12              new screen
+      Your suppliers          12 (2 rows)     My Connections (exists)
+      Collect near you         5              new screen, list layout
+      Suppliers not ordered   10              new screen
+
+  THE ARROW IS NOT DECORATION. Without it the cap is just truncation,
+  and a shop with sixty previously-ordered products would silently lose
+  forty-eight of them. The rail becomes a preview, which is what a rail
+  should always have been.
+
+  3.2  THE SEE-ALL SCREENS
+
+  PRODUCT SCREENS ARE A 3-WIDE GRID, scrolling down, in the shape of
+  every stock-browsing app a shopkeeper already uses. Up to 50 items,
+  paginated.
+
+      Buy it again        everything they have ever ordered, newest
+                          first. NO per-supplier cap (Q3).
+      Moving fast         the full rising list, per-supplier capped,
+                          and RECOMPUTED as the algorithm moves — the
+                          screen is a view of today's velocity, not a
+                          saved list.
+      Stock for your shop the demand engine's full answer, capped.
+
+  THE SUPPLIER SCREEN IS A VERTICAL LIST, not a grid: avatar, name,
+  tick, distance, one action. A supplier is an entity you are choosing
+  between, and a list is how you compare entities; a grid is how you
+  compare goods.
+
+  3.3  SUPPLIERS ARE MIXED, DELIBERATELY
+
+  Within any product rail or grid, cards from different suppliers are
+  INTERLEAVED rather than grouped. Grouping by supplier turns a market
+  into a series of shopfronts, and the per-supplier ceiling (Q3) is
+  what stops any one of them owning the top of the screen.
+
+  Interleaving is also what makes "also from 3 suppliers" legible once
+  the catalogue resolves: the reader is already used to seeing several
+  suppliers in one rail.
+
+  3.4  DIVIDERS
+
+  A hairline between rails. Sounds cosmetic; it is not. Six rails of
+  horizontally-scrolling cards with nothing between them read as one
+  undifferentiated wall, and the titles stop doing their job — which
+  matters most for the rails whose titles carry the REASON ("Based on
+  what you buy", "Shops are buying these faster than last month").
+
+  3.5  "YOUR SUPPLIERS" IN TWO ROWS
+
+  Mandla's request and it is the right shape: a 2 x N grid scrolling
+  horizontally fits twelve suppliers in the width that currently holds
+  six, and supplier avatars are small enough that two rows still read
+  cleanly. Past twelve, the arrow goes to My Connections, which already
+  exists and is already the right screen for the full list.
+
+
+===========================================================================
+PART 4 — THE PROJECT TREE
+===========================================================================
+
+  BACKEND — tiers and supplier kind
+    supplier/supplier_profile/models/supplier_profile.py      EDIT
+        + plan_tier          enum, default FREE
+        + plan_expires_at    trials and PARTNER agreements
+        + supplier_kind      enum, default UNSPECIFIED
+    migrations/versions/<rev>_supplier_plan_and_kind.py       NEW
+
+    network/community/placement/                              NEW
+    │   OUTSIDE demand/, and that is the whole point. The feed
+    │   composer may read it; the demand engine may not, and
+    │   test_demand_independence.py already enforces that.
+    ├── tier_rules.py        the ladder, the ceilings, the band —
+    │                        every number labelled a guess
+    └── tie_break.py         sort key: organic fact, THEN tier
+
+  BACKEND — the feed at scale
+    network/community/business/sections.py                    EDIT
+        per-rail caps, hasMore, seeAllHref, proportional ceiling
+    network/community/api/feed_detail_routes.py               NEW
+    network/community/services/feed_detail_service.py         NEW
+        paginated: buy-it-again, moving-fast, stock-for-you,
+        collect-near-you, not-ordered-from
+    network/community/algorithms/interleave.py                NEW
+        mix suppliers within a rail; enforce both ceilings
+
+  BACKEND — explore wholesalers
+    network/discovery/explore/                                NEW
+    └── services/explore_service.py    filter supplier_kind, order by
+                                       tier where the rail permits
+
+  TESTS
+    tests/architecture/test_placement_boundaries.py           NEW
+        demand/ never imports placement; offer_selection never
+        reads a tier; buy_it_again is never tier-capped
+    tests/domains/network/community/test_rail_caps.py         NEW
+    tests/domains/network/community/test_interleave.py        NEW
+    tests/domains/supplier/test_supplier_kind.py              NEW
+
+  FRONTEND
+    community/components/feed/FeedSectionView.tsx             EDIT
+        arrow affordance, dividers, two-row supplier rail
+    community/screens/BuyItAgainScreen.tsx                    NEW
+    community/screens/MovingFastScreen.tsx                    NEW
+    community/screens/StockForYouScreen.tsx                   NEW
+    community/screens/CollectNearYouScreen.tsx                NEW
+    components/products/ProductGrid.tsx                       NEW
+        the 3-wide grid, shared by all three product screens
+    explore/                                                  NEW
+        the wholesalers screen
+
+
+===========================================================================
+PART 5 — BUILD ORDER
+===========================================================================
+
+  1  SUPPLIER KIND AND PLAN COLUMNS + migration. Nothing else can be
+     tested until a supplier can BE a wholesaler or a PRO. Seed data
+     for the app tests comes after this, not before — which is
+     precisely what Mandla flagged.
+
+  2  RAIL CAPS, hasMore AND seeAllHref, with the proportional ceiling
+     and interleaving. Backend only; the app keeps working unchanged
+     because it already ignores fields it does not know.
+
+  3  THE SEE-ALL ENDPOINTS, paginated.
+
+  4  THE FRONTEND: dividers, arrows, two-row supplier rail, the
+     3-wide product grid, the four screens.
+
+  5  PLACEMENT AND THE TIE-BREAK, with its architecture test. Last,
+     deliberately: it is the only step that lets money touch ranking,
+     and it should land on a feed that is already bounded, already
+     interleaved and already honest about what it shows.
+
+  6  EXPLORE WHOLESALERS.
+
+STEP 5 COMES AFTER STEP 2 FOR A REASON. The ceilings and interleaving
+are what make tier-ordering safe; shipping the tie-break first would
+put money into a feed with no anti-domination floor underneath it.
+
+
+===========================================================================
+PART 6 — WHAT IS STILL OPEN
+===========================================================================
+
+  1  PHASE 4, IMPRESSIONS. Unchanged from V2_15 and still Mandla's
+     call. It is also what would settle Q2 and Q3 with evidence rather
+     than argument — the tolerance band and the ceilings are both
+     guesses that impressions would falsify or confirm within weeks.
+
+  2  THE CANONICAL CATALOGUE. Seeded from real offers, per the
+     conversation of 2026-09-15. Independent of everything here, and
+     the thing that makes offer_selection mean something.
+
+  3  V2_14's FIVE FULFILMENT QUESTIONS. Nothing moves an order out of
+     CONFIRMED. The feed now produces demand that the order lifecycle
+     cannot finish.
+
+  4  WHETHER PROMOTED CARDS APPEAR IN "FOR YOU" AT ALL, or only in
+     Explore. V2_16 reserves the sponsored slot; this document argues
+     Explore is the honest home. Shipping ONLY Explore first would
+     test the revenue model without touching the feed's credibility,
+     and that may be the right order.
