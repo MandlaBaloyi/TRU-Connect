@@ -34,3 +34,13 @@ class SupplierAuditEvent(str, enum.Enum):
     ORDER_DECLINED = "supplier.order_declined"
     ORDER_AUTO_DECLINED = "supplier.order_auto_declined"
     ORDER_CANCELLED = "supplier.order_cancelled"
+
+    #: A supplier's plan was changed by staff.
+    #:
+    #: AUDITED BECAUSE IT IS A COMMERCIAL ACT, not a configuration
+    #: tweak. A plan decides how much reach somebody gets and, for
+    #: PARTNER, was negotiated by a person -- so "who put this supplier
+    #: on MAX, when, and on what basis" is a question that WILL be
+    #: asked, most likely by the supplier who is being billed or by the
+    #: one who thinks a competitor got something they did not.
+    PLAN_CHANGED = "supplier.plan_changed"

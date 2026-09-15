@@ -21,9 +21,11 @@ def register_cli(app: Flask) -> None:
     from src.cli.commands.admin import admin_cli
     from src.cli.commands.catalogue import catalogue_cli
     from src.cli.commands.demand import demand_cli
+    from src.cli.commands.plans import plans_cli
     from src.cli.commands.verification import verification_cli
 
     app.cli.add_command(admin_cli)
     app.cli.add_command(catalogue_cli)
     app.cli.add_command(demand_cli)
+    app.cli.add_command(plans_cli)
     app.cli.add_command(verification_cli)

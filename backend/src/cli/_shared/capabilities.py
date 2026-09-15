@@ -48,6 +48,15 @@ CATALOGUE_REVIEW = "catalogue:review"
 #: never has to invent its own vocabulary.
 SUPPLIER_VERIFY = "supplier:verify"
 
+#: Put a supplier on a plan: FREE, PRO, MAX or PARTNER. DELIBERATELY
+#: NOT supplier:verify, though the same person holds both today.
+#: Deciding a business is real and deciding what they may pay for reach
+#: are different jobs, and one day they are different people -- a
+#: salesperson who closes a PARTNER agreement has no business opening
+#: the verification curtain. Naming them apart costs nothing now and is
+#: precisely the thing that is expensive to retrofit.
+SUPPLIER_PLAN = "supplier:plan"
+
 #: Create, list and deactivate staff accounts. Deliberately its own
 #: capability rather than something every admin implies: the ability to
 #: review a catalogue and the ability to MINT SOMEONE WHO CAN is a
@@ -62,5 +71,6 @@ ADMIN_MANAGE = "admin:manage"
 ALL: dict = {
     CATALOGUE_REVIEW: "work the product match review queue",
     SUPPLIER_VERIFY: "approve or refuse supplier verification",
+    SUPPLIER_PLAN: "set what a supplier pays for, and their reach",
     ADMIN_MANAGE: "create and manage staff accounts",
 }
