@@ -252,14 +252,35 @@ PART 4 — THE MANDATORY STEPS
   4.4  EXISTING ACCOUNTS ARE NOT PUSHED THROUGH IT
   ─────────────────────────────────────────────────────────────────────
 
-  New accounts only. Thirty seeded shops and Mandla's own half-filled
-  profile keep working untouched.
+  New accounts only, and there is no flag doing it. The gate reads
+  requiredComplete, which is already true for anybody who has filled
+  their trading details — so an established shop never sees it.
 
   WHY. A gate that appears in front of somebody who has already been
   using the app reads as a fault, not as a welcome — and the mechanism
   for catching those accounts already exists and is gentler: the
   tell_us_what_you_buy rail sits third in the feed, vanishes the moment
   it is answered, and asks inside the screen the answer improves.
+
+  A CORRECTION MADE WHILE PROVING THIS ON THE REAL DATABASE. "Existing
+  accounts keep working untouched" was written as a claim and turned
+  out to be half true. Mandla's own account passes cleanly — all three
+  steps answered. The THIRTY SEEDED TEST SHOPS did not: seed_trade.py
+  set buys_categories and nothing else, so every one of them would have
+  been stopped at step 2 on login.
+
+  That is correct BEHAVIOUR on wrong DATA. A shop the seed claims has
+  been trading for two months and ordering every week would obviously
+  have an answer to "how often do you restock". They were backfilled
+  from their OWN order history — median gap between real orders becomes
+  the rhythm, median basket times orders-per-week becomes the spend
+  band — so the declared answer agrees with the observed one instead of
+  contradicting it. A test shop whose declaration fights its own
+  history is the single piece of data most likely to make the
+  reconciliation layer look broken while it is working perfectly.
+
+  All thirty pass the gate now. Seeing the gate fire means registering
+  a new account, which is the real path anyway.
 
       DELEGATED BY MANDLA, decided here. Falsified by: a long tail of
       pre-setup accounts whose feeds stay empty because the rail is
@@ -291,21 +312,27 @@ otherwise lives only in conversation. Worst first.
      impressions exist" — so none of those numbers can currently be
      proved wrong. This is V2_15 Phase 4.
 
-  3  TWO RAILS HAVE ARROWS THAT GO NOWHERE. not-ordered-yet has
-     service, endpoint and paging and no screen, so sections.py
-     withholds the chevron rather than shipping one that leads nowhere.
-     your-suppliers past the cap belongs in My Connections, which is a
-     TAB with local state and no URL.
+  3  ONE RAIL STILL HAS NO ARROW. not-ordered-yet is CLOSED -- it has
+     its screen and its chevron. your-suppliers past the cap does not:
+     it belongs in My Connections, which is a TAB with local state and
+     no URL, and making it addressable means pushing the Community
+     route from inside the Community tab. That has a real risk of
+     stacking a duplicate screen, so it deserves its own change and a
+     device to test it on rather than a guess.
 
-  4  EXPLORE WHOLESALERS HAS NO FRONT END. Service, routes, chips and
-     the business-named-"Wholesalers" collision guard are all built and
-     committed. Zero screens.
+  4  EXPLORE WHOLESALERS -- CLOSED. The screen exists, reached from the
+     Community tab's overflow menu, with chips the server builds from
+     kinds that actually have somebody to show.
 
-  5  NOTHING IN THE PRODUCT CAN SET A SUPPLIER'S PLAN. plan_tier exists
-     with server_default FREE and nothing in src/ writes it — no CLI
-     command, no admin route. The only MAX rows were set by a seed
-     script. The tier ladder is real in code and unreachable in the
-     product.
+  5  NOTHING IN THE PRODUCT CAN SET A SUPPLIER'S PLAN -- CLOSED by
+     `flask plans set|show|list`, over an audited service, under its
+     own capability (supplier:plan, deliberately NOT supplier:verify --
+     deciding a business is real and deciding what they may pay for
+     reach are different jobs, and one day different people).
+
+     STILL NO SCREEN, and that is correct rather than outstanding:
+     V2_09 Part 7 defers the admin control centre, and a CLI is what
+     this codebase already does for staff work with no screen yet.
 
   6  SPONSORED HAS NO IMPRESSION OR CLICK RECORD. The slot is picked
      alphabetically, which is an honest placeholder and not a billable
