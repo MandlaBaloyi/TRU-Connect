@@ -107,6 +107,73 @@ class SupplierIngestionMode(str, enum.Enum):
     API = "API"
 
 
+class SupplierKind(str, enum.Enum):
+    """What sort of business this supplier IS.
+
+    STATED, NEVER INFERRED, and that is the entire reason the column
+    exists. "Explore wholesalers" has to filter on something, and the
+    obvious something -- the business NAME -- is wrong in both
+    directions at once. The dev database makes it concrete:
+
+        "Qwen Wholesale"         a name filter would match
+        "Lepelle Wholesalers"    would match
+        "Seshego Cash & Carry"   is a wholesaler, would NOT match
+        "MacMan Businesses"      would not match
+
+    and a retailer trading as "Wholesale Beauty Supplies" would be
+    listed having done nothing wrong. A screen that can be entered by
+    renaming a business is not a filter, it is a keyword.
+
+    WHY NOT INFER IT FROM BEHAVIOUR EITHER. There are real signals --
+    selling by CASE, a minimum order, a wide catalogue -- and they are
+    tempting because they need no migration. They are also wrong often
+    enough to matter: a spaza selling single units through TruConnect is
+    not a retailer for that reason, and a brand-new wholesaler with
+    three products is still a wholesaler. Behaviour may CORROBORATE a
+    declaration; it cannot replace one.
+
+    UNSPECIFIED IS A REAL ANSWER, not a gap to be filled in later by a
+    heuristic. It is what every supplier already in the database is,
+    honestly, and nothing should quietly rewrite it.
+
+    NAME == VALUE, for the reason SupplierIngestionMode explains above.
+    """
+
+    WHOLESALER = "WHOLESALER"
+    DISTRIBUTOR = "DISTRIBUTOR"
+    MANUFACTURER = "MANUFACTURER"
+    RETAILER = "RETAILER"
+    UNSPECIFIED = "UNSPECIFIED"
+
+
+class SupplierPlanTier(str, enum.Enum):
+    """What this supplier pays for, and therefore what reach they get.
+
+    NOT A PERMISSION AND NOT A CURTAIN (V2_16). A FREE supplier who is
+    verified is findable, orderable, and appears in every EARNED rail
+    their stock belongs in. Tiers buy REACH BEYOND WHAT YOU HAVE
+    EARNED -- they do not buy the right to exist, and they cannot buy
+    another supplier's absence.
+
+    WHAT EACH TIER MAY MOVE is decided in ONE place, outside this
+    model and outside demand/: network/community/placement. Nothing in
+    the demand engine may read this column -- it is supplier-blind by
+    architecture test, and that is what stops the feed becoming an
+    auction.
+
+    PARTNER IS SALES-NEGOTIATED and time-boxed via plan_expires_at. A
+    permanent unlabelled advantage is how a marketplace quietly becomes
+    one supplier's storefront.
+
+    NAME == VALUE, same reason as above.
+    """
+
+    FREE = "FREE"
+    PRO = "PRO"
+    MAX = "MAX"
+    PARTNER = "PARTNER"
+
+
 class SupplierProfile(BaseModel):
     __tablename__ = "supplier_profiles"
     __table_args__ = (
@@ -287,6 +354,37 @@ class SupplierProfile(BaseModel):
         default=SupplierIngestionMode.MANUAL,
         server_default=SupplierIngestionMode.MANUAL.value,
     )
+
+    #: What sort of business this is. STATED by the supplier or by
+    #: staff, never derived from the business name -- see SupplierKind.
+    supplier_kind = db.Column(
+        db.Enum(SupplierKind, name="supplier_kind", schema="supplier"),
+        nullable=False,
+        default=SupplierKind.UNSPECIFIED,
+        server_default=SupplierKind.UNSPECIFIED.value,
+    )
+
+    #: What they pay for. DEFAULT FREE, and free is a full member of the
+    #: platform rather than a trial (V2_16 Part 5): starve the free tier
+    #: and the catalogue thins, and paying suppliers are buying
+    #: attention that a healthy catalogue creates.
+    plan_tier = db.Column(
+        db.Enum(SupplierPlanTier, name="supplier_plan_tier", schema="supplier"),
+        nullable=False,
+        default=SupplierPlanTier.FREE,
+        server_default=SupplierPlanTier.FREE.value,
+    )
+
+    #: When a paid plan lapses back to FREE. NULL means "does not
+    #: expire", which is right for FREE and for an open-ended
+    #: subscription; a PARTNER agreement and a promotional trial both
+    #: set it, because a time-boxed advantage is the only honest kind.
+    #:
+    #: NOTHING ENFORCES IT YET. Whatever reads plan_tier must treat an
+    #: expiry in the past as FREE rather than trusting the column -- a
+    #: lapsed plan that keeps its reach until a nightly job notices is
+    #: reach nobody paid for.
+    plan_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # "Show businesses when I was last online."
     #
