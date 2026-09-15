@@ -60,7 +60,7 @@ export default function StepYourShop() {
       // the identical field in My Business later.
       await saveTradingDetails({ buysCategories, customerTypes });
       await refreshSetup();
-      router.push(SETUP_ROUTES.howYouBuy as never);
+      router.replace(SETUP_ROUTES.howYouBuy as never);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save. Try again.");
     }

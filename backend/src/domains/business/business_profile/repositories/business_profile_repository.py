@@ -35,9 +35,46 @@ class BusinessProfileRepository:
         return BusinessProfile.query.filter_by(id=business_profile_id).first()
 
     @staticmethod
-    def get_or_create_for_business(business_id: uuid.UUID, default_name: str = "") -> BusinessProfile:
+    def get_or_create_for_business(
+        business_id: uuid.UUID, default_name: str | None = None
+    ) -> BusinessProfile:
+        """The row, creating it if this business has never had one.
+
+        THE NAME FALLS BACK TO users.business_name WHEN THE CALLER GIVES
+        NONE, and that default is the fix for a real hole rather than a
+        nicety. Almost every caller here passes nothing -- get_profile
+        and all six PATCH routes do -- and the old default was the empty
+        string. That is invisible in the normal flow, because
+        otp_service seeds the profile with the real name at verification
+        and every route on this domain is @fully_authenticated, so the
+        row already exists by the time a PATCH runs.
+
+        But _seed_business_profile is deliberately wrapped in a
+        try/except that logs and continues -- a failed profile seed must
+        not fail somebody's email verification. When it does fail, the
+        first PATCH creates the row instead, and under the old default
+        that shop was nameless permanently: invisible in Find Business,
+        blank on every connection request, and with nothing anywhere to
+        say why.
+
+        Reading the name off the user costs one query on the path that
+        was already creating a row, and makes the fallback correct
+        instead of empty.
+        """
         profile = BusinessProfileRepository.get_for_business(business_id)
         if profile is None:
+            if default_name is None:
+                from src.domains.auth.models.user import User
+
+                user = db.session.get(User, business_id)
+                default_name = (
+                    (user.business_name if user else None)
+                    or " ".join(
+                        filter(None, [getattr(user, "first_name", None), getattr(user, "last_name", None)])
+                    ).strip()
+                    or ""
+                )
+
             profile = BusinessProfile(
                 id=uuid.uuid4(),
                 business_id=business_id,

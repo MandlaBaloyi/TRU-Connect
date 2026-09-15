@@ -68,7 +68,7 @@ export default function StepHowYouBuy() {
     try {
       await saveTradingDetails({ restockRhythm, weeklySpendBand });
       await refreshSetup();
-      router.push(SETUP_ROUTES.whereYouAre as never);
+      router.replace(SETUP_ROUTES.whereYouAre as never);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save. Try again.");
     }
