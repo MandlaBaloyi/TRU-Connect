@@ -78,7 +78,11 @@ export default function StepWhereYouAre() {
     <SetupStepScaffold
       step="whereYouAre"
       title="Where is your shop?"
-      promise="This is how we find suppliers close enough for you to collect from. You can add it later."
+      why={[
+        "This is how we find suppliers close enough for you to collect from, and how far away each one is.",
+        "Skipping costs you exactly two things — the \"collect near you\" row and \"suppliers you haven't ordered from\". Everything else in your feed works without it.",
+        "We keep a point on a map, not a street address, and no supplier is shown where you are — only how far they are from you.",
+      ]}
       primaryLabel="Finish"
       onPrimary={handleSave}
       primaryDisabled={!pinned}

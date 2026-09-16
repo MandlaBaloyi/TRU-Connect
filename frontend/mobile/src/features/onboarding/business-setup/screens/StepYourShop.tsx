@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useRouter } from "expo-router";
 
 import { ChipMultiSelect } from "@/features/dashboard/business/business-profile/components";
+import { SelectField } from "@/components/forms/SelectField";
 import { useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
 import { CUSTOMER_TYPE_LABELS } from "@/features/dashboard/business/business-profile/types";
 import type { CustomerType } from "@/features/dashboard/business/business-profile/types";
@@ -70,18 +71,31 @@ export default function StepYourShop() {
     <SetupStepScaffold
       step="whatYouBuy"
       title="What stock do you buy?"
-      promise="This is what fills your Community tab — pick everything you restock, even occasionally."
+      why={[
+        "This is the answer that fills your Community tab. We use it to show you stock in the categories you actually restock, and suppliers who carry it.",
+        "Pick everything you buy, even occasionally — a category you leave out is one we will never show you.",
+        "It is only ever used to choose what appears in your feed. It is not shown to suppliers and it is not a credit check.",
+      ]}
       onPrimary={handleContinue}
       primaryDisabled={buysCategories.length === 0}
       isSaving={isSavingTradingDetails}
       error={error}
     >
-      <ChipMultiSelect
+      {/* A FIELD AND A SHEET, NOT SEVENTEEN CHIPS. The chip wall filled
+          the screen before anything had been answered and pushed the
+          second question below the fold. See SelectField. */}
+      <SelectField
         label="Stock you buy"
+        sheetTitle="What stock do you buy?"
         options={BUYS_OPTIONS}
         value={buysCategories}
         onChange={setBuysCategories}
+        multiple
+        placeholder="Tap to choose your categories"
       />
+      {/* STAYS CHIPS. Five options, all visible at once, no scrolling
+          -- which is exactly the case chips are right for. Swapping it
+          to a sheet would hide a short list behind a tap. */}
       <ChipMultiSelect
         label="Who do you mainly sell to? (optional)"
         options={CUSTOMER_TYPE_OPTIONS}

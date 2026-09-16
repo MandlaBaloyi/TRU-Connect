@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 
-import { ChipSingleSelect } from "@/features/dashboard/business/business-profile/components";
+import { SelectField } from "@/components/forms/SelectField";
 import { useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
 import {
   RESTOCK_RHYTHM_LABELS,
@@ -78,23 +78,35 @@ export default function StepHowYouBuy() {
     <SetupStepScaffold
       step="howYouBuy"
       title="How do you buy stock?"
-      promise="This is how we know when to show you something, and what size order makes sense."
+      why={[
+        "How often you restock tells us WHEN to put something in front of you — a shop that buys daily and one that buys monthly should not see the same feed on the same morning.",
+        "The weekly amount tells us WHAT SIZE to show. It stops us putting a R5,000 pallet in front of a shop that buys R800 at a time.",
+        "It is a rough band, never an exact figure, and it is not a credit check or a financial assessment. Nobody but you sees it.",
+      ]}
       onPrimary={handleContinue}
       primaryDisabled={!restockRhythm || !weeklySpendBand}
       isSaving={isSavingTradingDetails}
       error={error}
     >
-      <ChipSingleSelect
+      {/* FIELDS, NOT CHIPS, to match step one -- six rhythms and five
+          bands is not a wall on its own, but two chip blocks stacked
+          push the Continue button off a small screen, and a signup
+          flow whose questions change shape between steps reads as
+          three screens rather than one flow. */}
+      <SelectField
         label="How often do you restock?"
         options={RESTOCK_OPTIONS}
-        value={restockRhythm}
-        onChange={(v) => setRestockRhythm((v as RestockRhythm) || undefined)}
+        value={restockRhythm ? [restockRhythm] : []}
+        onChange={(v) => setRestockRhythm(v[0] as RestockRhythm | undefined)}
+        placeholder="Tap to choose"
       />
-      <ChipSingleSelect
+      <SelectField
         label="Roughly what do you spend on stock a week?"
+        sheetTitle="Weekly spend on stock"
         options={SPEND_OPTIONS}
-        value={weeklySpendBand}
-        onChange={(v) => setWeeklySpendBand((v as WeeklySpendBand) || undefined)}
+        value={weeklySpendBand ? [weeklySpendBand] : []}
+        onChange={(v) => setWeeklySpendBand(v[0] as WeeklySpendBand | undefined)}
+        placeholder="Tap to choose"
       />
     </SetupStepScaffold>
   );

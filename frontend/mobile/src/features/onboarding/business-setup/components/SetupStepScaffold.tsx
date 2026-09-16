@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "react-native-paper";
 
+import { InfoHint } from "@/components/ui/InfoHint";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { spacing } from "@/theme/spacing";
@@ -12,36 +13,54 @@ import type { SetupStepId } from "../types";
 
 /**
  * The shape every setup step shares: where you are, what is being
- * asked, what it changes, and one way forward.
+ * asked, and one way forward.
  *
- * THE PROMISE LINE IS NOT DECORATION. It is the rule the feed's own
- * "tell us what you buy" rail already follows, quoted in that
- * section's docstring:
+ * ── THE STEP INDICATOR IS LOUD NOW ──────────────────────────────
  *
- *     ONLY ASK FOR WHAT WILL VISIBLY CHANGE THE NEXT SCREEN, AND SAY
- *     EXACTLY WHAT IT WILL CHANGE.
+ * It was three small dots with "Step 1 of 3" in caption grey
+ * underneath, and Mandla could not see it: "make the step clear at the
+ * top". Three reasons it failed. Dots are an ambiguous shape -- they
+ * read as a carousel, which is something you swipe, not something you
+ * finish. They were 8px against a 22px heading directly below, so the
+ * eye skipped them entirely. And the count sat UNDER them in the
+ * quietest type on the screen.
  *
- * A signup flow that asks those same questions without that same
- * sentence is a worse version of a screen this app already got right —
- * it turns "help us help you" into an interview, which is how a person
- * decides the app is for somebody else's benefit.
+ * It is now three SEGMENTS -- a bar broken into the number of steps --
+ * with the count above it in small uppercase. A segmented bar is the
+ * one progress shape nobody misreads, and it answers "how much is
+ * left" without being counted.
  *
- * THREE DOTS, NOT A PERCENTAGE. Three is small enough to count, and a
- * percentage invites the question "what happens at 60%" — which has no
- * answer here, because a step is answered or it is not.
+ * ── THE EXPLANATION MOVED INTO AN ⓘ ─────────────────────────────
  *
- * NO BACK BUTTON AND NO HEADER. Two reasons, and the second is the
- * real one: the steps are independent writes, so "back" would mean
- * re-saving a section that is already saved; and a stack a person can
- * walk backwards out of, on a flow with a gate behind it, is a way to
- * end up on a blank screen behind their own dashboard. Changing an
- * answer later is what My Business is for, and it stays in the More
- * tab exactly so it can be.
+ * Every step carried a grey paragraph under its heading saying what
+ * the answer would change. Mandla: "Remove the subheading... put the
+ * information icon somewhere to explain why exactly I'm collecting
+ * this data."
+ *
+ * He is right, and the codebase had already learned this once -- see
+ * InfoHint's own docstring, written when supplier screens had grown a
+ * paragraph under every section: "a supplier scrolled through more
+ * explanation than actual profile". A signup flow is the worst place
+ * to repeat it, because the reader has no investment yet and every
+ * line of grey text is a line between them and being finished.
+ *
+ * THE PROMISE STILL HAS TO BE MAKEABLE, THOUGH. The rule
+ * tell_us_what_you_buy follows -- only ask for what will visibly
+ * change the next screen, and SAY what it will change -- is not
+ * satisfied by hiding the answer. So the ⓘ sits against the question
+ * itself, and its body is exactly the sentence that used to be
+ * printed. Opt-in rather than absent: whoever wants to know why can
+ * find out in one tap, and whoever does not never pays for it.
+ *
+ * NO BACK BUTTON AND NO HEADER. The steps are independent writes, so
+ * "back" would mean re-saving a section that is already saved -- and a
+ * flow with a gate behind it that a person can walk backwards out of
+ * is a way to land on a blank screen behind their own dashboard.
  */
 export function SetupStepScaffold({
   step,
   title,
-  promise,
+  why,
   children,
   primaryLabel = "Continue",
   onPrimary,
@@ -52,8 +71,10 @@ export function SetupStepScaffold({
 }: {
   step: SetupStepId;
   title: string;
-  /** One sentence naming what this answer changes. Required. */
-  promise: string;
+  /** Why this is being asked, behind the ⓘ beside the question. One or
+   *  more short paragraphs. Required -- a question with no statable
+   *  reason should not be on a mandatory signup screen at all. */
+  why: string | string[];
   children: React.ReactNode;
   primaryLabel?: string;
   onPrimary: () => void;
@@ -67,37 +88,32 @@ export function SetupStepScaffold({
   const index = SETUP_STEP_ORDER.indexOf(step);
 
   return (
-    // paddingHorizontal={0} because the footer's top border has to
-    // span the full width -- with the container's own md padding it
-    // would stop short at both ends and read as a stray line rather
-    // than as the edge of a bar.
     <ScreenContainer paddingHorizontal={0}>
       <View style={styles.header}>
-        <View style={styles.dots}>
+        <Text style={[styles.stepCount, { color: theme.colors.primary }]}>
+          STEP {index + 1} OF {SETUP_STEP_ORDER.length}
+        </Text>
+        <View style={styles.track}>
           {SETUP_STEP_ORDER.map((id, i) => (
             <View
               key={id}
               style={[
-                styles.dot,
+                styles.segment,
                 {
-                  backgroundColor: i <= index ? theme.colors.primary : theme.colors.outlineVariant,
-                  // The current step is wider rather than a different
-                  // colour: "where I am" and "how far I have come" are
-                  // two facts, and one colour cannot carry both.
-                  width: i === index ? 24 : 8,
+                  backgroundColor:
+                    i <= index ? theme.colors.primary : theme.colors.outlineVariant,
                 },
               ]}
             />
           ))}
         </View>
-        <Text style={[styles.stepCount, { color: theme.colors.onSurfaceVariant }]}>
-          Step {index + 1} of {SETUP_STEP_ORDER.length}
-        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
-        <Text style={[styles.promise, { color: theme.colors.onSurfaceVariant }]}>{promise}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
+          <InfoHint title={title} body={why} size={20} accessibilityLabel="Why we ask this" />
+        </View>
 
         <View style={styles.body}>{children}</View>
 
@@ -115,18 +131,26 @@ export function SetupStepScaffold({
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.sm },
-  dots: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
-  dot: { height: 8, borderRadius: 4 },
-  stepCount: { ...typography.caption },
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.xs },
-  title: { ...typography.h1, fontWeight: "800" },
-  promise: { ...typography.body, marginBottom: spacing.md },
+  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.xs },
+  stepCount: {
+    ...typography.caption,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  track: { flexDirection: "row", gap: spacing.xs },
+  // FLEX 1 EACH, so the bar always spans the width whatever the step
+  // count becomes -- a fourth step should not need a new number here.
+  segment: { flex: 1, height: 6, borderRadius: 3 },
+  content: { padding: spacing.md, paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
+  // The ⓘ sits ON the question rather than in the corner, because it
+  // explains THIS question and a floating corner icon explains the
+  // screen.
+  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  title: { ...typography.h1, fontWeight: "800", flexShrink: 1 },
   body: { gap: spacing.lg },
-  error: { ...typography.bodySmall, marginTop: spacing.md },
-  // PINNED, not at the end of the scroll. On step one the chip list is
-  // long enough to scroll, and a Continue button somewhere below
-  // seventeen categories is a button people report as missing.
+  error: { ...typography.bodySmall },
+  // PINNED, not at the end of the scroll -- a Continue button below a
+  // long answer list is a button people report as missing.
   footer: {
     padding: spacing.md,
     gap: spacing.sm,
