@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 
 import { SelectField } from "@/components/forms/SelectField";
-import { useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
+import { useBusinessProfile, useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
 import { CUSTOMER_TYPE_LABELS } from "@/features/dashboard/business/business-profile/types";
 import type { CustomerType } from "@/features/dashboard/business/business-profile/types";
 import { CATEGORY_OPTIONS } from "@/constants/productCategories";
@@ -47,10 +47,29 @@ export default function StepYourShop() {
   const router = useRouter();
   const refreshSetup = useRefreshBusinessSetup();
   const { saveTradingDetails, isSavingTradingDetails } = useBusinessProfileMutations();
+  const { profile } = useBusinessProfile();
 
   const [buysCategories, setBuysCategories] = useState<string[]>([]);
   const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
+  const [prefilled, setPrefilled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // PREFILL ONCE, FROM WHAT IS SAVED. Without this, arriving here from
+  // step two's back arrow -- or simply reopening the app mid-flow --
+  // shows an empty form, which reads as "it lost my answer" and
+  // invites somebody to fill it in a second time.
+  //
+  // GUARDED BY `prefilled` RATHER THAN BY EMPTINESS. Keying off
+  // "is the draft still empty" would re-apply the saved value every
+  // time the query refetched, so clearing a selection would silently
+  // undo itself.
+  useEffect(() => {
+    if (profile && !prefilled) {
+      setBuysCategories(profile.tradingDetails.buysCategories ?? []);
+      setCustomerTypes(profile.tradingDetails.customerTypes ?? []);
+      setPrefilled(true);
+    }
+  }, [profile, prefilled]);
 
   const handleContinue = async () => {
     setError(null);

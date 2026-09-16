@@ -679,14 +679,36 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     Beyond MAX_COLLECTION_KM a supplier is dropped rather than shown as
     the best of a bad lot, which means the rail can and should vanish
     for a shop with nobody close. That is the honest answer.
+
+    AND NO RAIL FOR A SHOP THAT CANNOT COLLECT. This is the only rail
+    in the feed built on the assumption that fetching your own stock is
+    an option, and it is worth nothing to somebody without transport --
+    every card on it is a trip they cannot make.
+
+    THE TEST IS `is False`, NOT FALSINESS, and that is the entire
+    design of the column. can_collect has THREE states, and only one of
+    them means "no":
+
+        True   they have transport            rail unchanged
+        False  they have said they cannot     rail withheld
+        None   they have never been asked     rail unchanged
+
+    `if not needs.can_collect` would fold None into False and withhold
+    the rail from every shop that predates the question -- which is the
+    invented answer Mandla objected to, arriving through a truthiness
+    check rather than a default.
     """
     from src.domains.business.business_profile.repositories.business_profile_repository import (
         BusinessProfileRepository,
     )
+    from src.domains.business.demand.services import needs_service
     from src.domains.network.community.services import feed_detail_service
 
     profile = BusinessProfileRepository.get_for_business(business_id)
     if profile is None:
+        return None
+
+    if needs_service.needs_for(business_id).can_collect is False:
         return None
 
     connected = connected_supplier_ids(business_id)

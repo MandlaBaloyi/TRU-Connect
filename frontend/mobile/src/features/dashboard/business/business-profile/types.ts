@@ -293,6 +293,14 @@ export interface TradingDetails {
    *  wrong declared cadence is indistinguishable from a real one. */
   restockRhythm?: RestockRhythm;
   weeklySpendBand?: WeeklySpendBand;
+  /** Can this shop fetch its own stock?
+   *
+   *  THREE STATES, and `null` is a real one — "never asked". It must
+   *  not collapse into false anywhere: the "Collect near you" rail is
+   *  withheld only from a shop that has actually SAID it cannot
+   *  collect, never from one that simply predates the question.
+   *  `undefined` here means the same thing as null on the wire. */
+  canCollect?: boolean | null;
   operatingDays: Weekday[];
   openingTime?: string; // "HH:mm", optional
   closingTime?: string; // "HH:mm", optional

@@ -220,6 +220,11 @@ class BusinessProfileService:
                 "weeklySpendBand": (
                     profile.weekly_spend_band.value if profile.weekly_spend_band else None
                 ),
+                # PASSED THROUGH RAW, INCLUDING None. `or False` here
+                # would be the exact mistake the column exists to avoid:
+                # it would turn "never asked" into "cannot collect" on
+                # the way out of the database.
+                "canCollect": profile.can_collect,
                 "operatingDays": profile.operating_days or [],
                 "openingTime": profile.opening_time,
                 "closingTime": profile.closing_time,

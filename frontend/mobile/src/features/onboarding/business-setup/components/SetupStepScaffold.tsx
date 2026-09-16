@@ -1,5 +1,7 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useTheme } from "react-native-paper";
 
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -8,7 +10,7 @@ import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
-import { SETUP_STEP_ORDER } from "../types";
+import { SETUP_ROUTES, SETUP_STEP_ORDER } from "../types";
 import type { SetupStepId } from "../types";
 
 /**
@@ -52,10 +54,25 @@ import type { SetupStepId } from "../types";
  * printed. Opt-in rather than absent: whoever wants to know why can
  * find out in one tap, and whoever does not never pays for it.
  *
- * NO BACK BUTTON AND NO HEADER. The steps are independent writes, so
- * "back" would mean re-saving a section that is already saved -- and a
- * flow with a gate behind it that a person can walk backwards out of
- * is a way to land on a blank screen behind their own dashboard.
+ * ── BACK MOVES BETWEEN STEPS, NEVER OUT OF THE FLOW ─────────────
+ *
+ * There was no back at all, on the reasoning that the steps are
+ * independent writes so going back would re-save something already
+ * saved. That was true and beside the point -- the PATCHes are
+ * idempotent, so re-saving costs nothing, while somebody who picked
+ * the wrong categories had no way to correct them but to finish the
+ * whole flow and then go hunting in My Business.
+ *
+ * Step one has no back, and that half of the original reasoning
+ * stands: behind step one is the gate, and a signup flow a person can
+ * reverse out of drops them on a blank screen behind their own
+ * dashboard.
+ *
+ * GOING BACK MUST SHOW WHAT THEY ANSWERED, or it is worse than no back
+ * at all -- a step that reopens blank looks like it lost the answer.
+ * Each step prefills from the saved profile rather than from local
+ * state, which also fixes the case that had nothing to do with the
+ * back button: closing the app mid-flow and returning.
  */
 export function SetupStepScaffold({
   step,
@@ -85,14 +102,44 @@ export function SetupStepScaffold({
   secondary?: React.ReactNode;
 }) {
   const theme = useTheme();
+  const router = useRouter();
   const index = SETUP_STEP_ORDER.indexOf(step);
 
   return (
     <ScreenContainer paddingHorizontal={0}>
       <View style={styles.header}>
-        <Text style={[styles.stepCount, { color: theme.colors.primary }]}>
-          STEP {index + 1} OF {SETUP_STEP_ORDER.length}
-        </Text>
+        <View style={styles.headerRow}>
+          {/* BACK EXISTS AGAIN, AND REMOVING IT WAS A MISTAKE. The
+              original reasoning -- independent writes, so "back" would
+              re-save something already saved -- was true and beside the
+              point: the PATCHes are idempotent, so re-saving costs
+              nothing, and somebody who picked the wrong categories had
+              no way to fix it but to finish the flow and go hunting in
+              My Business. Mandla: "if someone made a mistake we need a
+              backward".
+
+              IT MOVES BETWEEN STEPS, NEVER OUT OF THE FLOW. Step one
+              has no back, because behind it is the gate -- and a
+              signup flow a person can reverse out of drops them on a
+              blank screen behind their own dashboard, which was the
+              half of the original reasoning that was right. */}
+          {index > 0 ? (
+            <Pressable
+              onPress={() => router.replace(SETUP_ROUTES[SETUP_STEP_ORDER[index - 1]] as never)}
+              hitSlop={12}
+              style={styles.back}
+              accessibilityRole="button"
+              accessibilityLabel="Back to the previous step"
+            >
+              <ChevronLeft size={22} color={theme.colors.onSurface} strokeWidth={2.4} />
+            </Pressable>
+          ) : (
+            <View style={styles.back} />
+          )}
+          <Text style={[styles.stepCount, { color: theme.colors.primary }]}>
+            STEP {index + 1} OF {SETUP_STEP_ORDER.length}
+          </Text>
+        </View>
         <View style={styles.track}>
           {SETUP_STEP_ORDER.map((id, i) => (
             <View
@@ -131,7 +178,12 @@ export function SetupStepScaffold({
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.xs },
+  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.sm },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  // A FIXED SLOT whether the arrow is there or not, so the step
+  // count sits in the same place on all three screens instead of
+  // jumping left on step one.
+  back: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   stepCount: {
     ...typography.caption,
     fontWeight: "800",

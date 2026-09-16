@@ -82,6 +82,10 @@ class UpdateTradingDetailsSchema(Schema):
     weeklySpendBand = fields.String(
         required=False, allow_none=True, validate=validate.OneOf(_WEEKLY_SPEND_BAND_OPTIONS)
     )
+    # TRI-STATE, SO allow_none MATTERS. None is a real answer here --
+    # "not asked yet" -- and must round-trip rather than collapse into
+    # False. See the column's own comment.
+    canCollect = fields.Boolean(required=False, allow_none=True)
     operatingDays = fields.List(fields.String(validate=validate.OneOf(_WEEKDAY_OPTIONS)), required=False)
     openingTime = fields.String(required=False, allow_none=True, validate=validate.Length(max=5))
     closingTime = fields.String(required=False, allow_none=True, validate=validate.Length(max=5))

@@ -34,6 +34,11 @@ const RESTOCK_OPTIONS = (Object.keys(RESTOCK_RHYTHM_LABELS) as RestockRhythm[]).
 const SPEND_OPTIONS = (Object.keys(WEEKLY_SPEND_BAND_LABELS) as WeeklySpendBand[]).map((value) => ({ value, label: WEEKLY_SPEND_BAND_LABELS[value] }));
 const EMPLOYEE_OPTIONS = (Object.keys(EMPLOYEE_RANGE_LABELS) as EmployeeRange[]).map((value) => ({ value, label: EMPLOYEE_RANGE_LABELS[value] }));
 
+const COLLECT_OPTIONS = [
+  { value: "YES", label: "Yes, I can fetch stock myself" },
+  { value: "NO", label: "No, it must be delivered to me" },
+];
+
 const EMPTY: TradingDetailsType = { buysCategories: [], customerTypes: [], operatingDays: [] };
 
 /**
@@ -100,6 +105,10 @@ export default function TradingDetailsEditScreen() {
             a single order exists -- see docs/v2/V2_15 Book Three. */}
         <SingleSelectField label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(restockRhythm) => setDraft({ ...draft, restockRhythm })} placeholder="Tap to choose" />
         <SingleSelectField label="Roughly what do you spend on stock a week?" sheetTitle="Weekly spend on stock" options={SPEND_OPTIONS} value={draft.weeklySpendBand} onChange={(weeklySpendBand) => setDraft({ ...draft, weeklySpendBand })} placeholder="Tap to choose" />
+        {/* TRI-STATE. Not answered is not "no" -- see the column's
+            own comment. Only an explicit "must be delivered"
+            withholds the "Collect near you" rail. */}
+        <SelectField label="Can you collect your own stock?" sheetTitle="Collecting stock" options={COLLECT_OPTIONS} value={draft.canCollect === undefined || draft.canCollect === null ? [] : [draft.canCollect ? "YES" : "NO"]} onChange={(v) => setDraft({ ...draft, canCollect: v.length === 0 ? undefined : v[0] === "YES" })} placeholder="Tap to choose" />
 
         {/* PICKED, NOT TYPED. These were two free-text boxes with an
             "08:00" placeholder and no validation anywhere -- not here,

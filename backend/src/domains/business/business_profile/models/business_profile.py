@@ -272,6 +272,34 @@ class BusinessProfile(BaseModel):
         db.Enum(WeeklySpendBand, name="business_profile_weekly_spend_band", schema="business"),
         nullable=True,
     )
+    #: CAN THIS SHOP FETCH ITS OWN STOCK?
+    #:
+    #: NULLABLE, AND NULL IS NOT FALSE. This is the same tri-state rule
+    #: SupplierProfile.offers_delivery already follows, and it is the
+    #: whole reason the column is a nullable Boolean rather than a
+    #: Boolean with a default:
+    #:
+    #:     True   they have transport, or can arrange it
+    #:     False  they cannot -- a supplier who will not deliver is no
+    #:            use to them at any distance
+    #:     None   they have not said, and we do not guess
+    #:
+    #: Mandla's objection to making it optional was exactly right: an
+    #: optional field that gets DEFAULTED turns a missing answer into an
+    #: invented one, and the engine is then ranking on a hypothesis it
+    #: cannot tell apart from a fact. So None is carried all the way
+    #: through -- declared.read keeps it None, needs_service keeps it
+    #: None, and the one rail that reads it treats None as "carry on as
+    #: before" rather than as either answer.
+    #:
+    #: WHAT IT ACTUALLY CHANGES, because a question that changes nothing
+    #: has no business being on a mandatory signup flow: a shop that has
+    #: said it CANNOT collect does not get the "Collect near you" rail.
+    #: A row for collecting is worth nothing to somebody who cannot
+    #: collect, and it is the only rail in the feed built on that
+    #: assumption.
+    can_collect = db.Column(db.Boolean, nullable=True)
+
     operating_days = db.Column(ARRAY(db.String), nullable=False, default=list)
     opening_time = db.Column(db.String(5), nullable=True)  # "HH:mm", free-form per frontend contract
     closing_time = db.Column(db.String(5), nullable=True)
