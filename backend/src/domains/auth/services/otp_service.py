@@ -58,6 +58,7 @@ from src.extensions import db
 from src.shared.audit import audit
 from src.shared.constants.constants import MAX_OTP_EMAILS_PER_HOUR
 from src.shared.email.email import EmailService
+from src.shared.validation.identifiers import normalize_email
 
 OTP_EXPIRY_MINUTES = 10
 
@@ -113,7 +114,28 @@ class OTPService:
             audit.log_otp_failed(destination, "too_many_attempts")
             raise ForbiddenError("Too many incorrect attempts. Please request a new verification code.")
 
-        if record.destination != destination or not verify_otp_hash(code, record.otp_code_hash):
+        # NORMALISED ON BOTH SIDES, and this line was a signup-blocking
+        # bug for over a month.
+        #
+        # The guard itself is right and stays: a code issued for one
+        # address must never verify a different one. What was wrong was
+        # comparing the two RAW. UserRepository.get_by_email normalises
+        # (.strip().lower()), so a person who typed "Thabo@example.com"
+        # was FOUND -- and then failed this comparison against the
+        # stored, lowercased "thabo@example.com" before the code was
+        # ever looked at.
+        #
+        # So the account was unverifiable FOREVER, for anybody whose
+        # email carried a single capital letter or a stray space, and
+        # the error they were shown was "Incorrect verification code" --
+        # which sent them to re-read the email, request new codes, and
+        # blame the one thing that was not broken. Caught only because
+        # Mandla screenshotted the screen with "Thabo@example.com" in
+        # the header while typing a code I had just read out of the
+        # database and knew to be correct.
+        if normalize_email(record.destination) != normalize_email(destination) or not verify_otp_hash(
+            code, record.otp_code_hash
+        ):
             OTPRepository.increment_attempts(record)
             audit.log_otp_failed(destination, "incorrect_code")
             raise UnauthorizedError("Incorrect verification code.")
