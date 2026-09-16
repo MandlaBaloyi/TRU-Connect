@@ -94,6 +94,29 @@ class Product(BaseModel):
         nullable=True,
     )
 
+    #: HOW MANY CONSUMER UNITS ARE IN THE PACK: 24 for "Doritos 36g x24",
+    #: 6 for "COKE 2LT PET 6PK". NULL means a single, which is the
+    #: overwhelming majority and the reason this is not defaulted to 1 --
+    #: "nobody said" and "explicitly one" are the same product, but only
+    #: one of them is a fact somebody stated.
+    #:
+    #: IT WAS EXTRACTED AND THEN DISCARDED FOR MONTHS. pack_size.py has
+    #: always read "x24" correctly and PackSize has always carried it;
+    #: there was simply nowhere to put it, so _create_and_link dropped it
+    #: on the way in and _pack_agreement had nothing to compare. The
+    #: consequence was measurable on the seeded catalogue: ONE product
+    #: holding a single 36g bag of Doritos at R6.00 and a case of 24 at
+    #: R139.50, offered to shopkeepers as alternatives to each other,
+    #: because they agree on every fact the catalogue stored -- same
+    #: brand, same 36g consumer unit.
+    #:
+    #: A DIFFERING COUNT IS A DISAGREEMENT, and carries the same -0.40 as
+    #: a differing size (confidence.score_rules_match). The reason is the
+    #: same too: "Doritos 36g" and "Doritos 36g x24" are nearly identical
+    #: as text and are not the same purchase, and getting it wrong puts a
+    #: per-unit price on a card that is out by a factor of twenty-four.
+    pack_quantity = db.Column(db.Integer, nullable=True)
+
     #: The consumer-unit barcode. NULLABLE: plenty of real products have
     #: no barcode we know, and refusing to catalogue them would make the
     #: catalogue useless for exactly the informal-trade goods this

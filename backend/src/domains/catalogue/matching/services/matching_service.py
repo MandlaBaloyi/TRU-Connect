@@ -37,6 +37,7 @@ from src.domains.catalogue.matching.algorithms.confidence import (
     MatchTier,
     score_rules_match,
 )
+from src.domains.catalogue.matching.algorithms.brand_detect import detect_brand, resolve_brand
 from src.domains.catalogue.matching.algorithms.pack_size import PackSize, resolve_pack
 from src.domains.catalogue.matching.config import matching_config
 from src.domains.catalogue.matching.repositories.match_alias_repository import (
@@ -88,7 +89,17 @@ def propose_match(
     # two were written separately they diverged -- see resolve_pack's
     # own docstring for what that cost.
     row_pack = resolve_pack(pack, name)
-    row_brand = BrandRepository.resolve(normalise.brand_slug(brand)) if brand else None
+    # resolve_brand, NOT `brand` -- `brand` is None on almost every
+    # call, because it is not a column on supplier_offers and only
+    # arrives with an import that carries one. Reading it out of the
+    # name is what lets the -0.30 brand-disagreement penalty fire at
+    # all; without it Fanta and Coca-Cola scored 75% against each other.
+    effective_brand = resolve_brand(brand, name)
+    row_brand = (
+        BrandRepository.resolve(normalise.brand_slug(effective_brand))
+        if effective_brand
+        else None
+    )
 
     # --- tier 0: barcode ---------------------------------------------------
     #
@@ -116,7 +127,7 @@ def propose_match(
     if gtin.is_catalogue_usable(barcode):
         product = CatalogueProductRepository.get_by_gtin(barcode)
         if product:
-            contradiction = _barcode_contradiction(row_brand, row_pack, product)
+            contradiction = _barcode_contradiction(row_brand, effective_brand, row_pack, product)
             return MatchProposal(
                 product_id=product.id,
                 tier=MatchTier.BARCODE,
@@ -129,7 +140,7 @@ def propose_match(
                 evidence={
                     "barcode_matched": True,
                     "barcode_south_african": gtin.is_south_african_prefix(barcode),
-                    "brand_agrees": _brand_agreement(row_brand, product),
+                    "brand_agrees": _brand_agreement(row_brand, effective_brand, product),
                     "pack_agrees": _pack_agreement(row_pack, product),
                 },
             )
@@ -177,7 +188,7 @@ def propose_match(
         # for the record would risk the stored evidence and the stored
         # confidence disagreeing about the same candidate, which is
         # exactly the thing this record exists to make impossible.
-        brand_agrees = _brand_agreement(row_brand, candidate)
+        brand_agrees = _brand_agreement(row_brand, effective_brand, candidate)
         pack_agrees = _pack_agreement(row_pack, candidate)
         contained = bool(row_words) and row_words <= candidate_words
         confidence = score_rules_match(
@@ -234,7 +245,9 @@ def propose_match(
     )
 
 
-def _barcode_contradiction(row_brand, row_pack: PackSize, candidate: Product) -> Optional[str]:
+def _barcode_contradiction(
+    row_brand, effective_brand: Optional[str], row_pack: PackSize, candidate: Product
+) -> Optional[str]:
     """Does the row's own evidence ARGUE AGAINST the barcode's answer?
 
     Returns the reason when it does, None when it does not.
@@ -277,7 +290,7 @@ def _barcode_contradiction(row_brand, row_pack: PackSize, candidate: Product) ->
     GTIN lookup -- an independent source saying what the barcode really
     is -- which is the next piece of work, not this one.
     """
-    if _brand_agreement(row_brand, candidate) is False:
+    if _brand_agreement(row_brand, effective_brand, candidate) is False:
         return (
             "The barcode matches this product, but the brand does not. "
             "Please check the barcode is on the right product."
@@ -290,32 +303,89 @@ def _barcode_contradiction(row_brand, row_pack: PackSize, candidate: Product) ->
     return None
 
 
-def _brand_agreement(row_brand, candidate: Product) -> Optional[bool]:
+def _brand_agreement(row_brand, row_brand_text: Optional[str], candidate: Product) -> Optional[bool]:
     """True, False, or None for "cannot tell".
 
     NONE IS NOT FALSE, and the distinction matters. Plenty of real
     products have no brand at all -- loose potatoes, building sand -- and
     scoring an absence as a disagreement would push honest matches below
     the gate.
+
+    IT NO LONGER NEEDS EITHER BRAND TO EXIST AS A ROW, and that fix is
+    worth the extra argument. brands are created as products are
+    created, so this used to be ORDER-DEPENDENT: the first offer
+    mentioning Surf found no Surf row, got None, and skipped the -0.30
+    penalty -- which is why "Surf Washing Powder 3kg" was still being
+    proposed against "Omo Washing Powder 3kg" at 73% AFTER brand
+    detection was switched on. The same two names compared correctly
+    later in the same run, once some other offer had created the row.
+
+    An order-dependent matcher is worse than a blunt one: the answer
+    depends on which supplier uploaded first, which nobody can see and
+    nobody can reproduce.
+
+    So the stored rows are used when both exist, and the NAMES are read
+    when either does not. Reading the name is exactly what created the
+    row in the first place, so the two agree by construction.
     """
-    if row_brand is None or candidate.brand_id is None:
+    if row_brand is not None and candidate.brand_id is not None:
+        return row_brand.id == candidate.brand_id
+
+    # FALL BACK TO THE TEXT. detect_brand only ever answers from the
+    # declared list, so this cannot invent a disagreement out of a word
+    # that happens to lead two different product names.
+    candidate_text = detect_brand(candidate.name)
+    if not row_brand_text or not candidate_text:
         return None
-    return row_brand.id == candidate.brand_id
+    return normalise.brand_slug(row_brand_text) == normalise.brand_slug(candidate_text)
 
 
 def _pack_agreement(row_pack: PackSize, candidate: Product) -> Optional[bool]:
-    """Whether the sizes are the same product, compared in base units.
+    """Whether these are the same purchase: same consumer unit AND the
+    same number of them.
 
     2L and 2000ml agree. 2L and 500ml do not, and that disagreement is
     the most valuable signal in the whole tier: those two descriptions
     read almost identically as text, and linking them would put a
     per-unit price on a card that is out by a factor of four.
+
+    THE COUNT IS CHECKED TOO, AND IT WAS NOT FOR MONTHS. "Doritos 36g"
+    and "Doritos 36g x24" have the SAME consumer unit -- both are 36g
+    bags -- so on size alone they agree perfectly, and the catalogue
+    merged a single packet at R6.00 with a case at R139.50. The count
+    was read correctly by pack_size.py and then discarded for want of a
+    column to keep it in.
+
+    A DISAGREEING COUNT IS A DISAGREEMENT, weighted exactly as a
+    disagreeing size is. The reasoning transfers whole: the two read
+    almost identically as text and are not the same purchase, and
+    getting it wrong puts a per-unit price on a card that is out by a
+    factor of twenty-four.
+
+    NULL COUNTS ARE COMPARED, NOT SKIPPED, and that is the one place
+    this differs from the size rule. A missing SIZE means "unparsed" --
+    plenty of real products have no measure at all. A missing COUNT
+    means "a single", which is a positive fact about almost every
+    product in the catalogue. So None == None agrees (two singles), and
+    None vs 24 disagrees (a single and a case), where an unknown size
+    still returns None for "cannot say".
     """
     row_base = row_pack.to_base() if row_pack else None
     candidate_base = PackSize(
         unit_quantity=candidate.unit_quantity,
         unit_measure=candidate.unit_measure.value if candidate.unit_measure else None,
     ).to_base()
+
+    row_count = row_pack.pack_quantity if row_pack else None
+    candidate_count = candidate.pack_quantity
+
+    # A COUNT MISMATCH OVERRULES EVERYTHING, including an unknown size.
+    # "Bread Rolls" and "Bread Rolls x12" have no measure between them,
+    # so the size check would return None and let them auto-link on text
+    # alone -- which is the same bug in a product that happens to carry
+    # no grams.
+    if row_count != candidate_count:
+        return False
 
     if row_base is None or candidate_base is None:
         return None
@@ -328,8 +398,27 @@ def _explain(similarity: float, row_brand, row_pack: PackSize, candidate: Produc
     parts = [f"Description is {round(similarity * 100)}% similar"]
     if row_brand is not None and candidate.brand_id == row_brand.id:
         parts.append("same brand")
-    if _pack_agreement(row_pack, candidate) is True:
+
+    # NAMES WHICH OF THE TWO DISAGREED. "DIFFERENT pack size" was shown
+    # for a count mismatch as well as a size one, which is actively
+    # misleading on the case that mattered: somebody reading "Doritos
+    # 36g x24 -- DIFFERENT pack size" against a 36g product would check
+    # the grams, find them identical, and conclude the matcher was
+    # broken.
+    row_count = row_pack.pack_quantity if row_pack else None
+    if row_count != candidate.pack_quantity:
+        parts.append(
+            f"DIFFERENT pack count ({_count_words(row_count)} vs "
+            f"{_count_words(candidate.pack_quantity)})"
+        )
+    elif _pack_agreement(row_pack, candidate) is True:
         parts.append("same pack size")
     elif _pack_agreement(row_pack, candidate) is False:
         parts.append("DIFFERENT pack size")
     return ", ".join(parts) + "."
+
+
+def _count_words(count: Optional[int]) -> str:
+    """"a single" reads better than "None" to somebody disputing a
+    match, and None genuinely means one."""
+    return "a single" if count is None else f"a pack of {count}"

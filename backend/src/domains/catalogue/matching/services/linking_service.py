@@ -33,6 +33,7 @@ from src.domains.catalogue.matching.algorithms.confidence import (
     MatchProposal,
     MatchTier,
 )
+from src.domains.catalogue.matching.algorithms.brand_detect import resolve_brand
 from src.domains.catalogue.matching.algorithms.pack_size import PackSize, resolve_pack
 from src.domains.catalogue.matching.config import matching_config
 from src.domains.catalogue.matching.models.match_alias import AliasSource
@@ -136,6 +137,11 @@ def match_and_link(
         brand=brand,
         unit_quantity=unit_quantity,
         unit_measure=unit_measure,
+        # NO pack_quantity HERE, and it is not an omission. The count is
+        # derived from the NAME, and the name is already in this hash --
+        # so "Doritos 36g" becoming "Doritos 36g x24" changes the
+        # fingerprint through the text it was read from. Passing the
+        # derived value as well would hash the same fact twice.
     )
     if supplier_offer.product_id and supplier_offer.match_fingerprint == fingerprint:
         return MatchOutcome(
@@ -187,8 +193,16 @@ def match_and_link(
     # between alternatives.
     effective = resolve_pack(pack, name)
     return _create_and_link(
-        supplier_offer, proposal, name, category, brand,
+        # THE BRAND IT MATCHED ON IS THE BRAND IT IS STORED WITH, for
+        # exactly the reason the pack size is -- a product created
+        # without the fact it was compared on becomes a magnet for
+        # everything that has it.
+        supplier_offer, proposal, name, category, resolve_brand(brand, name),
         effective.unit_quantity, _as_product_unit(effective.unit_measure),
+        # THE PACK COUNT TOO, and this was the last of the four. It was
+        # extracted correctly and then dropped here, so a case of 24
+        # entered the catalogue indistinguishable from a single packet.
+        effective.pack_quantity,
         barcode, fingerprint,
     )
 
@@ -251,6 +265,7 @@ def _create_and_link(
     brand: Optional[str],
     unit_quantity: Optional[int],
     unit_measure: Optional[ProductUnit],
+    pack_quantity: Optional[int],
     barcode: Optional[str],
     fingerprint: str,
 ) -> MatchOutcome:
@@ -274,6 +289,10 @@ def _create_and_link(
         brand_id=brand_row.id if brand_row else None,
         unit_quantity=unit_quantity,
         unit_measure=unit_measure,
+        # NULL MEANS A SINGLE and is not defaulted to 1 -- see the
+        # column's own comment on why "nobody said" and "explicitly
+        # one" are worth telling apart.
+        pack_quantity=pack_quantity,
         # A barcode carried in only when it matched NOTHING -- otherwise
         # tier 0 would have found it. So it is safe to claim here, and
         # the unique constraint is the backstop if it is not.

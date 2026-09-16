@@ -152,11 +152,35 @@ class MatchProposal:
 
     @property
     def decision(self) -> MatchDecision:
-        if self.ambiguous or self.contradicted:
-            # Confident but contested is exactly what the review band is
-            # for. Auto-linking here is how "Coca-Cola 2L" ends up
-            # attached to Coca-Cola Zero.
+        # A CONTRADICTED BARCODE ALWAYS GOES TO A PERSON, whatever the
+        # number says. Tier 0's confidence is a constant 1.0 and the
+        # contradiction is the only thing arguing against it, so there is
+        # no score here to fall below a threshold.
+        if self.contradicted:
             return MatchDecision.REVIEW
+
+        # AMBIGUITY ONLY MATTERS AMONG PLAUSIBLE CANDIDATES.
+        #
+        # "Confident but contested" is exactly what the review band is
+        # for -- auto-linking there is how "Coca-Cola 2L" ends up
+        # attached to Coca-Cola Zero. But this used to return REVIEW for
+        # ANY near-tie, including ties between candidates nobody would
+        # accept.
+        #
+        # It became visible the moment brand detection started applying
+        # the -0.30 penalty: several wrong candidates now score 0.19,
+        # 0.17, 0.24 -- clustered, because they are all equally wrong --
+        # and a 0.05 margin called that a tie. Thirteen pairs went to a
+        # human at confidences as low as 19%, asking which of two
+        # products that are plainly not it was more nearly it.
+        #
+        # review_threshold's own docstring already stated the rule this
+        # was breaking: "below it there is no plausible candidate at
+        # all, so a new catalogue product is created rather than a
+        # reviewer being handed a question with no good answer."
+        if self.ambiguous and self.confidence >= matching_config.review_threshold():
+            return MatchDecision.REVIEW
+
         return decide(self.confidence)
 
 

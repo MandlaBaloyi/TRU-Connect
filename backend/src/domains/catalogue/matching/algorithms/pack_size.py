@@ -85,6 +85,24 @@ _PACK_PATTERNS = (
     re.compile(r"(?<![a-z0-9])(?:pk|pack)\s*(\d+)(?![a-z0-9])", re.I),  # pk6
     re.compile(r"case\s*of\s*(\d+)(?![a-z0-9])", re.I),                  # case of 6
     re.compile(r"box\s*of\s*(\d+)(?![a-z0-9])", re.I),                   # box of 6
+    # COUNTED THINGS NAMED OUTRIGHT: "26 bags", "12 rolls", "6 eggs".
+    #
+    # ADDED AFTER A REAL MISS. "Five Roses Tea 26 bags" was proposed
+    # against "Five Roses Tea 100 bags" at 79% -- same brand, no measure
+    # on either side, so the pack check had nothing to compare and could
+    # not object. A box of 26 teabags and a box of 100 are not the same
+    # purchase, and the number was right there in both names.
+    #
+    # THE NOUN LIST IS CLOSED ON PURPOSE. Matching a bare "(\d+)\s*\w+"
+    # would read "Maize Meal 10kg" as ten of something the moment the
+    # measure parser missed, and a wrong count is worse than none --
+    # it fabricates a disagreement and suppresses a correct match.
+    re.compile(
+        r"(?<![a-z0-9])(\d+)\s*"
+        r"(?:bags?|rolls?|eggs?|tablets?|sachets?|bars?|tins?|cans?|bottles?|units?|pieces?|slices?)"
+        r"(?![a-z])",
+        re.I,
+    ),
     re.compile(r"(?<![a-z0-9])(\d+)\s*(?:'s|s)(?=\s|$)", re.I),          # 6's, 6s
 )
 
