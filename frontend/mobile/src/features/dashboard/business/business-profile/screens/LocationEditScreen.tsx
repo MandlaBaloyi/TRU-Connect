@@ -6,7 +6,7 @@ import { useTheme } from "react-native-paper";
 import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
 import type { BusinessLocation, OperatingModel, SouthAfricanProvince } from "../types";
 import { OPERATING_MODEL_LABELS, PROVINCE_LABELS } from "../types";
-import { ChipSingleSelect } from "../components";
+import { SingleSelectField } from "@/components/forms/SelectField";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -105,7 +105,7 @@ export default function LocationEditScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ChipSingleSelect label="Province" options={PROVINCE_OPTIONS} value={location.province} onChange={(province) => setLocation({ ...location, province })} />
+        <SingleSelectField label="Province" options={PROVINCE_OPTIONS} value={location.province} onChange={(province) => setLocation({ ...location, province })} placeholder="Tap to choose" />
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>City, town or area</Text>
@@ -119,7 +119,7 @@ export default function LocationEditScreen() {
           />
         </View>
 
-        <ChipSingleSelect label="Where does your business operate?" options={OPERATING_MODEL_OPTIONS} value={operatingModel} onChange={setOperatingModel} />
+        <SingleSelectField label="Where does your business operate?" options={OPERATING_MODEL_OPTIONS} value={operatingModel} onChange={setOperatingModel} placeholder="Tap to choose" />
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>

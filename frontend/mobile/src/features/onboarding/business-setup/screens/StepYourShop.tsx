@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 
-import { ChipMultiSelect } from "@/features/dashboard/business/business-profile/components";
 import { SelectField } from "@/components/forms/SelectField";
 import { useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
 import { CUSTOMER_TYPE_LABELS } from "@/features/dashboard/business/business-profile/types";
@@ -93,14 +92,20 @@ export default function StepYourShop() {
         multiple
         placeholder="Tap to choose your categories"
       />
-      {/* STAYS CHIPS. Five options, all visible at once, no scrolling
-          -- which is exactly the case chips are right for. Swapping it
-          to a sheet would hide a short list behind a tap. */}
-      <ChipMultiSelect
+      {/* A SHEET TOO, THOUGH FIVE OPTIONS WOULD FIT AS CHIPS.
+          Consistency wins here: this is the SAME QUESTION as the one
+          on My Business > Trading details, and having it look like a
+          chip row in one place and a field in the other is worse than
+          either choice on its own. A form whose questions all have one
+          shape also reads as one form rather than a collection of
+          widgets. */}
+      <SelectField
         label="Who do you mainly sell to? (optional)"
         options={CUSTOMER_TYPE_OPTIONS}
         value={customerTypes}
         onChange={(v) => setCustomerTypes(v as CustomerType[])}
+        multiple
+        placeholder="Tap to choose"
       />
     </SetupStepScaffold>
   );

@@ -17,7 +17,7 @@ import {
   WEEKLY_SPEND_BAND_LABELS,
 } from "../types";
 import { CATEGORY_OPTIONS } from "@/constants/productCategories";
-import { ChipMultiSelect, ChipSingleSelect } from "../components";
+import { SelectField, SingleSelectField } from "@/components/forms/SelectField";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -94,12 +94,12 @@ export default function TradingDetailsEditScreen() {
         {/* THE MOST IMPORTANT QUESTION ON THIS SCREEN, and it asks what
             they BUY rather than what they sell. It is the only answer
             that changes what the Community feed shows them. */}
-        <ChipMultiSelect label="What stock do you buy?" options={BUYS_OPTIONS} value={draft.buysCategories} onChange={(buysCategories) => setDraft({ ...draft, buysCategories })} />
-        <ChipMultiSelect label="Who do you mainly sell to?" options={CUSTOMER_TYPE_OPTIONS} value={draft.customerTypes} onChange={(customerTypes) => setDraft({ ...draft, customerTypes })} />
+        <SelectField label="What stock do you buy?" sheetTitle="What stock do you buy?" options={BUYS_OPTIONS} value={draft.buysCategories} onChange={(buysCategories) => setDraft({ ...draft, buysCategories })} multiple placeholder="Tap to choose your categories" />
+        <SelectField label="Who do you mainly sell to?" options={CUSTOMER_TYPE_OPTIONS} value={draft.customerTypes} onChange={(v) => setDraft({ ...draft, customerTypes: v as typeof draft.customerTypes })} multiple placeholder="Tap to choose" />
         {/* One tap each, and together they let the feed be useful before
             a single order exists -- see docs/v2/V2_15 Book Three. */}
-        <ChipSingleSelect label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(v) => setDraft({ ...draft, restockRhythm: (v as RestockRhythm) || undefined })} />
-        <ChipSingleSelect label="Roughly what do you spend on stock a week?" options={SPEND_OPTIONS} value={draft.weeklySpendBand} onChange={(v) => setDraft({ ...draft, weeklySpendBand: (v as WeeklySpendBand) || undefined })} />
+        <SingleSelectField label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(restockRhythm) => setDraft({ ...draft, restockRhythm })} placeholder="Tap to choose" />
+        <SingleSelectField label="Roughly what do you spend on stock a week?" sheetTitle="Weekly spend on stock" options={SPEND_OPTIONS} value={draft.weeklySpendBand} onChange={(weeklySpendBand) => setDraft({ ...draft, weeklySpendBand })} placeholder="Tap to choose" />
 
         {/* PICKED, NOT TYPED. These were two free-text boxes with an
             "08:00" placeholder and no validation anywhere -- not here,
@@ -121,7 +121,7 @@ export default function TradingDetailsEditScreen() {
           />
         </View>
 
-        <ChipSingleSelect label="How many people work in the business? (optional)" options={EMPLOYEE_OPTIONS} value={draft.employeeRange} onChange={(employeeRange) => setDraft({ ...draft, employeeRange })} />
+        <SingleSelectField label="How many people work in the business? (optional)" options={EMPLOYEE_OPTIONS} value={draft.employeeRange} onChange={(employeeRange) => setDraft({ ...draft, employeeRange })} placeholder="Tap to choose" />
 
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 

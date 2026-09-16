@@ -6,13 +6,13 @@ import { useTheme } from "react-native-paper";
 import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
 import type { OperatingHistory } from "../types";
 import { OPERATING_HISTORY_LABELS } from "../types";
-import { ChipSingleSelect } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { SingleSelectField } from "@/components/forms/SelectField";
 
 const OPTIONS = (Object.keys(OPERATING_HISTORY_LABELS) as OperatingHistory[]).map((value) => ({ value, label: OPERATING_HISTORY_LABELS[value] }));
 
@@ -63,7 +63,7 @@ export default function OperatingHistoryEditScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
-        <ChipSingleSelect label="How long have you been operating?" options={OPTIONS} value={value} onChange={setValue} />
+        <SingleSelectField label="How long have you been operating?" options={OPTIONS} value={value} onChange={setValue} />
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
         <PrimaryButton onPress={handleSave} loading={isSavingOperatingHistory} disabled={isSavingOperatingHistory}>
           Save

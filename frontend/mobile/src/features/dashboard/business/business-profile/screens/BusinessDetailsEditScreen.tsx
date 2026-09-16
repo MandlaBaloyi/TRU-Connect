@@ -13,13 +13,13 @@ import { useTheme } from "react-native-paper";
 import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
 import type { BusinessCategory, BusinessType } from "../types";
 import { BUSINESS_CATEGORY_LABELS, BUSINESS_TYPE_LABELS } from "../types";
-import { ChipSingleSelect } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { SingleSelectField } from "@/components/forms/SelectField";
 
 const CATEGORY_OPTIONS = (Object.keys(BUSINESS_CATEGORY_LABELS) as BusinessCategory[]).map((value) => ({
   value,
@@ -102,8 +102,8 @@ export default function BusinessDetailsEditScreen() {
           />
         </View>
 
-        <ChipSingleSelect label="What type of business do you run?" options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
-        <ChipSingleSelect label="What type of business is this?" options={TYPE_OPTIONS} value={businessType} onChange={setBusinessType} />
+        <SingleSelectField label="What type of business do you run?" options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
+        <SingleSelectField label="What type of business is this?" options={TYPE_OPTIONS} value={businessType} onChange={setBusinessType} />
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>Tell us about your business (optional)</Text>

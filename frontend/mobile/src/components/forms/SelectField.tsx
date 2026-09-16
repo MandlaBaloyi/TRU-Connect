@@ -228,6 +228,43 @@ export function SelectField({
   );
 }
 
+/**
+ * SelectField for a question with exactly one answer.
+ *
+ * SelectField itself always speaks in arrays, so that switching a
+ * question between one answer and several is a prop rather than a
+ * rewrite. That is right for the component and tedious at the call
+ * site, where most questions have one answer and every one of them
+ * would otherwise carry the same `value ? [value] : []` and
+ * `onChange(v[0])` noise. This holds that conversion once.
+ */
+export function SingleSelectField<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder,
+  sheetTitle,
+}: {
+  label: string;
+  options: SelectOption[];
+  value: T | undefined;
+  onChange: (value: T | undefined) => void;
+  placeholder?: string;
+  sheetTitle?: string;
+}) {
+  return (
+    <SelectField
+      label={label}
+      options={options}
+      value={value ? [value] : []}
+      onChange={(next) => onChange(next[0] as T | undefined)}
+      placeholder={placeholder}
+      sheetTitle={sheetTitle}
+    />
+  );
+}
+
 const ROW_HEIGHT = 52;
 
 const styles = StyleSheet.create({

@@ -6,13 +6,13 @@ import { useTheme } from "react-native-paper";
 import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
 import type { SupplierSource } from "../types";
 import { SUPPLIER_SOURCE_LABELS } from "../types";
-import { ChipMultiSelect } from "../components";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { SelectField } from "@/components/forms/SelectField";
 
 const OPTIONS = (Object.keys(SUPPLIER_SOURCE_LABELS) as SupplierSource[]).map((value) => ({ value, label: SUPPLIER_SOURCE_LABELS[value] }));
 
@@ -63,7 +63,7 @@ export default function SupplierInfoEditScreen() {
   return (
     <ScreenContainer hasNativeHeader>
       <ScrollView contentContainerStyle={styles.content}>
-        <ChipMultiSelect label="Where do you usually get stock or supplies?" options={OPTIONS} value={sources} onChange={setSources} />
+        <SelectField label="Where do you usually get stock or supplies?" options={OPTIONS} value={sources} onChange={(v) => setSources(v as typeof sources)} multiple placeholder="Tap to choose" />
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
         <PrimaryButton onPress={handleSave} loading={isSavingSupplierInfo} disabled={isSavingSupplierInfo}>
           Save
