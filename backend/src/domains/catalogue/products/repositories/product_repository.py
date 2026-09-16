@@ -59,12 +59,29 @@ class CatalogueProductRepository:
 
         from src.domains.catalogue.matching.algorithms.normalise import matching_key
 
-        # Products whose normalised name shares the same length band --
-        # a cheap pre-filter so this is not a full scan. Two strings with
-        # the same sorted characters must have the same length.
+        # Products whose normalised name is the same LENGTH -- a cheap
+        # pre-filter so this is not a full scan. Sorting tokens cannot
+        # change how many characters there are, so a product whose name
+        # differs in length cannot possibly produce this key.
+        #
+        # COMPARED AGAINST THE WHOLE NAME, SPACES INCLUDED, because
+        # matching_key joins its sorted tokens with "|" -- one separator
+        # for each space the name had. Space-for-separator is
+        # length-preserving, so the two are directly comparable.
+        #
+        # THIS LINE USED TO STRIP THE SPACES, matching a key that was
+        # joined with nothing. When the separator was introduced -- so
+        # that "bread"+"roll" could never collide with "breadroll" --
+        # this filter silently stopped matching anything, and tier 2
+        # went dark: every exact match quietly demoted to tier 3's fuzzy
+        # scoring. Nothing failed, the right product was still usually
+        # found, and the only visible symptom was a tier name in an
+        # evidence blob. Caught by test_word_order_alone_does_not_
+        # prevent_a_match, which asserts the TIER and not just the
+        # answer -- which is exactly why it asserts the tier.
         candidates = Product.query.filter(
             Product.is_deleted.is_(False),
-            db.func.length(db.func.replace(Product.normalized_name, " ", "")) == len(key),
+            db.func.length(Product.normalized_name) == len(key),
         ).all()
         for candidate in candidates:
             if matching_key(candidate.normalized_name) == key:

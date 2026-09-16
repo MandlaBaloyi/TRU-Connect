@@ -143,13 +143,37 @@ def test_products_with_no_size_return_empty_rather_than_a_guess(text):
     assert extract_pack_size(text).is_empty
 
 
-def test_a_fractional_size_is_refused_rather_than_rounded():
-    """unit_quantity is an integer column. 1.5kg becoming 1 or 2 would
-    put a wrong per-unit price on a product card, and wrong is worse
-    than absent."""
+def test_a_fractional_size_is_converted_rather_than_refused():
+    """THIS TEST USED TO ASSERT THE OPPOSITE, and the reversal is the
+    point rather than a regression.
+
+    It asserted that 1.5kg parsed to NOTHING, on the reasoning that
+    unit_quantity is an integer column and 1.5 becoming 1 or 2 would
+    put a wrong per-unit price on a card. The reasoning was right; the
+    conclusion threw away a real size for no benefit.
+
+    What it cost, measured on the seeded catalogue: a product created
+    from "Ace Maize Meal 2.5kg" entered the catalogue with NO pack size
+    at all, and then acted as a magnet -- _pack_agreement reads a
+    missing size as "unknown" rather than "different", so the -0.40
+    mismatch penalty never fired against it. The 5kg and the 25kg both
+    auto-linked to it. One product, ten suppliers, R40.50 to R340.50.
+
+    A fraction is now expressed in the base unit this module already
+    reduces everything to for comparison. 1.5kg is EXACTLY 1500g --
+    nothing is rounded and nothing is guessed, and the refusal still
+    stands wherever there is no smaller unit to fall back on (see
+    test_a_fraction_of_the_smallest_unit_is_refused in
+    test_pack_size.py).
+    """
     result = extract_pack_size("Sugar 1.5kg")
-    assert result.unit_quantity is None
-    assert result.unit_measure is None
+
+    assert result.unit_quantity == 1500
+    assert result.unit_measure == "G"
+    assert result.to_base() == 1500
+
+    # AND THE WHOLE POINT: it no longer agrees with a different bag.
+    assert result.to_base() != extract_pack_size("Sugar 15kg").to_base()
 
 
 def test_a_pack_of_one_is_not_a_pack():
