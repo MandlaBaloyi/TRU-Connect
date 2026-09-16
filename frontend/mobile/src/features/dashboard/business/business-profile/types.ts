@@ -106,7 +106,6 @@ export const OPERATING_MODEL_LABELS: Record<OperatingModel, string> = {
   OTHER: "Other",
 };
 
-export type CustomerType = "INDIVIDUALS" | "OTHER_BUSINESSES" | "FRIENDS_COMMUNITY" | "ORGANISATIONS" | "OTHER";
 
 /** How stock reaches this shop.
  *
@@ -149,13 +148,6 @@ export const WEEKLY_SPEND_BAND_LABELS: Record<WeeklySpendBand, string> = {
   OVER_10000: "More than R10 000",
 };
 
-export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
-  INDIVIDUALS: "Individuals",
-  OTHER_BUSINESSES: "Other businesses",
-  FRIENDS_COMMUNITY: "Friends / community",
-  ORGANISATIONS: "Organisations",
-  OTHER: "Other",
-};
 
 
 
@@ -302,7 +294,6 @@ export interface TradingDetails {
    *  A salon SELLS haircuts and BUYS relaxers; only the second is
    *  orderable here, and only the second tells the feed anything. */
   buysCategories: string[];
-  customerTypes: CustomerType[];
   /** The two questions that make the feed useful before a first order.
    *  Undefined until asked — never defaulted to a guess, because a
    *  wrong declared cadence is indistinguishable from a real one. */

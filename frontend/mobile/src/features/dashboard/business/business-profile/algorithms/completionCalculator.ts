@@ -47,7 +47,6 @@ const TRACKED_FIELDS: FieldCheck[] = [
   // longer cost a shopkeeper a question or dent their percentage.
   // What is counted now is exactly what the demand engine reads.
   { section: "tradingDetails", isFilled: (p) => p.tradingDetails.buysCategories.length > 0 },
-  { section: "tradingDetails", isFilled: (p) => p.tradingDetails.customerTypes.length > 0 },
   { section: "tradingDetails", isFilled: (p) => Boolean(p.tradingDetails.restockRhythm) },
   { section: "tradingDetails", isFilled: (p) => Boolean(p.tradingDetails.weeklySpendBand) },
 

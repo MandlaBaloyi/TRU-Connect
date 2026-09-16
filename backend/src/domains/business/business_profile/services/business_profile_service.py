@@ -144,7 +144,7 @@ class BusinessProfileService:
     def update_trading_details(business_id: uuid.UUID, data: dict[str, Any]) -> dict:
         profile = BusinessProfileRepository.get_or_create_for_business(business_id)
         for field, column in [
-            ("buysCategories", "buys_categories"), ("customerTypes", "customer_types"),
+            ("buysCategories", "buys_categories"),
             ("restockRhythm", "restock_rhythm"), ("weeklySpendBand", "weekly_spend_band"),
             ("stockCollection", "stock_collection"),
             ("operatingDays", "operating_days"),
@@ -216,7 +216,6 @@ class BusinessProfileService:
             },
             "tradingDetails": {
                 "buysCategories": profile.buys_categories or [],
-                "customerTypes": profile.customer_types or [],
                 "restockRhythm": profile.restock_rhythm.value if profile.restock_rhythm else None,
                 "weeklySpendBand": (
                     profile.weekly_spend_band.value if profile.weekly_spend_band else None

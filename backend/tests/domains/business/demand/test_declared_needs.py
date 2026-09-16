@@ -19,10 +19,12 @@ WHAT THESE DEFEND, worst consequence first:
   timing, which is the one kind of wrong that sends somebody a nudge on
   the wrong day.
 
-  UNSAID IS NOT "NO". prefers_bulk must be None, never False, when a
-  shop has not answered -- defaulting a tri-state to one of its answers
-  is a mistake this codebase already records making once with
-  offers_delivery.
+  UNSAID IS NOT "NO". The tri-state rule this file used to hold with
+  prefers_bulk now lives on stock_collection -- see
+  test_stock_collection.py. customer_types and prefers_bulk are GONE:
+  the column fed exactly one derived value and that value was read by
+  nothing at all. Mandla: "this one I don't need it in TruConnect, just
+  drop the column".
 
   NO SUPPLIER MAY OWN A RAIL. The cap is what stops a wholesaler with
   four hundred products filling the screen, and it is the visible half
@@ -55,12 +57,11 @@ def shop(make_business):
         BusinessProfileRepository,
     )
 
-    def _make(categories=None, rhythm=None, spend=None, customer_types=None):
+    def _make(categories=None, rhythm=None, spend=None):
         n = next(_seq)
         user = make_business(f"demand{n}@example.com")
         profile = BusinessProfileRepository.get_or_create_for_business(user.id)
         profile.buys_categories = list(categories or [])
-        profile.customer_types = list(customer_types or [])
         profile.restock_rhythm = RestockRhythm(rhythm) if rhythm else None
         profile.weekly_spend_band = WeeklySpendBand(spend) if spend else None
         db.session.commit()
@@ -100,7 +101,6 @@ class TestDeclarationBeatsColdStart:
             categories=["BAKERY", "BEVERAGES"],
             rhythm="TWICE_WEEKLY",
             spend="R500_TO_2000",
-            customer_types=["INDIVIDUALS"],
         )
 
         needs = needs_service.needs_for(user.id)
@@ -109,7 +109,6 @@ class TestDeclarationBeatsColdStart:
         assert set(needs.category_values) == {"BAKERY", "BEVERAGES"}
         assert needs.cadence_days == 3.5
         assert needs.order_ceiling_cents == 150_000
-        assert needs.prefers_bulk is False
         assert needs.confidence == 0.8
 
     def test_every_need_says_where_it_came_from(self, app, db_session, shop):
@@ -140,11 +139,6 @@ class TestTheCarefulNulls:
         """IRREGULAR is a real answer, not a refusal, and it must not
         become a number."""
         assert weighting.cadence_days("IRREGULAR") is None
-
-    def test_unsaid_customers_is_unknown_not_walk_ins(self):
-        assert weighting.prefers_bulk([]) is None
-        assert weighting.prefers_bulk(["INDIVIDUALS"]) is False
-        assert weighting.prefers_bulk(["OTHER_BUSINESSES"]) is True
 
     def test_the_top_spend_band_has_no_ceiling(self):
         """A ceiling there would hide the largest orders from the shops

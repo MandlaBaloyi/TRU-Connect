@@ -85,17 +85,6 @@ class TestWhatCountsAsAnsweredS:
 
         assert setup_service.setup_state(shop.id)["steps"][setup_service.STEP_HOW_YOU_BUY] is False
 
-    def test_customer_types_alone_does_not_complete_step_one(self, app, shop):
-        """Step one ASKS for customer types and is not gated on them --
-        they feed prefers_bulk, which refines a model that categories
-        create. Blocking somebody on the less important half of a
-        question is how a setup flow starts feeling like an interview."""
-        profile = _profile_for(shop.id)
-        profile.customer_types = ["INDIVIDUALS"]
-        db.session.commit()
-
-        assert setup_service.setup_state(shop.id)["steps"][setup_service.STEP_WHAT_YOU_BUY] is False
-
 
 class TestTheSkippableStepNeverGates:
     def test_required_is_complete_without_a_location(self, app, shop):

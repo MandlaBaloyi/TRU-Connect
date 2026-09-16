@@ -69,7 +69,6 @@ let profile: BusinessProfile = {
     buysCategories: ["FOOD_GROCERY", "BEVERAGES", "BAKERY"],
     restockRhythm: "TWICE_WEEKLY",
     weeklySpendBand: "R500_TO_2000",
-    customerTypes: ["INDIVIDUALS"],
     operatingDays: ["MON", "TUE", "WED", "THU", "FRI", "SAT"],
   },
   operatingHistory: {},

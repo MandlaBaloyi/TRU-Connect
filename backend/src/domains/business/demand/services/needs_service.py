@@ -52,8 +52,6 @@ class ShopNeeds:
     cadence_days: Optional[float] = None
     #: The top of a plausible single order. None means do not filter.
     order_ceiling_cents: Optional[int] = None
-    #: True = buys cases, False = buys singles, None = has not said.
-    prefers_bulk: Optional[bool] = None
     #: How far the feed should lean on this rather than platform-wide
     #: defaults. 0.0 means "we know nothing", which is a real state.
     confidence: float = 0.0
@@ -132,7 +130,6 @@ def needs_for(business_id) -> ShopNeeds:
         categories=categories,
         cadence_days=cadence,
         order_ceiling_cents=weighting.order_ceiling_cents(said.weekly_spend_band),
-        prefers_bulk=weighting.prefers_bulk(said.customer_types),
         confidence=weighting.overall_confidence(
             has_categories=bool(categories),
             has_rhythm=bool(said.restock_rhythm) or did.measured_gap_days is not None,

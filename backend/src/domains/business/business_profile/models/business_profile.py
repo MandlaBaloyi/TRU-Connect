@@ -288,7 +288,6 @@ class BusinessProfile(BaseModel):
     # a declared need lands directly on the taxonomy the catalogue and
     # the chips already use -- no mapping table to drift.
     buys_categories = db.Column(ARRAY(db.String), nullable=False, default=list)
-    customer_types = db.Column(ARRAY(db.String), nullable=False, default=list)
     # HOW OFTEN AND HOW MUCH -- the two questions that let the engine be
     # useful before a single order exists. See the enums above.
     restock_rhythm = db.Column(

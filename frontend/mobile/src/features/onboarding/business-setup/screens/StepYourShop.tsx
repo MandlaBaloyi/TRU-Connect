@@ -6,13 +6,11 @@ import { useBusinessProfile, useBusinessProfileMutations } from "@/features/dash
 import {
   BUSINESS_CATEGORY_LABELS,
   BUSINESS_TYPE_LABELS,
-  CUSTOMER_TYPE_LABELS,
   OPERATING_HISTORY_LABELS,
 } from "@/features/dashboard/business/business-profile/types";
 import type {
   BusinessCategory,
   BusinessType,
-  CustomerType,
   OperatingHistory,
 } from "@/features/dashboard/business/business-profile/types";
 import { CATEGORY_OPTIONS } from "@/constants/productCategories";
@@ -22,9 +20,6 @@ import { useRefreshBusinessSetup } from "../hooks/useBusinessSetup";
 import { SETUP_ROUTES } from "../types";
 
 const BUYS_OPTIONS = CATEGORY_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }));
-const CUSTOMER_TYPE_OPTIONS = (
-  Object.keys(CUSTOMER_TYPE_LABELS) as (keyof typeof CUSTOMER_TYPE_LABELS)[]
-).map((value) => ({ value, label: CUSTOMER_TYPE_LABELS[value] }));
 const BUSINESS_CATEGORY_OPTIONS = (
   Object.keys(BUSINESS_CATEGORY_LABELS) as BusinessCategory[]
 ).map((value) => ({ value, label: BUSINESS_CATEGORY_LABELS[value] }));
@@ -70,7 +65,6 @@ export default function StepYourShop() {
   const { profile } = useBusinessProfile();
 
   const [buysCategories, setBuysCategories] = useState<string[]>([]);
-  const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
   // OPTIONAL, AND NOT ENGINE FUEL. Here because Mandla asked for it --
   // "it's not about what you want to fit in the engine, it's about
   // taking data that would be useful later for us". None of the three
@@ -94,7 +88,6 @@ export default function StepYourShop() {
   useEffect(() => {
     if (profile && !prefilled) {
       setBuysCategories(profile.tradingDetails.buysCategories ?? []);
-      setCustomerTypes(profile.tradingDetails.customerTypes ?? []);
       setCategory(profile.businessDetails.category);
       setBusinessType(profile.businessDetails.businessType);
       setYearsOperating(profile.operatingHistory.yearsOperating);
@@ -113,7 +106,7 @@ export default function StepYourShop() {
       // path My Business uses -- rather than a setup-shaped endpoint
       // that would be a second way to set the same columns.
       await Promise.all([
-        saveTradingDetails({ buysCategories, customerTypes }),
+        saveTradingDetails({ buysCategories }),
         saveBusinessDetails({ category, businessType }),
         saveOperatingHistory({ yearsOperating }),
       ]);
@@ -127,37 +120,23 @@ export default function StepYourShop() {
   return (
     <SetupStepScaffold
       step="whatYouBuy"
-      title="What stock do you buy?"
+      title="Tell us about your business"
       why={[
-        "This is the answer that fills your Community tab. We use it to show you stock in the categories you actually restock, and suppliers who carry it.",
-        "Pick everything you buy, even occasionally — a category you leave out is one we will never show you.",
-        "It is only ever used to choose what appears in your feed. It is not shown to suppliers and it is not a credit check.",
-        "The questions marked optional change nothing in your feed today. We ask them because they tell us what this market is actually made of, and that decides what we build and which suppliers we go after next.",
+        "\"Stock you buy\" is the answer that fills your Community tab. We use it to show you stock in the categories you actually restock, and suppliers who carry it — so pick everything you buy, even occasionally. A category you leave out is one we will never show you.",
+        "The rest is optional and changes nothing in your feed today. We ask because it tells us what this market is actually made of, and that decides what we build next and which suppliers we go after.",
+        "None of it is shown to suppliers, and none of it is a credit check.",
       ]}
       onPrimary={handleContinue}
       primaryDisabled={buysCategories.length === 0}
       isSaving={isSavingTradingDetails}
       error={error}
     >
-      {/* A FIELD AND A SHEET, NOT SEVENTEEN CHIPS. The chip wall filled
-          the screen before anything had been answered and pushed the
-          second question below the fold. See SelectField. */}
-      <SelectField
-        label="Stock you buy"
-        sheetTitle="What stock do you buy?"
-        options={BUYS_OPTIONS}
-        value={buysCategories}
-        onChange={setBuysCategories}
-        multiple
-        placeholder="Tap to choose your categories"
-      />
-      {/* A SHEET TOO, THOUGH FIVE OPTIONS WOULD FIT AS CHIPS.
-          Consistency wins here: this is the SAME QUESTION as the one
-          on My Business > Trading details, and having it look like a
-          chip row in one place and a field in the other is worse than
-          either choice on its own. A form whose questions all have one
-          shape also reads as one form rather than a collection of
-          widgets. */}
+      {/* ORDERED THE WAY SOMEBODY WOULD INTRODUCE THEIR OWN SHOP:
+          what it is, how it is set up, what it buys, how long it has
+          been going. Mandla set this order, and it is better than the
+          one it replaces -- which led with "what stock do you buy", a
+          question that makes more sense once you have already said
+          what kind of business is asking it. */}
       <SelectField
         label="What type of business do you run? (optional)"
         sheetTitle="Type of business"
@@ -174,20 +153,25 @@ export default function StepYourShop() {
         onChange={(v) => setBusinessType(v[0] as BusinessType | undefined)}
         placeholder="Tap to choose"
       />
+      {/* THE ONLY REQUIRED ONE ON THIS STEP, and the only one the
+          engine reads. A field and a sheet rather than seventeen
+          chips -- the chip wall filled the screen before anything had
+          been answered. See SelectField. */}
+      <SelectField
+        label="Stock you buy"
+        sheetTitle="What stock do you buy?"
+        options={BUYS_OPTIONS}
+        value={buysCategories}
+        onChange={setBuysCategories}
+        multiple
+        placeholder="Tap to choose your categories"
+      />
       <SelectField
         label="How long have you been trading? (optional)"
         sheetTitle="How long you have been trading"
         options={OPERATING_HISTORY_OPTIONS}
         value={yearsOperating ? [yearsOperating] : []}
         onChange={(v) => setYearsOperating(v[0] as OperatingHistory | undefined)}
-        placeholder="Tap to choose"
-      />
-      <SelectField
-        label="Who do you mainly sell to? (optional)"
-        options={CUSTOMER_TYPE_OPTIONS}
-        value={customerTypes}
-        onChange={(v) => setCustomerTypes(v as CustomerType[])}
-        multiple
         placeholder="Tap to choose"
       />
     </SetupStepScaffold>

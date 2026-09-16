@@ -80,10 +80,6 @@ SPEND_BAND_ORDER_CEILING_CENTS = {
     "OVER_10000": None,  # no ceiling worth applying
 }
 
-#: Shops serving other businesses buy cases; shops serving walk-ins buy
-#: singles and small packs. The only pack-size signal available before a
-#: first order.
-WHOLESALE_CUSTOMER_TYPES = {"OTHER_BUSINESSES", "ORGANISATIONS"}
 
 #: How far above a shop's TYPICAL basket a single product may be priced
 #: and still belong at the front of their feed.
@@ -142,18 +138,6 @@ def order_ceiling_cents(spend_band: Optional[str]) -> Optional[int]:
     if not spend_band:
         return None
     return SPEND_BAND_ORDER_CEILING_CENTS.get(spend_band)
-
-
-def prefers_bulk(customer_types) -> Optional[bool]:
-    """None means UNKNOWN, never "no".
-
-    A shop that has not said who its customers are has not said it sells
-    to walk-ins, and defaulting a tri-state to one of its answers is the
-    mistake offers_delivery already records having made once.
-    """
-    if not customer_types:
-        return None
-    return any(t in WHOLESALE_CUSTOMER_TYPES for t in customer_types)
 
 
 def max_line_cents(

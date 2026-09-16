@@ -12,7 +12,6 @@ import type {
   WeeklySpendBand,
 } from "../types";
 import {
-  CUSTOMER_TYPE_LABELS,
   EMPLOYEE_RANGE_LABELS,
   RESTOCK_RHYTHM_LABELS,
   STOCK_COLLECTION_LABELS,
@@ -28,7 +27,6 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { TimePickerField } from "@/components/forms/TimePickerField";
 
-const CUSTOMER_TYPE_OPTIONS = (Object.keys(CUSTOMER_TYPE_LABELS) as (keyof typeof CUSTOMER_TYPE_LABELS)[]).map((value) => ({ value, label: CUSTOMER_TYPE_LABELS[value] }));
 // THE REAL TAXONOMY, not a second list to keep in step. These are the
 // same seventeen categories the catalogue, the chips and the feed use.
 const BUYS_OPTIONS = CATEGORY_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }));
@@ -40,7 +38,7 @@ const COLLECT_OPTIONS = (Object.keys(STOCK_COLLECTION_LABELS) as StockCollection
   (value) => ({ value, label: STOCK_COLLECTION_LABELS[value] })
 );
 
-const EMPTY: TradingDetailsType = { buysCategories: [], customerTypes: [], operatingDays: [] };
+const EMPTY: TradingDetailsType = { buysCategories: [], operatingDays: [] };
 
 /**
  * "What do you sell?" and "When do you usually trade?" were removed
@@ -101,7 +99,6 @@ export default function TradingDetailsEditScreen() {
             they BUY rather than what they sell. It is the only answer
             that changes what the Community feed shows them. */}
         <SelectField label="What stock do you buy?" sheetTitle="What stock do you buy?" options={BUYS_OPTIONS} value={draft.buysCategories} onChange={(buysCategories) => setDraft({ ...draft, buysCategories })} multiple placeholder="Tap to choose your categories" />
-        <SelectField label="Who do you mainly sell to?" options={CUSTOMER_TYPE_OPTIONS} value={draft.customerTypes} onChange={(v) => setDraft({ ...draft, customerTypes: v as typeof draft.customerTypes })} multiple placeholder="Tap to choose" />
         {/* One tap each, and together they let the feed be useful before
             a single order exists -- see docs/v2/V2_15 Book Three. */}
         <SingleSelectField label="How often do you restock?" options={RESTOCK_OPTIONS} value={draft.restockRhythm} onChange={(restockRhythm) => setDraft({ ...draft, restockRhythm })} placeholder="Tap to choose" />

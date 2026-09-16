@@ -36,7 +36,6 @@ class DeclaredSignals:
     """
 
     categories: List[str] = field(default_factory=list)
-    customer_types: List[str] = field(default_factory=list)
     restock_rhythm: Optional[str] = None
     weekly_spend_band: Optional[str] = None
     employee_range: Optional[str] = None
@@ -69,7 +68,6 @@ def read(business_id) -> DeclaredSignals:
 
     return DeclaredSignals(
         categories=list(profile.buys_categories or []),
-        customer_types=list(profile.customer_types or []),
         restock_rhythm=profile.restock_rhythm.value if profile.restock_rhythm else None,
         weekly_spend_band=(
             profile.weekly_spend_band.value if profile.weekly_spend_band else None

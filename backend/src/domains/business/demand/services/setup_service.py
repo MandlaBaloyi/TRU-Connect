@@ -72,11 +72,18 @@ def _completed(signals: declared.DeclaredSignals) -> Dict[str, bool]:
     """One boolean per step, each derived from the fields that step
     writes.
 
-    CUSTOMER TYPES DOES NOT GATE STEP ONE, though the step asks for it.
-    It feeds prefers_bulk, which is a refinement -- a shop that told us
-    it buys groceries and nothing else is already far more useful to
-    the engine than one that told us nothing. Requiring both would
-    block a person on the less important half of the question.
+    ONLY ONE OF STEP ONE'S FOUR QUESTIONS GATES IT. The step also asks
+    the business category, how the business is set up, and how long it
+    has been trading -- none of which the engine reads. They are
+    collected because Mandla asked for them ("it's not about what you
+    want to fit in the engine, it's about taking data that would be
+    useful later for us"), and they are OPTIONAL precisely because of
+    that: a question the engine cannot act on must never stand between
+    a shopkeeper and their dashboard.
+
+    So this stays the list of what the ENGINE consumes, which is the
+    reason the whole module lives in demand/ rather than next to the
+    profile. A step gates on fuel, never on curiosity.
     """
     return {
         STEP_WHAT_YOU_BUY: bool(signals.categories),

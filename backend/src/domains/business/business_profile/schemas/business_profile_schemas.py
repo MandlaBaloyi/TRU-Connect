@@ -23,7 +23,6 @@ _CATEGORY_OPTIONS = ["FOOD_BEVERAGES", "CLOTHING_FASHION", "BEAUTY_COSMETICS", "
 _BUSINESS_TYPE_OPTIONS = ["SOLE_TRADER", "PARTNERSHIP", "FAMILY_BUSINESS", "REGISTERED_COMPANY", "OTHER"]
 _OPERATING_MODEL_OPTIONS = ["HOME", "SHOP", "MARKET_STALL", "STREET_MOBILE", "ONLINE", "MULTIPLE_LOCATIONS", "OTHER"]
 _PROVINCE_OPTIONS = ["EASTERN_CAPE", "FREE_STATE", "GAUTENG", "KWAZULU_NATAL", "LIMPOPO", "MPUMALANGA", "NORTHERN_CAPE", "NORTH_WEST", "WESTERN_CAPE"]
-_CUSTOMER_TYPE_OPTIONS = ["INDIVIDUALS", "OTHER_BUSINESSES", "FRIENDS_COMMUNITY", "ORGANISATIONS", "OTHER"]
 
 # DERIVED FROM THE ENUMS, NOT RETYPED. Every other option list in this
 # file is a hand-written copy that has to be remembered when the enum
@@ -77,7 +76,6 @@ class UpdateTradingDetailsSchema(Schema):
     buysCategories = fields.List(
         fields.String(validate=validate.OneOf(_PRODUCT_CATEGORY_OPTIONS)), required=False
     )
-    customerTypes = fields.List(fields.String(validate=validate.OneOf(_CUSTOMER_TYPE_OPTIONS)), required=False)
     restockRhythm = fields.String(
         required=False, allow_none=True, validate=validate.OneOf(_RESTOCK_RHYTHM_OPTIONS)
     )

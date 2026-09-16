@@ -9,7 +9,7 @@ import { useTheme } from "react-native-paper";
 import type { TradingDetails } from "../../types";
 import { EditButton } from "../EditButton";
 import { categoryLabel } from "@/constants/productCategories";
-import { RESTOCK_RHYTHM_LABELS, WEEKLY_SPEND_BAND_LABELS, CUSTOMER_TYPE_LABELS } from "../../types";
+import { RESTOCK_RHYTHM_LABELS, WEEKLY_SPEND_BAND_LABELS } from "../../types";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -32,12 +32,6 @@ export function TradingDetailsSection({ trading }: Props) {
           <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>
             {trading.buysCategories.map((c) => categoryLabel(c)).join(", ")}
           </Text>
-        </View>
-      )}
-      {trading.customerTypes.length > 0 && (
-        <View style={styles.summaryRow}>
-          <Text style={[styles.rowLabel, { color: theme.colors.onSurfaceVariant }]}>Customers</Text>
-          <Text style={[styles.rowValue, { color: theme.colors.onSurface }]}>{trading.customerTypes.map((t) => CUSTOMER_TYPE_LABELS[t]).join(", ")}</Text>
         </View>
       )}
       {trading.restockRhythm && (
