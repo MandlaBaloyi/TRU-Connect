@@ -1,0 +1,398 @@
+===========================================================================
+V2_19 — IMPRESSIONS, AND HARDENING THE COMMUNITY TAB
+===========================================================================
+
+Written 2026-09-16. A PLAN, parked mid-flight.
+
+WHY IT IS PARKED. Mandla is at a DataQuest competition. Everything here
+was agreed or discovered before he left, and none of it is built yet.
+This document exists so that none of it has to be rediscovered.
+
+THE ORDER HE SET, in his words:
+
+    "let's build the impression now and then the next and then the next"
+    "we must work on the community tab until it is complete... the UI is
+     stable, the security measures are set, the rate limits are enforced,
+     the indirect object reference prevented"
+    "when we're done with the community tab and informal business we will
+     move to the community tab on the supplier business"
+
+So: impressions, then hardening, then the supplier side of the same tab.
+
+HIS OWN CAVEAT, AND IT IS THE REASON PART 2 EXISTS:
+
+    "when we're building the architecture it changes every time based on
+     our plan... if you're working on that task we end up changing the
+     architecture so some of the things we miss there"
+
+Right. A plan gets you moving; the building changes it; the gap between
+the two is where things get missed. Part 2 is the sweep for that gap.
+
+
+===========================================================================
+PART 1 — IMPRESSIONS: WHAT THE FEED SHOWED, AND WHAT WAS TAPPED
+===========================================================================
+
+  ─────────────────────────────────────────────────────────────────────
+  1.1  WHY THIS IS THE NEXT THING
+  ─────────────────────────────────────────────────────────────────────
+
+  The demand engine reads DECLARED answers and CONFIRMED orders. It has
+  no idea what a shopkeeper LOOKED AT.
+
+  Every number tuned across V2_15, V2_16 and V2_17 carries a comment
+  naming what would falsify it, and almost all of them say the same
+  thing: "visible the day impressions exist".
+
+      interleave.py       the 40% proportional rail ceiling
+      tier_rules.py       TOLERANCE_KM = 2.0, the tie-break band
+      tier_rules.py       ABSOLUTE_CAP_BY_TIER, the one-card steps
+      velocity.py         the moving-fast window
+
+  NOT ONE OF THEM CAN CURRENTLY BE PROVED WRONG. They are careful
+  guesses, labelled as guesses. Impressions are what turn the feed from
+  DESIGNED into MEASURED.
+
+  IT ALSO UNBLOCKS THE ONLY REVENUE MECHANISM THAT EXISTS. The sponsored
+  slot is picked alphabetically and nobody can be billed for it, because
+  no advertiser can be shown what they got.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.2  THE ONE HARD DECISION: GRAIN
+  ─────────────────────────────────────────────────────────────────────
+
+  A feed render is roughly nine rails of up to twelve cards -- about a
+  hundred cards. Thirty shops opening the tab three times a day is 9,000
+  rows a day in development. Ten thousand shops is THREE MILLION A DAY.
+  Raw event rows would be the largest table in the system within a month
+  and would answer nothing that a counter does not.
+
+  THE GRAIN IS ONE ROW PER (shop, day, rail, position, item), with two
+  counters: delivered and tapped.
+
+  That bounds the table by DISTINCT COMBINATIONS rather than by traffic,
+  and it still answers every question the falsifiers ask:
+
+      tap rate by rail          needs rail
+      tap rate by POSITION      needs position   <- the 2km falsifier
+      seen but never bought     needs item
+      sponsored billing         needs supplier
+      "the same wholesaler everywhere"
+
+  POSITION IS NOT OPTIONAL. tier_rules' own falsifier is "a tap-rate gap
+  between the first and second card of a banded pair". Without position
+  that sentence is unanswerable and the band can never be argued with.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.3  TWO HALVES, WRITTEN DIFFERENTLY
+  ─────────────────────────────────────────────────────────────────────
+
+  DELIVERED IS RECORDED SERVER-SIDE, at compose time, through
+  shared/queue so it never slows the response. The composer already
+  knows exactly what it returned: no client to trust, no extra round
+  trip, and no double counting when a screen re-renders.
+
+  AND IT IS CALLED "delivered", NOT "shown", BECAUSE THAT IS WHAT IT IS.
+  A card below the fold was sent and never looked at. Naming the column
+  "shown" would make every tap rate quietly a claim the data cannot
+  support. Tap rate stays meaningful as long as the denominator is
+  defined consistently and honestly -- taps per card DELIVERED.
+
+  True "seen" needs viewport detection on the device. That is a second,
+  separate piece of work and should not be smuggled in by naming.
+
+  TAPPED COMES FROM THE APP, because only the device knows. One small
+  batched POST, rate limited.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.4  THE BOUNDARY THAT NEEDS CARE
+  ─────────────────────────────────────────────────────────────────────
+
+  An impression names a SUPPLIER -- sponsored billing requires it. The
+  demand engine is SUPPLIER-BLIND, enforced by
+  tests/architecture/test_demand_independence.py.
+
+  So the table and the writer live in network/community/ (a record of
+  what the FEED did), and the demand engine reads a NARROW,
+  SUPPLIER-BLIND view of it: "which categories did this shop look at and
+  never buy". That is the same trick observed.py already uses with
+  orders, and its docstring explains why it is not a loophole: the model
+  describes the SHOP, and what it must never contain is who sold to
+  them.
+
+  Putting the table under demand/ would either break the architecture
+  test or force the sponsored billing question somewhere worse.
+
+  ─────────────────────────────────────────────────────────────────────
+  1.5  THE TREE (proposed, not yet built)
+  ─────────────────────────────────────────────────────────────────────
+
+  backend/
+    migrations/versions/<rev>_feed_impressions.py            new
+
+    src/domains/network/community/impressions/
+      models/feed_impression.py         shop, day, rail, position, item,
+                                        supplier, delivered, tapped
+      repositories/impression_repository.py    upsert-and-increment
+      services/impression_service.py    record_delivered(sections),
+                                        record_tap(...)
+      api/impression_routes.py          POST /community/impressions/tap
+
+    src/domains/network/community/services/feed_service.py   edit
+                                        enqueue record_delivered
+
+    src/domains/business/demand/signals/
+      considered.py                     new -- the supplier-blind read
+
+    tests/domains/network/community/test_impressions.py      new
+    tests/architecture/test_demand_independence.py           must still pass
+
+  frontend/mobile/
+    src/features/dashboard/business/community/
+      services/impressionService.ts     batched tap POST
+      hooks/useTapTracking.ts
+      components/feed/FeedSectionView.tsx  edit
+
+  ─────────────────────────────────────────────────────────────────────
+  1.6  DELIBERATELY NOT IN SCOPE
+  ─────────────────────────────────────────────────────────────────────
+
+  NO SUPPLIER-FACING "12 SHOPS VIEWED YOU". It is creepy, and it leaks
+  competitive information about a shop's shopping to the people selling
+  to them.
+
+  NO VIEWPORT DETECTION YET. See 1.3 -- that is how "delivered" becomes
+  "seen", and it is its own piece of work.
+
+  A RETENTION POLICY IS REQUIRED BEFORE PRODUCTION and is not designed
+  here. This table grows forever otherwise, and it is behavioural data
+  about identifiable businesses.
+
+
+===========================================================================
+PART 2 — HARDENING THE COMMUNITY TAB
+===========================================================================
+
+Mandla asked for this against the OWASP API Top 10, which he shared as a
+table. Below is that list mapped to WHAT IS ACTUALLY IN THIS CODEBASE,
+with each item marked VERIFIED, MISSING or UNVERIFIED. The greps behind
+each were run on 2026-09-16; re-run them rather than trusting this list
+once the code has moved.
+
+  ─────────────────────────────────────────────────────────────────────
+  1  BROKEN OBJECT LEVEL AUTHORIZATION (IDOR)        VERIFIED CLEAN
+  ─────────────────────────────────────────────────────────────────────
+
+  Every Community route takes its caller from the TOKEN and never from
+  the request. The only request-supplied values across the whole surface
+  are limit, offset and kind -- no object identifiers at all:
+
+      feed_detail_routes.py:47  limit
+      feed_detail_routes.py:51  offset
+      explore_routes.py:32      kind
+
+  So there is nothing here to enumerate. This is the strongest item on
+  the list and it got that way by the standing rule, stated in
+  business_profile_routes' own docstring: business_id comes from
+  get_jwt_identity(), NEVER from a body or a URL.
+
+  WHAT STILL NEEDS CHECKING: the same sweep across network/connections
+  and network/orders, which DO take supplier and order ids in their
+  paths. They have ownership checks
+  (get_by_id_for_business_and_supplier and friends) but this audit has
+  not been done route by route.
+
+  ─────────────────────────────────────────────────────────────────────
+  2  BROKEN AUTHENTICATION                            VERIFIED
+  ─────────────────────────────────────────────────────────────────────
+
+  @fully_authenticated on every route: login + verified + active,
+  re-queried against the database each request rather than trusted from
+  JWT claims.
+
+  ONE REAL BUG WAS FOUND AND FIXED IN THIS AREA on 2026-09-16 -- OTP
+  verification compared the destination case-sensitively, so nobody
+  whose email carried a capital letter could ever verify. See the commit
+  "Nobody with a capital letter in their email could ever verify".
+
+  ─────────────────────────────────────────────────────────────────────
+  3  EXCESSIVE DATA EXPOSURE                          LOOKS RIGHT
+  ─────────────────────────────────────────────────────────────────────
+
+  A feed card carries: id, supplierId, supplierName, verification
+  status, name, image, price, inStock, buyerCount, category, location,
+  offersDelivery, minimumOrderCents, distanceKm, connectedBusinessCount.
+
+  No email, no phone, no street address. location is suburb/city only,
+  which the SupplierProfile model states as a rule rather than a habit.
+
+  WORTH A SECOND LOOK ANYWAY, because the card shape has changed four
+  times this week. The question to ask of each field is not "is it
+  sensitive" but "does the reader need it to make the decision this card
+  is for".
+
+  ─────────────────────────────────────────────────────────────────────
+  4  LACK OF RESOURCES AND RATE LIMITING              MISSING
+  ─────────────────────────────────────────────────────────────────────
+
+  THE REAL GAP, and Mandla suspected it before it was checked.
+
+  There are NO rate limits on ANY Community route. Not the feed, not the
+  five see-all screens, not explore, not browse. Only auth has any
+  (policies.py: LOGIN, REGISTER, OTP_REQUEST and so on) and the supplier
+  domain has four.
+
+  The machinery already exists and is already used:
+
+      @limiter.limit(rate_limit_policies.PRODUCT_CREATE,
+                     key_func=rate_limit_policies.supplier_key_func)
+
+  What is needed is a business_key_func alongside the supplier one, a
+  policies module for the community domain, and the decorator on each
+  route. The feed is the single most expensive endpoint in the app --
+  nine rails, several of them doing trigram or distance work -- so it is
+  also the cheapest thing in the system to abuse.
+
+  THE NEW POST /community/impressions/tap NEEDS ONE FROM DAY ONE, which
+  is why this is folded into Part 1 rather than left for later.
+
+  ─────────────────────────────────────────────────────────────────────
+  5  BROKEN FUNCTION LEVEL AUTHORIZATION              VERIFIED
+  ─────────────────────────────────────────────────────────────────────
+
+  Every Community route pins a role. Counted: community_routes 1,
+  feed_detail_routes 7 (five routes, two with extra decorators),
+  explore_routes 2.
+
+  AND IT IS TESTED, not just present: test_feed_detail_routes.py asserts
+  a supplier gets 403 on every one of the five endpoints, and an
+  anonymous caller gets 401. That test exists because CLAUDE.md's rule
+  is that "authenticated" stopped meaning "is a buyer" the moment ADMIN
+  existed.
+
+  ─────────────────────────────────────────────────────────────────────
+  6  MASS ASSIGNMENT                        ONE THING TO VERIFY
+  ─────────────────────────────────────────────────────────────────────
+
+  BusinessProfileService is SAFE. Every update loops over a HARDCODED
+  list of (apiField, column) pairs and ignores anything else, so a
+  request cannot reach a column the endpoint did not intend.
+
+  SupplierProfileRepository.apply_updates IS THE ONE TO CHECK:
+
+      for key, value in fields.items():
+          if hasattr(profile, key):
+              setattr(profile, key, value)
+
+  It applies ANY attribute that exists on the model, and its own
+  docstring says so plainly -- "the service layer is responsible for
+  only ever passing real column names". That is a correct division of
+  labour AND an unenforced one. If any caller ever passes a validated-
+  but-unfiltered dict, verification_status and plan_tier are both
+  reachable.
+
+  ACTION: read every caller. If they all pass explicit kwargs, write the
+  test that keeps it that way. If any passes a dict from a request, that
+  is a real vulnerability.
+
+  ─────────────────────────────────────────────────────────────────────
+  7  SECURITY MISCONFIGURATION                        UNVERIFIED
+  ─────────────────────────────────────────────────────────────────────
+
+  Not audited. What to check: CORS origins in production config, DEBUG
+  off, security headers, and the fact that .env currently holds real
+  Mapbox and Gmail credentials (Mandla's standing rule is that every
+  environment variable changes before production -- that rule needs to
+  be a checklist somewhere, not only a memory).
+
+  ─────────────────────────────────────────────────────────────────────
+  8  INJECTION                                        VERIFIED CLEAN
+  ─────────────────────────────────────────────────────────────────────
+
+  No raw SQL anywhere in community/ or catalogue/discovery/ -- no text(),
+  no execute(). Everything goes through SQLAlchemy with bound
+  parameters.
+
+  AND THE ONE REAL RISK WAS ALREADY FOUND AND FIXED: LIKE-pattern
+  escaping in name search, which has its own test
+  (test_like_escaping.py). A percent sign in a supplier's name would
+  otherwise have been a wildcard.
+
+  ─────────────────────────────────────────────────────────────────────
+  9  IMPROPER ASSETS MANAGEMENT                       UNVERIFIED
+  ─────────────────────────────────────────────────────────────────────
+
+  Not audited. What to check: any route registered and no longer used,
+  the api_keys surface, and whether the web portal exposes anything the
+  mobile app does not.
+
+  ─────────────────────────────────────────────────────────────────────
+  10 INSUFFICIENT LOGGING AND MONITORING              PARTIAL
+  ─────────────────────────────────────────────────────────────────────
+
+  There is a real audit domain (src/shared/audit + domains/security/
+  audit) and it is used for auth, admin actions, verification decisions,
+  plan changes and rate-limit trips.
+
+  NOTHING IN THE COMMUNITY TAB IS AUDITED, and mostly that is right -- a
+  shopkeeper looking at a feed is not a security event.
+
+  THE QUESTION WORTH ASKING is whether the impressions table becomes the
+  monitoring surface for the feed by accident. It should not: an
+  impression is product analytics, an audit event is a security record,
+  and mixing them means retention rules fight each other.
+
+
+===========================================================================
+PART 3 — THE RUNNING OPEN LIST
+===========================================================================
+
+Everything known to be outstanding, so nothing has to be rediscovered.
+
+  IN FLIGHT
+
+    Impressions              Part 1. Tree proposed, not built.
+    Community rate limits    Part 2 item 4. Folded into the above.
+
+  BLOCKED ON MANDLA
+
+    V2_14's five questions   Fulfilment has working code and no UI, and
+                             the UI cannot be designed until these are
+                             answered: how long a timeout runs, whether
+                             a direct order can be disputed, who may
+                             cancel after dispatch, when a dispute
+                             becomes visible. He said he does not have
+                             answers yet, which is a fine answer.
+
+    15 catalogue reviews     flask catalogue reviews. Mostly
+                             branded-against-generic. His call, roughly
+                             twenty minutes.
+
+  AGREED, NOT SCHEDULED
+
+    OTP hardening            Codes are unsalted SHA-256 of six digits; a
+                             full rainbow table is a megabyte. Real
+                             mitigations exist (5 attempts, short expiry,
+                             single use) and database read access is
+                             needed to exploit it. Salt or HMAC before
+                             production. "we'll deal with that."
+
+    your-suppliers see-all   The last rail without an arrow. Needs the
+                             Community tab to be addressable by URL,
+                             which risks stacking a duplicate screen --
+                             wants a device to test on.
+
+    Supplier Community tab   After the business side is complete. His
+                             stated sequencing.
+
+  DECIDED AND CLOSED, recorded so they are not reopened
+
+    No email to suppliers about match reviews. Rejecting a MATCH is not
+    rejecting a PRODUCT -- the offer stays live and sellable, and
+    telling a supplier "rejected" would be alarming and false. Mandla:
+    "this is an internal, this is our thing to review... this is not on
+    the user side."
+
+    No import-report email either. The bulk import screen already shows
+    "N of M products created" plus per-row errors when a job finishes,
+    which he confirmed is enough.
