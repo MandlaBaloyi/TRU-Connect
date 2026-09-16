@@ -319,41 +319,63 @@ otherwise lives only in conversation. Worst first.
      dropping the decimal point so "2.5kg" and "25kg" keyed identically
      at confidence 1.0. See the commit for each.
 
-     AFTER: 230 canonical products, 833 of 1,049 offers linked, 198
-     products carrying offers from more than one supplier, and ZERO
-     holding more than one pack size. alternativeCount is real now.
+     ALL SIX ARE NOW CLOSED. There turned out to be six rather than
+     four: the fourth was written up here as open, and fixing it
+     exposed two more.
 
-     THE FOURTH IS OPEN AND NEEDS A DECISION:
+         4  THE PACK COUNT WAS EXTRACTED AND DISCARDED, because
+            catalogue.products had no pack_quantity column. A single
+            36g bag of Doritos at R6.00 and a case of 24 at R139.50
+            agreed on every fact the catalogue stored. Column added,
+            persisted, and compared at the same -0.40 a size mismatch
+            carries.
 
-         THE PACK COUNT IS EXTRACTED AND THEN DISCARDED.
-         pack_size.py reads "x6" perfectly well and PackSize carries
-         pack_quantity — but catalogue.products has NO pack_quantity
-         COLUMN, so it is dropped on the way in and nothing can compare
-         it. "Clover Long Life Milk 1L" and the same milk "x6" are
-         structurally indistinguishable: same brand, same unit size,
-         so they agree on every fact the catalogue stores and merge.
-         R26.00 against R133.50, presented as a choice.
+         5  THE BRAND WAS NEVER READ AT ALL, and this was the largest
+            of the six. `brand` is not a column on supplier_offers and
+            nothing derived it from the name, so _brand_agreement
+            always saw None and the -0.30 penalty NEVER FIRED ONCE.
+            47 of 72 distinct review decisions were competitors
+            proposed as one another -- Fanta against Coca-Cola, Surf
+            against Omo, aQuelle against Bonaqua.
 
-         Nine products are affected today.
+            brand_detect is A DECLARED LIST OF 106 BRANDS, NOT A
+            GUESSER. A first-word heuristic fails immediately on this
+            data (41 products lead with "Generic") and fails the other
+            way on multi-word brands, reading "White Star" as "White".
+            A wrong brand is worse than none: it fabricates a
+            disagreement and suppresses a correct match.
 
-         THE FIX is a migration adding pack_quantity to
-         catalogue.products, persisting it in _create_and_link
-         alongside the unit size, and comparing it in _pack_agreement
-         — where a differing count must be a disagreement, carrying
-         the same -0.40 weight a differing size does, for the same
-         reason: the two read almost identically as text and are not
-         the same purchase.
+         6  AND THEN AMBIGUITY BETWEEN TWO WRONG ANSWERS, which only
+            became visible once the brand penalty applied. The wrong
+            candidates now scored LOW and therefore CLOSE -- 0.19,
+            0.17, 0.24, because they are all equally wrong -- and the
+            0.05 ambiguity margin called that a tie. Thirteen pairs
+            went to a human at 19% confidence. Ambiguity now only
+            reaches review when the top candidate clears the review
+            threshold, which is what that threshold's own docstring
+            already said should happen.
 
-         NOT DONE OVERNIGHT ON PURPOSE. It is a schema change to the
-         most safety-critical path in the domain, and the test suite
-         could not be run at the time.
+     AFTER ALL SIX, on the same 1,049 offers:
+
+         review rows                216  ->   43
+         distinct decisions          72  ->   15
+         brand collisions            47  ->    0
+         products mixing sizes        ?  ->    0
+         products mixing counts       8  ->    0
+         offers linked              726  -> 1006  of 1,049
+         products with 2+ suppliers 168  ->  251
+
+     WHAT IS LEFT IS ALL REAL, and dominated by branded-against-
+     generic: somebody typed "Washing Powder 2kg" with no brand, and
+     Omo, Maq and Surf all plausibly match it. That is genuinely
+     ambiguous, and asking is the right answer.
 
      MATCHING COST NOTHING TO RUN. MATCHING_MODE defaults to
      "deterministic", so tier 4 — the only tier that calls a model —
      never fired. All of the above is rules, GTIN, normalisation and
      trigram similarity. That is the answer to "we cannot spend money
      on something we are not using": the deterministic tiers carry
-     1,049 offers to 79% linked before anybody is asked for a budget.
+     1,049 offers to 96% linked before anybody is asked for a budget.
 
   2  NOTHING RECORDS THAT A CARD WAS SEEN. Declared answers and
      confirmed orders only. No impressions, no taps. Every falsifier in
