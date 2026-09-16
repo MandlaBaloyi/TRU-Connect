@@ -51,7 +51,7 @@ def make_supplier(db_session):
 
     IT USED TO SKIP THE PROFILE, back when the only supplier in this
     suite existed to be REFUSED by a role decorator and never reached
-    anything that needed one. The can_collect tests need suppliers a
+    anything that needed one. The stock_collection tests need suppliers a
     business can actually see, so it now mirrors the network and
     community conftests' own fixture of the same name -- one concept
     with two behaviours under one name is how a test file ends up

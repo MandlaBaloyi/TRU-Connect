@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
+import { provinceFromPin } from "@/features/dashboard/business/business-profile/algorithms/provinceFromPin";
 import { AddressPickerField } from "@/features/dashboard/shared/location-picker/components/AddressPickerField";
 import type { DeliveryLocation } from "@/features/dashboard/shared/location-picker/types";
 import { spacing } from "@/theme/spacing";
@@ -57,10 +58,19 @@ export default function StepWhereYouAre() {
       await saveLocation({
         latitude: pinned.latitude,
         longitude: pinned.longitude,
+        // THE PIN ALREADY CARRIES THESE, so we stop asking for them.
+        // The picker returns a town and a province with the
+        // coordinates, in the same response -- reading them costs no
+        // extra request and no extra Mapbox usage, and it removes two
+        // questions the person would otherwise answer about a place
+        // they have just pointed at.
+        //
         // The geocoder returning nothing is normal for a rural or
         // informal pin, and is not a failure -- the coordinates are
-        // what the feed actually uses.
+        // what the feed actually uses, and an unmatched province stays
+        // blank rather than being guessed at (see provinceFromPin).
         cityOrTown: pinned.city?.trim() || undefined,
+        province: provinceFromPin(pinned.province),
       });
       await refreshSetup();
       finish();

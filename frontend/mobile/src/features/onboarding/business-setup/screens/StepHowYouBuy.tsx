@@ -5,10 +5,14 @@ import { SelectField } from "@/components/forms/SelectField";
 import { useBusinessProfile, useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
 import {
   RESTOCK_RHYTHM_LABELS,
+  STOCK_COLLECTION_LABELS,
+  SUPPLIER_SOURCE_LABELS,
   WEEKLY_SPEND_BAND_LABELS,
 } from "@/features/dashboard/business/business-profile/types";
 import type {
   RestockRhythm,
+  StockCollection,
+  SupplierSource,
   WeeklySpendBand,
 } from "@/features/dashboard/business/business-profile/types";
 
@@ -25,13 +29,20 @@ const SPEND_OPTIONS = (Object.keys(WEEKLY_SPEND_BAND_LABELS) as WeeklySpendBand[
   label: WEEKLY_SPEND_BAND_LABELS[value],
 }));
 
-// PHRASED AS THE SHOP'S OWN SITUATION, not as a yes/no to a question
-// about transport. "I can fetch it myself" is something a shopkeeper
+// PHRASED AS THE SHOP'S OWN SITUATION, not as a yes/no about
+// transport. "I fetch stock myself" is something a shopkeeper
 // recognises instantly; "Do you have collection capability" is a form.
-const COLLECT_OPTIONS = [
-  { value: "YES", label: "Yes, I can fetch stock myself" },
-  { value: "NO", label: "No, it must be delivered to me" },
-];
+//
+// BOTH IS FIRST-CLASS, not an afterthought -- it is probably the most
+// common real answer, and it was missing when this was a boolean.
+const COLLECT_OPTIONS = (Object.keys(STOCK_COLLECTION_LABELS) as StockCollection[]).map(
+  (value) => ({ value, label: STOCK_COLLECTION_LABELS[value] })
+);
+
+const SOURCE_OPTIONS = (Object.keys(SUPPLIER_SOURCE_LABELS) as SupplierSource[]).map((value) => ({
+  value,
+  label: SUPPLIER_SOURCE_LABELS[value],
+}));
 
 /**
  * Step two — how often, and how much.
@@ -65,14 +76,16 @@ const COLLECT_OPTIONS = [
 export default function StepHowYouBuy() {
   const router = useRouter();
   const refreshSetup = useRefreshBusinessSetup();
-  const { saveTradingDetails, isSavingTradingDetails } = useBusinessProfileMutations();
+  const { saveTradingDetails, saveSupplierInfo, isSavingTradingDetails } =
+    useBusinessProfileMutations();
   const { profile } = useBusinessProfile();
 
   const [restockRhythm, setRestockRhythm] = useState<RestockRhythm | undefined>();
   const [weeklySpendBand, setWeeklySpendBand] = useState<WeeklySpendBand | undefined>();
   // undefined === "not answered", and it stays undefined all the way to
-  // the column. It is NOT initialised to false.
-  const [canCollect, setCanCollect] = useState<boolean | undefined>();
+  // the column. It is NOT initialised to a member.
+  const [stockCollection, setStockCollection] = useState<StockCollection | undefined>();
+  const [supplierSources, setSupplierSources] = useState<SupplierSource[]>([]);
   const [prefilled, setPrefilled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,9 +95,11 @@ export default function StepHowYouBuy() {
     if (profile && !prefilled) {
       setRestockRhythm(profile.tradingDetails.restockRhythm);
       setWeeklySpendBand(profile.tradingDetails.weeklySpendBand);
-      // ?? undefined, NOT `|| undefined` -- false is a real answer here
-      // and must survive a reopen.
-      setCanCollect(profile.tradingDetails.canCollect ?? undefined);
+      // ?? undefined, NOT `||` -- the wire sends null for "never
+      // asked" and every member is truthy, so `||` would be harmless
+      // here and wrong the moment a falsy member is added.
+      setStockCollection(profile.tradingDetails.stockCollection ?? undefined);
+      setSupplierSources(profile.supplierInfo.sources ?? []);
       setPrefilled(true);
     }
   }, [profile, prefilled]);
@@ -92,7 +107,15 @@ export default function StepHowYouBuy() {
   const handleContinue = async () => {
     setError(null);
     try {
-      await saveTradingDetails({ restockRhythm, weeklySpendBand, canCollect });
+      await Promise.all([
+        saveTradingDetails({ restockRhythm, weeklySpendBand, stockCollection }),
+        // ITS OWN SECTION, ITS OWN MUTATION. supplierInfo is a
+        // different part of the profile with its own PATCH route, and
+        // routing it through saveTradingDetails would mean this screen
+        // knowing more about the API shape than the screens that own
+        // those fields do.
+        saveSupplierInfo({ sources: supplierSources }),
+      ]);
       await refreshSetup();
       router.replace(SETUP_ROUTES.whereYouAre as never);
     } catch (e) {
@@ -108,7 +131,8 @@ export default function StepHowYouBuy() {
         "How often you restock tells us WHEN to put something in front of you — a shop that buys daily and one that buys monthly should not see the same feed on the same morning.",
         "The weekly amount tells us WHAT SIZE to show. It stops us putting a R5,000 pallet in front of a shop that buys R800 at a time.",
         "It is a rough band, never an exact figure, and it is not a credit check or a financial assessment. Nobody but you sees it.",
-        "Whether you can collect is optional. Answer it and a supplier who only does collection stops being suggested to you if you have no transport — leave it and nothing changes either way.",
+        "The last two are optional. Telling us how stock reaches you stops us suggesting collection-only suppliers if everything has to be delivered — and \"both\" is a real answer, not a cop-out.",
+        "Where you usually get stock changes nothing in your feed today. We ask because it tells us what this market actually looks like, and that shapes which suppliers we go after next.",
       ]}
       onPrimary={handleContinue}
       primaryDisabled={!restockRhythm || !weeklySpendBand}
@@ -141,11 +165,25 @@ export default function StepHowYouBuy() {
           the question existed. Only an explicit "I need delivery"
           changes anything. */}
       <SelectField
-        label="Can you collect your own stock? (optional)"
-        sheetTitle="Collecting stock"
+        label="How does stock reach you? (optional)"
+        sheetTitle="Getting stock to your shop"
         options={COLLECT_OPTIONS}
-        value={canCollect === undefined || canCollect === null ? [] : [canCollect ? "YES" : "NO"]}
-        onChange={(v) => setCanCollect(v.length === 0 ? undefined : v[0] === "YES")}
+        value={stockCollection ? [stockCollection] : []}
+        onChange={(v) => setStockCollection(v[0] as StockCollection | undefined)}
+        placeholder="Tap to choose"
+      />
+      {/* NOT ENGINE FUEL, AND HERE ON PURPOSE. Mandla: "it's not about
+          what you want to fit in the engine, it's about taking data
+          that would be useful later for us." Optional, so it can never
+          block a signup -- see the step's gating, which still turns
+          only on rhythm and spend. */}
+      <SelectField
+        label="Where do you usually get stock? (optional)"
+        sheetTitle="Where you get stock"
+        options={SOURCE_OPTIONS}
+        value={supplierSources}
+        onChange={(v) => setSupplierSources(v as SupplierSource[])}
+        multiple
         placeholder="Tap to choose"
       />
     </SetupStepScaffold>

@@ -42,10 +42,10 @@ class DeclaredSignals:
     employee_range: Optional[str] = None
     city_or_town: Optional[str] = None
     has_location: bool = False
-    #: True, False, or None for "not asked". THREE STATES, and the
-    #: third is load-bearing -- see the column's own comment. Nothing
-    #: downstream may collapse None into False.
-    can_collect: Optional[bool] = None
+    #: "COLLECT", "DELIVERY", "BOTH", or None for "not asked". FOUR
+    #: states, and the last is load-bearing -- see the column's own
+    #: comment. Nothing downstream may collapse None into an answer.
+    stock_collection: Optional[str] = None
 
     @property
     def is_empty(self) -> bool:
@@ -77,5 +77,7 @@ def read(business_id) -> DeclaredSignals:
         employee_range=profile.employee_range.value if profile.employee_range else None,
         city_or_town=profile.city_or_town,
         has_location=profile.latitude is not None and profile.longitude is not None,
-        can_collect=profile.can_collect,
+        stock_collection=(
+            profile.stock_collection.value if profile.stock_collection else None
+        ),
     )

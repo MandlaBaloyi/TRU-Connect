@@ -14,6 +14,7 @@ from marshmallow import Schema, fields, validate
 
 from src.domains.business.business_profile.models.business_profile import (
     RestockRhythm,
+    StockCollection,
     WeeklySpendBand,
 )
 from src.domains.catalogue.products.models.taxonomy import ProductCategory
@@ -31,6 +32,7 @@ _CUSTOMER_TYPE_OPTIONS = ["INDIVIDUALS", "OTHER_BUSINESSES", "FRIENDS_COMMUNITY"
 _PRODUCT_CATEGORY_OPTIONS = [c.value for c in ProductCategory]
 _RESTOCK_RHYTHM_OPTIONS = [r.value for r in RestockRhythm]
 _WEEKLY_SPEND_BAND_OPTIONS = [b.value for b in WeeklySpendBand]
+_STOCK_COLLECTION_OPTIONS = [c.value for c in StockCollection]
 _ORDER_CHANNEL_OPTIONS = ["IN_PERSON", "WHATSAPP", "PHONE", "SOCIAL_MEDIA", "ONLINE", "OTHER"]
 _PAYMENT_METHOD_OPTIONS = ["CASH", "EFT", "CARD", "MOBILE_PAYMENT", "OTHER"]
 _WEEKDAY_OPTIONS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -82,10 +84,12 @@ class UpdateTradingDetailsSchema(Schema):
     weeklySpendBand = fields.String(
         required=False, allow_none=True, validate=validate.OneOf(_WEEKLY_SPEND_BAND_OPTIONS)
     )
-    # TRI-STATE, SO allow_none MATTERS. None is a real answer here --
-    # "not asked yet" -- and must round-trip rather than collapse into
-    # False. See the column's own comment.
-    canCollect = fields.Boolean(required=False, allow_none=True)
+    # allow_none MATTERS. None is a real state here -- "not asked yet"
+    # -- and must round-trip rather than collapse into an answer. See
+    # the column's own comment.
+    stockCollection = fields.String(
+        required=False, allow_none=True, validate=validate.OneOf(_STOCK_COLLECTION_OPTIONS)
+    )
     operatingDays = fields.List(fields.String(validate=validate.OneOf(_WEEKDAY_OPTIONS)), required=False)
     openingTime = fields.String(required=False, allow_none=True, validate=validate.Length(max=5))
     closingTime = fields.String(required=False, allow_none=True, validate=validate.Length(max=5))

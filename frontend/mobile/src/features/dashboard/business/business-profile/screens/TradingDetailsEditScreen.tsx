@@ -7,6 +7,7 @@ import { useBusinessProfile, useBusinessProfileMutations } from "../hooks";
 import type {
   EmployeeRange,
   RestockRhythm,
+  StockCollection,
   TradingDetails as TradingDetailsType,
   WeeklySpendBand,
 } from "../types";
@@ -14,6 +15,7 @@ import {
   CUSTOMER_TYPE_LABELS,
   EMPLOYEE_RANGE_LABELS,
   RESTOCK_RHYTHM_LABELS,
+  STOCK_COLLECTION_LABELS,
   WEEKLY_SPEND_BAND_LABELS,
 } from "../types";
 import { CATEGORY_OPTIONS } from "@/constants/productCategories";
@@ -34,10 +36,9 @@ const RESTOCK_OPTIONS = (Object.keys(RESTOCK_RHYTHM_LABELS) as RestockRhythm[]).
 const SPEND_OPTIONS = (Object.keys(WEEKLY_SPEND_BAND_LABELS) as WeeklySpendBand[]).map((value) => ({ value, label: WEEKLY_SPEND_BAND_LABELS[value] }));
 const EMPLOYEE_OPTIONS = (Object.keys(EMPLOYEE_RANGE_LABELS) as EmployeeRange[]).map((value) => ({ value, label: EMPLOYEE_RANGE_LABELS[value] }));
 
-const COLLECT_OPTIONS = [
-  { value: "YES", label: "Yes, I can fetch stock myself" },
-  { value: "NO", label: "No, it must be delivered to me" },
-];
+const COLLECT_OPTIONS = (Object.keys(STOCK_COLLECTION_LABELS) as StockCollection[]).map(
+  (value) => ({ value, label: STOCK_COLLECTION_LABELS[value] })
+);
 
 const EMPTY: TradingDetailsType = { buysCategories: [], customerTypes: [], operatingDays: [] };
 
@@ -108,7 +109,7 @@ export default function TradingDetailsEditScreen() {
         {/* TRI-STATE. Not answered is not "no" -- see the column's
             own comment. Only an explicit "must be delivered"
             withholds the "Collect near you" rail. */}
-        <SelectField label="Can you collect your own stock?" sheetTitle="Collecting stock" options={COLLECT_OPTIONS} value={draft.canCollect === undefined || draft.canCollect === null ? [] : [draft.canCollect ? "YES" : "NO"]} onChange={(v) => setDraft({ ...draft, canCollect: v.length === 0 ? undefined : v[0] === "YES" })} placeholder="Tap to choose" />
+        <SelectField label="How does stock reach you?" sheetTitle="Getting stock to your shop" options={COLLECT_OPTIONS} value={draft.stockCollection ? [draft.stockCollection] : []} onChange={(v) => setDraft({ ...draft, stockCollection: v[0] as StockCollection | undefined })} placeholder="Tap to choose" />
 
         {/* PICKED, NOT TYPED. These were two free-text boxes with an
             "08:00" placeholder and no validation anywhere -- not here,

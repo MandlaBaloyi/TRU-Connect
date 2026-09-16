@@ -146,6 +146,7 @@ class BusinessProfileService:
         for field, column in [
             ("buysCategories", "buys_categories"), ("customerTypes", "customer_types"),
             ("restockRhythm", "restock_rhythm"), ("weeklySpendBand", "weekly_spend_band"),
+            ("stockCollection", "stock_collection"),
             ("operatingDays", "operating_days"),
             ("openingTime", "opening_time"), ("closingTime", "closing_time"),
             ("employeeRange", "employee_range"),
@@ -220,11 +221,13 @@ class BusinessProfileService:
                 "weeklySpendBand": (
                     profile.weekly_spend_band.value if profile.weekly_spend_band else None
                 ),
-                # PASSED THROUGH RAW, INCLUDING None. `or False` here
-                # would be the exact mistake the column exists to avoid:
-                # it would turn "never asked" into "cannot collect" on
+                # PASSED THROUGH RAW, INCLUDING None. A `or "DELIVERY"`
+                # here would be the exact mistake the column exists to
+                # avoid: it would turn "never asked" into an answer on
                 # the way out of the database.
-                "canCollect": profile.can_collect,
+                "stockCollection": (
+                    profile.stock_collection.value if profile.stock_collection else None
+                ),
                 "operatingDays": profile.operating_days or [],
                 "openingTime": profile.opening_time,
                 "closingTime": profile.closing_time,

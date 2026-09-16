@@ -89,6 +89,33 @@ class EmployeeRange(str, enum.Enum):
     MORE_THAN_TWENTY = "MORE_THAN_TWENTY"
 
 
+class StockCollection(str, enum.Enum):
+    """HOW STOCK GETS FROM THE SUPPLIER TO THIS SHOP.
+
+    IT WAS A NULLABLE BOOLEAN FOR ABOUT AN HOUR, and Mandla was right
+    that two answers is not enough: "maybe they do both, sometimes they
+    allow deliveries, sometimes they collect themselves". Plenty of
+    shops fetch small top-ups themselves and have the month's bulk
+    delivered, and forcing that into "yes" throws away the fact that it
+    is a CHOICE rather than a constraint.
+
+    That distinction has no consumer yet and will: a supplier who only
+    delivers is fine for BOTH and fine for DELIVERY, and useless to
+    neither -- while a collection-only supplier is useless to DELIVERY
+    and fine for the other two. Storing "both" as a synonym for
+    "collect" would make that unanswerable later without re-asking
+    everybody.
+
+    NULL IS STILL A REAL STATE and is not a member here. The column
+    stays nullable, meaning "never asked", and nothing may fold it into
+    an answer -- see the column's own comment.
+    """
+
+    COLLECT = "COLLECT"
+    DELIVERY = "DELIVERY"
+    BOTH = "BOTH"
+
+
 class RestockRhythm(str, enum.Enum):
     """HOW OFTEN THIS SHOP RESTOCKS -- one tap, and the single most
     valuable thing the demand engine can know on day one.
@@ -272,33 +299,37 @@ class BusinessProfile(BaseModel):
         db.Enum(WeeklySpendBand, name="business_profile_weekly_spend_band", schema="business"),
         nullable=True,
     )
-    #: CAN THIS SHOP FETCH ITS OWN STOCK?
+    #: HOW DOES STOCK REACH THIS SHOP?
     #:
-    #: NULLABLE, AND NULL IS NOT FALSE. This is the same tri-state rule
-    #: SupplierProfile.offers_delivery already follows, and it is the
-    #: whole reason the column is a nullable Boolean rather than a
-    #: Boolean with a default:
+    #: NULLABLE, AND NULL IS NOT "DELIVERY". Four states in practice --
+    #: the three enum members plus "never asked" -- and the fourth is
+    #: load-bearing. This is the same tri-state discipline
+    #: SupplierProfile.offers_delivery follows on the other side of the
+    #: same question.
     #:
-    #:     True   they have transport, or can arrange it
-    #:     False  they cannot -- a supplier who will not deliver is no
-    #:            use to them at any distance
-    #:     None   they have not said, and we do not guess
+    #:     COLLECT   they fetch it themselves
+    #:     DELIVERY  it must come to them
+    #:     BOTH      either, depending on the order
+    #:     None      they have not said, and we do not guess
     #:
     #: Mandla's objection to making it optional was exactly right: an
     #: optional field that gets DEFAULTED turns a missing answer into an
     #: invented one, and the engine is then ranking on a hypothesis it
     #: cannot tell apart from a fact. So None is carried all the way
     #: through -- declared.read keeps it None, needs_service keeps it
-    #: None, and the one rail that reads it treats None as "carry on as
-    #: before" rather than as either answer.
+    #: None, and the one rail that reads it asks `is DELIVERY` rather
+    #: than testing falsiness.
     #:
     #: WHAT IT ACTUALLY CHANGES, because a question that changes nothing
-    #: has no business being on a mandatory signup flow: a shop that has
-    #: said it CANNOT collect does not get the "Collect near you" rail.
-    #: A row for collecting is worth nothing to somebody who cannot
-    #: collect, and it is the only rail in the feed built on that
-    #: assumption.
-    can_collect = db.Column(db.Boolean, nullable=True)
+    #: has no business on a signup flow: a shop that answered DELIVERY
+    #: does not get the "Collect near you" rail. That rail is the only
+    #: one in the feed built on the assumption that fetching your own
+    #: stock is an option, and every card on it is a trip they cannot
+    #: make. COLLECT, BOTH and None all leave it exactly as it was.
+    stock_collection = db.Column(
+        db.Enum(StockCollection, name="business_profile_stock_collection", schema="business"),
+        nullable=True,
+    )
 
     operating_days = db.Column(ARRAY(db.String), nullable=False, default=list)
     opening_time = db.Column(db.String(5), nullable=True)  # "HH:mm", free-form per frontend contract

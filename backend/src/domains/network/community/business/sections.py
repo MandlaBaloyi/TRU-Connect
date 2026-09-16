@@ -685,18 +685,21 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     an option, and it is worth nothing to somebody without transport --
     every card on it is a trip they cannot make.
 
-    THE TEST IS `is False`, NOT FALSINESS, and that is the entire
-    design of the column. can_collect has THREE states, and only one of
-    them means "no":
+    THE TEST NAMES THE ONE ANSWER THAT MEANS NO, and that is the entire
+    design of the column. stock_collection has FOUR states, and exactly
+    one of them withholds this rail:
 
-        True   they have transport            rail unchanged
-        False  they have said they cannot     rail withheld
-        None   they have never been asked     rail unchanged
+        COLLECT   they fetch it themselves      rail unchanged
+        BOTH      either, depending             rail unchanged
+        DELIVERY  it must come to them          rail WITHHELD
+        None      never asked                   rail unchanged
 
-    `if not needs.can_collect` would fold None into False and withhold
-    the rail from every shop that predates the question -- which is the
-    invented answer Mandla objected to, arriving through a truthiness
-    check rather than a default.
+    Testing anything looser -- falsiness, or "not COLLECT" -- would
+    fold None and BOTH in with DELIVERY and withhold the rail from
+    every shop that predates the question plus everyone who answered
+    honestly that they do both. That is the invented answer Mandla
+    objected to, arriving through a sloppy comparison rather than
+    through a default.
     """
     from src.domains.business.business_profile.repositories.business_profile_repository import (
         BusinessProfileRepository,
@@ -708,7 +711,9 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
     if profile is None:
         return None
 
-    if needs_service.needs_for(business_id).can_collect is False:
+    from src.domains.business.business_profile.models.business_profile import StockCollection
+
+    if needs_service.needs_for(business_id).stock_collection == StockCollection.DELIVERY.value:
         return None
 
     connected = connected_supplier_ids(business_id)

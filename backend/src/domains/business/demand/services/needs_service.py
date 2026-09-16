@@ -63,12 +63,12 @@ class ShopNeeds:
     unserved: List[str] = field(default_factory=list)
     #: Typical basket, measured. None until they have ordered.
     typical_order_cents: Optional[int] = None
-    #: True = has transport, False = needs delivery, None = has not
-    #: said. None IS NOT False, and the feed must not treat it as such
-    #: -- an unanswered question is an absence, not an answer, and the
+    #: "COLLECT", "DELIVERY", "BOTH", or None for "has not said".
+    #: None IS NOT "DELIVERY", and the feed must not treat it as such --
+    #: an unanswered question is an absence, not an answer, and the
     #: whole reason the column is nullable is so a guess cannot be
     #: mistaken for a fact later.
-    can_collect: Optional[bool] = None
+    stock_collection: Optional[str] = None
 
     @property
     def is_known(self) -> bool:
@@ -146,5 +146,5 @@ def needs_for(business_id) -> ShopNeeds:
         # deliver -- those are indistinguishable from here, and
         # inferring the first would be exactly the invented answer this
         # field exists to avoid.
-        can_collect=said.can_collect,
+        stock_collection=said.stock_collection,
     )

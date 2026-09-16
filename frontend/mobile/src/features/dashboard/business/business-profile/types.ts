@@ -108,6 +108,21 @@ export const OPERATING_MODEL_LABELS: Record<OperatingModel, string> = {
 
 export type CustomerType = "INDIVIDUALS" | "OTHER_BUSINESSES" | "FRIENDS_COMMUNITY" | "ORGANISATIONS" | "OTHER";
 
+/** How stock reaches this shop.
+ *
+ *  THREE MEMBERS AND A FOURTH STATE. `undefined`/`null` means "never
+ *  asked" and is NOT a member here — folding it in would make the two
+ *  indistinguishable, which is the whole thing the column exists to
+ *  prevent. BOTH is real and common: plenty of shops fetch small
+ *  top-ups themselves and have the month's bulk delivered. */
+export type StockCollection = "COLLECT" | "DELIVERY" | "BOTH";
+
+export const STOCK_COLLECTION_LABELS: Record<StockCollection, string> = {
+  COLLECT: "I fetch stock myself",
+  DELIVERY: "It must be delivered to me",
+  BOTH: "Both — it depends on the order",
+};
+
 export type RestockRhythm =
   | "DAILY" | "TWICE_WEEKLY" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "IRREGULAR";
 
@@ -293,14 +308,13 @@ export interface TradingDetails {
    *  wrong declared cadence is indistinguishable from a real one. */
   restockRhythm?: RestockRhythm;
   weeklySpendBand?: WeeklySpendBand;
-  /** Can this shop fetch its own stock?
+  /** How stock reaches this shop.
    *
-   *  THREE STATES, and `null` is a real one — "never asked". It must
-   *  not collapse into false anywhere: the "Collect near you" rail is
-   *  withheld only from a shop that has actually SAID it cannot
-   *  collect, never from one that simply predates the question.
-   *  `undefined` here means the same thing as null on the wire. */
-  canCollect?: boolean | null;
+   *  FOUR STATES, and `null`/`undefined` is a real one — "never asked".
+   *  It must not collapse into an answer anywhere: the "Collect near
+   *  you" rail is withheld ONLY for "DELIVERY", never for BOTH and
+   *  never for a shop that simply predates the question. */
+  stockCollection?: StockCollection | null;
   operatingDays: Weekday[];
   openingTime?: string; // "HH:mm", optional
   closingTime?: string; // "HH:mm", optional

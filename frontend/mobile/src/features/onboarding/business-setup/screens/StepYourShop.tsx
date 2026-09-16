@@ -3,8 +3,18 @@ import { useRouter } from "expo-router";
 
 import { SelectField } from "@/components/forms/SelectField";
 import { useBusinessProfile, useBusinessProfileMutations } from "@/features/dashboard/business/business-profile/hooks";
-import { CUSTOMER_TYPE_LABELS } from "@/features/dashboard/business/business-profile/types";
-import type { CustomerType } from "@/features/dashboard/business/business-profile/types";
+import {
+  BUSINESS_CATEGORY_LABELS,
+  BUSINESS_TYPE_LABELS,
+  CUSTOMER_TYPE_LABELS,
+  OPERATING_HISTORY_LABELS,
+} from "@/features/dashboard/business/business-profile/types";
+import type {
+  BusinessCategory,
+  BusinessType,
+  CustomerType,
+  OperatingHistory,
+} from "@/features/dashboard/business/business-profile/types";
 import { CATEGORY_OPTIONS } from "@/constants/productCategories";
 
 import { SetupStepScaffold } from "../components/SetupStepScaffold";
@@ -15,6 +25,15 @@ const BUYS_OPTIONS = CATEGORY_OPTIONS.map((o) => ({ value: o.value as string, la
 const CUSTOMER_TYPE_OPTIONS = (
   Object.keys(CUSTOMER_TYPE_LABELS) as (keyof typeof CUSTOMER_TYPE_LABELS)[]
 ).map((value) => ({ value, label: CUSTOMER_TYPE_LABELS[value] }));
+const BUSINESS_CATEGORY_OPTIONS = (
+  Object.keys(BUSINESS_CATEGORY_LABELS) as BusinessCategory[]
+).map((value) => ({ value, label: BUSINESS_CATEGORY_LABELS[value] }));
+const BUSINESS_TYPE_OPTIONS = (Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map(
+  (value) => ({ value, label: BUSINESS_TYPE_LABELS[value] })
+);
+const OPERATING_HISTORY_OPTIONS = (
+  Object.keys(OPERATING_HISTORY_LABELS) as OperatingHistory[]
+).map((value) => ({ value, label: OPERATING_HISTORY_LABELS[value] }));
 
 /**
  * Step one — what this shop buys.
@@ -46,11 +65,20 @@ const CUSTOMER_TYPE_OPTIONS = (
 export default function StepYourShop() {
   const router = useRouter();
   const refreshSetup = useRefreshBusinessSetup();
-  const { saveTradingDetails, isSavingTradingDetails } = useBusinessProfileMutations();
+  const { saveTradingDetails, saveBusinessDetails, saveOperatingHistory, isSavingTradingDetails } =
+    useBusinessProfileMutations();
   const { profile } = useBusinessProfile();
 
   const [buysCategories, setBuysCategories] = useState<string[]>([]);
   const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
+  // OPTIONAL, AND NOT ENGINE FUEL. Here because Mandla asked for it --
+  // "it's not about what you want to fit in the engine, it's about
+  // taking data that would be useful later for us". None of the three
+  // gate the step; see primaryDisabled below, which still turns only
+  // on categories.
+  const [category, setCategory] = useState<BusinessCategory | undefined>();
+  const [businessType, setBusinessType] = useState<BusinessType | undefined>();
+  const [yearsOperating, setYearsOperating] = useState<OperatingHistory | undefined>();
   const [prefilled, setPrefilled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +95,9 @@ export default function StepYourShop() {
     if (profile && !prefilled) {
       setBuysCategories(profile.tradingDetails.buysCategories ?? []);
       setCustomerTypes(profile.tradingDetails.customerTypes ?? []);
+      setCategory(profile.businessDetails.category);
+      setBusinessType(profile.businessDetails.businessType);
+      setYearsOperating(profile.operatingHistory.yearsOperating);
       setPrefilled(true);
     }
   }, [profile, prefilled]);
@@ -77,7 +108,15 @@ export default function StepYourShop() {
       // WRITES THROUGH THE PROFILE'S OWN MUTATION, not a setup-specific
       // one. Same service, same validation, same audit path as editing
       // the identical field in My Business later.
-      await saveTradingDetails({ buysCategories, customerTypes });
+      // THREE SECTIONS, THREE MUTATIONS, in parallel. Each one is the
+      // profile's own PATCH route for that section -- the same write
+      // path My Business uses -- rather than a setup-shaped endpoint
+      // that would be a second way to set the same columns.
+      await Promise.all([
+        saveTradingDetails({ buysCategories, customerTypes }),
+        saveBusinessDetails({ category, businessType }),
+        saveOperatingHistory({ yearsOperating }),
+      ]);
       await refreshSetup();
       router.replace(SETUP_ROUTES.howYouBuy as never);
     } catch (e) {
@@ -93,6 +132,7 @@ export default function StepYourShop() {
         "This is the answer that fills your Community tab. We use it to show you stock in the categories you actually restock, and suppliers who carry it.",
         "Pick everything you buy, even occasionally — a category you leave out is one we will never show you.",
         "It is only ever used to choose what appears in your feed. It is not shown to suppliers and it is not a credit check.",
+        "The questions marked optional change nothing in your feed today. We ask them because they tell us what this market is actually made of, and that decides what we build and which suppliers we go after next.",
       ]}
       onPrimary={handleContinue}
       primaryDisabled={buysCategories.length === 0}
@@ -118,6 +158,30 @@ export default function StepYourShop() {
           either choice on its own. A form whose questions all have one
           shape also reads as one form rather than a collection of
           widgets. */}
+      <SelectField
+        label="What type of business do you run? (optional)"
+        sheetTitle="Type of business"
+        options={BUSINESS_CATEGORY_OPTIONS}
+        value={category ? [category] : []}
+        onChange={(v) => setCategory(v[0] as BusinessCategory | undefined)}
+        placeholder="Tap to choose"
+      />
+      <SelectField
+        label="How is the business set up? (optional)"
+        sheetTitle="How the business is set up"
+        options={BUSINESS_TYPE_OPTIONS}
+        value={businessType ? [businessType] : []}
+        onChange={(v) => setBusinessType(v[0] as BusinessType | undefined)}
+        placeholder="Tap to choose"
+      />
+      <SelectField
+        label="How long have you been trading? (optional)"
+        sheetTitle="How long you have been trading"
+        options={OPERATING_HISTORY_OPTIONS}
+        value={yearsOperating ? [yearsOperating] : []}
+        onChange={(v) => setYearsOperating(v[0] as OperatingHistory | undefined)}
+        placeholder="Tap to choose"
+      />
       <SelectField
         label="Who do you mainly sell to? (optional)"
         options={CUSTOMER_TYPE_OPTIONS}
