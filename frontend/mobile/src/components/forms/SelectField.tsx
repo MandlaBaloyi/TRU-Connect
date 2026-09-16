@@ -134,6 +134,13 @@ export function SelectField({
             <Text style={[styles.sheetTitle, { color: theme.colors.onSurface }]}>
               {sheetTitle ?? label}
             </Text>
+            {/* SAYS SO IN WORDS AS WELL AS IN SHAPE. The boxes below
+                carry it, but a one-line instruction costs nothing and
+                removes the question entirely -- and somebody who has
+                just met a chip wall arrives expecting one answer. */}
+            <Text style={[styles.sheetHint, { color: theme.colors.onSurfaceVariant }]}>
+              {multiple ? "Choose as many as you like" : "Choose one"}
+            </Text>
 
             <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
               {options.map((option) => {
@@ -150,20 +157,48 @@ export function SelectField({
                     accessibilityState={{ checked: selected, selected }}
                     accessibilityLabel={option.label}
                   >
+                    {/* AN EMPTY BOX IS THE WHOLE POINT. Showing a tick
+                        only once something is chosen means an untouched
+                        list looks like a list of links -- nothing says
+                        how many answers it wants. Mandla hit exactly
+                        that: "the UI is not clear... like a box there,
+                        to show we can select multiple".
+
+                        SQUARE FOR MANY, CIRCLE FOR ONE, which is the
+                        one convention people already read without being
+                        told, and it distinguishes the two kinds of
+                        question before a single tap. */}
+                    <View
+                      style={[
+                        styles.box,
+                        multiple ? styles.boxSquare : styles.boxRound,
+                        {
+                          borderColor: selected ? theme.colors.primary : theme.colors.outline,
+                          backgroundColor: selected ? theme.colors.primary : "transparent",
+                        },
+                      ]}
+                    >
+                      {selected &&
+                        (multiple ? (
+                          <Check size={14} color={theme.colors.onPrimary} strokeWidth={3.5} />
+                        ) : (
+                          <View
+                            style={[styles.dot, { backgroundColor: theme.colors.onPrimary }]}
+                          />
+                        ))}
+                    </View>
+
                     <Text
                       style={[
                         styles.rowLabel,
                         {
-                          color: selected ? theme.colors.primary : theme.colors.onSurface,
-                          fontWeight: selected ? "800" : "500",
+                          color: selected ? theme.colors.onSurface : theme.colors.onSurface,
+                          fontWeight: selected ? "700" : "500",
                         },
                       ]}
                     >
                       {option.label}
                     </Text>
-                    {selected && (
-                      <Check size={18} color={theme.colors.primary} strokeWidth={3} />
-                    )}
                   </Pressable>
                 );
               })}
@@ -223,18 +258,31 @@ const styles = StyleSheet.create({
   sheetTitle: {
     ...typography.h2,
     fontWeight: "700",
-    marginBottom: spacing.xs,
     marginLeft: spacing.sm,
   },
+  sheetHint: { ...typography.bodySmall, marginLeft: spacing.sm, marginBottom: spacing.sm },
   list: { flexGrow: 0 },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: spacing.md,
     minHeight: ROW_HEIGHT,
     paddingHorizontal: spacing.md,
     borderRadius: radius.sm,
   },
+  // ON THE LEFT, where a checklist puts it. On the right it reads as a
+  // confirmation of something already done rather than as a control
+  // you are being offered.
+  box: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  boxSquare: { borderRadius: 6 },
+  boxRound: { borderRadius: 11 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   rowLabel: { ...typography.body, flex: 1 },
   done: {
     marginTop: spacing.sm,
