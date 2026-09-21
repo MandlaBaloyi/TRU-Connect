@@ -25,6 +25,10 @@ def browse_category(
     category: Optional[str] = None,
     categories: Optional[List[str]] = None,
     search: Optional[str] = None,
+    kind: Optional[str] = None,
+    supplier: Optional[str] = None,
+    mine_only: bool = False,
+    sort: str = "name",
     limit: int = 24,
     offset: int = 0,
     max_line_cents: Optional[int] = None,
@@ -42,11 +46,82 @@ def browse_category(
     It ORDERS the page and never trims it -- see _affordable_first.
     None means unknown, which most shops are, and is a no-op.
     """
+    # "MY SUPPLIERS ONLY" IS A FILTER, NOT A PREFERENCE, and that is the
+    # one place this function treats the connection as a gate. Everywhere
+    # else in this file the connection only reorders -- browsing is open
+    # at the platform level (V2_00 2.3) and a shop may always SEE
+    # everything. Here the shop has explicitly asked for less, which is a
+    # different thing from being shown less.
+    supplier_ids = None
+    if mine_only:
+        supplier_ids = list(_incumbent_supplier_ids(business_id))
+
+    # ONE SUPPLIER NARROWS WHATEVER IS ALREADY THERE, rather than
+    # replacing it. Tapping a supplier chip while "my suppliers" is on
+    # means "this one, of mine" -- and intersecting keeps that true
+    # even if the chip is somehow stale, because a supplier who is not
+    # in the list cannot be added to it by tapping.
+    # THE SCOPE THE FACETS ARE COUNTED IN, deliberately WITHOUT the
+    # single-supplier choice. Counting after it would leave exactly one
+    # chip standing -- the one just tapped -- so the row collapses and
+    # there is no way back to the others. The chips are the
+    # ALTERNATIVES to the current choice; filtering them by that choice
+    # is the same mistake brands_in avoided and suppliers_in did not.
+    facet_supplier_ids = supplier_ids
+
+    if supplier:
+        supplier_ids = (
+            [supplier] if supplier_ids is None else [s for s in supplier_ids if str(s) == supplier]
+        )
+
     groups = catalogue_browse_repository.browse(
-        category=category, categories=categories, search=search, limit=limit, offset=offset
+        category=category,
+        categories=categories,
+        search=search,
+        kind=kind,
+        supplier_ids=supplier_ids,
+        sort=sort if sort in catalogue_browse_repository.SORTS else "name",
+        limit=limit,
+        offset=offset,
     )
+
+    # THE FACETS COST A QUERY EACH, SO THEY ARE FETCHED ONCE PER RESULT
+    # AND NOT ONCE PER PAGE. Offset zero is the first page of a given
+    # filter; every scroll after it re-uses what the header already has,
+    # which is the difference between two extra queries per BROWSE and
+    # two per SCROLL.
+    facets = {}
+    if offset == 0:
+        facets = {
+            "total": catalogue_browse_repository.count(
+                category=category,
+                categories=categories,
+                search=search,
+                kind=kind,
+                supplier_ids=supplier_ids,
+            ),
+            "kinds": catalogue_browse_repository.kinds_in(
+                category=category,
+                categories=categories,
+                search=search,
+                supplier_ids=facet_supplier_ids,
+            ),
+            # WHO IS SELLING IT, which becomes the useful axis the
+            # moment a shop narrows to its own suppliers -- "which of
+            # my four has this" decides whether an order is one
+            # delivery or three. Sent always rather than only when
+            # mine_only, so toggling the filter never costs a round
+            # trip to populate the row that replaces the brands.
+            "suppliers": catalogue_browse_repository.suppliers_in(
+                category=category,
+                categories=categories,
+                search=search,
+                supplier_ids=facet_supplier_ids,
+            ),
+        }
+
     if not groups:
-        return {"products": [], "hasMore": False}
+        return {"products": [], "hasMore": False, **facets}
 
     all_offers = [offer for group in groups for offer in group]
 
@@ -71,6 +146,7 @@ def browse_category(
         # COUNT over the whole catalogue on every scroll, and the only
         # cost of being wrong is one empty fetch at the end.
         "hasMore": len(groups) >= limit,
+        **facets,
     }
 
 
@@ -158,6 +234,14 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
         [offer.id for offer, _ in chosen_by_group]
     )
 
+    # ONE MEDIA QUERY FOR THE PAGE, not one per card. This file's own
+    # docstring has always claimed it "batches everything before
+    # deciding anything"; images were the exception nobody measured. A
+    # 24-card page ran 40 SQL statements, 24 of them this.
+    media_by_product = product_media_service.list_approved_media_for(
+        [offer.id for offer, _ in chosen_by_group]
+    )
+
     # One name lookup per SUPPLIER, not per card -- a page of 24 drinks
     # is typically a handful of wholesalers.
     names: dict = {}
@@ -178,7 +262,6 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
         if names[supplier_id] is None:
             continue
 
-        images = product_media_service.list_approved_media(offer.id)
         cards.append(
             {
                 "id": str(offer.id),
@@ -190,7 +273,7 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
                 "supplierVerificationStatus": statuses.get(supplier_id),
                 "name": offer.name,
                 "category": offer.category.value if offer.category else None,
-                "imageUrl": _first_image_url(images),
+                "imageUrl": _first_image_url(media_by_product.get(offer.id)),
                 "priceCents": offer.price_cents,
                 "compareAtPriceCents": offer.compare_at_price_cents,
                 "inStock": offer.id in in_stock,
@@ -199,6 +282,14 @@ def _to_cards(chosen_by_group: List, in_stock: set) -> List[dict]:
                 # does, this card starts saying "also from 3 suppliers"
                 # with no change here.
                 "alternativeCount": offer_selection.alternatives_count(group, offer),
+                # THE CHEAPEST OFFER IN THE GROUP, which is what makes
+                # "also from 3 suppliers" worth reading. On its own that
+                # line states a fact nobody can act on -- the card opens
+                # ONE supplier's product page, so "which one?" has no
+                # answer. Paired with a price it becomes the catalogue's
+                # actual payoff: three wholesalers sell this, and here is
+                # what the cheapest wants for it.
+                "fromPriceCents": min(o.price_cents for o in group),
                 # THE SAME BADGE THE FEED CARRIES, built from the same
                 # rule, so one component renders both surfaces and the
                 # wording cannot drift between them.

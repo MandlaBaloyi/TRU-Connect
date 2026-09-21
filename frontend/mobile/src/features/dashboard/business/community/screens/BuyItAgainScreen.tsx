@@ -18,18 +18,10 @@ export default function BuyItAgainScreen() {
 
   return (
     <FeedProductGrid
-      products={feed.products}
-      total={feed.total}
-      emptyTitle={"Nothing to buy again yet"}
-      emptyBody={"Once you have placed an order, everything in it shows up here so you can restock in a tap."}
-      isLoading={feed.isLoading}
-      isError={feed.isError}
-      refetch={feed.refetch}
-      isRefetching={feed.isRefetching}
-      onEndReached={() => {
-        if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
-      }}
-      isFetchingNextPage={feed.isFetchingNextPage}
+      title="Reorder what you need"
+      feed={feed}
+      emptyTitle={"Nothing to reorder yet"}
+      emptyBody={"Once you have placed an order, everything you bought shows up here so you can restock it in a tap."}
     />
   );
 }

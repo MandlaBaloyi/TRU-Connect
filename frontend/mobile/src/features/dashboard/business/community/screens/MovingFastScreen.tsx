@@ -18,18 +18,10 @@ export default function MovingFastScreen() {
 
   return (
     <FeedProductGrid
-      products={feed.products}
-      total={feed.total}
-      emptyTitle={"Nothing is spiking right now"}
-      emptyBody={"When shops start buying something faster than usual, it shows up here. Quiet weeks are normal."}
-      isLoading={feed.isLoading}
-      isError={feed.isError}
-      refetch={feed.refetch}
-      isRefetching={feed.isRefetching}
-      onEndReached={() => {
-        if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
-      }}
-      isFetchingNextPage={feed.isFetchingNextPage}
+      title="Popular with businesses"
+      feed={feed}
+      emptyTitle={"Nothing is moving yet"}
+      emptyBody={"When other businesses start buying something faster than usual, it shows up here. Quiet weeks are normal."}
     />
   );
 }

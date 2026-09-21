@@ -58,6 +58,17 @@ def browse():
         business_id=business_id,
         category=request.args.get("category") or None,
         search=request.args.get("search") or None,
+        kind=(request.args.get("kind") or "").strip().upper() or None,
+        supplier=request.args.get("supplier") or None,
+        # ONLY A BUSINESS HAS SUPPLIERS, so a supplier asking for "mine"
+        # is asking a question with no answer rather than a question
+        # that should fail. It is ignored, and they see the market.
+        mine_only=request.args.get("mine") == "true" and business_id is not None,
+        # VALIDATED AGAINST THE LIST, NOT PASSED THROUGH. The value ends
+        # up choosing an ORDER BY, and the repository falls back to name
+        # for anything it does not recognise -- so an unknown sort is a
+        # boring page rather than an error a shopper caused by tapping.
+        sort=request.args.get("sort") or "name",
         limit=limit,
         offset=offset,
     )

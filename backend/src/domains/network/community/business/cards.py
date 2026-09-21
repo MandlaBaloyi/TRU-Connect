@@ -70,6 +70,21 @@ def feed_products(pairs: List) -> List[dict]:
                     else verification_status
                 ),
                 "name": dto["name"],
+                # THE CATEGORY, WHICH WAS MISSING AND SHOWED AS A BROKEN
+                # IMAGE. Most offers have no photograph, so the app draws
+                # a category glyph instead -- a biscuit for snacks, a
+                # bottle for drinks. Without this field CategoryImage has
+                # nothing to choose from and falls back to a crossed-out
+                # image icon, which reads as a FAILED photo rather than
+                # as an absent one.
+                #
+                # IT WAS ONLY EVER WRONG ON SOME RAILS, which is why it
+                # survived: stock-for-you is built by browse_service,
+                # whose cards carry a category, while buy-it-again,
+                # moving-fast and left-off come through here. Two
+                # builders, one section type, different fields -- the
+                # same shape of bug as the two see-all titles.
+                "category": offer.category.value if offer.category else None,
                 # ONE image, not the gallery: a rail card shows a
                 # thumbnail, and shipping four URLs per card to render
                 # one is bandwidth a spaza shop pays for.

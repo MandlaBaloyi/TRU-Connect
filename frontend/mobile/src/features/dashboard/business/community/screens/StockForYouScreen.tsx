@@ -18,18 +18,10 @@ export default function StockForYouScreen() {
 
   return (
     <FeedProductGrid
-      products={feed.products}
-      total={feed.total}
-      emptyTitle={"Tell us what you buy"}
-      emptyBody={"Once we know what your shop stocks, this fills up with things you can actually order."}
-      isLoading={feed.isLoading}
-      isError={feed.isError}
-      refetch={feed.refetch}
-      isRefetching={feed.isRefetching}
-      onEndReached={() => {
-        if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
-      }}
-      isFetchingNextPage={feed.isFetchingNextPage}
+      title="Stock for your shop"
+      feed={feed}
+      emptyTitle={"Nothing matched yet"}
+      emptyBody={"Tell us what you stock and we will fill this with products from suppliers near you."}
     />
   );
 }

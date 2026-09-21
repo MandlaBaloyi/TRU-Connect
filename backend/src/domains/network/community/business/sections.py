@@ -97,6 +97,10 @@ SEE_ALL_HREFS = {
     # word -- these screens belong to For You, not to the whole
     # Community tab, which also holds My Connections.
     "buy-it-again": "/business/feed/buy-it-again",
+    # THE RAIL SHOWS TWELVE AND A BROWSING SHOP EASILY PASSES FIFTY.
+    # Twelve cards of a fifty-card list with no way through is the
+    # exact shape _rail_tail exists to prevent.
+    "left-off": "/business/feed/left-off",
     "moving-fast": "/business/feed/moving-fast",
     "stock-for-you": "/business/feed/stock-for-you",
     "collect-near-you": "/business/feed/collect-near-you",
@@ -236,9 +240,13 @@ def picked_up_where_you_left(business_id) -> Optional[dict]:
     whose cards happen to get opened often must not take the row. Three
     at most, the same ceiling every recommending rail uses.
 
-    NO SEE-ALL ARROW. There is no screen behind it yet, and _rail_tail's
-    own docstring is explicit that an arrow leading nowhere is worse
-    than no arrow. The cap is the limit, and the limit is the rail.
+    IT HAS AN ARROW NOW, and the reason is the whole case for arrows on
+    this screen: a shop that browses fifty products cannot reach the
+    fiftieth by scrolling a twelve-card shelf sideways. The rail is a
+    preview of a list, so there has to be a list. The screen behind it
+    (feed_detail_service.left_off_cards) applies the same rules and
+    drops only the per-supplier cap, which is a rule about
+    recommending rather than about remembering.
     """
     from src.domains.network.impressions.repositories.impression_repository import (
         ImpressionRepository,
@@ -283,6 +291,7 @@ def picked_up_where_you_left(business_id) -> Optional[dict]:
         "title": "Continue stocking up",
         "subtitle": "Products you viewed but haven't ordered yet",
         "products": products,
+        **_rail_tail("left-off", len(products), available),
     }
 
 

@@ -54,6 +54,27 @@ def _paging() -> tuple:
     return limit, offset
 
 
+def _controls() -> dict:
+    """The narrowing every see-all screen shares.
+
+    ONE READER FOR ALL FOUR ROUTES, so a control cannot exist on
+    "Reorder what you need" and quietly not on "Continue stocking up".
+    The four screens are one screen with different data, and the
+    parameters should be too.
+
+    THE SORT IS VALIDATED, NOT TRUSTED, and an unknown value falls back
+    to "relevance" -- which means the order the rail already produced.
+    A stale app asking for a sort this server has never heard of gets
+    the rail's own ranking, not an error a shopper caused by tapping.
+    """
+    sort = (request.args.get("sort") or "relevance").strip()
+    return {
+        "search": (request.args.get("search") or "").strip() or None,
+        "sort": sort if sort in feed_detail_service.SEE_ALL_SORTS else "relevance",
+        "supplier": (request.args.get("supplier") or "").strip() or None,
+    }
+
+
 @feed_detail_bp.route("/api/v1/community/buy-it-again", methods=["GET"])
 @fully_authenticated
 @role_required("business")
@@ -65,9 +86,25 @@ def buy_it_again():
     """
     limit, offset = _paging()
     cards = feed_detail_service.buy_it_again_cards(get_jwt_identity())
-    page = feed_detail_service.paginate(cards, limit=limit, offset=offset)
     return success_response(
-        data={"products": page["items"], "hasMore": page["hasMore"], "total": page["total"]}
+        data=feed_detail_service.present(cards, limit=limit, offset=offset, **_controls())
+    )
+
+
+@feed_detail_bp.route("/api/v1/community/left-off", methods=["GET"])
+@fully_authenticated
+@role_required("business")
+def left_off():
+    """Everything this shop opened and never ordered.
+
+    THE ONE SEE-ALL BUILT ON THE IMPRESSIONS TABLE rather than on
+    orders, declarations or the market -- which is also why it is the
+    one that empties as the shop buys.
+    """
+    limit, offset = _paging()
+    cards = feed_detail_service.left_off_cards(get_jwt_identity())
+    return success_response(
+        data=feed_detail_service.present(cards, limit=limit, offset=offset, **_controls())
     )
 
 
@@ -89,9 +126,8 @@ def moving_fast():
     # Capped and interleaved across the WHOLE set before paging, so the
     # ceiling means the same thing on page three as on page one.
     cards = interleave.arrange(cards, absolute_cap=5)
-    page = feed_detail_service.paginate(cards, limit=limit, offset=offset)
     return success_response(
-        data={"products": page["items"], "hasMore": page["hasMore"], "total": page["total"]}
+        data=feed_detail_service.present(cards, limit=limit, offset=offset, **_controls())
     )
 
 
@@ -105,9 +141,8 @@ def stock_for_you():
     limit, offset = _paging()
     cards = feed_detail_service.stock_for_you_cards(get_jwt_identity())
     cards = interleave.arrange(cards, absolute_cap=5)
-    page = feed_detail_service.paginate(cards, limit=limit, offset=offset)
     return success_response(
-        data={"products": page["items"], "hasMore": page["hasMore"], "total": page["total"]}
+        data=feed_detail_service.present(cards, limit=limit, offset=offset, **_controls())
     )
 
 

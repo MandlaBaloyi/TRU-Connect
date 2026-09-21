@@ -39,6 +39,15 @@ type AppHeaderProps =
       variant: "title";
       title: string;
       subtitle?: string;
+      /** A glyph before the title — a category icon, a supplier avatar.
+       *  Optional and additive: every existing "title" screen renders
+       *  exactly as before without it. */
+      titleIcon?: React.ReactNode;
+      /** CENTRES THE SUBTITLE UNDER THE TITLE. Left by default, which
+       *  is right for a subtitle that qualifies the title ("Draft ·
+       *  edited 2h ago"). Centred suits a COUNT, which is about the
+       *  screen below rather than about the title beside it. */
+      subtitleAlign?: "left" | "center";
       /** Real, generic, reusable -- a screen reached by PUSH
        *  navigation (not a top-level tab) needs a way back; every
        *  existing "title"/"title-with-tabs" consumer is a top-level
@@ -215,9 +224,22 @@ export function AppHeader(props: AppHeaderProps) {
         </Pressable>
       )}
       <View style={styles.textWrap}>
-        <RNText style={[styles.title, { color: theme.colors.onSurface }]}>{props.title}</RNText>
+        <View style={styles.titleLine}>
+          {props.variant === "title" && props.titleIcon ? props.titleIcon : null}
+          <RNText style={[styles.title, { color: theme.colors.onSurface }]} numberOfLines={1}>
+            {props.title}
+          </RNText>
+        </View>
         {props.variant === "title" && props.subtitle && (
-          <RNText style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>{props.subtitle}</RNText>
+          <RNText
+            style={[
+              styles.subtitle,
+              { color: theme.colors.onSurfaceVariant },
+              props.subtitleAlign === "center" && styles.subtitleCentred,
+            ]}
+          >
+            {props.subtitle}
+          </RNText>
         )}
       </View>
       {/* Grouped into ONE cluster, not two independent flex siblings —
@@ -282,6 +304,8 @@ const styles = StyleSheet.create({
   titleRow: { alignItems: "flex-start", paddingTop: spacing.sm },
   backButton: { marginRight: spacing.xs, marginTop: 2 },
   titleRowCompact: { alignItems: "center", paddingTop: 0 },
+  titleLine: { flexDirection: "row", alignItems: "center", gap: 6 },
+  subtitleCentred: { textAlign: "center" },
   textWrap: { gap: 2, flexShrink: 1 },
   tru: { fontSize: 20, letterSpacing: -0.3, fontWeight: "700" },
   connect: { fontWeight: "700", fontStyle: "italic" },

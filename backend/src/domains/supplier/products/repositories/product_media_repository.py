@@ -49,6 +49,47 @@ class ProductMediaRepository:
         )
 
     @staticmethod
+    def list_approved_for_products(product_ids) -> dict:
+        """The SAME query as list_approved_for_product, for a whole page.
+
+        ONE ROUND TRIP FOR TWENTY-FOUR CARDS instead of twenty-four.
+        Every caller that builds a LIST of product cards was calling the
+        singular version in a loop -- the catalogue browse and
+        build_catalog_product_dicts, which is every product rail on the
+        Community feed. Both files carry a comment claiming they batch
+        everything; both then spent one query per card on images.
+
+        Measured on the dev catalogue: a 24-card browse page ran 40 SQL
+        statements, 24 of them this. That is fine at 253 offers and is
+        the shape that falls over at 250 shops opening a tab each
+        morning.
+
+        RETURNS A DICT KEYED BY product_id, with the same APPROVED-only
+        filter and the same sort order, so a caller can swap the loop
+        for a lookup without changing what it renders. A product with no
+        approved media is simply absent -- callers already treat a
+        missing list as no images.
+        """
+        ids = [pid for pid in product_ids if pid]
+        if not ids:
+            return {}
+
+        rows = (
+            ProductMedia.query.filter(
+                ProductMedia.product_id.in_(ids),
+                ProductMedia.is_deleted.is_(False),
+                ProductMedia.scan_status == MediaScanStatus.APPROVED.value,
+            )
+            .order_by(ProductMedia.sort_order.asc())
+            .all()
+        )
+
+        grouped: dict = {}
+        for media in rows:
+            grouped.setdefault(media.product_id, []).append(media)
+        return grouped
+
+    @staticmethod
     def create_pending(
         product_id: str | UUID,
         cloudinary_public_id: str,

@@ -102,10 +102,28 @@ export function BrowseProductCard({
           </View>
         ) : null}
 
+        {/* THE LINE SAYS WHAT TO DO ABOUT IT, NOT JUST THAT IT IS TRUE.
+            "Also from 4 suppliers" on its own is a fact nobody can act
+            on -- tapping the card opens ONE supplier's product page, so
+            "which one?" has no answer, and the reader is told a choice
+            exists without being told whether it is worth having.
+
+            WITH THE CHEAPEST PRICE IT BECOMES THE CATALOGUE'S PAYOFF:
+            four wholesalers sell this and one of them wants less for
+            it. That is the whole reason matching offers together was
+            worth building.
+
+            AND "FROM" ONLY APPEARS WHEN IT MEANS SOMETHING. If the
+            offer already shown IS the cheapest, the count alone is
+            printed -- a "from R19.00" sitting above a price of R19.00
+            is noise that teaches people to stop reading the line. */}
         {product.alternativeCount > 0 && (
           <Text style={[styles.alternatives, { color: theme.colors.primary }]} numberOfLines={1}>
-            Also from {product.alternativeCount}{" "}
-            {product.alternativeCount === 1 ? "supplier" : "suppliers"}
+            {product.fromPriceCents < product.priceCents
+              ? `From ${formatCents(product.fromPriceCents)} · ${product.alternativeCount} suppliers`
+              : `Also from ${product.alternativeCount} ${
+                  product.alternativeCount === 1 ? "supplier" : "suppliers"
+                }`}
           </Text>
         )}
 
@@ -121,7 +139,15 @@ export function BrowseProductCard({
 
 const styles = StyleSheet.create({
   card: { flex: 1, borderRadius: radius.md, borderWidth: 1, overflow: "hidden" },
-  imageWrap: { width: "100%", aspectRatio: 1 },
+  // FOUR-BY-THREE, NOT SQUARE, AND IT IS A DENSITY DECISION. A square
+  // block is the right frame for product photography and the wrong one
+  // for what this catalogue mostly has: a placeholder glyph, which
+  // carries no information and was taking half the card to say nothing.
+  // Shorter puts roughly eight products on a screen instead of five.
+  //
+  // WORTH REVISITING WHEN SUPPLIERS ACTUALLY UPLOAD PHOTOS. At that
+  // point the block earns its height back and square is correct again.
+  imageWrap: { width: "100%", aspectRatio: 4 / 3 },
   body: { padding: spacing.sm, gap: 2 },
   name: { ...typography.body, fontWeight: "600" },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.xs },

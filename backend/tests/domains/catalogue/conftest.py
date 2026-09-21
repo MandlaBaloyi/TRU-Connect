@@ -15,6 +15,27 @@ from src.extensions import db
 
 
 @pytest.fixture()
+def make_business(make_user, db_session):
+    """A verified business, for the browse's "my suppliers" filter.
+
+    BUILT HERE BECAUSE FIXTURES ARE PER-PACKAGE IN THIS SUITE. The
+    network conftests each carry their own copy of this factory; adding
+    a fifth beside them is the convention rather than an oversight. If
+    it is ever hoisted to a shared conftest, hoist all of them together.
+    """
+    from src.domains.auth.models.user import UserRole, VerificationStatus
+
+    def _make(email: str = "browse-buyer@example.com"):
+        user = make_user(
+            email, role=UserRole.BUSINESS, verification_status=VerificationStatus.VERIFIED
+        )
+        db_session.commit()
+        return user
+
+    return _make
+
+
+@pytest.fixture()
 def make_supplier(make_user, db_session):
     from src.domains.auth.models.user import UserRole, VerificationStatus
     from src.domains.supplier.supplier_profile.models.supplier_profile import (

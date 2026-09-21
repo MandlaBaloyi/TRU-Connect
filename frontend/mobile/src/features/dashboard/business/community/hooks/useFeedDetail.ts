@@ -1,6 +1,11 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 
-import type { ProductPage, SupplierPage } from "../services/feedDetailService";
+import type {
+  ProductPage,
+  SeeAllControls,
+  SupplierPage,
+} from "../services/feedDetailService";
 
 /**
  * One hook for all five "see all" screens.
@@ -18,21 +23,54 @@ import type { ProductPage, SupplierPage } from "../services/feedDetailService";
  */
 export function useFeedProducts(
   key: string,
-  fetchPage: (offset: number) => Promise<ProductPage>
+  fetchPage: (offset: number, controls?: SeeAllControls) => Promise<ProductPage>
 ) {
-  const query = useInfiniteQuery({
-    queryKey: ["community", "detail", key],
-    queryFn: ({ pageParam }) => fetchPage(pageParam as number),
+  // THE FILTERS LIVE HERE, NOT IN THE SCREEN, so the query key and the
+  // controls cannot disagree about what is currently being shown --
+  // the same arrangement useCategoryBrowse uses, because these are the
+  // same screen with different data behind it.
+  const [controls, setControls] = useState<SeeAllControls>({ sort: "relevance" });
+
+  const query = useInfiniteQuery<ProductPage>({
+    queryKey: [
+      "community",
+      "detail",
+      key,
+      controls.search ?? null,
+      controls.supplier ?? null,
+      controls.sort ?? "relevance",
+    ],
+    queryFn: ({ pageParam }) => fetchPage(pageParam as number, controls),
     initialPageParam: 0,
     getNextPageParam: (last, pages) => {
       if (!last.hasMore) return undefined;
       return pages.reduce((count, page) => count + page.products.length, 0);
     },
+    // KEEPS THE LIST ON SCREEN WHILE IT RELOADS, so the control you
+    // just tapped does not flash empty underneath your finger.
+    placeholderData: keepPreviousData,
   });
+
+  const first = query.data?.pages[0];
 
   return {
     products: query.data?.pages.flatMap((page) => page.products) ?? [],
-    total: query.data?.pages[0]?.total ?? 0,
+    total: first?.total ?? null,
+    suppliers: first?.suppliers ?? [],
+
+    controls,
+    setSearch: (search: string) =>
+      setControls((current) => ({ ...current, search: search || undefined })),
+    // TAPPING THE ACTIVE SUPPLIER CLEARS IT -- the way out is the
+    // control you can already see.
+    toggleSupplier: (supplier: string) =>
+      setControls((current) => ({
+        ...current,
+        supplier: current.supplier === supplier ? null : supplier,
+      })),
+    setSort: (sort: NonNullable<SeeAllControls["sort"]>) =>
+      setControls((current) => ({ ...current, sort })),
+
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,

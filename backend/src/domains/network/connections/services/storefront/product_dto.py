@@ -24,6 +24,12 @@ def build_catalog_product_dicts(products: List) -> List[dict]:
     from src.domains.supplier.inventory.repositories.inventory_repository import InventoryRepository
     from src.domains.supplier.products.services import product_media_service
 
+    # ONE MEDIA QUERY FOR THE WHOLE LIST. list_approved_media was being
+    # called per product a few lines down, inside a function whose own
+    # docstring is about batching -- so every product rail on the
+    # Community feed paid one image query per card. The catalogue browse
+    # had the identical bug and they were found together.
+    media_by_product = product_media_service.list_approved_media_for([p.id for p in products])
     inventory_rows = InventoryRepository.list_by_product_ids([p.id for p in products])
     available_by_product = {row.product_id: row.quantity_on_hand - row.quantity_reserved for row in inventory_rows}
 
@@ -60,7 +66,7 @@ def build_catalog_product_dicts(products: List) -> List[dict]:
             # matters most (see product_media_service's own
             # list_approved_media docstring for why only APPROVED ever
             # reaches here).
-            "images": product_media_service.list_approved_media(p.id),
+            "images": media_by_product.get(p.id, []),
         }
         for p in products
     ]

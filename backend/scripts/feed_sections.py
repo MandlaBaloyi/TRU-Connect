@@ -50,15 +50,15 @@ from src.extensions import db  # noqa: E402
 #: have to guess at each builder's own reason for silence.
 SECTIONS = [
     ("categories", "Categories", "always"),
-    ("tell-us-what-you-buy", "What stock do you buy?", "shop has declared NOTHING"),
-    ("buy-it-again", "Buy it again", "3+ products ordered before"),
-    ("left-off", "Pick up where you left off", "3+ products TAPPED and never ordered"),
-    ("moving-fast", "Moving fast right now", "3+ products selling faster than usual"),
+    ("tell-us-what-you-buy", "Tell us what you stock", "shop has declared NOTHING"),
+    ("buy-it-again", "Reorder what you need", "3+ products ordered before"),
+    ("left-off", "Continue stocking up", "3+ products TAPPED and never ordered"),
+    ("moving-fast", "Popular with businesses", "3+ products selling faster than usual"),
     ("stock-for-you", "Stock for your shop", "shop HAS declared categories"),
     ("your-suppliers", "Your suppliers", "1+ active connection"),
     ("sponsored", "Sponsored", "a visible supplier in the shop's categories"),
     ("invited-suppliers", "Joined through your invites", "3+ invitees verified"),
-    ("not-ordered-yet", "Suppliers you haven't ordered from", "3+ never ordered from"),
+    ("not-ordered-yet", "Discover new suppliers", "3+ never ordered from"),
     ("collect-near-you", "Collect near you", "3+ suppliers within range, shop collects"),
     ("explore-kinds", "Explore suppliers", "any supplier kind has stock"),
 ]
@@ -186,8 +186,12 @@ def main() -> None:
     parser.add_argument("--email", required=True)
     parser.add_argument(
         "--seed-taps",
-        action="store_true",
-        help="tap unordered products so 'Pick up where you left off' appears",
+        nargs="?",
+        type=int,
+        const=4,
+        metavar="N",
+        help="tap N unordered products so 'Continue stocking up' appears "
+        "(default 4; pass more than the rail's 12 to make its arrow show)",
     )
     parser.add_argument(
         "--fresh-shop", action="store_true", help="clear declarations (shows the prompt)"
@@ -209,7 +213,7 @@ def main() -> None:
         if args.declared:
             set_declared(user, declared=True)
         if args.seed_taps:
-            seed_taps(user)
+            seed_taps(user, args.seed_taps)
 
         report(user)
 

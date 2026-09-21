@@ -77,6 +77,47 @@ def buy_it_again_cards(business_id, *, limit: int = PAGE_SIZE) -> List[dict]:
     return feed_products(visible_offers(product_ids))
 
 
+def left_off_cards(business_id, *, limit: int = PAGE_SIZE) -> List[dict]:
+    """Products this shop opened and never ordered, most-tapped first.
+
+    THE PAGED VERSION OF THE RAIL, and the reason the rail needed an
+    arrow at all: a shop that browses fifty products cannot reach the
+    fiftieth by scrolling a twelve-card shelf sideways. The rail is a
+    preview; this is the list.
+
+    THE SAME RULES AS THE RAIL, deliberately, so the screen behind the
+    arrow cannot disagree with the row that opened it -- taps rather
+    than deliveries, the ordered ones excluded, and the same fourteen
+    day window. Only the length differs, which is the contract every
+    other see-all here follows.
+
+    NO PER-SUPPLIER CEILING AT THIS LENGTH. The cap on the rail exists
+    because twelve cards are a recommendation and one wholesaler must
+    not own them. A full list is not a recommendation -- it is the
+    shop's own browsing history, and hiding part of it because one
+    supplier happens to sell what they were looking at would be the
+    screen refusing to answer the question it was opened to answer.
+    """
+    from src.domains.business.demand.signals.considered import CONSIDERED_WINDOW_DAYS
+    from src.domains.network.impressions.repositories.impression_repository import (
+        ImpressionRepository,
+    )
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
+    already_ordered = StockOrderRepository.previously_ordered_product_ids_for_business(
+        business_id, limit=200
+    )
+    since = (utcnow() - timedelta(days=CONSIDERED_WINDOW_DAYS)).date()
+    product_ids = ImpressionRepository.tapped_not_ordered(
+        business_id, since=since, exclude=already_ordered, limit=limit * 2
+    )
+    if not product_ids:
+        return []
+    return feed_products(visible_offers(product_ids))
+
+
 def moving_fast_cards(business_id, *, limit: int = PAGE_SIZE) -> List[dict]:
     """Products rising faster than their own past, in the categories
     this shop buys.
@@ -252,6 +293,108 @@ def not_ordered_yet_suppliers(business_id) -> List:
     # it is sorted by. Whether they already KNOW a supplier still ranks
     # first, at every tier, for any money.
     return tie_break.order_untried_suppliers(untried, connected_ids=connected)
+
+
+SEE_ALL_SORTS = ("relevance", "price_asc", "price_desc", "name")
+
+
+def present(
+    cards: List[dict],
+    *,
+    search: Optional[str] = None,
+    sort: str = "relevance",
+    supplier: Optional[str] = None,
+    limit: int,
+    offset: int,
+) -> dict:
+    """A see-all page: narrowed, ordered, counted, with its facets.
+
+    THE SAME CONTROLS THE CATEGORY BROWSE HAS, because these screens
+    have the same problem. "Reorder what you need" for a shop with a
+    hundred lines is the browse's thousand-product scroll in miniature,
+    and the answer is the same: let them narrow rather than asking them
+    to scroll.
+
+    IN MEMORY, AND THAT IS CORRECT HERE. The browse filters in SQL
+    because it is looking at the whole market; every gather feeding this
+    function is already bounded and already fully materialised -- a
+    shop's own order history, its own taps, the rising set. They have to
+    be, to rank at all. Pushing these filters into SQL would mean four
+    more query paths for lists that are small by construction.
+
+    "relevance" IS THE DEFAULT AND MEANS "LEAVE IT ALONE". Each of these
+    lists arrives in an order that took real work to produce -- most
+    recently ordered, most tapped, fastest rising -- and that order IS
+    the rail's argument for existing. A see-all that silently
+    alphabetised it would throw away the reason the reader tapped
+    through.
+
+    THE FACETS ARE COUNTED BEFORE PAGING AND AFTER FILTERING, so a chip
+    promises what tapping it returns -- the same rule the browse chips
+    follow, and the bug that taught it.
+    """
+    narrowed = cards
+
+    if search:
+        needle = search.strip().lower()
+        if needle:
+            # NAME AND SUPPLIER BOTH, because a shopkeeper looking for
+            # "MacMan" is asking a real question about this list and
+            # would otherwise get nothing.
+            narrowed = [
+                card
+                for card in narrowed
+                if needle in (card.get("name") or "").lower()
+                or needle in (card.get("supplierName") or "").lower()
+            ]
+
+    # THE FACETS ARE COUNTED BEFORE THE SUPPLIER FILTER IS APPLIED, and
+    # that ordering is the whole point. Counting after it leaves exactly
+    # ONE chip standing -- the one you just tapped -- so the row
+    # collapses and there is no way back to the others without a filter
+    # nobody can see. Tapping Seshego should narrow the PRODUCTS and
+    # leave the other wholesalers on screen as the alternatives they
+    # are.
+    #
+    # SEARCH IS APPLIED FIRST AND DELIBERATELY. It narrows what the
+    # question is ABOUT, so the chips should answer "who sells the
+    # Colgate in this list"; the supplier filter narrows the ANSWER, so
+    # the chips must survive it. The browse's kind chips follow the same
+    # rule for the same reason.
+    suppliers: dict = {}
+    for card in narrowed:
+        supplier_id = card.get("supplierId")
+        if not supplier_id:
+            continue
+        entry = suppliers.setdefault(
+            supplier_id, {"id": supplier_id, "name": card.get("supplierName"), "count": 0}
+        )
+        entry["count"] += 1
+
+    if supplier:
+        narrowed = [card for card in narrowed if card.get("supplierId") == supplier]
+
+    if sort == "price_asc":
+        narrowed = sorted(narrowed, key=lambda c: c.get("priceCents") or 0)
+    elif sort == "price_desc":
+        narrowed = sorted(narrowed, key=lambda c: c.get("priceCents") or 0, reverse=True)
+    elif sort == "name":
+        narrowed = sorted(narrowed, key=lambda c: (c.get("name") or "").lower())
+
+    page = paginate(narrowed, limit=limit, offset=offset)
+    result = {
+        "products": page["items"],
+        "hasMore": page["hasMore"],
+        "total": page["total"],
+    }
+    # FACETS ON THE FIRST PAGE ONLY, matching the browse: they do not
+    # change as you scroll, and shipping them on every page is bytes a
+    # spaza shop pays for.
+    if offset == 0:
+        result["suppliers"] = sorted(
+            suppliers.values(), key=lambda s: (-s["count"], (s["name"] or "").lower())
+        )[:12]
+    return result
 
 
 def paginate(items: List, *, limit: int, offset: int) -> dict:

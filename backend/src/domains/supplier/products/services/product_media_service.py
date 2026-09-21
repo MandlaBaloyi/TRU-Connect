@@ -178,6 +178,18 @@ def list_approved_media(product_id: str | UUID) -> List[str]:
     return [m.secure_url for m in ProductMediaRepository.list_approved_for_product(product_id)]
 
 
+def list_approved_media_for(product_ids) -> dict:
+    """{product_id: [secure_url]} for a whole page in one query.
+
+    THE BATCHED TWIN of list_approved_media, and the one any caller
+    building a LIST should use. The singular version in a loop is an
+    N+1 that hid inside two files which both claim to batch everything
+    -- see the repository's own docstring for the measurement.
+    """
+    grouped = ProductMediaRepository.list_approved_for_products(product_ids)
+    return {pid: [m.secure_url for m in media] for pid, media in grouped.items()}
+
+
 def upload_and_register_from_bytes(product_id: str | UUID, supplier_profile_id: str | UUID, file_bytes: bytes) -> ProductMedia:
     """Bulk import's own path -- see MediaProvider.upload_asset's own
     docstring for why this backend uploads bytes itself here instead
