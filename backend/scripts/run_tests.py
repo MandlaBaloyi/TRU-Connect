@@ -55,7 +55,26 @@ VALUE_TAKING_FLAGS = {
 #: The database tests are allowed to destroy. Deliberately NOT read from
 #: .env: POSTGRES_DB is the development database, and a typo that pointed
 #: the suite at it would drop every schema in it without asking.
-TEST_DB = "tru_connect_test"
+#:
+#: OVERRIDABLE, BUT ONLY WITHIN A PREFIX, so two agents can run suites at
+#: the same time without stomping each other's schemas. A git worktree
+#: already gives a second worker its own files, its own branch and --
+#: because LOCK is path-relative -- its own lock; the database was the
+#: last piece of shared state.
+#:
+#: THE PREFIX IS THE WHOLE SAFETY PROPERTY. TRU_TEST_DB may name
+#: tru_connect_test_2 or tru_connect_test_antigravity; it may not name
+#: tru_connect, which is the development database this suite would drop
+#: every schema in. That is the same protection the paragraph above
+#: describes, kept rather than traded away for convenience.
+TEST_DB_PREFIX = "tru_connect_test"
+TEST_DB = os.environ.get("TRU_TEST_DB", "").strip() or TEST_DB_PREFIX
+if not TEST_DB.startswith(TEST_DB_PREFIX):
+    raise SystemExit(
+        f"TRU_TEST_DB={TEST_DB!r} refused: a test database must be named "
+        f"{TEST_DB_PREFIX!r} or start with it. This suite DROPS every schema "
+        f"in whatever it is pointed at."
+    )
 
 
 def read_env(path: Path) -> dict[str, str]:
