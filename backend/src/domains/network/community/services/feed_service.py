@@ -49,8 +49,41 @@ def feed_for(user_id: str | UUID, role: str) -> List[dict]:
     if role == "supplier":
         return _supplier_feed(user_id)
     if role == "business":
-        return _business_feed(user_id)
+        sections = _business_feed(user_id)
+        _count_delivered(user_id, sections)
+        return sections
     raise NotFoundError("No community feed for this account type.")
+
+
+def _count_delivered(business_id, sections: List[dict]) -> None:
+    """Record what this render returned, without making anyone wait.
+
+    SERVER-SIDE, AT COMPOSE TIME, AND THAT IS THE DESIGN (V2_19 1.3).
+    The composer already knows exactly what it returned -- there is no
+    client to trust, no extra round trip, and no double counting when a
+    screen re-renders. The device is asked only for taps, because a tap
+    is the one thing it alone witnesses.
+
+    THROUGH THE QUEUE, SO A SHOPKEEPER NEVER WAITS ON ANALYTICS. If the
+    process dies before the counter lands, a counter was lost. That is
+    the right failure: the alternative is a feed that is slower for
+    everyone so that a tuning number is never missed.
+
+    AND IT NEVER BREAKS THE FEED. An impression write that raises must
+    not turn a working tab into an error -- the measurement exists to
+    serve the feed, not the other way round. The queue's own runner
+    logs and swallows, and this import is local so a problem in the
+    impressions package cannot stop this module being imported at all.
+
+    BUSINESS ONLY, for now. The supplier feed is a different surface
+    with different sections, and nobody has asked a question about it
+    that needs measuring yet -- see impression_routes on why that is a
+    deliberate future addition rather than an omission.
+    """
+    from src.domains.network.impressions.services import impression_service
+    from src.shared.queue.queue import enqueue
+
+    enqueue(lambda: impression_service.record_delivered(business_id, sections))
 
 
 def _business_feed(business_id) -> List[dict]:
@@ -82,7 +115,11 @@ def _business_feed(business_id) -> List[dict]:
                                its first order.
       6  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      7  THEY JOINED BECAUSE   suppliers this shop personally invited,
+      7  SPONSORED             the one paid slot, below everything the
+                               shop earned and above cold discovery.
+                               Labelled, and gated on the shop's own
+                               categories.
+      8  THEY JOINED BECAUSE   suppliers this shop personally invited,
          OF YOU                who signed up and got verified. Above
                                cold discovery because these are people
                                the shopkeeper already trades with
@@ -92,19 +129,29 @@ def _business_feed(business_id) -> List[dict]:
                                in this app that got no reply at all.
                                RARE, so it costs the rails below it
                                nothing on the days it is absent.
-      8  NOT ORDERED YET       suppliers in reach they have never
+      9  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-      9  COLLECT NEAR YOU      growth, last. The only section asking
-                               them to start something rather than
-                               continue it -- the same reason
-                               businesses_near_you sits last for the
-                               supplier.
+     10  COLLECT NEAR YOU      growth. The only RAIL asking them to
+                               start something rather than continue it
+                               -- the same reason businesses_near_you
+                               sits last for the supplier.
+     11  EXPLORE BY KIND       the door out of the feed entirely, and
+                               therefore last. Everything above it is a
+                               supplier this shop has some claim on --
+                               history, a declaration, an invitation,
+                               proximity. This is the way to the ones
+                               they have none on, and it is at the
+                               bottom because reaching it means
+                               somebody went looking. See
+                               business_sections.explore_kinds.
 
-    SPONSORED AND THE PRICE-MOVEMENT RAIL ARE ABSENT. The price rail is
-    deferred by name in V2_09 Part 5; sponsored has nothing to put in it
-    until something is sold, and an empty paid slot is worse than none.
+    THE PRICE-MOVEMENT RAIL IS STILL ABSENT, deferred by name in V2_09
+    Part 5. Sponsored was absent for the same reason until there was
+    something to put in it -- an empty paid slot is worse than none --
+    and sponsored_supplier still returns None rather than an empty
+    shell on a day nobody qualifies.
     """
     sections = [
         business_sections.category_chips(),
@@ -120,6 +167,11 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.invited_suppliers(business_id),
         business_sections.not_ordered_from_yet(business_id),
         business_sections.collect_near_you(business_id),
+        # LAST, AND THE ONLY SECTION THAT LEAVES THE FEED. Everything
+        # above is a supplier this shop has some claim on; this is the
+        # door to the rest. Its own docstring explains why the bottom
+        # is the only honest place for it.
+        business_sections.explore_kinds(),
     ]
     return [s for s in sections if s is not None]
 

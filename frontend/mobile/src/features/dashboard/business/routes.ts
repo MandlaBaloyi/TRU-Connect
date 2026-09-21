@@ -86,3 +86,14 @@ function withName(path: string, key: string, value?: string | null): string {
   if (!value) return path;
   return `${path}${path.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(value)}`;
 }
+
+/** Explore, optionally opened on one kind — /business/feed/explore
+ *
+ *  THE KIND IS A PARAM, NOT A SEPARATE ROUTE, because the chip row on
+ *  that screen can change it afterwards: landing on "Wholesalers" is a
+ *  starting position, not a destination, and a per-kind path would
+ *  make the first tap of the chip row a navigation rather than a
+ *  filter. */
+export function exploreHref(kind?: string | null): string {
+  return kind ? `/business/feed/explore?kind=${encodeURIComponent(kind)}` : "/business/feed/explore";
+}

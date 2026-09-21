@@ -260,5 +260,16 @@ export const MOCK_COMMUNITY_FEED: CommunityFeed = {
       suppliers: [nomvula, kasi, zenzele],
       seeAllHref: null,
     },
+    {
+      // LAST HERE TOO, matching the server's own order. The mock is
+      // what USE_MOCK_API renders and what the section components were
+      // designed against, so a section missing from it is a section
+      // nobody looks at until the backend is running.
+      id: "explore-kinds",
+      type: "EXPLORE_KINDS",
+      title: "Explore suppliers",
+      subtitle: "Browse by what they are",
+      kinds: ["WHOLESALER", "DISTRIBUTOR", "MANUFACTURER", "RETAILER"],
+    },
   ],
 };

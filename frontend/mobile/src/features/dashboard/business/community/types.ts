@@ -164,6 +164,26 @@ export type FeedSection =
       type: "SPONSORED_SUPPLIER";
       label: string;
       supplier: FeedSupplier;
+    })
+  | (SectionBase & {
+      /** THE DOOR OUT OF THE FEED, and the only section here that is
+       *  not a list of anything. Every other section hands over
+       *  suppliers or products this shop has some claim on; this hands
+       *  over the ways to browse the ones it has none on, which is why
+       *  the server puts it last.
+       *
+       *  KINDS ARE RAW ENUM VALUES, NOT LABELS, deliberately unlike
+       *  CATEGORY_CHIPS. A category ships its label and icon because
+       *  the app cannot invent an icon for a category it has not heard
+       *  of. A kind needs neither: SUPPLIER_KIND_LABELS already owns
+       *  the decision that a chip is PLURAL -- it names what you will
+       *  get, not what each row is -- and labelForKind title-cases
+       *  anything unrecognised. A second copy of that rule arriving
+       *  from the server is how the two drift apart. */
+      type: "EXPLORE_KINDS";
+      title: string;
+      subtitle?: string | null;
+      kinds: string[];
     });
 
 export interface CommunityFeed {

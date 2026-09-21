@@ -29,7 +29,11 @@ export function CategoryChipRow({
   onSelect,
 }: {
   categories: FeedCategory[];
-  onSelect: (category: FeedCategory) => void;
+  /** THE INDEX COMES WITH IT BECAUSE IMPRESSIONS NEED IT -- same
+   *  reason Rail passes one. A tap that cannot say where in the row
+   *  it happened answers none of the questions the feed is tuned
+   *  against. */
+  onSelect: (category: FeedCategory, index: number) => void;
 }) {
   const theme = useTheme();
 
@@ -40,11 +44,11 @@ export function CategoryChipRow({
       keyExtractor={(category) => category.value}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
 
         return (
           <Pressable
-            onPress={() => onSelect(item)}
+            onPress={() => onSelect(item, index)}
             style={({ pressed }) => [
               styles.chip,
               {

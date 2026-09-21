@@ -112,16 +112,43 @@ PART 1 — IMPRESSIONS: WHAT THE FEED SHOWED, AND WHAT WAS TAPPED
   demand engine is SUPPLIER-BLIND, enforced by
   tests/architecture/test_demand_independence.py.
 
-  So the table and the writer live in network/community/ (a record of
-  what the FEED did), and the demand engine reads a NARROW,
-  SUPPLIER-BLIND view of it: "which categories did this shop look at and
-  never buy". That is the same trick observed.py already uses with
-  orders, and its docstring explains why it is not a loophole: the model
-  describes the SHOP, and what it must never contain is who sold to
-  them.
+  So the table and the writer live beside the feed, and the demand
+  engine reads a NARROW, SUPPLIER-BLIND view of it: "which categories
+  did this shop look at and never buy". That is the same trick
+  observed.py already uses with orders, and its docstring explains why
+  it is not a loophole: the model describes the SHOP, and what it must
+  never contain is who sold to them.
 
   Putting the table under demand/ would either break the architecture
   test or force the sponsored billing question somewhere worse.
+
+  ─── CORRECTED WHEN BUILT, 2026-09-21 ───────────────────────────────
+
+  THIS SECTION ORIGINALLY SAID network/community/impressions/ AND THAT
+  WAS WRONG. Two rules are already enforced against the community
+  package, and this document was written without checking either:
+
+      tests/architecture/test_community_is_a_composer.py
+        RULE 1  no domain may import the feed -- it is a composer, and
+                the coordinator is never imported by what it
+                coordinates
+        RULE 2  the feed owns no tables: "a composer that persists has
+                stopped composing and started being a domain"
+
+  Rule 2 describes this package exactly. An impressions table has rows,
+  so by this codebase's own definition it is a DOMAIN rather than part
+  of the composer, and it belongs BESIDE community rather than inside
+  it: src/domains/network/impressions/.
+
+  That also settles Rule 1 with no exception needed. The feed imports
+  impressions (a composer reading from a domain, the allowed
+  direction), and demand/ imports impressions rather than the feed.
+  Both architecture tests pass untouched.
+
+  V2_04 named impression logging as the one future exception to Rule 2
+  and said it should "get its own reasoning, not this test quietly
+  deleted". The reasoning turned out to be that the exception was never
+  needed -- the table simply is not part of the composer.
 
   ─────────────────────────────────────────────────────────────────────
   1.5  THE TREE (proposed, not yet built)
@@ -130,13 +157,20 @@ PART 1 — IMPRESSIONS: WHAT THE FEED SHOWED, AND WHAT WAS TAPPED
   backend/
     migrations/versions/<rev>_feed_impressions.py            new
 
-    src/domains/network/community/impressions/
+    src/domains/network/impressions/        <- SIBLING of community/,
+                                              not inside it; see 1.4
       models/feed_impression.py         shop, day, rail, position, item,
                                         supplier, delivered, tapped
-      repositories/impression_repository.py    upsert-and-increment
+      repositories/impression_repository.py    upsert-and-increment, and
+                                        the ONLY file that decides what
+                                        leaves this table
       services/impression_service.py    record_delivered(sections),
                                         record_tap(...)
       api/impression_routes.py          POST /community/impressions/tap
+      rate_limit/policies.py            TAP + MAX_TAPS_PER_REQUEST --
+                                        shipped WITH the feature, see
+                                        Part 2: this is the only write
+                                        in the tab a device can drive
 
     src/domains/network/community/services/feed_service.py   edit
                                         enqueue record_delivered
@@ -144,7 +178,7 @@ PART 1 — IMPRESSIONS: WHAT THE FEED SHOWED, AND WHAT WAS TAPPED
     src/domains/business/demand/signals/
       considered.py                     new -- the supplier-blind read
 
-    tests/domains/network/community/test_impressions.py      new
+    tests/domains/network/test_impressions.py                new
     tests/architecture/test_demand_independence.py           must still pass
 
   frontend/mobile/

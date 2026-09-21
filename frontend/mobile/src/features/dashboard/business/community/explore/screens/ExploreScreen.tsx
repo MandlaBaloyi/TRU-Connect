@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 import { ChevronRight } from "lucide-react-native";
 
@@ -47,7 +47,18 @@ import { labelForKind } from "../services/exploreService";
 export default function ExploreScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const explore = useExplore();
+
+  // WHICH KIND TO OPEN ON, when something sent us here already
+  // knowing -- the feed's EXPLORE_KINDS section at the bottom of
+  // Community. Absent when the overflow menu opened this screen cold,
+  // and then useExplore falls back to the server's own default.
+  //
+  // IT SEEDS, IT DOES NOT CONTROL. The chip row must still be able to
+  // change the kind afterwards, so this is an INITIAL value rather
+  // than a prop threaded into the query -- otherwise the first tap of
+  // a chip would fight the URL and lose.
+  const { kind } = useLocalSearchParams<{ kind?: string }>();
+  const explore = useExplore(typeof kind === "string" ? kind : undefined);
 
   if (explore.isLoading) {
     return (

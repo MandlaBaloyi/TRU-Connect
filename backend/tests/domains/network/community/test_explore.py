@@ -205,3 +205,93 @@ class TestTheChipsAreBuiltFromWhatExists:
         supplier_of("Unsaid Co", kind=SupplierKind.UNSPECIFIED)
 
         assert "UNSPECIFIED" not in explore_service.kinds_with_suppliers()
+
+
+class TestTheDoorIntoExploreSitsAtTheBottomOfTheFeed:
+    """THE PLACEMENT IS THE DESIGN, so the placement is what is tested.
+
+    Explore was reachable only from the overflow menu, whose own
+    comment argues that browsing by what a supplier IS is "an
+    occasional, deliberate act ... not something to put in front of
+    somebody who opened this tab to check their connections". That
+    reasoning survives ONLY while this section is last. Anywhere else
+    in the feed and the comment and the code contradict each other --
+    which is exactly the sort of drift a test about ordering is for.
+    """
+
+    def test_it_is_the_last_section_in_the_feed(
+        self, app, db_session, make_business, supplier_of
+    ):
+        """Everything above it is a supplier the shop has some claim on
+        -- history, a declaration, an invitation, proximity. This is
+        the door to the ones it has none on, and reaching it should
+        mean somebody went looking."""
+        from src.domains.network.community.services import feed_service
+
+        supplier_of("Lepelle Wholesalers", kind=SupplierKind.WHOLESALER)
+        business = make_business()
+
+        sections = feed_service.feed_for(business.id, "business")
+
+        assert sections, "the feed should not be empty"
+        assert sections[-1]["type"] == "EXPLORE_KINDS"
+
+    def test_no_kinds_means_no_section_rather_than_an_empty_one(
+        self, app, db_session, make_business, supplier_of
+    ):
+        """A platform whose visible suppliers have all left
+        supplier_kind at UNSPECIFIED has nothing to offer here. A
+        titled box with no doors in it is worse than no box."""
+        from src.domains.network.community.services import feed_service
+
+        supplier_of("Unsaid Co", kind=SupplierKind.UNSPECIFIED)
+        business = make_business()
+
+        sections = feed_service.feed_for(business.id, "business")
+
+        assert all(s["type"] != "EXPLORE_KINDS" for s in sections)
+
+    def test_it_offers_only_kinds_that_have_somebody(
+        self, app, db_session, make_business, supplier_of
+    ):
+        """The feed must not advertise a door that opens onto an empty
+        room. It asks the same function the Explore screen's own chip
+        row asks, so the two can never disagree."""
+        from src.domains.network.community.services import feed_service
+
+        supplier_of("Lepelle Wholesalers", kind=SupplierKind.WHOLESALER)
+        supplier_of("Empty Shelf Mfg", kind=SupplierKind.MANUFACTURER, with_stock=False)
+        business = make_business()
+
+        section = next(
+            s
+            for s in feed_service.feed_for(business.id, "business")
+            if s["type"] == "EXPLORE_KINDS"
+        )
+
+        assert section["kinds"] == ["WHOLESALER"]
+
+    def test_it_sends_raw_kinds_and_never_labels(
+        self, app, db_session, make_business, supplier_of
+    ):
+        """DELIBERATELY UNLIKE CATEGORY_CHIPS, which ships a label and
+        an icon because the app cannot invent an icon for a category it
+        has not heard of. A kind needs neither: the app's
+        SUPPLIER_KIND_LABELS already owns the rule that a chip is
+        PLURAL, and labelForKind title-cases anything unrecognised.
+        A second copy of that rule arriving from here is how the two
+        drift apart -- so this asserts the shape, not just the values.
+        """
+        from src.domains.network.community.services import feed_service
+
+        supplier_of("Lepelle Wholesalers", kind=SupplierKind.WHOLESALER)
+        business = make_business()
+
+        section = next(
+            s
+            for s in feed_service.feed_for(business.id, "business")
+            if s["type"] == "EXPLORE_KINDS"
+        )
+
+        assert section["kinds"] == ["WHOLESALER"], "raw enum values, not 'Wholesalers'"
+        assert all(isinstance(k, str) for k in section["kinds"])

@@ -41,7 +41,12 @@ export function Rail<T>({
   subtitle?: string | null;
   data: T[];
   keyExtractor: (item: T) => string;
-  renderItem: (item: T) => React.ReactElement;
+  /** THE INDEX IS PASSED BECAUSE IMPRESSIONS NEED IT. A tap is only
+   *  worth recording if it can name WHERE in the rail it happened --
+   *  the whole reason tier_rules' distance band can be argued with is
+   *  comparing position 0 against position 1. Callers that do not care
+   *  simply ignore it. */
+  renderItem: (item: T, index: number) => React.ReactElement;
   onSeeAll?: (() => void) | null;
   itemGap?: number;
 }) {
@@ -80,7 +85,7 @@ export function Rail<T>({
         horizontal
         data={data}
         keyExtractor={keyExtractor}
-        renderItem={({ item }) => renderItem(item)}
+        renderItem={({ item, index }) => renderItem(item, index)}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={[styles.row, { gap: itemGap }]}
         // Windowing kept tight on purpose -- see the note above on

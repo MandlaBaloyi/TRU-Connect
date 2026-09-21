@@ -7,6 +7,7 @@ import { radius, spacing } from "@/theme/spacing";
 
 import { FeedSectionView } from "./FeedSectionView";
 import { useCommunityFeed } from "../../hooks/useCommunityFeed";
+import { useTapTracking } from "../../hooks/useTapTracking";
 
 /**
  * The "For You" feed: a vertical list of horizontal shelves.
@@ -44,6 +45,16 @@ export function CommunityFeed() {
   const theme = useTheme();
   const { sections, isLoading, isError, refetch, isRefetching } = useCommunityFeed();
 
+  // ONE BUFFER FOR THE WHOLE FEED, held here rather than inside each
+  // section. A hook per section would mean ten buffers and ten flush
+  // timers racing each other to the same rate-limited endpoint --
+  // which is the shape that trips the limit rather than respects it.
+  //
+  // CALLED BEFORE THE EARLY RETURNS BELOW, because hooks must be. The
+  // loading and error paths get a tracker nobody reports to, which
+  // costs nothing.
+  const { reportTap } = useTapTracking();
+
   if (isLoading) return <FeedSkeleton />;
 
   if (isError) {
@@ -59,7 +70,7 @@ export function CommunityFeed() {
     <FlatList
       data={sections}
       keyExtractor={(section) => section.id}
-      renderItem={({ item }) => <FeedSectionView section={item} />}
+      renderItem={({ item }) => <FeedSectionView section={item} onTap={reportTap} />}
       ItemSeparatorComponent={() => <FeedDivider />}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}

@@ -745,3 +745,69 @@ def collect_near_you(business_id, limit: int = 10) -> Optional[dict]:
         # reordering is a contradiction the reader is holding (V2_17 Q5).
         **_rail_tail("collect-near-you", len(nearest), len(measured)),
     }
+
+
+# ---------------------------------------------------------------------------
+# Explore by kind
+# ---------------------------------------------------------------------------
+
+def explore_kinds() -> Optional[dict]:
+    """Doorways into Explore, at the very bottom of the feed.
+
+    WHY IT IS IN THE FEED AT ALL. Explore already exists and is already
+    reachable -- from the overflow menu, whose comment argues that
+    browsing by what a supplier IS is "an occasional, deliberate act
+    ... not something to put in front of somebody who opened this tab
+    to check their connections". That reasoning is still right, and
+    this section does not contradict it. It depends entirely on WHERE.
+
+    THE TAIL IS THE ONLY PLACE IT BELONGS. The feed already ends in
+    cold discovery -- not_ordered_from_yet, then collect_near_you,
+    which _business_feed's own docstring calls "growth, last ... the
+    only section asking them to start something rather than continue
+    it". Explore is that same intent one step further out: everything
+    above it is a supplier the shop has some claim on, and this is the
+    door to the ones they have none on.
+
+    So somebody who opened the tab to check their connections never has
+    it pushed at them, and somebody who scrolled past nine sections of
+    what they already have is precisely the person looking for it. Both
+    halves of the menu comment survive.
+
+    THE MENU ENTRY STAYS. This is an additional way in, not a move. The
+    deliberate act the comment describes is real and is worth one tap
+    from the top of the screen rather than ten from the bottom.
+
+    NO LABELS FROM HERE, DELIBERATELY DIFFERING FROM category_chips.
+    That builder ships label AND icon because a new category needs an
+    icon the app cannot invent. A supplier kind needs neither: the app
+    owns SUPPLIER_KIND_LABELS, which encodes a decision this file has
+    no business restating -- a chip is PLURAL, because it names what
+    you will get rather than what each row is -- and labelForKind
+    already title-cases a kind the app has not heard of. Sending a
+    second copy of that rule from here is how the two drift.
+
+    ONE KIND IS STILL A SECTION. The "a thin rail is worse than no
+    rail" rule is about a rail that promises a browsable set and hands
+    over two cards; one complete doorway is not thin, it is one door.
+    Only an empty list withholds the section -- and that case is real:
+    a platform whose visible suppliers have all left supplier_kind at
+    UNSPECIFIED has nothing here to offer, which kinds_with_suppliers
+    already reports honestly by discarding it.
+    """
+    from src.domains.network.community.explore.services import explore_service
+
+    # THE SAME CALL THE EXPLORE SCREEN'S OWN CHIP ROW USES, so the feed
+    # can never advertise a door that opens onto an empty room. It is
+    # gated by the curtain and by "has something to sell" in one place.
+    kinds = explore_service.kinds_with_suppliers()
+    if not kinds:
+        return None
+
+    return {
+        "id": "explore-kinds",
+        "type": "EXPLORE_KINDS",
+        "title": "Explore suppliers",
+        "subtitle": "Browse by what they are",
+        "kinds": kinds,
+    }

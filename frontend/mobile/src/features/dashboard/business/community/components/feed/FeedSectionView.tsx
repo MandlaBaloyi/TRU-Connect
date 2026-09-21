@@ -3,7 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
-import { productDetailHref, supplierCatalogHref, supplierProfileHref } from "../../../routes";
+import {
+  exploreHref,
+  productDetailHref,
+  supplierCatalogHref,
+  supplierProfileHref,
+} from "../../../routes";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -14,7 +19,9 @@ import { SupplierAvatarTile } from "../cards/SupplierAvatarTile";
 import { ProductTile } from "../cards/ProductTile";
 import { PromoCard } from "../cards/PromoCard";
 import { CategoryChipRow } from "../chips/CategoryChipRow";
+import { ExploreKindsCard } from "./ExploreKindsCard";
 import type { FeedSection } from "../../types";
+import type { FeedTap } from "../../services/impressionService";
 
 /**
  * Renders ONE feed section, whatever kind it is. The screen above
@@ -33,12 +40,33 @@ import type { FeedSection } from "../../types";
  * keeps the destination's own header correct on its first frame (see
  * business/routes.ts on the header-flash fix).
  */
-export function FeedSectionView({ section }: { section: FeedSection }) {
+export function FeedSectionView({
+  section,
+  onTap,
+}: {
+  section: FeedSection;
+  /** REPORTED BEFORE NAVIGATING, never after. The next line unmounts
+   *  this screen, and a callback scheduled behind a navigation is a
+   *  callback that sometimes does not run -- which would silently lose
+   *  taps on exactly the cards that worked. The buffer itself lives one
+   *  level up in CommunityFeed, so leaving does not lose it. */
+  onTap?: (tap: FeedTap) => void;
+}) {
   const router = useRouter();
   const theme = useTheme();
 
-  const openSupplier = (id: string, name: string) =>
+  const openSupplier = (id: string, name: string, position: number) => {
+    onTap?.({
+      rail: section.id,
+      position,
+      itemId: id,
+      itemType: "SUPPLIER",
+      // A SUPPLIER CARD *IS* THE SUPPLIER, so the id serves as both the
+      // thing looked at and the party who would be billed for it.
+      supplierId: id,
+    });
     router.push(supplierProfileHref(id, name) as any);
+  };
 
   // ONE PLACE DECIDES WHETHER A RAIL HAS A CHEVRON, so a new rail
   // cannot accidentally ship without one -- or with one that leads
@@ -61,9 +89,15 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
           // new business the chips are the only section of this tab
           // that works at all. The first thing they did was the thing
           // that worked least.
-          onSelect={(category) =>
-            router.push(`/business/browse/${encodeURIComponent(category.value)}` as any)
-          }
+          onSelect={(category, index) => {
+            onTap?.({
+              rail: section.id,
+              position: index,
+              itemId: category.value,
+              itemType: "CATEGORY",
+            });
+            router.push(`/business/browse/${encodeURIComponent(category.value)}` as any);
+          }}
         />
       );
 
@@ -80,10 +114,10 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
           keyExtractor={(supplier) => supplier.id}
           itemGap={spacing.md}
           onSeeAll={seeAll}
-          renderItem={(supplier) => (
+          renderItem={(supplier, index) => (
             <SupplierAvatarTile
               supplier={supplier}
-              onPress={() => openSupplier(supplier.id, supplier.businessName)}
+              onPress={() => openSupplier(supplier.id, supplier.businessName, index)}
             />
           )}
         />
@@ -97,10 +131,10 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
           onSeeAll={seeAll}
           data={section.suppliers}
           keyExtractor={(supplier) => supplier.id}
-          renderItem={(supplier) => (
+          renderItem={(supplier, index) => (
             <SupplierCard
               supplier={supplier}
-              onPress={() => openSupplier(supplier.id, supplier.businessName)}
+              onPress={() => openSupplier(supplier.id, supplier.businessName, index)}
             />
           )}
         />
@@ -114,10 +148,17 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
           onSeeAll={seeAll}
           data={section.products}
           keyExtractor={(product) => product.id}
-          renderItem={(product) => (
+          renderItem={(product, index) => (
             <ProductTile
               product={product}
-              onPress={() =>
+              onPress={() => {
+                onTap?.({
+                  rail: section.id,
+                  position: index,
+                  itemId: product.id,
+                  itemType: "PRODUCT",
+                  supplierId: product.supplierId,
+                });
                 router.push(
                   productDetailHref(
                     product.supplierId,
@@ -125,8 +166,8 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
                     product.name,
                     product.supplierName
                   ) as any
-                )
-              }
+                );
+              }}
             />
           )}
         />
@@ -156,9 +197,23 @@ export function FeedSectionView({ section }: { section: FeedSection }) {
           </Text>
           <SponsoredSupplierCard
             supplier={section.supplier}
-            onPress={() => openSupplier(section.supplier.id, section.supplier.businessName)}
+            onPress={() => openSupplier(section.supplier.id, section.supplier.businessName, 0)}
           />
         </View>
+      );
+
+    case "EXPLORE_KINDS":
+      // THE ONLY SECTION THAT LEAVES THE FEED, and the server puts it
+      // last for that reason -- see business_sections.explore_kinds.
+      // Everything above this point is a supplier the shop has some
+      // claim on; this is the way to the ones it has none on.
+      return (
+        <ExploreKindsCard
+          title={section.title}
+          subtitle={section.subtitle}
+          kinds={section.kinds}
+          onSelect={(kind) => router.push(exploreHref(kind) as any)}
+        />
       );
 
     default:
