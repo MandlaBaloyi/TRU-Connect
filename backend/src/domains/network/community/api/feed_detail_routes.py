@@ -54,6 +54,19 @@ def _paging() -> tuple:
     return limit, offset
 
 
+def _supplier_controls() -> dict:
+    """The narrowing the two SUPPLIER see-alls share.
+
+    NO SORT, unlike the product screens -- collect_near_you prints the
+    distance it is ordered by, so reordering it would contradict the
+    number on its own cards.
+    """
+    return {
+        "search": (request.args.get("search") or "").strip() or None,
+        "kind": (request.args.get("kind") or "").strip().upper() or None,
+    }
+
+
 def _controls() -> dict:
     """The narrowing every see-all screen shares.
 
@@ -160,7 +173,9 @@ def collect_near_you():
     limit, offset = _paging()
 
     measured = feed_detail_service.collect_near_you_suppliers(business_id)
-    page = feed_detail_service.paginate(measured, limit=limit, offset=offset)
+    page = feed_detail_service.present_suppliers(
+        measured, limit=limit, offset=offset, **_supplier_controls()
+    )
     connected = connected_supplier_ids(business_id)
 
     return success_response(
@@ -172,6 +187,8 @@ def collect_near_you():
             ),
             "hasMore": page["hasMore"],
             "total": page["total"],
+            # FIRST PAGE ONLY, like every other facet here.
+            **({"kinds": page["kinds"]} if "kinds" in page else {}),
         }
     )
 
@@ -185,7 +202,9 @@ def not_ordered_yet():
     limit, offset = _paging()
 
     untried = feed_detail_service.not_ordered_yet_suppliers(business_id)
-    page = feed_detail_service.paginate(untried, limit=limit, offset=offset)
+    page = feed_detail_service.present_suppliers(
+        untried, limit=limit, offset=offset, **_supplier_controls()
+    )
     connected = connected_supplier_ids(business_id)
 
     return success_response(
@@ -193,5 +212,7 @@ def not_ordered_yet():
             "suppliers": feed_suppliers(page["items"], connected_ids=connected),
             "hasMore": page["hasMore"],
             "total": page["total"],
+            # FIRST PAGE ONLY, like every other facet here.
+            **({"kinds": page["kinds"]} if "kinds" in page else {}),
         }
     )

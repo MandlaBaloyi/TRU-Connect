@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { CategoryIcon } from "@/components/categories";
+import { productDetailHref } from "@/features/dashboard/business/routes";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
 import { categoryLabel } from "@/constants/productCategories";
@@ -151,9 +152,24 @@ export default function CategoryBrowseScreen() {
               // Straight to the product on ITS supplier's shopfront --
               // the screen that already knows how to show one product,
               // rather than a second product detail built for this list.
+              //
+              // THROUGH productDetailHref, NOT A HAND-BUILT PATH. That
+              // helper exists for one reason: it carries the product
+              // and supplier NAMES through as params so the
+              // destination's header is correct on its FIRST frame.
+              // Building the same path by hand skipped them, so tapping
+              // a product opened a screen headed "Product" that
+              // corrected itself a second later once the fetch landed.
+              // The same route, one character of difference, and a
+              // visible flash on every tap.
               onPress={() =>
                 router.push(
-                  `/business/my-suppliers/${item.supplierId}/products/${item.id}` as any
+                  productDetailHref(
+                    item.supplierId,
+                    item.id,
+                    item.name,
+                    item.supplierName
+                  ) as any
                 )
               }
             />

@@ -8,6 +8,7 @@ import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { SupplierName } from "@/components/ui/SupplierName";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { BrowseHeader } from "@/features/dashboard/business/browse/components/BrowseHeader";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -59,20 +60,62 @@ export default function ExploreScreen() {
   // a chip would fight the URL and lose.
   const { kind } = useLocalSearchParams<{ kind?: string }>();
   const explore = useExplore(typeof kind === "string" ? kind : undefined);
+  const [search, setSearch] = React.useState("");
 
-  if (explore.isLoading) {
-    return (
-      <ScreenContainer hasNativeHeader>
-        <View style={styles.centre}>
-          <ActivityIndicator color={theme.colors.primary} />
-        </View>
-      </ScreenContainer>
+  // FILTERED IN THE APP, NOT THE SERVER, and only here. Explore
+  // returns at most PAGE_SIZE = 40 suppliers of one kind and says
+  // so in useExplore's own docstring -- "a market with more than
+  // forty wholesalers of one kind is a problem this app does not
+  // have yet". Filtering forty names in memory is honest; adding a
+  // search parameter to an endpoint that never paginates would be
+  // machinery with nothing to carry.
+  const visible = React.useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return explore.suppliers;
+    return explore.suppliers.filter((s) =>
+      (s.businessName ?? "").toLowerCase().includes(needle)
     );
-  }
+  }, [explore.suppliers, search]);
 
+  const activeLabel = labelForKind(explore.kind ?? "WHOLESALER").toLowerCase();
+
+  const header = (
+    <>
+      <BrowseHeader
+        label="Explore suppliers"
+        // NULL WHILE UNKNOWN, NEVER ZERO. A count of 0 above a
+        // spinner is a fact that was never true, and it flashes on
+        // every first load. BrowseHeader renders an ellipsis for
+        // null and keeps the bar one height throughout.
+        total={explore.isLoading ? null : visible.length}
+        search={search}
+        onSearch={setSearch}
+        noun={{ one: "supplier", many: "suppliers" }}
+      />
+      {explore.kinds.length > 1 ? (
+        <KindChipRow
+          kinds={explore.kinds}
+          selected={explore.kind}
+          onSelect={explore.setKind}
+        />
+      ) : null}
+    </>
+  );
+
+  // THE HEADER SURVIVES EVERY STATE, AND THAT IS THE FIX FOR A REAL
+  // BUG. Loading and error used to return EARLY, before the header
+  // existed -- so tapping a kind chip replaced the whole screen with a
+  // bare spinner: no title, no chips, no way back except the system
+  // back button, for as long as the fetch took. The reader had used a
+  // control and the control vanished.
+  //
+  // IT IS ALSO WHY THE CHIPS ARE PART OF THE HEADER rather than part
+  // of the list. A filter row that unmounts while its own result loads
+  // is a filter row you cannot change your mind about.
   if (explore.isError) {
     return (
-      <ScreenContainer hasNativeHeader>
+      <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+        {header}
         <ErrorState
           message="Couldn't load suppliers. Check your connection and try again."
           onRetry={explore.refetch}
@@ -81,41 +124,48 @@ export default function ExploreScreen() {
     );
   }
 
-  const activeLabel = labelForKind(explore.kind ?? "WHOLESALER").toLowerCase();
+  if (explore.isLoading) {
+    return (
+      <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+        {header}
+        <View style={styles.centre}>
+          <ActivityIndicator color={theme.colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScreenContainer hasNativeHeader paddingHorizontal={0}>
-      {explore.kinds.length > 1 && (
-        <KindChipRow kinds={explore.kinds} selected={explore.kind} onSelect={explore.setKind} />
-      )}
+    // edges WITHOUT "top", AND NOT hasNativeHeader. BrowseHeader paints
+    // the status-bar strip itself; hasNativeHeader would add sixteen
+    // points of container background above it and the bar would wear
+    // two colours. Same configuration every AppHeader screen uses.
+    <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+      {header}
 
-      {explore.suppliers.length === 0 ? (
+      {visible.length === 0 ? (
         <View style={styles.centre}>
           <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-            No {activeLabel} yet
+            {search ? "Nothing matches" : `No ${activeLabel} yet`}
           </Text>
           <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
             {/* NAMES THE REAL REASON. A supplier is missing from here
                 because they are unverified or have no stock listed --
                 not because anything failed -- and saying so is more
                 useful than "nothing found". */}
-            Suppliers appear here once they're verified and have stock listed. Invite one you
-            already buy from and they'll show up.
+            {search
+              ? "No supplier in this list has that name. Clear the search to see them all."
+              : "Suppliers appear here once they're verified and have stock listed. Invite one you already buy from and they'll show up."}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={explore.suppliers}
+          data={visible}
           keyExtractor={(supplier) => supplier.id}
           contentContainerStyle={styles.content}
           ItemSeparatorComponent={() => (
             <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />
           )}
-          ListHeaderComponent={
-            <Text style={[styles.count, { color: theme.colors.onSurfaceVariant }]}>
-              {explore.total} {explore.total === 1 ? "supplier" : "suppliers"}
-            </Text>
-          }
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(supplierProfileHref(item.id, item.businessName) as any)}

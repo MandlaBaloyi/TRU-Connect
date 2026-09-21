@@ -4,6 +4,7 @@ import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import type {
   ProductPage,
   SeeAllControls,
+  SupplierControls,
   SupplierPage,
 } from "../services/feedDetailService";
 
@@ -83,21 +84,37 @@ export function useFeedProducts(
 
 export function useFeedSuppliers(
   key: string,
-  fetchPage: (offset: number) => Promise<SupplierPage>
+  fetchPage: (offset: number, controls?: SupplierControls) => Promise<SupplierPage>
 ) {
-  const query = useInfiniteQuery({
-    queryKey: ["community", "detail", key],
-    queryFn: ({ pageParam }) => fetchPage(pageParam as number),
+  // SAME ARRANGEMENT AS useFeedProducts: the filters live in the hook
+  // so the query key and the controls cannot disagree about what is on
+  // screen. No sort here -- see SupplierControls.
+  const [controls, setControls] = useState<SupplierControls>({});
+
+  const query = useInfiniteQuery<SupplierPage>({
+    queryKey: ["community", "detail", key, controls.search ?? null, controls.kind ?? null],
+    queryFn: ({ pageParam }) => fetchPage(pageParam as number, controls),
     initialPageParam: 0,
     getNextPageParam: (last, pages) => {
       if (!last.hasMore) return undefined;
       return pages.reduce((count, page) => count + page.suppliers.length, 0);
     },
+    placeholderData: keepPreviousData,
   });
+
+  const first = query.data?.pages[0];
 
   return {
     suppliers: query.data?.pages.flatMap((page) => page.suppliers) ?? [],
-    total: query.data?.pages[0]?.total ?? 0,
+    total: first?.total ?? null,
+    kinds: first?.kinds ?? [],
+
+    controls,
+    setSearch: (search: string) =>
+      setControls((current) => ({ ...current, search: search || undefined })),
+    toggleKind: (kind: string) =>
+      setControls((current) => ({ ...current, kind: current.kind === kind ? null : kind })),
+
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,

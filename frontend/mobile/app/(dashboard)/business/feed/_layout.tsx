@@ -1,7 +1,6 @@
 import React from "react";
 import { Stack } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { communityHeader } from "@/features/dashboard/business/community/components/header/CommunityHeader";
 
 /**
  * The screens behind the feed's arrows.
@@ -28,11 +27,16 @@ export default function CommunityDetailLayout() {
   return (
     <Stack
       screenOptions={{
-        // NO NATIVE HEADER ON THE PRODUCT SEE-ALLS. Each of them draws
-        // its own AppHeader with the count and the search, the same as
-        // the category browse -- a native bar above that would be two
-        // bars saying less between them. The supplier see-alls below
-        // still opt back in.
+        // NO NATIVE HEADER ANYWHERE IN THIS GROUP. Every screen here
+        // now draws its own AppHeader with the count and the search --
+        // the product see-alls, both supplier see-alls and Explore. A
+        // native bar above any of them would be two bars saying less
+        // between them.
+        //
+        // THE TITLES BELOW ARE STILL WORTH KEEPING. They are what the
+        // router knows a route is called, they show up in navigation
+        // state and in any future breadcrumb, and they are the one
+        // place the four route names are listed together.
         headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
@@ -54,10 +58,10 @@ export default function CommunityDetailLayout() {
       <Stack.Screen name="moving-fast" options={{ title: "Popular with businesses" }} />
       <Stack.Screen name="left-off" options={{ title: "Continue stocking up" }} />
       <Stack.Screen name="stock-for-you" options={{ title: "Stock for your shop" }} />
-      <Stack.Screen name="collect-near-you" options={{ headerShown: true, header: communityHeader, title: "Collect near you" }} />
+      <Stack.Screen name="collect-near-you" options={{ title: "Collect near you" }} />
       <Stack.Screen
         name="not-ordered-yet"
-        options={{ headerShown: true, header: communityHeader, title: "Discover new suppliers" }}
+        options={{ title: "Discover new suppliers" }}
       />
       {/* NOT A RAIL'S SEE-ALL, unlike its four neighbours -- Explore is
           reached from the Community tab's own menu and has no rail
@@ -65,7 +69,7 @@ export default function CommunityDetailLayout() {
           of screen (a full list of suppliers, under the community
           header) and a group of its own for one route would be a
           navigator with nothing to coordinate. */}
-      <Stack.Screen name="explore" options={{ headerShown: true, header: communityHeader, title: "Explore suppliers" }} />
+      <Stack.Screen name="explore" options={{ title: "Explore suppliers" }} />
     </Stack>
   );
 }

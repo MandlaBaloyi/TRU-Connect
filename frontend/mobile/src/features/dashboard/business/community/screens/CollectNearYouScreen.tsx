@@ -20,18 +20,10 @@ export default function CollectNearYouScreen() {
 
   return (
     <FeedSupplierList
-      suppliers={feed.suppliers}
-      total={feed.total}
-      emptyTitle="No suppliers near you yet"
-      emptyBody="Pin your shop on the map in your profile, and any supplier close enough to collect from will appear here."
-      isLoading={feed.isLoading}
-      isError={feed.isError}
-      refetch={feed.refetch}
-      isRefetching={feed.isRefetching}
-      onEndReached={() => {
-        if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
-      }}
-      isFetchingNextPage={feed.isFetchingNextPage}
+      title="Collect near you"
+      feed={feed}
+      emptyTitle={"No suppliers near you yet"}
+      emptyBody={"Pin your shop on the map in your profile, and any supplier close enough to collect from will appear here."}
     />
   );
 }

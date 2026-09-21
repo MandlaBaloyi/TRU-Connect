@@ -397,6 +397,87 @@ def present(
     return result
 
 
+def present_suppliers(
+    rows: List,
+    *,
+    search=None,
+    kind=None,
+    limit: int,
+    offset: int,
+) -> dict:
+    """A supplier see-all page: narrowed, counted, with its kind facets.
+
+    TAKES EITHER SHAPE. collect-near-you carries (km, profile) tuples
+    because it prints the distance; not-ordered-yet carries bare
+    profiles. Normalising here means one narrowing rule rather than two
+    that drift apart.
+
+    NO SORT CONTROL, AND THAT IS DELIBERATE. collect_near_you is
+    "strictly distance-ordered, at every tier, forever" -- it is the
+    only surface that PRINTS the number it is sorted by, so a reorder
+    is a contradiction the reader is holding (V2_17 Q5). Offering A-Z
+    there would let somebody produce a list headed "closest to
+    Mankweng" that is not in distance order. NARROWING does not have
+    that problem: filtering to wholesalers leaves the survivors in
+    distance order, and the heading stays true.
+
+    AND THE TWO SCREENS GET THE SAME CONTROLS, because a control that
+    exists on one discovery screen and not the other is a control
+    nobody learns.
+
+    KIND IS THE AXIS, matching the category browse and Explore -- the
+    same small closed set, and on a discovery screen it is the question
+    worth asking: a cash-and-carry and a manufacturer are different
+    propositions for the same shop.
+    """
+    from src.domains.supplier.supplier_profile.models.supplier_profile import SupplierKind
+
+    def profile_of(row):
+        return row[1] if isinstance(row, tuple) else row
+
+    def kind_of(row):
+        value = profile_of(row).supplier_kind
+        return getattr(value, "value", value)
+
+    narrowed = rows
+
+    if search:
+        needle = search.strip().lower()
+        if needle:
+            narrowed = [
+                row
+                for row in narrowed
+                if needle in (profile_of(row).business_name or "").lower()
+            ]
+
+    # COUNTED BEFORE THE KIND FILTER IS APPLIED. Counting after it
+    # leaves exactly one chip standing -- the one just tapped -- and the
+    # row collapses with no way back to a filter nobody can see. Same
+    # rule the browse and the product see-alls follow, and the same bug
+    # that taught it.
+    counts = {}
+    for row in narrowed:
+        value = kind_of(row)
+        if not value or value == SupplierKind.UNSPECIFIED.value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+
+    if kind:
+        narrowed = [row for row in narrowed if kind_of(row) == kind]
+
+    page = paginate(narrowed, limit=limit, offset=offset)
+    result = {"items": page["items"], "hasMore": page["hasMore"], "total": page["total"]}
+    if offset == 0:
+        # A STABLE ORDER, from the enum rather than from a dict, so the
+        # chips do not move between visits.
+        result["kinds"] = [
+            {"id": k.value, "name": k.value, "count": counts[k.value]}
+            for k in SupplierKind
+            if k.value in counts
+        ]
+    return result
+
+
 def paginate(items: List, *, limit: int, offset: int) -> dict:
     """One page, and an honest answer about whether there is another.
 

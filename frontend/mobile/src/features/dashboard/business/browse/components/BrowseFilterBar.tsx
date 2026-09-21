@@ -98,6 +98,7 @@ export function BrowseFilterBar({
   onToggleMine,
   onSort,
   sortOptions,
+  hideSort,
 }: {
   /** Supplier kinds, when the list is category-scoped. Absent on the
    *  see-all screens: "Reorder what you need" is a shop's own history,
@@ -120,6 +121,11 @@ export function BrowseFilterBar({
    *  price; a see-all keeps its own ranking as the default, because
    *  that ranking is the rail's whole argument. */
   sortOptions?: { value: BrowseSort; label: string; hint: string }[];
+  /** NO SORT CHIP AT ALL. The supplier see-alls use it: collect-near-you
+   *  prints the distance it is ordered by, so offering a reorder would
+   *  let somebody produce a list headed "closest to Mankweng" that is
+   *  not in distance order. Narrowing is safe; reordering is not. */
+  hideSort?: boolean;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -161,6 +167,7 @@ export function BrowseFilterBar({
         keyExtractor={(facet) => facet.id}
         ListHeaderComponent={
           <View style={styles.leading}>
+            {hideSort ? null : (
             <Pressable
               onPress={() => setSheetOpen(true)}
               accessibilityRole="button"
@@ -176,6 +183,7 @@ export function BrowseFilterBar({
                 {sorted ? current.label : "Sort by"}
               </Text>
             </Pressable>
+            )}
 
             {onToggleMine ? (
             <Pressable

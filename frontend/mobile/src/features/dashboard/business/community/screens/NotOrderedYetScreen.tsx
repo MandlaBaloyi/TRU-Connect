@@ -28,18 +28,10 @@ export default function NotOrderedYetScreen() {
 
   return (
     <FeedSupplierList
-      suppliers={feed.suppliers}
-      total={feed.total}
-      emptyTitle="Nothing new in reach yet"
-      emptyBody="You've ordered from every supplier we can see near you. Invite one you trade with offline, and they'll show up here."
-      isLoading={feed.isLoading}
-      isError={feed.isError}
-      refetch={feed.refetch}
-      isRefetching={feed.isRefetching}
-      onEndReached={() => {
-        if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
-      }}
-      isFetchingNextPage={feed.isFetchingNextPage}
+      title="Discover new suppliers"
+      feed={feed}
+      emptyTitle={"You have ordered from everyone"}
+      emptyBody={"Every visible supplier with stock has had an order from you. New ones will appear here as they join."}
     />
   );
 }

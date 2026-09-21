@@ -48,12 +48,19 @@ export function BrowseHeader({
   total,
   search,
   onSearch,
+  noun = { one: "product", many: "products" },
 }: {
   category?: string;
   label: string;
   total: number | null;
   search: string;
   onSearch: (value: string) => void;
+  /** WHAT IS BEING COUNTED. A supplier list saying "14 products" is a
+   *  small, constant lie on a screen whose whole subject is suppliers
+   *  -- and the reader notices, because the rows underneath are
+   *  plainly not products. Defaulted rather than required so the
+   *  product screens read unchanged. */
+  noun?: { one: string; many: string };
 }) {
   const theme = useTheme();
   const rootInsets = useRootSafeAreaInsets();
@@ -149,7 +156,7 @@ export function BrowseHeader({
       subtitle={
         total === null
           ? "…"
-          : `${total.toLocaleString()} ${total === 1 ? "product" : "products"}${
+          : `${total.toLocaleString()} ${total === 1 ? noun.one : noun.many}${
               search ? ` for “${search}”` : ""
             }`
       }

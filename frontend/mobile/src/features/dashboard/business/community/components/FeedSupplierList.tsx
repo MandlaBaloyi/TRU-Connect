@@ -8,6 +8,8 @@ import { EntityAvatar } from "@/components/ui/EntityAvatar";
 import { SupplierName } from "@/components/ui/SupplierName";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { ScreenContainer } from "@/components/ui/ScreenContainer";
+import { BrowseFilterBar } from "@/features/dashboard/business/browse/components/BrowseFilterBar";
+import { BrowseHeader } from "@/features/dashboard/business/browse/components/BrowseHeader";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
@@ -31,34 +33,85 @@ import type { FeedSupplier } from "../types";
  * holding (V2_17 Q5).
  */
 export function FeedSupplierList({
-  suppliers,
-  total,
+  title,
+  feed,
   emptyTitle,
   emptyBody,
-  isLoading,
-  isError,
-  refetch,
-  isRefetching,
-  onEndReached,
-  isFetchingNextPage,
 }: {
-  suppliers: FeedSupplier[];
-  total: number;
+  title: string;
+  /** The whole useFeedSuppliers result. Passed wholesale rather than as
+   *  a dozen props: the hook owns the filters precisely so the screen
+   *  and the query cannot disagree. */
+  feed: {
+    suppliers: FeedSupplier[];
+    total: number | null;
+    kinds: { id: string; name: string; count: number }[];
+    controls: { search?: string; kind?: string | null };
+    setSearch: (value: string) => void;
+    toggleKind: (id: string) => void;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => void;
+    isRefetching: boolean;
+    fetchNextPage: () => void;
+    hasNextPage?: boolean;
+    isFetchingNextPage: boolean;
+  };
   emptyTitle: string;
   emptyBody: string;
-  isLoading: boolean;
-  isError: boolean;
-  refetch: () => void;
-  isRefetching: boolean;
-  onEndReached: () => void;
-  isFetchingNextPage: boolean;
 }) {
-  const router = useRouter();
   const theme = useTheme();
+  const router = useRouter();
 
-  if (isLoading) {
+  const { controls, suppliers } = feed;
+  const narrowed = Boolean(controls.search || controls.kind);
+
+  const header = (
+    <>
+      <BrowseHeader
+        label={title}
+        total={feed.total}
+        search={controls.search ?? ""}
+        onSearch={feed.setSearch}
+        noun={{ one: "supplier", many: "suppliers" }}
+      />
+      {/* KIND CHIPS AND NOTHING ELSE. No sort: collect-near-you prints
+          the distance it is ordered by, so a reorder would contradict
+          the number on its own cards (V2_17 Q5). Narrowing is safe --
+          filtering to wholesalers leaves the survivors in distance
+          order and the heading stays true.
+
+          NO "MY SUPPLIERS" EITHER: one of these lists is suppliers this
+          shop has never bought from, so the toggle would empty it. */}
+      {feed.kinds.length > 0 || narrowed ? (
+        <BrowseFilterBar
+          kinds={feed.kinds}
+          suppliers={[]}
+          activeKind={controls.kind}
+          sort={"name" as any}
+          sortOptions={[] as any}
+          onToggleKind={feed.toggleKind}
+          onToggleSupplier={() => {}}
+          onSort={() => {}}
+          hideSort
+        />
+      ) : null}
+    </>
+  );
+
+  if (feed.isError) {
     return (
-      <ScreenContainer hasNativeHeader>
+      <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+        {header}
+        <ErrorState message="Could not load suppliers." onRetry={feed.refetch} />
+      </ScreenContainer>
+    );
+  }
+
+  if (feed.isLoading) {
+    return (
+      <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+        {header}
         <View style={styles.centre}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
@@ -66,26 +119,21 @@ export function FeedSupplierList({
     );
   }
 
-  if (isError) {
-    return (
-      <ScreenContainer hasNativeHeader>
-        <ErrorState
-          message="Couldn't load this list. Check your connection and try again."
-          onRetry={refetch}
-        />
-      </ScreenContainer>
-    );
-  }
-
   if (suppliers.length === 0) {
     return (
-      <ScreenContainer hasNativeHeader>
+      <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+        {header}
         <View style={styles.centre}>
+          {/* TWO DIFFERENT EMPTIES -- one is the market, the other is
+              the reader's own filter, and telling somebody who just
+              typed a word that nobody is near them is wrong. */}
           <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-            {emptyTitle}
+            {narrowed ? "Nothing matches" : emptyTitle}
           </Text>
           <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
-            {emptyBody}
+            {narrowed
+              ? "Try a different search, or clear the filters to see everyone."
+              : emptyBody}
           </Text>
         </View>
       </ScreenContainer>
@@ -93,7 +141,8 @@ export function FeedSupplierList({
   }
 
   return (
-    <ScreenContainer hasNativeHeader>
+    <ScreenContainer paddingHorizontal={0} edges={["bottom", "left", "right"]}>
+      {header}
       <FlatList
         data={suppliers}
         keyExtractor={(supplier) => supplier.id}
@@ -101,11 +150,6 @@ export function FeedSupplierList({
         ItemSeparatorComponent={() => (
           <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />
         )}
-        ListHeaderComponent={
-          <Text style={[styles.count, { color: theme.colors.onSurfaceVariant }]}>
-            {total} {total === 1 ? "supplier" : "suppliers"}
-          </Text>
-        }
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(supplierProfileHref(item.id, item.businessName) as any)}
@@ -138,17 +182,19 @@ export function FeedSupplierList({
             <ChevronRight size={18} color={theme.colors.onSurfaceVariant} strokeWidth={2} />
           </Pressable>
         )}
-        onEndReached={onEndReached}
+        onEndReached={() => {
+          if (feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
+        }}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
-          isFetchingNextPage ? (
+          feed.isFetchingNextPage ? (
             <ActivityIndicator style={styles.footer} color={theme.colors.primary} />
           ) : null
         }
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={feed.isRefetching}
+            onRefresh={feed.refetch}
             tintColor={theme.colors.primary}
           />
         }

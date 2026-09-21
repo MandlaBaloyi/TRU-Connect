@@ -45,10 +45,22 @@ export interface ProductPage {
   suppliers?: { id: string; name: string; count: number }[];
 }
 
+/** What the two supplier see-alls accept. NO SORT: collect-near-you
+ *  prints the distance it is ordered by, so reordering it would
+ *  contradict the number on its own cards. Both screens take the same
+ *  controls, because one that exists on one discovery screen and not
+ *  the other is a control nobody learns. */
+export interface SupplierControls {
+  search?: string;
+  kind?: string | null;
+}
+
 export interface SupplierPage {
   suppliers: FeedSupplier[];
   hasMore: boolean;
   total: number;
+  /** Supplier kinds present in this list, with counts. First page only. */
+  kinds?: { id: string; name: string; count: number }[];
 }
 
 async function productPage(
@@ -74,8 +86,16 @@ async function productPage(
   };
 }
 
-async function supplierPage(path: string, offset: number): Promise<SupplierPage> {
-  const data = await apiGet<SupplierPage>(`${path}?offset=${offset}`);
+async function supplierPage(
+  path: string,
+  offset: number,
+  controls: SupplierControls = {}
+): Promise<SupplierPage> {
+  const query = new URLSearchParams({ offset: String(offset) });
+  if (controls.search) query.set("search", controls.search);
+  if (controls.kind) query.set("kind", controls.kind);
+
+  const data = await apiGet<SupplierPage>(`${path}?${query.toString()}`);
   return {
     suppliers: data?.suppliers ?? [],
     hasMore: data?.hasMore ?? false,
@@ -98,8 +118,8 @@ export const getLeftOff = (offset = 0, controls?: SeeAllControls) =>
 export const getStockForYou = (offset = 0, controls?: SeeAllControls) =>
   productPage("/community/stock-for-you", offset, controls);
 
-export const getCollectNearYou = (offset = 0) =>
+export const getCollectNearYou = (offset = 0, controls?: SupplierControls) =>
   supplierPage("/community/collect-near-you", offset);
 
-export const getNotOrderedYet = (offset = 0) =>
+export const getNotOrderedYet = (offset = 0, controls?: SupplierControls) =>
   supplierPage("/community/not-ordered-yet", offset);

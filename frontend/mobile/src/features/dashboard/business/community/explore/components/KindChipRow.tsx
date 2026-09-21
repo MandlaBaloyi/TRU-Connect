@@ -47,6 +47,14 @@ export function KindChipRow({
   return (
     <FlatList
       horizontal
+      // flexGrow: 0 OR THE ROW EATS THE SCREEN. A horizontal FlatList is
+      // still a flex child of a column, so without this it expands to
+      // fill whatever height is left and centres its chips in the
+      // middle of it -- which is why this screen had a hundred points
+      // of blank space above the chips and another eighty below. The
+      // contentContainer's alignItems fixed the CHIPS; this fixes the
+      // LIST.
+      style={styles.list}
       data={kinds}
       keyExtractor={(kind) => kind}
       showsHorizontalScrollIndicator={false}
@@ -94,6 +102,7 @@ export function KindChipRow({
 }
 
 const styles = StyleSheet.create({
+  list: { flexGrow: 0 },
   // alignItems: "center" IS THE BUG FIX, not decoration. A horizontal
   // FlatList's content container defaults to align-items: stretch, so
   // every chip grew to the full height the list was given -- which on
