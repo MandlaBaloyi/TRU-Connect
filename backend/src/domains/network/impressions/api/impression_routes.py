@@ -20,7 +20,7 @@ the one limit that could not wait for the rest of the hardening pass.
 """
 from __future__ import annotations
 
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from flask_jwt_extended import get_jwt_identity
 
 from src.core.decorators import fully_authenticated, role_required
@@ -32,6 +32,9 @@ from src.domains.network.impressions.models.feed_impression import (
 from src.domains.network.impressions.rate_limit import (
     policies as rate_limit_policies,
 )
+from src.domains.network.impressions.repositories.impression_repository import (
+    ImpressionRow,
+)
 from src.domains.network.impressions.services import impression_service
 from src.domains.security.rate_limit.limiter import limiter
 from src.shared.queue.queue import enqueue
@@ -40,9 +43,20 @@ impression_bp = Blueprint("community_impressions", __name__)
 
 
 @impression_bp.route("/api/v1/community/impressions/tap", methods=["POST"])
-@limiter.limit(rate_limit_policies.TAP, key_func=rate_limit_policies.business_key_func)
 @fully_authenticated
 @role_required("business")
+# THE LIMITER GOES LAST, BENEATH THE AUTH DECORATORS, and the order is
+# not cosmetic. business_key_func calls get_jwt_identity(); above
+# @fully_authenticated there is no verified JWT in the request context
+# yet, so it raises and flask_jwt_extended turns an unauthenticated
+# POST into a 500 instead of a 401. Caught by curling the endpoint with
+# no token and getting the wrong number back.
+#
+# It also means an anonymous caller is refused by auth BEFORE consuming
+# anybody's allowance, which is the right way round: there is no
+# identity to key the limit by until the token has been checked. Same
+# order as every rate-limited route in connections/.
+@limiter.limit(rate_limit_policies.TAP, key_func=rate_limit_policies.business_key_func)
 def record_taps():
     """Count taps the app batched up.
 
@@ -76,31 +90,30 @@ def record_taps():
         )
 
     business_id = get_jwt_identity()
-    accepted = [_parse(tap, index) for index, tap in enumerate(taps)]
+    rows = [_parse(tap, index) for index, tap in enumerate(taps)]
 
-    # ENQUEUED, NOT AWAITED. The device is not waiting to learn whether
-    # a counter moved, and a shop scrolling a feed must never be held up
-    # by analytics -- the same rule the delivered side follows.
-    for rail, position, item_id, item_type, supplier_id in accepted:
-        enqueue(
-            lambda r=rail, p=position, i=item_id, t=item_type, s=supplier_id: (
-                impression_service.record_tap(
-                    business_id,
-                    rail=r,
-                    position=p,
-                    item_id=i,
-                    item_type=t,
-                    supplier_profile_id=s,
-                )
-            )
-        )
+    # ENQUEUED, NOT AWAITED, AND THE APP CONTEXT IS CARRIED IN WITH IT.
+    # The queue is a ThreadPoolExecutor and a worker thread has no Flask
+    # application context, so db.session raises the moment it is touched
+    # and the runner swallows it to keep the pool alive -- a request
+    # that returns 200 and writes nothing. The delivered side had
+    # exactly this bug; see feed_service._count_delivered.
+    #
+    # ONE JOB FOR THE WHOLE BATCH. A job per tap would be a hundred
+    # background tasks and a hundred round trips for what the repository
+    # does in one statement.
+    app = current_app._get_current_object()
 
-    return success_response(
-        message="Recorded.", data={"accepted": len(accepted)}
-    )
+    def _write() -> None:
+        with app.app_context():
+            impression_service.record_taps(business_id, rows)
+
+    enqueue(_write)
+
+    return success_response(message="Recorded.", data={"accepted": len(rows)})
 
 
-def _parse(tap: object, index: int):
+def _parse(tap: object, index: int) -> ImpressionRow:
     """One entry, validated into the grain.
 
     EVERY FIELD IS REQUIRED AND THE POSITION MUST BE A REAL INDEX,
@@ -141,5 +154,10 @@ def _parse(tap: object, index: int):
             }
         )
 
-    supplier_id = tap.get("supplierId") or None
-    return rail.strip()[:64], position, item_id.strip()[:64], item_type, supplier_id
+    return ImpressionRow(
+        rail=rail.strip()[:64],
+        position=position,
+        item_id=item_id.strip()[:64],
+        item_type=item_type,
+        supplier_profile_id=tap.get("supplierId") or None,
+    )

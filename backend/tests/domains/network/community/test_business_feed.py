@@ -435,3 +435,186 @@ class TestSuppliersYouHaveNotOrderedFrom:
 
         names = [s["businessName"] for s in section["suppliers"]]
         assert "Sells Nothing" not in names
+
+
+class TestPickUpWhereYouLeftOff:
+    """THE RAIL THAT MAKES IMPRESSIONS MEAN SOMETHING.
+
+    Before it existed the impressions table recorded every card the
+    feed sent and every card the shop tapped, and the feed looked
+    identical either way. The first person to test it opened the tab
+    nine times, tapped five cards, saw no difference, and said the
+    logic did not add up. It didn't -- a measurement nothing reads is
+    bookkeeping.
+
+    WHAT THESE DEFEND, worst consequence first:
+
+      IT IS BUILT FROM TAPS, NOT DELIVERIES. A delivered card was sent;
+      a tapped card was CHOSEN. Ranking on deliveries would build a
+      rail out of whatever the feed already shows most often -- a rail
+      recommending itself, which is how every "recently viewed"
+      feature fails.
+
+      IT EMPTIES ITSELF. The moment an order is confirmed the product
+      belongs to "Buy it again" and must leave here. A rail that keeps
+      nagging after the thing was bought is working against its own
+      purpose.
+
+      ONE SUPPLIER CANNOT TAKE THE ROW. Unlike buy-it-again, which is
+      exempt because it is the shop's own confirmed history, this is a
+      suggestion -- so the anti-domination ceiling applies.
+    """
+
+    def _offer(self, supplier_at, *, profile=None, name=None):
+        from src.domains.catalogue.products.models.taxonomy import ProductCategory, ProductUnit
+        from src.domains.supplier.products.models.supplier_offer import SupplierOffer
+
+        profile = profile or supplier_at(name=name)
+        n = next(_seq)
+        offer = SupplierOffer(
+            supplier_profile_id=profile.id,
+            name=f"Left off {n}",
+            category=ProductCategory.BEVERAGES,
+            price_cents=1500,
+            selling_unit=ProductUnit.EACH,
+            sku=f"SKU-LO-{n}",
+            product_code=f"PC-LO-{n}",
+        )
+        db.session.add(offer)
+        db.session.commit()
+        return profile, offer
+
+    def _tap(self, business_id, offer, *, rail="moving-fast", position=0, days_ago=0):
+        from datetime import date, timedelta
+
+        from src.domains.network.impressions.models.feed_impression import (
+            ImpressionItemType,
+        )
+        from src.domains.network.impressions.repositories.impression_repository import (
+            ImpressionRepository,
+            ImpressionRow,
+        )
+
+        row = ImpressionRow(
+            rail=rail,
+            position=position,
+            item_id=str(offer.id),
+            item_type=ImpressionItemType.PRODUCT,
+            supplier_profile_id=offer.supplier_profile_id,
+        )
+        on = date.today() - timedelta(days=days_ago)
+        ImpressionRepository.bump(business_id, [row], column="delivered", on=on)
+        ImpressionRepository.bump(business_id, [row], column="tapped", on=on)
+
+    def _rail(self, business_id):
+        from src.domains.network.community.business import sections
+
+        return sections.picked_up_where_you_left(business_id)
+
+    def test_three_tapped_products_make_a_rail(
+        self, app, db_session, business_at, supplier_at
+    ):
+        business, _ = business_at()
+        for index in range(3):
+            _, offer = self._offer(supplier_at)
+            self._tap(business.id, offer, position=index)
+
+        rail = self._rail(business.id)
+
+        assert rail is not None
+        assert rail["id"] == "left-off"
+        assert len(rail["products"]) == 3
+
+    def test_a_card_that_was_only_delivered_is_not_in_it(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """DELIVERED IS NOT CHOSEN. Three products the feed showed and
+        the shop ignored are the opposite of unfinished business."""
+        from src.domains.network.impressions.models.feed_impression import (
+            ImpressionItemType,
+        )
+        from src.domains.network.impressions.repositories.impression_repository import (
+            ImpressionRepository,
+            ImpressionRow,
+        )
+
+        business, _ = business_at()
+        for index in range(3):
+            _, offer = self._offer(supplier_at)
+            ImpressionRepository.bump(
+                business.id,
+                [
+                    ImpressionRow(
+                        rail="moving-fast",
+                        position=index,
+                        item_id=str(offer.id),
+                        item_type=ImpressionItemType.PRODUCT,
+                    )
+                ],
+                column="delivered",
+            )
+
+        assert self._rail(business.id) is None
+
+    def test_a_thin_rail_does_not_appear_at_all(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """Two is not a rail, here as everywhere else in this file."""
+        business, _ = business_at()
+        for index in range(2):
+            _, offer = self._offer(supplier_at)
+            self._tap(business.id, offer, position=index)
+
+        assert self._rail(business.id) is None
+
+    def test_a_tap_older_than_the_window_is_forgotten(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """FOURTEEN DAYS. Something glanced at last month is not a
+        decision still being made -- it is one already made against."""
+        from src.domains.network.community.business.sections import LEFT_OFF_WINDOW_DAYS
+
+        business, _ = business_at()
+        for index in range(3):
+            _, offer = self._offer(supplier_at)
+            self._tap(
+                business.id, offer, position=index, days_ago=LEFT_OFF_WINDOW_DAYS + 1
+            )
+
+        assert self._rail(business.id) is None
+
+    def test_one_supplier_cannot_take_the_whole_rail(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """THE CEILING APPLIES HERE AND NOT TO buy-it-again, and the
+        difference is the whole distinction between remembering and
+        recommending. A shop buying fifteen things from one wholesaler
+        is a fact about its trading; a wholesaler whose cards happen to
+        get opened often is not entitled to the row."""
+        from src.domains.network.community.business.sections import MAX_CARDS_PER_SUPPLIER
+
+        business, _ = business_at()
+        profile = supplier_at(name="Loud Wholesaler")
+        for index in range(MAX_CARDS_PER_SUPPLIER + 3):
+            _, offer = self._offer(supplier_at, profile=profile)
+            self._tap(business.id, offer, position=index)
+
+        rail = self._rail(business.id)
+
+        assert rail is not None
+        assert len(rail["products"]) <= MAX_CARDS_PER_SUPPLIER
+
+    def test_it_carries_no_see_all_arrow(
+        self, app, db_session, business_at, supplier_at
+    ):
+        """There is no screen behind it yet, and _rail_tail's own
+        docstring is explicit that an arrow leading nowhere is worse
+        than no arrow."""
+        business, _ = business_at()
+        for index in range(3):
+            _, offer = self._offer(supplier_at)
+            self._tap(business.id, offer, position=index)
+
+        rail = self._rail(business.id)
+
+        assert "hasMore" not in rail

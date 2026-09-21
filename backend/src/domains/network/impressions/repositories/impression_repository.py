@@ -210,6 +210,80 @@ class ImpressionRepository:
         }
 
     @staticmethod
+    def tapped_not_ordered(
+        business_id: UUIDType,
+        *,
+        since: date,
+        exclude: Optional[Iterable[UUIDType]] = None,
+        limit: int = 40,
+    ) -> list:
+        """Offers this shop OPENED and never bought, most-tapped first.
+
+        THE READ THAT CLOSES THE LOOP. Until this existed the table
+        recorded everything and changed nothing: a shop could open the
+        tab nine times, tap five cards, and see an identical feed every
+        time. Measurement with no consumer is not measurement, it is
+        bookkeeping -- and the person testing it is right to say the
+        logic does not add up.
+
+        TAPS, NOT DELIVERIES, AND THE DIFFERENCE IS THE WHOLE POINT. A
+        card that was delivered was sent; a card that was TAPPED was
+        chosen. Ranking on `delivered` would build a rail out of
+        whatever the feed happened to show most often -- which is a
+        rail recommending itself.
+
+        RANKED BY TAPS, THEN BY RECENCY. Two taps beats one because the
+        shop came back to it; a tie goes to the newer one because
+        interest decays. Neither number is a score and nothing here
+        weights them -- that is the same rule ObservedSignals follows.
+
+        THE CALLER SUPPLIES `exclude`, RATHER THAN THIS JOINING ORDERS.
+        What counts as "already bought" is the orders domain's
+        judgement -- CONFIRMED only, because a cart nobody checked out
+        is not a purchase -- and duplicating that filter here would put
+        a second, quietly different definition of "ordered" in a
+        package that has no business holding one.
+
+        RETURNS IDS, NOT CARDS. The curtain, the pricing and the card
+        shape all belong to the feed; this answers "which ones", and
+        visible_offers answers whether they may still be shown.
+        """
+        rows = (
+            db.session.query(
+                FeedImpression.item_id,
+                db.func.sum(FeedImpression.tapped).label("taps"),
+                db.func.max(FeedImpression.day).label("last_seen"),
+            )
+            .filter(
+                FeedImpression.business_id == business_id,
+                FeedImpression.day >= since,
+                FeedImpression.item_type == ImpressionItemType.PRODUCT,
+                FeedImpression.tapped > 0,
+                FeedImpression.is_deleted.is_(False),
+            )
+            .group_by(FeedImpression.item_id)
+            .order_by(db.desc("taps"), db.desc("last_seen"))
+            .all()
+        )
+
+        excluded = {str(item) for item in (exclude or ())}
+        ordered: list = []
+        for item_id, _taps, _last_seen in rows:
+            if item_id in excluded:
+                continue
+            try:
+                ordered.append(UUIDType(item_id))
+            except (ValueError, AttributeError, TypeError):
+                # item_id IS A STRING COLUMN because it also holds
+                # category values, so a non-UUID here is expected data
+                # rather than corruption -- it is simply not a product
+                # and cannot be one.
+                continue
+            if len(ordered) >= limit:
+                break
+        return ordered
+
+    @staticmethod
     def for_business(
         business_id: UUIDType, *, since: Optional[date] = None
     ) -> Iterable[FeedImpression]:

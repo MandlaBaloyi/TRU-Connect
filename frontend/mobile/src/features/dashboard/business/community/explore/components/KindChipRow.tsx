@@ -5,7 +5,7 @@ import { useTheme } from "react-native-paper";
 import { radius, spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
-import { labelForKind } from "../services/exploreService";
+import { iconForKind, labelForKind } from "../services/exploreService";
 
 /**
  * Which SORT of supplier to browse.
@@ -68,6 +68,16 @@ export function KindChipRow({
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={labelForKind(item)}
           >
+            {(() => {
+              const Icon = iconForKind(item);
+              return (
+                <Icon
+                  size={16}
+                  strokeWidth={1.8}
+                  color={isActive ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+                />
+              );
+            })()}
             <Text
               style={[
                 styles.label,
@@ -84,10 +94,28 @@ export function KindChipRow({
 }
 
 const styles = StyleSheet.create({
-  row: { paddingHorizontal: spacing.md, gap: spacing.sm, paddingVertical: spacing.sm },
-  chip: {
-    justifyContent: "center",
+  // alignItems: "center" IS THE BUG FIX, not decoration. A horizontal
+  // FlatList's content container defaults to align-items: stretch, so
+  // every chip grew to the full height the list was given -- which on
+  // this screen is whatever is left under the header. The chips
+  // rendered as enormous vertical pills. Pinning the cross-axis here
+  // makes each chip its own content height regardless of what the
+  // parent hands the list.
+  row: {
+    alignItems: "center",
     paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  // THE SAME SHAPE AS CategoryChipRow's chip, deliberately: these two
+  // rows do the same job on two screens and should not be two
+  // different controls.
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     borderWidth: 1,
     minHeight: 40,

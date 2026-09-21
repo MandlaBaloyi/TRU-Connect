@@ -75,10 +75,20 @@ class TestTheRailOpensWithTheStrongestNeed:
 
 
 class TestTheRailExplainsItselfTruthfully:
+    """THE WORDS ARE COPY; THE DISTINCTION IS THE RULE.
+
+    These assert exact strings, so a copy change lands here -- which is
+    correct and deliberate. What must never change is that the three
+    cases stay three DIFFERENT sentences: a shop whose needs were
+    learned from its own orders must not be told "what you told us",
+    because a shop that never filled the form reads that as the app
+    guessing. Reword freely; do not collapse two branches into one.
+    """
+
     def test_a_shop_that_only_declared_is_told_so(self):
         assert (
             sections._why_this_rail(_needs(("BAKERY", 1.0, "declared")))
-            == "Based on what you told us you buy"
+            == "Matched to the stock you told us about"
         )
 
     def test_a_shop_that_never_filled_the_form_is_not_told_it_did(self):
@@ -86,10 +96,10 @@ class TestTheRailExplainsItselfTruthfully:
         from its own orders; "what you told us" would read as a guess."""
         assert (
             sections._why_this_rail(_needs(("BAKERY", 1.0, "observed")))
-            == "Based on what you buy"
+            == "Matched to what your business buys"
         )
 
     def test_a_shop_with_both_is_told_both(self):
         needs = _needs(("BAKERY", 1.0, "both"), ("BEVERAGES", 0.6, "observed"))
 
-        assert sections._why_this_rail(needs) == "Based on what you buy and what you told us"
+        assert sections._why_this_rail(needs) == "Matched to what you buy and what you told us"

@@ -136,17 +136,19 @@ def record_delivered(
     return ImpressionRepository.bump(business_id, rows, column="delivered", on=on)
 
 
-def record_tap(
+def record_taps(
     business_id: UUIDType,
+    taps: Sequence[ImpressionRow],
     *,
-    rail: str,
-    position: int,
-    item_id: str,
-    item_type: ImpressionItemType,
-    supplier_profile_id: Optional[UUIDType] = None,
     on: Optional[date] = None,
 ) -> int:
-    """Count one tap the device reported.
+    """Count a batch of taps the device reported.
+
+    A BATCH, NOT ONE CALL PER TAP, matching the delivered side. The
+    route receives up to MAX_TAPS_PER_REQUEST entries in one request;
+    turning those into one queue job per tap would mean a hundred
+    background jobs and a hundred round trips to write a hundred
+    counters that one statement handles.
 
     THE DEVICE NAMES THE GRAIN, WHICH MEANS THE DEVICE CAN LIE, and it
     is worth being clear about what that does and does not buy an
@@ -163,11 +165,4 @@ def record_tap(
     down here because the temptation to bill per tap will arrive long
     after everyone has forgotten that this number is client-asserted.
     """
-    row = ImpressionRow(
-        rail=rail,
-        position=position,
-        item_id=str(item_id)[:64],
-        item_type=item_type,
-        supplier_profile_id=supplier_profile_id,
-    )
-    return ImpressionRepository.bump(business_id, [row], column="tapped", on=on)
+    return ImpressionRepository.bump(business_id, taps, column="tapped", on=on)

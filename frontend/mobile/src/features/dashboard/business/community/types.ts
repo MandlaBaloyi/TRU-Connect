@@ -137,7 +137,12 @@ interface SectionBase {
 
 export type FeedSection =
   | (SectionBase & { type: "CATEGORY_CHIPS"; categories: FeedCategory[] })
-  | (SectionBase & { type: "SUPPLIER_AVATARS"; title: string; suppliers: FeedSupplier[] })
+  | (SectionBase & {
+      type: "SUPPLIER_AVATARS";
+      title: string;
+      subtitle?: string | null;
+      suppliers: FeedSupplier[];
+    })
   | (SectionBase & {
       type: "SUPPLIER_RAIL";
       title: string;
@@ -163,6 +168,12 @@ export type FeedSection =
        *  advertising-disclosure rules end up requiring. */
       type: "SPONSORED_SUPPLIER";
       label: string;
+      /** WHAT THE CARD ACTUALLY IS. This section renders ONE supplier,
+       *  so the caption has to describe a supplier -- "featured
+       *  products" under a supplier card is a caption for a different
+       *  component, and a paid slot is the last place to be loose
+       *  about what is on screen. */
+      subtitle?: string | null;
       supplier: FeedSupplier;
     })
   | (SectionBase & {

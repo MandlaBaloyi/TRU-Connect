@@ -1,3 +1,6 @@
+import { Building2, Factory, Store, Truck, Warehouse } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
+
 import { apiGet } from "@/services/api/apiClient";
 
 import type { FeedSupplier } from "../../types";
@@ -53,6 +56,35 @@ export const SUPPLIER_KIND_LABELS: Record<string, string> = {
  *  may add one before the app knows about it, and a chip labelled
  *  "Importers" is better than a gap in the row — same
  *  forward-compatibility rule the feed's section types already follow. */
+/** One icon per supplier kind, beside the labels and for the same
+ *  reason: the feed's doorway list and this screen's chip row must
+ *  never disagree about what a wholesaler looks like.
+ *
+ *  ICONS, NOT PHOTOGRAPHS — the same argument CategoryIcon makes at
+ *  length. lucide is already a dependency, a line drawing never
+ *  competes with the supplier's own branding beside it, and four
+ *  stock photos of warehouses would date badly and cost money.
+ *
+ *  THEY SAY WHAT THE BUSINESS DOES, NOT WHAT IT SELLS. A wholesaler
+ *  holds stock (a warehouse), a distributor moves it (a truck), a
+ *  manufacturer makes it (a factory), a retailer sells it over a
+ *  counter (a shopfront). That is the actual distinction the kind
+ *  encodes, so it is the one the glyphs should carry. */
+export const SUPPLIER_KIND_ICONS: Record<string, LucideIcon> = {
+  WHOLESALER: Warehouse,
+  DISTRIBUTOR: Truck,
+  MANUFACTURER: Factory,
+  RETAILER: Store,
+};
+
+/** An unrecognised kind gets a neutral building rather than nothing.
+ *  Same forward-compatibility rule labelForKind follows: the server may
+ *  add a kind before the app knows about it, and a generic glyph is
+ *  better than a hole where every other row has one. */
+export function iconForKind(kind: string): LucideIcon {
+  return SUPPLIER_KIND_ICONS[kind] ?? Building2;
+}
+
 export function labelForKind(kind: string): string {
   return (
     SUPPLIER_KIND_LABELS[kind] ??

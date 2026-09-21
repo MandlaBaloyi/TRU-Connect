@@ -28,6 +28,7 @@ TWO RULES THAT APPLY TO EVERY BUILDER HERE:
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import List, Optional
 from uuid import UUID
 
@@ -42,11 +43,24 @@ from src.domains.network.community.business.queries import (
     visible_offers,
     visible_suppliers_with_stock,
 )
+from src.core.base_model import utcnow
 from src.domains.network.community.algorithms import interleave
 
 #: A rail with almost nothing in it looks worse than no rail at all.
 #: Mirrors MIN_ITEMS_PER_RAIL in the app's community/types.ts.
 MIN_ITEMS_PER_RAIL = 3
+
+#: HOW FAR BACK "you left off" REACHES, in days.
+#:
+#: FOURTEEN, because unfinished business has a shelf life. A product
+#: opened last month is not something the shop is still deciding about;
+#: it is something they decided against, and a rail that cannot tell
+#: the difference fills with things nobody wants to be reminded of.
+#:
+#: FALSIFIER, in the same shape as every other number in this package:
+#: if the tap rate on this rail is materially lower than on buy-it-again
+#: -- now measurable, which is the point -- the window is too long.
+LEFT_OFF_WINDOW_DAYS = 14
 
 #: HOW MANY CARDS EACH RAIL SHOWS BEFORE THE ARROW (V2_17 Part 3.1).
 #:
@@ -62,6 +76,7 @@ MIN_ITEMS_PER_RAIL = 3
 #: and a long row of them is a chore rather than a choice.
 RAIL_LIMITS = {
     "buy-it-again": 12,
+    "left-off": 12,
     "moving-fast": 10,
     "stock-for-you": 12,
     "your-suppliers": 12,
@@ -179,10 +194,95 @@ def buy_it_again(business_id, limit: int = 12) -> Optional[dict]:
     return {
         "id": "buy-it-again",
         "type": "PRODUCT_RAIL",
-        "title": "Buy it again",
-        "subtitle": "From your last orders",
+        "title": "Reorder what you need",
+        "subtitle": "Restock from your previous orders",
         "products": products[:limit],
         **_rail_tail("buy-it-again", min(limit, len(products)), len(products)),
+    }
+
+
+def picked_up_where_you_left(business_id) -> Optional[dict]:
+    """Products this shop OPENED and never ordered.
+
+    THE RAIL THAT MAKES IMPRESSIONS MEAN SOMETHING. Until it existed the
+    table recorded every card the feed sent and every card the shop
+    tapped, and the feed looked identical either way -- nine renders,
+    five taps, no difference. A measurement nothing reads is not a
+    measurement, and the first person to test it said so in exactly
+    those words.
+
+    TAPPED, NOT DELIVERED. A delivered card was sent to the phone; a
+    tapped card was CHOSEN. Building this out of deliveries would make
+    a rail of whatever the feed already shows most -- a rail
+    recommending itself, which is the failure mode every
+    recently-viewed feature falls into when it confuses exposure with
+    interest.
+
+    IT EMPTIES ITSELF, AND THAT IS THE DESIGN. The moment an order is
+    confirmed the product leaves here and appears in "Buy it again"
+    instead. The rail's job is to finish something, so a rail that kept
+    nagging after the thing was bought would be working against its own
+    purpose -- and "Buy it again" already owns everything that happened.
+
+    FOURTEEN DAYS, because interest decays. Something glanced at last
+    month is not unfinished business, it is noise wearing its clothes,
+    and a rail full of noise teaches people to scroll past the whole
+    section.
+
+    THE PER-SUPPLIER CAP APPLIES HERE, UNLIKE "Buy it again". That rail
+    is exempt because a shop buying fifteen things from one wholesaler
+    is a fact about its own trading (V2_17 Q3). This one is not
+    history, it is a suggestion built from browsing -- so one supplier
+    whose cards happen to get opened often must not take the row. Three
+    at most, the same ceiling every recommending rail uses.
+
+    NO SEE-ALL ARROW. There is no screen behind it yet, and _rail_tail's
+    own docstring is explicit that an arrow leading nowhere is worse
+    than no arrow. The cap is the limit, and the limit is the rail.
+    """
+    from src.domains.network.impressions.repositories.impression_repository import (
+        ImpressionRepository,
+    )
+    from src.domains.network.orders.repositories.stock_order_repository import (
+        StockOrderRepository,
+    )
+
+    limit = RAIL_LIMITS["left-off"]
+
+    # ALREADY BOUGHT IS THE ORDERS DOMAIN'S JUDGEMENT, not a second
+    # definition invented here. CONFIRMED only -- a cart nobody checked
+    # out is not a purchase, and treating it as one would silently hide
+    # the very products this rail exists to bring back.
+    already_ordered = StockOrderRepository.previously_ordered_product_ids_for_business(
+        business_id, limit=200
+    )
+
+    since = (utcnow() - timedelta(days=LEFT_OFF_WINDOW_DAYS)).date()
+    candidate_ids = ImpressionRepository.tapped_not_ordered(
+        business_id, since=since, exclude=already_ordered, limit=limit * 3
+    )
+    if not candidate_ids:
+        return None
+
+    # THE CURTAIN GETS THE LAST WORD, as it does on every rail here. A
+    # shop may well have tapped a product whose supplier has since been
+    # revoked; the tap is still a true fact and the card is no longer
+    # showable. visible_offers drops it without this file needing to
+    # know why.
+    products = feed_products(visible_offers(candidate_ids))
+    available = len(products)
+    products = interleave.arrange(
+        products, absolute_cap=MAX_CARDS_PER_SUPPLIER, limit=limit
+    )
+    if len(products) < MIN_ITEMS_PER_RAIL:
+        return None
+
+    return {
+        "id": "left-off",
+        "type": "PRODUCT_RAIL",
+        "title": "Continue stocking up",
+        "subtitle": "Products you viewed but haven't ordered yet",
+        "products": products,
     }
 
 
@@ -231,7 +331,7 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
     return {
         "id": "moving-fast",
         "type": "PRODUCT_RAIL",
-        "title": "Moving fast right now",
+        "title": "Popular with businesses",
         # THE REASON STRING, and it has to stay true like every other
         # one. It also has to sound like a person wrote it: "selling
         # quicker than usual in the last 7 days" was accurate and read
@@ -242,7 +342,7 @@ def moving_fast(business_id, limit: int = 12) -> Optional[dict]:
         # which is why it can name a comparison rather than hiding
         # behind "usual". And it says WHO: other shops, which is the
         # part a shopkeeper actually trusts.
-        "subtitle": "Shops are buying these faster than last month",
+        "subtitle": "Products other businesses are buying",
         "products": products,
         **_rail_tail("moving-fast", len(products), len(all_cards)),
     }
@@ -319,7 +419,7 @@ def invited_suppliers(business_id, limit: int = 10) -> Optional[dict]:
     return {
         "id": "invited-suppliers",
         "type": "SUPPLIER_RAIL",
-        "title": "They joined because of you",
+        "title": "Joined through your invites",
         "subtitle": _invitation_subtitle(waiting),
         "suppliers": feed_suppliers(
             joined[: RAIL_LIMITS["invited-suppliers"]], connected_ids=connected
@@ -425,6 +525,13 @@ def sponsored_supplier(business_id) -> Optional[dict]:
         # follow whatever advertising rules end up requiring, and the
         # app never renders this section without one.
         "label": "Sponsored",
+        # A SUPPLIER, NOT PRODUCTS, AND THE SUBTITLE HAS TO SAY SO. The
+        # obvious line here is "Featured products from suppliers", and
+        # it would be wrong: this section renders ONE supplier card, so
+        # promising products under it is a caption describing a
+        # different component. A paid slot is the last place to be
+        # loose about what is being shown.
+        "subtitle": "A supplier reaching shops like yours",
         "supplier": feed_suppliers([chosen], connected_ids=connected)[0],
     }
 
@@ -475,8 +582,8 @@ def tell_us_what_you_buy(business_id) -> Optional[dict]:
         "id": "tell-us-what-you-buy",
         "type": "PROMO",
         "promo": {
-            "title": "What stock do you buy?",
-            "body": "Tell us and we will show you stock for your shop, from suppliers near you.",
+            "title": "Tell us what you stock",
+            "body": "We will show you products for your shop, from suppliers near you.",
             "imageUrl": None,
             # Must start with /business/ -- PromoCard refuses anything
             # else rather than navigating somewhere a server told it to.
@@ -574,10 +681,10 @@ def _why_this_rail(needs) -> str:
     """
     sources = {n.source for n in needs.categories}
     if sources == {"declared"}:
-        return "Based on what you told us you buy"
+        return "Matched to the stock you told us about"
     if "declared" in sources or "both" in sources:
-        return "Based on what you buy and what you told us"
-    return "Based on what you buy"
+        return "Matched to what you buy and what you told us"
+    return "Matched to what your business buys"
 
 
 # _cap_per_supplier MOVED TO algorithms/interleave.py, where it sits
@@ -604,6 +711,7 @@ def your_suppliers(business_id) -> Optional[dict]:
         "id": "your-suppliers",
         "type": "SUPPLIER_AVATARS",
         "title": "Your suppliers",
+        "subtitle": "Suppliers you already buy from",
         "suppliers": feed_suppliers(profiles[:limit]),
         # PAST THE CAP THIS GOES TO MY CONNECTIONS rather than to a
         # screen of its own: the full list of who you trade with is
@@ -648,8 +756,8 @@ def not_ordered_from_yet(business_id, limit: int = 10) -> Optional[dict]:
     return {
         "id": "not-ordered-yet",
         "type": "SUPPLIER_RAIL",
-        "title": "Suppliers you haven't ordered from",
-        "subtitle": "In reach, and new to you",
+        "title": "Discover new suppliers",
+        "subtitle": "In your area and new to you",
         "suppliers": feed_suppliers(untried[:limit], connected_ids=connected),
         **_rail_tail("not-ordered-yet", min(limit, len(untried)), len(untried)),
     }
@@ -808,6 +916,6 @@ def explore_kinds() -> Optional[dict]:
         "id": "explore-kinds",
         "type": "EXPLORE_KINDS",
         "title": "Explore suppliers",
-        "subtitle": "Browse by what they are",
+        "subtitle": "Find the right kind of supplier",
         "kinds": kinds,
     }

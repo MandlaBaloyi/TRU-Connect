@@ -75,15 +75,41 @@ def _count_delivered(business_id, sections: List[dict]) -> None:
     logs and swallows, and this import is local so a problem in the
     impressions package cannot stop this module being imported at all.
 
+    THE APP CONTEXT IS CAPTURED AND RE-ENTERED, and that is not
+    ceremony -- without it this writes NOTHING and says nothing about
+    it. The queue is a ThreadPoolExecutor; a worker thread has no Flask
+    application context, so db.session raises the moment it is touched,
+    and _run_and_track catches the exception so the pool survives. The
+    result is a feed that composes perfectly, a queue that drains
+    cleanly, and a table that stays empty.
+
+    Found by rendering a real feed against the dev database three times
+    and getting zero rows. The unit tests did not catch it because they
+    call the repository directly; the test that does is
+    test_the_feed_writes_through_the_queue, added with this fix.
+
+    audit_service already solved this the same way, capturing `app`
+    from register(); master_scheduler.trigger.py does it too. There is
+    no request here to borrow a context from, so the real app object is
+    taken out of current_app's proxy before the thread starts.
+
     BUSINESS ONLY, for now. The supplier feed is a different surface
     with different sections, and nobody has asked a question about it
     that needs measuring yet -- see impression_routes on why that is a
     deliberate future addition rather than an omission.
     """
+    from flask import current_app
+
     from src.domains.network.impressions.services import impression_service
     from src.shared.queue.queue import enqueue
 
-    enqueue(lambda: impression_service.record_delivered(business_id, sections))
+    app = current_app._get_current_object()
+
+    def _write() -> None:
+        with app.app_context():
+            impression_service.record_delivered(business_id, sections)
+
+    enqueue(_write)
 
 
 def _business_feed(business_id) -> List[dict]:
@@ -100,7 +126,20 @@ def _business_feed(business_id) -> List[dict]:
       3  BUY IT AGAIN          their own restocking list. The highest-
                                value rail in the app, and the reason a
                                shopkeeper opens this tab at all.
-      4  MOVING FAST           things selling quicker than usual, in
+      4  PICK UP WHERE YOU     products they OPENED and never ordered.
+         LEFT OFF              Directly below their own purchase
+                               history because it is the same kind of
+                               evidence one step weaker: buy-it-again
+                               is what they DID, this is what they
+                               nearly did. Both are the shop's own
+                               actions, and a shop's own actions beat
+                               anything the market is doing.
+
+                               IT IS ALSO THE ONLY RAIL THAT READS THE
+                               IMPRESSIONS TABLE, which is what stops
+                               that table being a measurement nothing
+                               consumes.
+      5  MOVING FAST           things selling quicker than usual, in
                                the categories this shop buys. Above
                                "stock for your shop" because it is
                                TIME-SENSITIVE: the same product will
@@ -108,18 +147,18 @@ def _business_feed(business_id) -> List[dict]:
                                look at it today will not. Below "buy it
                                again" because a shop's own restock list
                                beats anything the market is doing.
-      5  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
+      6  STOCK FOR YOUR SHOP   what they SAID they buy. Below their
                                own history, which is evidence, and
                                above everything else, because it is the
                                only personal section a shop has before
                                its first order.
-      6  YOUR SUPPLIERS        the fastest path back to a shopfront
+      7  YOUR SUPPLIERS        the fastest path back to a shopfront
                                they already trust.
-      7  SPONSORED             the one paid slot, below everything the
+      8  SPONSORED             the one paid slot, below everything the
                                shop earned and above cold discovery.
                                Labelled, and gated on the shop's own
                                categories.
-      8  THEY JOINED BECAUSE   suppliers this shop personally invited,
+      9  THEY JOINED BECAUSE   suppliers this shop personally invited,
          OF YOU                who signed up and got verified. Above
                                cold discovery because these are people
                                the shopkeeper already trades with
@@ -129,15 +168,15 @@ def _business_feed(business_id) -> List[dict]:
                                in this app that got no reply at all.
                                RARE, so it costs the rails below it
                                nothing on the days it is absent.
-      9  NOT ORDERED YET       suppliers in reach they have never
+     10  NOT ORDERED YET       suppliers in reach they have never
                                bought from, connected or not. The ones
                                they already know come first: the trust
                                is done, only the first order is missing.
-     10  COLLECT NEAR YOU      growth. The only RAIL asking them to
+     11  COLLECT NEAR YOU      growth. The only RAIL asking them to
                                start something rather than continue it
                                -- the same reason businesses_near_you
                                sits last for the supplier.
-     11  EXPLORE BY KIND       the door out of the feed entirely, and
+     12  EXPLORE BY KIND       the door out of the feed entirely, and
                                therefore last. Everything above it is a
                                supplier this shop has some claim on --
                                history, a declaration, an invitation,
@@ -157,6 +196,11 @@ def _business_feed(business_id) -> List[dict]:
         business_sections.category_chips(),
         business_sections.tell_us_what_you_buy(business_id),
         business_sections.buy_it_again(business_id),
+        # THE ONE SECTION BUILT FROM WHAT THE FEED ITSELF OBSERVED.
+        # Everything else here reads orders, declarations or the
+        # market; this reads the impressions table, which is what stops
+        # that table being a measurement nothing consumes.
+        business_sections.picked_up_where_you_left(business_id),
         business_sections.moving_fast(business_id),
         business_sections.stock_for_what_you_buy(business_id),
         business_sections.your_suppliers(business_id),

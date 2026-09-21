@@ -33,13 +33,26 @@ export default function CommunityDetailLayout() {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <Stack.Screen name="buy-it-again" options={{ title: "Buy it again" }} />
-      <Stack.Screen name="moving-fast" options={{ title: "Moving fast right now" }} />
+      {/* THESE TITLES MUST MATCH THE RAIL TITLES IN
+        business/sections.py, AND NOTHING ENFORCES THAT. The rail's
+        heading is composed server-side; this header is hardcoded here.
+        They drifted the first time the copy changed: the rail said
+        "Popular with businesses" and tapping its arrow opened a screen
+        still headed "Moving fast right now", so the same list had two
+        names one tap apart.
+
+        If you change a title in sections.py, change it here in the
+        same commit. The proper fix is for the server to carry the
+        title on seeAllHref the way routes.ts already carries a
+        supplier's name through to keep a destination header correct on
+        its first frame -- worth doing, and bigger than a rename. */}
+    <Stack.Screen name="buy-it-again" options={{ title: "Reorder what you need" }} />
+      <Stack.Screen name="moving-fast" options={{ title: "Popular with businesses" }} />
       <Stack.Screen name="stock-for-you" options={{ title: "Stock for your shop" }} />
       <Stack.Screen name="collect-near-you" options={{ title: "Collect near you" }} />
       <Stack.Screen
         name="not-ordered-yet"
-        options={{ title: "Suppliers you haven't ordered from" }}
+        options={{ title: "Discover new suppliers" }}
       />
       {/* NOT A RAIL'S SEE-ALL, unlike its four neighbours -- Explore is
           reached from the Community tab's own menu and has no rail

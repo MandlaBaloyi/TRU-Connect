@@ -75,7 +75,18 @@ export function Rail<T>({
           accessibilityLabel={`${title}, see all`}
         >
           {header}
-          <ChevronRight size={20} color={theme.colors.onSurfaceVariant} strokeWidth={2.2} />
+          {/* BIGGER AND HEAVIER THAN A LIST CHEVRON, on purpose. This
+              is not decoration on a row -- it is the ONLY way to reach
+              the other ninety products in a rail that shows twelve, and
+              at 20px/2.2 it read as an ornament next to the heading.
+              A shopkeeper who restocks a hundred lines cannot scroll
+              sideways to find them; they have to know there is a door
+              here. */}
+          <ChevronRight
+            size={24}
+            color={theme.colors.onSurface}
+            strokeWidth={3}
+          />
         </Pressable>
       ) : (
         <View style={styles.headerRow}>{header}</View>

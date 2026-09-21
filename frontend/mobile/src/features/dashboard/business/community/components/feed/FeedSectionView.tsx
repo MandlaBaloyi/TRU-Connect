@@ -28,6 +28,13 @@ import type { FeedTap } from "../../services/impressionService";
  * knows only that it has a list of sections; this is the only file
  * that knows what each type looks like.
  *
+ * THIS IS THE SECOND OF TWO GATES, NOT THE ONLY ONE. useCommunityFeed's
+ * isWorthRendering() runs first and drops unknown types before they
+ * ever reach this switch -- so adding a case HERE and nowhere else
+ * produces a section that is sent by the server, renderable by this
+ * file, and invisible, with no error to follow. That is exactly how
+ * EXPLORE_KINDS shipped broken.
+ *
  * THE DEFAULT CASE RETURNS NULL, AND THAT IS THE MOST IMPORTANT LINE
  * IN THIS FILE. A server that has shipped a new section type must not
  * be able to crash an older build -- otherwise the feed is only ever
@@ -110,6 +117,7 @@ export function FeedSectionView({
       return (
         <Rail
           title={section.title}
+          subtitle={section.subtitle}
           data={section.suppliers}
           keyExtractor={(supplier) => supplier.id}
           itemGap={spacing.md}
@@ -195,6 +203,13 @@ export function FeedSectionView({
           <Text style={[styles.sponsoredLabel, { color: theme.colors.onSurfaceVariant }]}>
             {section.label}
           </Text>
+          {section.subtitle ? (
+            <Text
+              style={[styles.sponsoredSubtitle, { color: theme.colors.onSurfaceVariant }]}
+            >
+              {section.subtitle}
+            </Text>
+          ) : null}
           <SponsoredSupplierCard
             supplier={section.supplier}
             onPress={() => openSupplier(section.supplier.id, section.supplier.businessName, 0)}
@@ -229,4 +244,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
+  // NOT UPPERCASE AND NOT BOLD, so it reads as a caption under the
+  // disclosure rather than competing with it. The word "Sponsored"
+  // stays the loudest thing in this block -- that is a rule about
+  // disclosure, not about hierarchy.
+  sponsoredSubtitle: { ...typography.caption, marginTop: -2 },
 });
