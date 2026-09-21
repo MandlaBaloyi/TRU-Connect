@@ -38,6 +38,7 @@ def order_untried_suppliers(
     profiles: List,
     *,
     connected_ids: set,
+    relevance: Optional[dict] = None,
     tier_of: Optional[Callable[[object], str]] = None,
 ) -> List:
     """Suppliers this shop has never ordered from, best first.
@@ -47,26 +48,49 @@ def order_untried_suppliers(
     order is missing -- so that separates the list before anything else
     is considered, at every tier, for any money.
 
-    THE TIE-BREAK: within each group, plan orders the equals. Two
-    strangers who both stock what this shop buys are genuinely
-    indistinguishable from the shop's own data; the alphabet was
-    breaking that tie before, which is not a fairer rule, just a
-    blinder one.
+    THEN RELEVANCE, AND IT IS ALSO A FACT. This paragraph used to say
+    "two strangers who both stock what this shop buys are genuinely
+    indistinguishable from the shop's own data" -- which quietly
+    assumed somebody had checked whether they stocked it. Nobody had.
+    The rail took every visible supplier with stock and let the
+    alphabet decide, so a nappy distributor could sit above the
+    wholesaler carrying everything this shop actually buys.
+
+    RELEVANCE SORTS ABOVE TIER because of this file's own rule: the
+    organic fact ranks first, and what a shop buys is a fact about the
+    shop that nobody bought and no supplier can change. A paying
+    supplier therefore cannot outrank one that sells what this shop
+    needs -- money still breaks ties, it just breaks them lower down.
+
+    THE TIE-BREAK: within each group, plan orders the equals. NOW the
+    sentence above is true -- two strangers who both stock what this
+    shop buys really are indistinguishable from the shop's own data,
+    because relevance has already separated everyone for whom that is
+    false.
+
+    NO RELEVANCE MAP MEANS NO OPINION, not a score of zero for
+    everybody. A shop that has declared nothing and ordered nothing
+    gets exactly the old ordering, which is the correct answer for the
+    user this rail exists for.
 
     THE ALPHABET STILL BREAKS THE LAST TIE, so the order is
     deterministic. A rail that reorders between identical requests is
     one nobody can debug.
     """
     resolve = tier_of or tier_rules.effective_tier
+    scores = relevance or {}
 
     return sorted(
         profiles,
         key=lambda p: (
             # 1. THE FACT -- False (known) sorts before True (stranger).
             str(p.id) not in connected_ids,
-            # 2. THE TIE-BREAK -- negated so higher rank comes first.
+            # 2. THE OTHER FACT -- negated so a better match comes
+            #    first. ABOVE tier, deliberately: see the docstring.
+            -scores.get(p.id, 0.0),
+            # 3. THE TIE-BREAK -- negated so higher rank comes first.
             -tier_rules.rank(resolve(p)),
-            # 3. DETERMINISM.
+            # 4. DETERMINISM.
             (p.business_name or "").lower(),
         ),
     )

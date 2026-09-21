@@ -253,7 +253,56 @@ def collect_near_you_suppliers(business_id) -> List[Tuple[float, object]]:
         measured.append((km, candidate))
 
     measured.sort(key=lambda pair: pair[0])
-    return measured
+
+    # ---------------------------------------------------------------
+    # RELEVANCE IS A FILTER HERE AND NEVER AN ORDER, and that is not a
+    # preference -- tie_break.py settles it:
+    #
+    #     A rail may be tie-broken only if it does not DISPLAY the fact
+    #     it is ordered by.
+    #
+    # This rail prints "1.2 km" on every card. Reordering it puts 2.0km
+    # above 1.2km in front of a reader who can see both numbers; they
+    # conclude either that the app is broken or that the order was
+    # bought, and the second conclusion would be correct. So the list
+    # stays strictly distance-ordered and every printed number stays
+    # true. What relevance may do is decide who is ON it.
+    #
+    # THE PRECEDENT IS THE RAIL'S OWN: it already drops anyone beyond
+    # MAX_COLLECTION_KM "rather than shown as the best of a bad lot".
+    # A wholesaler four hundred metres away who sells nothing this shop
+    # buys is the same kind of card -- near, and no use.
+    #
+    # TWO VALVES, BOTH LOAD-BEARING:
+    #
+    #   NO SIGNAL, NO FILTER. A shop that has declared nothing and
+    #   ordered nothing sees everyone, exactly as before. That shop is
+    #   precisely who a discovery rail is for, and a relevance filter
+    #   with nothing to match on would empty it.
+    #
+    #   NEVER SHRINK IT BELOW A RAIL. If filtering leaves fewer than
+    #   MIN_ITEMS_PER_RAIL the unfiltered list is kept. A rail that
+    #   vanishes teaches a shopkeeper that nobody is near them, which
+    #   is a worse lie than a loose card.
+    from src.domains.business.demand.services import needs_service
+    from src.domains.network.community.business.sections import MIN_ITEMS_PER_RAIL
+    from src.domains.network.community.placement import relevance as relevance_rules
+
+    needs = needs_service.needs_for(business_id)
+    if not needs.is_known:
+        return measured
+
+    wanted = set(needs.category_values)
+    carried = relevance_rules.categories_by_supplier([p.id for _, p in measured])
+    relevant = [
+        pair
+        for pair in measured
+        if relevance_rules.sells_anything_needed(carried.get(pair[1].id), wanted)
+    ]
+
+    if len(relevant) < MIN_ITEMS_PER_RAIL:
+        return measured
+    return relevant
 
 
 def not_ordered_yet_suppliers(business_id) -> List:
@@ -287,12 +336,32 @@ def not_ordered_yet_suppliers(business_id) -> List:
 
     untried = [p for p in candidates if str(p.id) not in traded_with]
 
+    # WHAT THIS SHOP ACTUALLY BUYS -- a question this rail never asked.
+    # The engine answers in categories and weights and never names a
+    # supplier; the match itself happens in placement/relevance.py, on
+    # this side of the supplier-blind wall.
+    #
+    # None WHEN NOTHING IS KNOWN, never a map of zeroes. A shop that has
+    # declared nothing and ordered nothing gets exactly the old
+    # ordering -- and that shop is the one this rail exists for.
+    from src.domains.business.demand.services import needs_service
+    from src.domains.network.community.placement import relevance as relevance_rules
+
+    needs = needs_service.needs_for(business_id)
+    scores = (
+        relevance_rules.rank(untried, weights=needs.weight_by_category)
+        if needs.is_known
+        else None
+    )
+
     # THE ONE RAIL WHERE A PLAN MAY ORDER THE EQUALS. It prints no
     # distance and no score, so its order is not a claim the reader can
     # check -- unlike "collect near you", which prints the very number
     # it is sorted by. Whether they already KNOW a supplier still ranks
     # first, at every tier, for any money.
-    return tie_break.order_untried_suppliers(untried, connected_ids=connected)
+    return tie_break.order_untried_suppliers(
+        untried, connected_ids=connected, relevance=scores
+    )
 
 
 SEE_ALL_SORTS = ("relevance", "price_asc", "price_desc", "name")
