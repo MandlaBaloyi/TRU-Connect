@@ -257,7 +257,7 @@ Then run:
 
 `npx create-expo-app@latest .` (no --template flag) gives you the full
 default template: app/(tabs)/ demo screens, components/, hooks/,
-constants/theme.ts demo files, CLAUDE.md, AGENTS.md, .claude/. That's a
+constants/theme.ts demo files and local tooling folders. That's a
 lot of files this project doesn't want.
 
 Instead, use the blank TypeScript template, which gives you ONLY the

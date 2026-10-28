@@ -11,7 +11,7 @@ WHAT THESE DEFEND, worst consequence first:
   EVERY ROUTE PINS A ROLE. These all answer questions about a SHOP --
   what it bought, what it needs, who is near it -- so a supplier calling
   them would get somebody else's shape of answer or an empty one, which
-  is worse than a clean refusal. CLAUDE.md: "authenticated" stopped
+  is worse than a clean refusal. Project rule: "authenticated" stopped
   meaning "is a buyer" the moment ADMIN existed.
 
   THE CEILING MEANS THE SAME THING ON PAGE THREE AS ON PAGE ONE. It is

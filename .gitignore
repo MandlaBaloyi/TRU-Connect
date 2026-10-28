@@ -56,3 +56,10 @@ Thumbs.db
 
 # Held while run_tests.py is running -- machine state, never ours to commit
 .pytest-running.lock
+
+# Local assistant and tooling files, kept off the public repo
+CLAUDE.md
+AGENTS.md
+agents/
+.claude/
+*structure.txt

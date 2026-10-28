@@ -17,7 +17,7 @@ later. This endpoint only ever answers what is still missing.
 ROLE IS PINNED, like every authenticated route in this backend. The
 question has no meaning for a supplier: they have no buys_categories
 and no restock rhythm, so an unpinned route would hand them a shape of
-answer that describes a shop they are not. CLAUDE.md: "authenticated"
+answer that describes a shop they are not. Project rule: "authenticated"
 stopped meaning "is a buyer" the moment ADMIN existed.
 """
 from __future__ import annotations

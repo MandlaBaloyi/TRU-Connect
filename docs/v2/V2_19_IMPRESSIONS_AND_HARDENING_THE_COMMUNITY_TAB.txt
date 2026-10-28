@@ -300,7 +300,7 @@ once the code has moved.
 
   AND IT IS TESTED, not just present: test_feed_detail_routes.py asserts
   a supplier gets 403 on every one of the five endpoints, and an
-  anonymous caller gets 401. That test exists because CLAUDE.md's rule
+  anonymous caller gets 401. That test exists because the project's rule
   is that "authenticated" stopped meaning "is a buyer" the moment ADMIN
   existed.
 

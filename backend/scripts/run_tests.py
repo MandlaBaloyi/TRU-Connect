@@ -16,7 +16,7 @@ stomp each other's database. The symptom is a flood of
 `relation "auth.users" does not exist` setup errors that look like a
 broken migration and are not -- and the cost is worse than lost time,
 because you cannot trust the result of EITHER run. That rule was written
-down in CLAUDE.md and broken three times anyway, so it is a lock now.
+down in the project notes and broken three times anyway, so it is a lock now.
 
 With no target it walks the suite directory by directory, one process at
 a time, and prints a summary at the end. That satisfies the same rule by

@@ -13,7 +13,7 @@ screens; `participants_only` would have let a supplier call them and
 get somebody else's shape of answer, or an empty one, which is a worse
 failure than a clean 403.
 
-    EVERY AUTHENTICATED ROUTE PINS A ROLE (CLAUDE.md). role_required
+    EVERY AUTHENTICATED ROUTE PINS A ROLE (project rule). role_required
     here rather than participants_only, because "authenticated" stopped
     meaning "is a buyer" the moment ADMIN existed.
 
